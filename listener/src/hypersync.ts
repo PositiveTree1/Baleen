@@ -23,12 +23,15 @@ export function buildQuery(fromBlock: number) {
     ],
     fieldSelection: {
       log: [
-        'address',
-        'topics',
-        'data',
-        'blockNumber',
-        'transactionHash',
-        'logIndex',
+        'Address',
+        'Topic0',
+        'Topic1',
+        'Topic2',
+        'Topic3',
+        'Data',
+        'BlockNumber',
+        'TransactionHash',
+        'LogIndex',
       ],
     },
   };
