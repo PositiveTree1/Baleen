@@ -16,7 +16,7 @@ app = FastAPI(title="Baleen Backend", version="0.1.0")
 # CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -52,6 +52,14 @@ async def shutdown_event():
 @app.get("/health")
 async def health_check():
     return {"status": "ok"}
+
+@app.get("/api/stats")
+async def get_stats():
+    return {
+        "active_wallets_tracked": 12,
+        "total_volume_analyzed_usd": 50000.0,
+        "average_win_rate": 0.55
+    }
 
 @app.get("/")
 async def root():

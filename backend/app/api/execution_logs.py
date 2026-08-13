@@ -6,7 +6,7 @@ from datetime import datetime
 from app.database import get_db
 from app.models import ExecutionLog
 
-router = APIRouter(prefix="/api/execution-logs", tags=["execution_logs"])
+router = APIRouter(prefix="/api/executions", tags=["execution_logs"])
 
 @router.get("")
 async def get_execution_logs(

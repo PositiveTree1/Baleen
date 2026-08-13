@@ -45,7 +45,7 @@ async def login(req: LoginRequest, db: AsyncSession = Depends(get_db)):
     
     return {"id": str(user.id), "email": user.email}
 
-@router.get("/api/user/settings")
+@router.get("/api/users/{user_id}")
 async def get_settings(user_id: str, db: AsyncSession = Depends(get_db)):
     stmt = select(User).where(User.id == user_id)
     user = (await db.execute(stmt)).scalar_one_or_none()
@@ -55,7 +55,7 @@ async def get_settings(user_id: str, db: AsyncSession = Depends(get_db)):
         
     return user
 
-@router.patch("/api/user/settings")
+@router.patch("/api/users/{user_id}")
 async def update_settings(req: UpdateSettingsRequest, db: AsyncSession = Depends(get_db)):
     stmt = select(User).where(User.id == req.user_id)
     user = (await db.execute(stmt)).scalar_one_or_none()
@@ -71,7 +71,7 @@ async def update_settings(req: UpdateSettingsRequest, db: AsyncSession = Depends
     await db.commit()
     return user
 
-@router.post("/api/user/signup")
+@router.post("/api/auth/signup")
 async def signup(req: SignupRequest, db: AsyncSession = Depends(get_db)):
     stmt = select(User).where(User.email == req.email)
     existing = (await db.execute(stmt)).scalar_one_or_none()
