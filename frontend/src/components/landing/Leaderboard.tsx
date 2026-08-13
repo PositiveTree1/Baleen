@@ -57,11 +57,11 @@ export function Leaderboard() {
                       {wallet.address.slice(0, 6)}...{wallet.address.slice(-4)}
                     </td>
                     <td className="p-4"><Badge tier={wallet.tier} /></td>
-                    <td className="p-4 text-right text-baleen-white">{(wallet.winRate * 100).toFixed(1)}%</td>
-                    <td className={`p-4 text-right font-medium ${wallet.pnl >= 0 ? 'text-baleen-green' : 'text-baleen-red'}`}>
-                      {wallet.pnl >= 0 ? '+' : '-'}${Math.abs(wallet.pnl).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    <td className="p-4 text-right text-baleen-white">{((wallet.win_rate_pct || 0) * 100).toFixed(1)}%</td>
+                    <td className={`p-4 text-right font-medium ${(wallet.all_time_pnl_usd || 0) >= 0 ? 'text-baleen-green' : 'text-baleen-red'}`}>
+                      {(wallet.all_time_pnl_usd || 0) >= 0 ? '+' : '-'}${Math.abs(wallet.all_time_pnl_usd || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </td>
-                    <td className="p-4 text-right text-baleen-muted">{wallet.tradesPerDay.toFixed(1)}</td>
+                    <td className="p-4 text-right text-baleen-muted">{(wallet.avg_trades_per_day || 0).toFixed(1)}</td>
                   </tr>
                 ))
               ) : (
