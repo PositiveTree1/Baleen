@@ -6,9 +6,9 @@ import { config } from './config';
 import { OrderFilledEvent } from './types';
 
 export function createHyperSyncClient(): HypersyncClient {
-  return HypersyncClient.new({
+  return new HypersyncClient({
     url: POLYGON_HYPERSYNC_URL,
-    bearerToken: config.ENVIO_API_KEY || undefined,
+    apiToken: config.ENVIO_API_KEY || "",
   });
 }
 
