@@ -1,0 +1,137 @@
+import uuid
+from datetime import datetime
+from sqlalchemy import Column, String, Float, Integer, Boolean, DateTime, ForeignKey, UniqueConstraint, CheckConstraint
+from sqlalchemy.dialects.postgresql import UUID as PGUUID
+from sqlalchemy.orm import relationship
+from app.database import Base
+
+# Polyfill for generic UUID handling in SQLite vs Postgres
+import sqlalchemy.types as types
+
+class GUID(types.TypeDecorator):
+    impl = types.CHAR
+    cache_ok = True
+    def load_dialect_impl(self, dialect):
+        if dialect.name == 'postgresql':
+            return dialect.type_descriptor(PGUUID())
+        else:
+            return dialect.type_descriptor(types.CHAR(32))
+    def process_bind_param(self, value, dialect):
+        if value is None:
+            return value
+        elif dialect.name == 'postgresql':
+            return str(value)
+        else:
+            if not isinstance(value, uuid.UUID):
+                return "%.32x" % uuid.UUID(value).int
+            else:
+                return "%.32x" % value.int
+    def process_result_value(self, value, dialect):
+        if value is None:
+            return value
+        else:
+            if not isinstance(value, uuid.UUID):
+                value = uuid.UUID(value)
+            return value
+
+class Wallet(Base):
+    __tablename__ = "wallets"
+
+    address = Column(String, primary_key=True, index=True)
+    status = Column(String, default="pending")
+    tier = Column(String, nullable=True)
+    all_time_pnl_usd = Column(Float, nullable=True)
+    win_rate_pct = Column(Float, nullable=True)
+    total_trades_analyzed = Column(Integer, nullable=True)
+    avg_trades_per_day = Column(Float, nullable=True)
+    median_inter_trade_gap_hours = Column(Float, nullable=True)
+    max_drawdown_pct = Column(Float, nullable=True)
+    outlier_concentration_pct = Column(Float, nullable=True)
+    baleen_score = Column(Float, nullable=True)
+    rejection_reason = Column(String, nullable=True)
+    ai_summary = Column(String, nullable=True)
+    ai_style_tag = Column(String, nullable=True)
+    dormant = Column(Boolean, default=False)
+    first_seen_at = Column(DateTime, default=datetime.utcnow)
+    last_scored_at = Column(DateTime, nullable=True)
+
+class WalletSnapshot(Base):
+    __tablename__ = "wallet_snapshots"
+
+    id = Column(GUID(), primary_key=True, default=uuid.uuid4)
+    wallet_address = Column(String, ForeignKey("wallets.address"))
+    baleen_score = Column(Float, nullable=True)
+    win_rate_pct = Column(Float, nullable=True)
+    pnl_usd = Column(Float, nullable=True)
+    snapshot_at = Column(DateTime, default=datetime.utcnow)
+
+class User(Base):
+    __tablename__ = "users"
+
+    id = Column(GUID(), primary_key=True, default=uuid.uuid4)
+    email = Column(String, unique=True, index=True)
+    password_hash = Column(String)
+    google_id = Column(String, unique=True, nullable=True)
+    risk_profile = Column(String, default="balanced")
+    sandbox_starting_balance_usd = Column(Float, default=10000.0)
+    sandbox_balance_usd = Column(Float, default=10000.0)
+    sandbox_high_water_mark_usd = Column(Float, default=10000.0)
+    live_trading_enabled = Column(Boolean, default=False)
+    live_high_water_mark_usd = Column(Float, nullable=True)
+    daily_digest_opt_in = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+class LiveWalletLink(Base):
+    __tablename__ = "live_wallet_links"
+
+    user_id = Column(GUID(), ForeignKey("users.id"), primary_key=True)
+    provider = Column(String)
+    provider_user_id = Column(String)
+    polymarket_wallet_address = Column(String)
+    clob_api_key_enc = Column(String)
+    kms_key_id = Column(String)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    last_used_at = Column(DateTime, nullable=True)
+
+class ExecutionLog(Base):
+    __tablename__ = "execution_logs"
+
+    id = Column(GUID(), primary_key=True, default=uuid.uuid4)
+    user_id = Column(GUID(), ForeignKey("users.id"))
+    source_wallet_address = Column(String, ForeignKey("wallets.address"))
+    market_condition_id = Column(String)
+    market_question = Column(String)
+    side = Column(String) # BUY or SELL
+    whale_entry_price = Column(Float)
+    user_fill_price = Column(Float, nullable=True)
+    notional_usd = Column(Float)
+    active_basket_size_at_trade = Column(Integer)
+    is_sandbox = Column(Boolean, default=True)
+    status = Column(String)
+    failure_detail = Column(String, nullable=True)
+    latency_ms = Column(Float, nullable=True)
+    resolution_outcome = Column(String, nullable=True)
+    realized_pnl_usd = Column(Float, nullable=True)
+    onchain_tx_hash = Column(String, nullable=True)
+    onchain_log_index = Column(Integer, nullable=True)
+    executed_at = Column(DateTime, default=datetime.utcnow)
+    resolved_at = Column(DateTime, nullable=True)
+
+    __table_args__ = (
+        UniqueConstraint('onchain_tx_hash', 'onchain_log_index', 'user_id', name='uix_tx_log_user'),
+        CheckConstraint(side.in_(['BUY', 'SELL']), name='check_side_buy_sell')
+    )
+
+class FeeCharge(Base):
+    __tablename__ = "fee_charges"
+
+    id = Column(GUID(), primary_key=True, default=uuid.uuid4)
+    user_id = Column(GUID(), ForeignKey("users.id"))
+    period_start = Column(DateTime)
+    period_end = Column(DateTime)
+    starting_high_water_mark_usd = Column(Float)
+    ending_value_usd = Column(Float)
+    profit_above_hwm_usd = Column(Float)
+    fee_pct = Column(Float)
+    fee_amount_usd = Column(Float)
+    charged_at = Column(DateTime, default=datetime.utcnow)

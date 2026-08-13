@@ -1,0 +1,23 @@
+{
+  "name": "baleen",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Automated Polymarket Whale-Index Copy-Trading Engine",
+  "scripts": {
+    "dev:frontend": "cd frontend && npm run dev",
+    "dev:backend": "cd backend && uvicorn app.main:app --reload --host 0.0.0.0 --port 8000",
+    "dev:listener": "cd listener && npm run dev",
+    "dev:all": "concurrently --names \"NEXT,API,SYNC\" --prefix-colors \"cyan,yellow,green\" \"npm run dev:frontend\" \"npm run dev:backend\" \"npm run dev:listener\"",
+    "test:backend": "cd backend && python -m pytest tests/ -v",
+    "test:listener": "cd listener && npm test",
+    "test:frontend": "cd frontend && npm test",
+    "test:all": "npm run test:backend && npm run test:listener",
+    "setup": "cd frontend && npm install && cd ../listener && npm install && cd ../backend && pip install -r requirements.txt",
+    "db:init": "cd backend && python -c \"from app.database import init_db; import asyncio; asyncio.run(init_db())\"",
+    "worker:discovery": "cd backend && python -m app.workers.discovery_worker",
+    "worker:scoring": "cd backend && python -m app.workers.scoring_worker"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}
