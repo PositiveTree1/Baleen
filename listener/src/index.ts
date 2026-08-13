@@ -23,10 +23,12 @@ async function main() {
   let basketWallets = await fetchBasketWallets();
   console.log(`Loaded ${basketWallets.size} basket wallets.`);
 
-  const startBlock = getResumeBlock() || 50000000;
-  console.log(`Resuming from block: ${startBlock}`);
-
   const client = createHyperSyncClient();
+  let startBlock = getResumeBlock();
+  if (!startBlock) {
+    startBlock = await client.getHeight();
+  }
+  console.log(`Resuming from block: ${startBlock}`);
 
   let eventsProcessed = 0;
   let matchesFound = 0;
