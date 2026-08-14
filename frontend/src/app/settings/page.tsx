@@ -5,6 +5,7 @@ import { fetchUserSettings, updateUserSettings } from '@/lib/api-client';
 import { User } from '@/types';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
+import { BrandLogo } from '@/components/ui/BrandLogo';
 import { ArrowLeft, Save } from 'lucide-react';
 import Link from 'next/link';
 
@@ -54,10 +55,7 @@ export default function SettingsPage() {
     <div className="min-h-screen bg-[#F8F9FB] text-slate-900 p-6 lg:p-12 selection:bg-slate-900 selection:text-white">
       <div className="max-w-3xl mx-auto">
         <div className="flex items-center gap-4 mb-8">
-          <Link href="/" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
-            <img src="/logo.png" alt="Baleen" className="w-6 h-6 object-contain" />
-            <span className="font-bold text-sm text-slate-900 tracking-tight">Baleen</span>
-          </Link>
+          <BrandLogo size="sm" subtitle="Settings" />
           <span className="text-slate-300">|</span>
           <Link href="/dashboard" className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-600 hover:text-slate-900 transition-colors">
             <ArrowLeft size={14} /> Back to Dashboard

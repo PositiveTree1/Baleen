@@ -12,6 +12,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { Settings, LogOut } from 'lucide-react';
 import { signOut } from 'next-auth/react';
+import { BrandLogo } from '@/components/ui/BrandLogo';
 
 export default function DashboardPage() {
   const { data: session, status } = useSession();
@@ -41,10 +42,7 @@ export default function DashboardPage() {
     <div className="min-h-screen flex flex-col bg-[#F8F9FB] text-slate-900 selection:bg-slate-900 selection:text-white">
       {/* Top Navigation */}
       <nav className="flex items-center justify-between py-4 px-6 lg:px-12 border-b border-black/[0.06] bg-white/80 backdrop-blur-2xl sticky top-0 z-40 shadow-[0_1px_2px_rgba(0,0,0,0.02)]">
-        <Link href="/" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
-          <Image src="/logo.png" alt="Baleen Logo" width={26} height={26} className="w-6.5 h-6.5 object-contain" />
-          <span className="font-bold text-base tracking-tight text-slate-900">Baleen Control</span>
-        </Link>
+        <BrandLogo href="/" subtitle="Control Plane" />
         <div className="flex items-center gap-3">
           <div className="hidden sm:flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold text-emerald-800 bg-emerald-50 border border-emerald-200 shadow-[inset_0_1px_0_rgba(255,255,255,0.8)]">
             <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />

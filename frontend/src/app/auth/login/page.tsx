@@ -4,6 +4,7 @@ import { signIn } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
+import { BrandLogo } from '@/components/ui/BrandLogo';
 import Link from 'next/link';
 import { guestLogin } from '@/lib/api-client';
 
@@ -61,10 +62,9 @@ export default function LoginPage() {
     <div className="min-h-screen bg-[#F8F9FB] text-slate-900 flex items-center justify-center p-6 selection:bg-slate-900 selection:text-white">
       <div className="w-full max-w-md p-8 rounded-3xl bg-white border border-black/[0.08] shadow-[inset_0_1px_0_rgba(255,255,255,1),0_4px_16px_rgba(0,0,0,0.04),0_24px_48px_-12px_rgba(0,0,0,0.08)]">
         <div className="text-center mb-8 flex flex-col items-center">
-          <Link href="/" className="inline-flex items-center gap-2 mb-4 hover:opacity-80 transition-opacity">
-            <img src="/logo.png" alt="Baleen" className="w-8 h-8 object-contain" />
-            <span className="font-bold text-lg text-slate-900 tracking-tight">Baleen</span>
-          </Link>
+          <div className="mb-4">
+            <BrandLogo size="lg" />
+          </div>
           <h1 className="text-2xl font-bold tracking-tight text-slate-900 mb-1.5">Sign in to Baleen</h1>
           <p className="text-slate-500 text-xs font-normal">Access your automated whale-index dashboard</p>
         </div>

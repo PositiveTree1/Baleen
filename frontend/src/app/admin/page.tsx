@@ -4,6 +4,7 @@ import { fetchAdminStatus, fetchAdminWallets } from '@/lib/api-client';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Skeleton } from '@/components/ui/Skeleton';
+import { BrandLogo } from '@/components/ui/BrandLogo';
 import Link from 'next/link';
 import { ArrowLeft, Activity, Database, Users, Wallet, CheckCircle, XCircle, RefreshCw, Sparkles, Filter } from 'lucide-react';
 
@@ -62,10 +63,7 @@ export default function AdminPage() {
       <div className="max-w-7xl mx-auto">
         <div className="flex items-center justify-between mb-8 pb-4 border-b border-black/[0.06]">
           <div className="flex items-center gap-4">
-            <Link href="/" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
-              <img src="/logo.png" alt="Baleen" className="w-6 h-6 object-contain" />
-              <span className="font-bold text-sm text-slate-900 tracking-tight">Baleen Admin</span>
-            </Link>
+            <BrandLogo size="sm" subtitle="Admin Console" />
             <span className="text-slate-300">|</span>
             <Link href="/dashboard" className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-600 hover:text-slate-900 transition-colors">
               <ArrowLeft size={14} /> Dashboard

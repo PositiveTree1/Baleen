@@ -1,9 +1,11 @@
 import type { Metadata } from 'next'
-import { Inter } from 'next/font/google'
+import { Inter, Space_Grotesk, Syne } from 'next/font/google'
 import { Providers } from './providers'
 import './globals.css'
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter' })
+const spaceGrotesk = Space_Grotesk({ subsets: ['latin'], variable: '--font-space' })
+const syne = Syne({ subsets: ['latin'], variable: '--font-syne' })
 
 export const metadata: Metadata = {
   title: 'Baleen — Mirror the Top 1% Polymarket Traders',
@@ -17,7 +19,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className={`${inter.variable} font-sans antialiased bg-baleen-obsidian text-baleen-white min-h-screen flex flex-col`}>
+      <body className={`${inter.variable} ${spaceGrotesk.variable} ${syne.variable} font-sans antialiased bg-[#F8F9FB] text-slate-900 min-h-screen flex flex-col`}>
         <Providers>{children}</Providers>
       </body>
     </html>

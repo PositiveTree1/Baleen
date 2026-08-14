@@ -2,34 +2,35 @@
 import { useState, useEffect } from 'react';
 import { motion, useMotionValue, useTransform, useSpring } from 'framer-motion';
 import { Button } from '../ui/Button';
+import { BrandLogo } from '../ui/BrandLogo';
 import Link from 'next/link';
 import Image from 'next/image';
 import { fetchPlatformStats } from '@/lib/api-client';
 import { PlatformStats } from '@/types';
-import { ArrowRight, ShieldCheck, Zap, Activity, TrendingUp, CheckCircle2, Sparkles } from 'lucide-react';
+import { ArrowRight, ShieldCheck, Zap, TrendingUp, CheckCircle2, Sparkles } from 'lucide-react';
 
 export function Hero() {
   const [stats, setStats] = useState<PlatformStats | null>(null);
   
-  // High-precision smooth motion values
+  // High-precision smooth motion values with refined dampening
   const mouseX = useMotionValue(0);
   const mouseY = useMotionValue(0);
   
-  const springConfig = { damping: 20, stiffness: 150, mass: 0.5 };
+  const springConfig = { damping: 25, stiffness: 180, mass: 0.4 };
   const smoothX = useSpring(mouseX, springConfig);
   const smoothY = useSpring(mouseY, springConfig);
 
-  // 3D rotations
-  const rotateX = useTransform(smoothY, [-180, 180], [14, -14]);
-  const rotateY = useTransform(smoothX, [-180, 180], [-14, 14]);
+  // Smooth, subtle 3D rotations (keeps text razor-sharp)
+  const rotateX = useTransform(smoothY, [-180, 180], [7, -7]);
+  const rotateY = useTransform(smoothX, [-180, 180], [-7, 7]);
   
   // Dynamic specular glare sheen position
   const glareX = useTransform(smoothX, [-180, 180], [0, 100]);
   const glareY = useTransform(smoothY, [-180, 180], [0, 100]);
 
   // Parallax floating satellite tags
-  const chipX = useTransform(smoothX, [-180, 180], [-18, 18]);
-  const chipY = useTransform(smoothY, [-180, 180], [-18, 18]);
+  const chipX = useTransform(smoothX, [-180, 180], [-12, 12]);
+  const chipY = useTransform(smoothY, [-180, 180], [-12, 12]);
 
   useEffect(() => {
     fetchPlatformStats().then(setStats);
@@ -65,16 +66,16 @@ export function Hero() {
 
       {/* Left Column: Typography & CTAs */}
       <div className="w-full lg:w-1/2 flex flex-col items-start gap-8 z-10">
-        {/* Apple Tactile Pill Badge */}
+        {/* Futuristic Brand Badge */}
         <Link href="/" className="inline-flex items-center gap-2.5 px-3.5 py-1.5 rounded-full text-xs font-semibold text-slate-800 bg-white/90 border border-black/[0.08] shadow-[inset_0_1px_0_rgba(255,255,255,1),0_2px_4px_rgba(0,0,0,0.03)] backdrop-blur-md hover:bg-white transition-colors">
           <Image src="/logo.png" alt="Baleen" width={16} height={16} className="w-4 h-4 object-contain" />
-          <span>Automated Polymarket Whale Index</span>
+          <span className="font-brand-futuristic text-[11px] font-bold tracking-[0.14em] text-slate-900">BALEEN PROTOCOL</span>
           <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse ml-1" />
         </Link>
 
         <h1 className="text-5xl sm:text-6xl lg:text-7xl font-extrabold tracking-tight text-slate-950 leading-[1.05]">
           Mirror the top 1% <br />
-          <span className="text-slate-500 font-semibold">on autopilot.</span>
+          <span className="text-slate-500 font-semibold font-brand-cinematic">on autopilot.</span>
         </h1>
 
         <p className="text-lg text-slate-600 max-w-xl leading-relaxed font-normal">
@@ -113,7 +114,7 @@ export function Hero() {
 
       {/* Right Column: True 3D Interactive Skeuomorphic Card */}
       <div 
-        className="w-full lg:w-1/2 flex justify-center items-center py-6 perspective-[1400px] z-10 select-none" 
+        className="w-full lg:w-1/2 flex justify-center items-center py-6 perspective-[1600px] z-10 select-none crisp-3d" 
         onMouseMove={handleMouseMove} 
         onMouseLeave={handleMouseLeave}
       >
@@ -121,12 +122,12 @@ export function Hero() {
           {/* Parallax Floating Profit Tag (Top Right) */}
           <motion.div
             style={{ x: chipX, y: chipY }}
-            className="absolute -top-5 -right-4 z-30 hidden sm:flex items-center gap-2.5 bg-white/95 backdrop-blur-2xl border border-black/[0.08] px-4 py-2.5 rounded-2xl shadow-[inset_0_1px_0_rgba(255,255,255,1),0_8px_20px_rgba(0,0,0,0.08)] transform translate-z-[75px]"
+            className="absolute -top-5 -right-4 z-30 hidden sm:flex items-center gap-2.5 bg-white/95 backdrop-blur-2xl border border-black/[0.08] px-4 py-2.5 rounded-2xl shadow-[inset_0_1px_0_rgba(255,255,255,1),0_8px_20px_rgba(0,0,0,0.08)] crisp-3d"
           >
             <div className="w-7 h-7 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center border border-amber-200 shadow-sm">
               <Sparkles size={14} className="animate-spin-slow" />
             </div>
-            <div>
+            <div className="crisp-3d">
               <div className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Top Gold Whale</div>
               <div className="text-xs font-mono font-bold text-emerald-600">+$287,153 PnL (88.8% WR)</div>
             </div>
@@ -135,10 +136,10 @@ export function Hero() {
           {/* Parallax Floating Signal Pill (Bottom Left) */}
           <motion.div
             style={{ x: chipX, y: chipY }}
-            className="absolute -bottom-5 -left-4 z-30 hidden sm:flex items-center gap-2.5 bg-white/95 backdrop-blur-2xl border border-black/[0.08] px-4 py-2 rounded-2xl shadow-[inset_0_1px_0_rgba(255,255,255,1),0_8px_20px_rgba(0,0,0,0.08)]"
+            className="absolute -bottom-5 -left-4 z-30 hidden sm:flex items-center gap-2.5 bg-white/95 backdrop-blur-2xl border border-black/[0.08] px-4 py-2 rounded-2xl shadow-[inset_0_1px_0_rgba(255,255,255,1),0_8px_20px_rgba(0,0,0,0.08)] crisp-3d"
           >
             <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-ping" />
-            <div className="text-[11px] font-mono font-bold text-slate-800">
+            <div className="text-[11px] font-mono font-bold text-slate-800 crisp-3d">
               Polygon Event Stream: <span className="text-emerald-600 font-extrabold">LIVE</span>
             </div>
           </motion.div>
@@ -150,40 +151,32 @@ export function Hero() {
               rotateY,
               transformStyle: 'preserve-3d',
             }}
-            className="w-full p-8 rounded-3xl bg-white/80 backdrop-blur-3xl border border-white/90 shadow-[inset_0_1px_1px_rgba(255,255,255,1),0_4px_20px_rgba(0,0,0,0.04),0_28px_64px_-12px_rgba(15,23,42,0.12)] relative overflow-hidden transition-shadow duration-300"
+            className="w-full p-8 rounded-3xl bg-white/85 backdrop-blur-3xl border border-white/90 shadow-[inset_0_1px_1px_rgba(255,255,255,1),0_4px_20px_rgba(0,0,0,0.04),0_28px_64px_-12px_rgba(15,23,42,0.12)] relative overflow-hidden transition-shadow duration-300 crisp-3d"
           >
             {/* Dynamic Specular Reflection / Glare Layer */}
             <motion.div 
               style={{
                 background: useTransform(
                   [glareX, glareY],
-                  ([x, y]) => `radial-gradient(circle at ${x}% ${y}%, rgba(255,255,255,0.85) 0%, rgba(255,255,255,0) 65%)`
+                  ([x, y]) => `radial-gradient(circle at ${x}% ${y}%, rgba(255,255,255,0.75) 0%, rgba(255,255,255,0) 65%)`
                 )
               }}
               className="absolute inset-0 pointer-events-none z-20 mix-blend-overlay"
             />
 
-            {/* Header: Logo & Online Badge (translateZ 55px) */}
-            <div className="flex justify-between items-center mb-6" style={{ transform: 'translateZ(55px)' }}>
-              <div className="flex items-center gap-3">
-                <Link href="/" className="w-10 h-10 rounded-2xl bg-slate-950 text-white flex items-center justify-center shadow-md p-2 hover:scale-105 transition-transform">
-                  <Image src="/logo.png" alt="Baleen" width={24} height={24} className="w-5 h-5 object-contain filter invert" />
-                </Link>
-                <div>
-                  <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">Baleen Engine</h3>
-                  <div className="text-[10px] text-slate-400 font-mono font-medium">HyperSync v2.1 • 38ms Latency</div>
-                </div>
-              </div>
+            {/* Header: Logo & Online Badge */}
+            <div className="flex justify-between items-center mb-6 crisp-3d">
+              <BrandLogo size="sm" subtitle="HyperSync v2.1 • 38ms" />
               <span className="flex items-center gap-1.5 text-xs text-emerald-800 bg-emerald-50 px-3 py-1 rounded-full border border-emerald-200 shadow-[inset_0_1px_0_rgba(255,255,255,0.8)] font-mono font-bold">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
                 {stats?.indexerStatus || 'ONLINE'}
               </span>
             </div>
             
-            {/* Body Metric Containers (translateZ 40px) */}
-            <div className="space-y-4" style={{ transform: 'translateZ(40px)' }}>
+            {/* Body Metric Containers */}
+            <div className="space-y-4 crisp-3d">
               {/* Active Basket Hero Box */}
-              <div className="p-5 rounded-2xl bg-slate-50/90 border border-black/[0.06] shadow-[inset_0_1px_2px_rgba(0,0,0,0.02)]">
+              <div className="p-5 rounded-2xl bg-slate-50/95 border border-black/[0.06] shadow-[inset_0_1px_2px_rgba(0,0,0,0.02)] crisp-3d">
                 <div className="text-xs text-slate-500 font-semibold mb-1 flex items-center justify-between">
                   <span>Active Whale Index Basket</span>
                   <span className="text-[10px] font-mono text-slate-400">Scored Daily</span>
@@ -199,14 +192,14 @@ export function Hero() {
               </div>
               
               {/* 2-Column Stats */}
-              <div className="grid grid-cols-2 gap-3" style={{ transform: 'translateZ(30px)' }}>
-                <div className="p-4 rounded-2xl bg-slate-50/90 border border-black/[0.06] shadow-[inset_0_1px_2px_rgba(0,0,0,0.02)]">
+              <div className="grid grid-cols-2 gap-3 crisp-3d">
+                <div className="p-4 rounded-2xl bg-slate-50/95 border border-black/[0.06] shadow-[inset_0_1px_2px_rgba(0,0,0,0.02)] crisp-3d">
                   <div className="text-[11px] text-slate-500 font-semibold mb-1">Total Mirrored</div>
                   <div className="text-xl font-extrabold text-slate-950 font-mono tracking-tight">
                     ${(stats?.totalVolumeMirrored ?? 0).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                   </div>
                 </div>
-                <div className="p-4 rounded-2xl bg-slate-50/90 border border-black/[0.06] shadow-[inset_0_1px_2px_rgba(0,0,0,0.02)]">
+                <div className="p-4 rounded-2xl bg-slate-50/95 border border-black/[0.06] shadow-[inset_0_1px_2px_rgba(0,0,0,0.02)] crisp-3d">
                   <div className="text-[11px] text-slate-500 font-semibold mb-1">Dynamic Sizing</div>
                   <div className="text-xl font-extrabold text-emerald-600 font-mono tracking-tight flex items-center gap-1">
                     <CheckCircle2 size={16} /> 100% Live
@@ -215,7 +208,7 @@ export function Hero() {
               </div>
 
               {/* Bottom Inset Balance */}
-              <div className="p-3.5 rounded-2xl bg-slate-100/90 border border-black/[0.05] flex items-center justify-between text-xs text-slate-600 font-medium" style={{ transform: 'translateZ(20px)' }}>
+              <div className="p-3.5 rounded-2xl bg-slate-100/90 border border-black/[0.05] flex items-center justify-between text-xs text-slate-600 font-medium crisp-3d">
                 <span>Sandbox Starting Capital</span>
                 <span className="font-mono text-slate-900 font-bold">$10,000.00 Paper</span>
               </div>

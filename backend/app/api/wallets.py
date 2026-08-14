@@ -94,7 +94,7 @@ async def get_wallet(address: str, db: AsyncSession = Depends(get_db)):
                 "snapshot_at": s.snapshot_at.isoformat() if s.snapshot_at else datetime.utcnow().isoformat(),
                 "baleen_score": s.baleen_score or 0.0,
                 "win_rate_pct": s.win_rate_pct or 0.0,
-                "all_time_pnl_usd": s.all_time_pnl_usd or 0.0
+                "pnl_usd": s.pnl_usd or 0.0
             })
     else:
         # Default snapshot for chart if none recorded yet
@@ -102,7 +102,7 @@ async def get_wallet(address: str, db: AsyncSession = Depends(get_db)):
             "snapshot_at": wallet.last_scored_at.isoformat() if wallet.last_scored_at else datetime.utcnow().isoformat(),
             "baleen_score": wallet.baleen_score or 75.0,
             "win_rate_pct": wallet.win_rate_pct or 0.0,
-            "all_time_pnl_usd": wallet.all_time_pnl_usd or 0.0
+            "pnl_usd": wallet.all_time_pnl_usd or 0.0
         })
         
     # Recent trades query

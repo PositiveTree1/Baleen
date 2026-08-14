@@ -12,6 +12,27 @@
 }
 
 @layer utilities {
+  /* Brand Typography: Futuristic Minimalist Film Style */
+  .font-brand-futuristic {
+    font-family: var(--font-space), var(--font-syne), sans-serif;
+    letter-spacing: 0.18em;
+  }
+
+  .font-brand-cinematic {
+    font-family: var(--font-syne), var(--font-space), sans-serif;
+  }
+
+  /* Razor-sharp 3D transform rendering (prevents blurriness) */
+  .crisp-3d {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+    transform: translateZ(0);
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+    will-change: transform;
+  }
+
   /* Refreshing Cold Ice Translucent Glass */
   .ice-card {
     background: rgba(255, 255, 255, 0.78);
