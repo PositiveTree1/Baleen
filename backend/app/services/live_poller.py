@@ -4,7 +4,7 @@ import uuid
 from datetime import datetime, timezone
 import httpx
 from sqlalchemy import select, func
-from app.database import AsyncSessionLocal
+from app.database import SessionLocal
 from app.models import Wallet, ExecutionLog, User
 from app.config import settings
 
@@ -37,7 +37,7 @@ class LiveTradeMirrorService:
             await asyncio.sleep(8.0)
 
     async def _poll_active_whales(self):
-        async with AsyncSessionLocal() as db:
+        async with SessionLocal() as db:
             # Query all active wallets in basket
             stmt = select(Wallet).where(Wallet.status == "active")
             active_wallets = (await db.execute(stmt)).scalars().all()

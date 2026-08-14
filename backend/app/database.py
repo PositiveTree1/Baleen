@@ -13,6 +13,7 @@ SessionLocal = async_sessionmaker(
     class_=AsyncSession,
     expire_on_commit=False,
 )
+AsyncSessionLocal = SessionLocal
 
 Base = declarative_base()
 
