@@ -224,4 +224,56 @@ class PolymarketClient:
         data = await self._fetch_with_retry(url, params={"condition_id": condition_id})
         if isinstance(data, list) and len(data) > 0:
             return data[0]
+        elif isinstance(data, dict):
+            return data
+        return None
+
+    async def fetch_live_token_price(self, condition_id: str = "", asset: str = "", outcome: str = "Yes") -> Optional[float]:
+        """
+        Titan Price Engine: Resolves live mark-to-market prices directly from CLOB / Gamma.
+        """
+        import json
+        
+        # 1. Direct CLOB midpoint if asset (token ID) is provided
+        if asset:
+            try:
+                mid_data = await self._fetch_with_retry(f"{self.clob_api_url}/midpoint", params={"token_id": asset})
+                if isinstance(mid_data, dict) and "mid" in mid_data:
+                    mid = float(mid_data["mid"])
+                    if 0.01 <= mid <= 0.99:
+                        return mid
+            except Exception:
+                pass
+
+        # 2. Gamma market lookup
+        market_payload = None
+        if asset:
+            data = await self._fetch_with_retry(f"{self.gamma_api_url}/markets", params={"clob_token_ids": asset, "limit": 1})
+            if isinstance(data, list) and data:
+                market_payload = data[0]
+        
+        if not market_payload and condition_id:
+            data = await self._fetch_with_retry(f"{self.gamma_api_url}/markets", params={"condition_id": condition_id, "limit": 1})
+            if isinstance(data, list) and data:
+                market_payload = data[0]
+
+        if market_payload:
+            try:
+                raw_prices = market_payload.get("outcomePrices") or "[]"
+                prices = json.loads(raw_prices) if isinstance(raw_prices, str) else list(raw_prices)
+                prices = [float(p) for p in prices]
+                
+                raw_outcomes = market_payload.get("outcomes") or "[]"
+                outcomes = json.loads(raw_outcomes) if isinstance(raw_outcomes, str) else list(raw_outcomes)
+                
+                if outcome and outcomes and outcome.lower() in [o.lower() for o in outcomes]:
+                    for idx, o in enumerate(outcomes):
+                        if o.lower() == outcome.lower() and idx < len(prices):
+                            return prices[idx]
+                
+                if prices:
+                    return prices[0] if outcome.lower() in ["yes", "buy"] else (prices[1] if len(prices) > 1 else prices[0])
+            except Exception:
+                pass
+
         return None

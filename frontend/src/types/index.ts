@@ -56,12 +56,21 @@ export interface ExecutionLog {
   timestamp: string;
   walletAddress: string;
   marketQuestion: string;
+  marketConditionId?: string;
   side: 'BUY' | 'SELL';
   entryPrice: number;
   fillPrice: number;
+  currentPrice?: number;
   size: number;
   status: 'PENDING' | 'FILLED' | 'FAILED';
   pnl?: number;
+  pnlPct?: number;
+  consensus?: {
+    whale_count: number;
+    total_cash: number;
+    is_consensus: boolean;
+  };
+  polymarketUrl?: string;
 }
 
 export interface FeeCharge {

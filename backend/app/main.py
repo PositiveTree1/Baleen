@@ -84,10 +84,17 @@ async def startup_event():
     asyncio.create_task(live_trade_mirror.start())
     logger.info("Live Polymarket trade mirror initialized.")
 
+    # Start Mark-to-Market live valuation & consensus service
+    from app.services.mark_to_market import mark_to_market_service
+    asyncio.create_task(mark_to_market_service.start())
+    logger.info("Mark-to-Market Valuation & Consensus Service initialized.")
+
 @app.on_event("shutdown")
 async def shutdown_event():
     from app.services.live_poller import live_trade_mirror
+    from app.services.mark_to_market import mark_to_market_service
     await live_trade_mirror.stop()
+    await mark_to_market_service.stop()
     scheduler.shutdown()
 
 @app.get("/health")

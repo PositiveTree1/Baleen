@@ -92,12 +92,17 @@ export async function fetchExecutionLogs(userId?: string, params?: Record<string
       timestamp: log.timestamp || log.executed_at,
       walletAddress: log.walletAddress || log.source_wallet_address,
       marketQuestion: log.marketQuestion || log.market_question,
+      marketConditionId: log.marketConditionId || log.market_condition_id,
       side: log.side,
       entryPrice: log.entryPrice ?? log.whale_entry_price ?? 0,
       fillPrice: log.fillPrice ?? log.user_fill_price ?? 0,
+      currentPrice: log.currentPrice ?? log.fillPrice ?? log.user_fill_price ?? 0,
       size: log.size ?? log.notional_usd ?? 0,
       status: log.status,
       pnl: log.pnl ?? log.realized_pnl_usd ?? 0,
+      pnlPct: log.pnlPct ?? 0,
+      consensus: log.consensus ?? { whale_count: 1, total_cash: 0, is_consensus: false },
+      polymarketUrl: log.polymarketUrl ?? (log.marketConditionId ? `https://polymarket.com/event/${log.marketConditionId}` : 'https://polymarket.com'),
     }));
   } catch (error) {
     return [];

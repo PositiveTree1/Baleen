@@ -6,9 +6,9 @@ import { LiveTape } from '@/components/dashboard/LiveTape';
 import { WalletLeaderboard } from '@/components/dashboard/WalletLeaderboard';
 import { TradeLog } from '@/components/dashboard/TradeLog';
 import { WalletDrawer } from '@/components/dashboard/WalletDrawer';
+import { TradeDrawer } from '@/components/dashboard/TradeDrawer';
 import { fetchUserSettings } from '@/lib/api-client';
-import { User } from '@/types';
-import Image from 'next/image';
+import { User, ExecutionLog } from '@/types';
 import Link from 'next/link';
 import { Settings, LogOut } from 'lucide-react';
 import { signOut } from 'next-auth/react';
@@ -17,6 +17,7 @@ import { BrandLogo } from '@/components/ui/BrandLogo';
 export default function DashboardPage() {
   const { data: session, status } = useSession();
   const [selectedWallet, setSelectedWallet] = useState<string | null>(null);
+  const [selectedTrade, setSelectedTrade] = useState<ExecutionLog | null>(null);
   const [user, setUser] = useState<User | null>(null);
 
   useEffect(() => {
@@ -78,7 +79,7 @@ export default function DashboardPage() {
         {/* Main Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2">
-            <LiveTape />
+            <LiveTape onSelectTrade={setSelectedTrade} />
           </div>
           <div className="lg:col-span-1">
             <WalletLeaderboard onSelectWallet={setSelectedWallet} />
@@ -86,13 +87,23 @@ export default function DashboardPage() {
         </div>
 
         {/* Trade Log */}
-        <TradeLog userId={session?.user?.id} />
+        <TradeLog userId={session?.user?.id} onSelectTrade={setSelectedTrade} />
       </main>
 
-      {/* Drawer */}
+      {/* Wallet Drawer */}
       <WalletDrawer 
         address={selectedWallet} 
         onClose={() => setSelectedWallet(null)} 
+      />
+
+      {/* Trade / Execution Overview Drawer */}
+      <TradeDrawer
+        trade={selectedTrade}
+        onClose={() => setSelectedTrade(null)}
+        onSelectWallet={(addr) => {
+          setSelectedTrade(null);
+          setSelectedWallet(addr);
+        }}
       />
     </div>
   );

@@ -5,7 +5,11 @@ import { ExecutionLog } from '@/types';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Activity } from 'lucide-react';
 
-export function LiveTape() {
+interface LiveTapeProps {
+  onSelectTrade?: (trade: ExecutionLog) => void;
+}
+
+export function LiveTape({ onSelectTrade }: LiveTapeProps) {
   const [logs, setLogs] = useState<ExecutionLog[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -49,13 +53,14 @@ export function LiveTape() {
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, scale: 0.96 }}
                   transition={{ duration: 0.18 }}
-                  className="flex items-center justify-between p-2.5 px-3.5 rounded-2xl bg-slate-50/80 hover:bg-slate-100/90 border border-black/[0.04] text-xs font-mono transition-colors shadow-[0_1px_2px_rgba(0,0,0,0.02)]"
+                  onClick={() => onSelectTrade && onSelectTrade(log)}
+                  className="flex items-center justify-between p-2.5 px-3.5 rounded-2xl bg-slate-50/80 hover:bg-indigo-50/70 hover:border-indigo-200 border border-black/[0.04] text-xs font-mono transition-all shadow-[0_1px_2px_rgba(0,0,0,0.02)] cursor-pointer group"
                 >
                   <div className="flex items-center gap-2.5 w-1/3">
                     <span className="text-slate-500 text-[11px]">
                       {log.timestamp ? new Date(log.timestamp).toLocaleTimeString([], { hour12: false }) : '--:--'}
                     </span>
-                    <span className="text-slate-800 font-bold truncate">
+                    <span className="text-slate-800 font-bold truncate group-hover:text-indigo-600 transition-colors">
                       {(log.walletAddress || '0x0000').slice(0, 6)}...
                     </span>
                   </div>
@@ -63,13 +68,18 @@ export function LiveTape() {
                     {log.marketQuestion || 'Market Order'}
                   </div>
                   <div className="w-1/3 flex justify-end items-center gap-3">
+                    {log.consensus?.is_consensus && (
+                      <span className="hidden sm:inline-block px-1.5 py-0.5 rounded text-[9px] font-bold bg-indigo-100 text-indigo-800">
+                        {log.consensus.whale_count} Whales
+                      </span>
+                    )}
                     <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold border shadow-[inset_0_1px_0_rgba(255,255,255,0.8)] ${
                       log.side === 'BUY' ? 'text-emerald-800 bg-emerald-50 border-emerald-200' : 'text-rose-800 bg-rose-50 border-rose-200'
                     }`}>
                       {log.side}
                     </span>
                     <span className="text-slate-900 font-bold w-16 text-right font-mono">
-                      ${(log.fillPrice ?? 0).toFixed(3)}
+                      ${(log.fillPrice ?? log.entryPrice ?? 0).toFixed(3)}
                     </span>
                   </div>
                 </motion.div>

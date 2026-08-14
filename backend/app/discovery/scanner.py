@@ -201,10 +201,10 @@ def calculate_stats_from_trades_and_entry(trades: list, entry: dict = None, addr
                 "trades_count": day_info["count"]
             })
 
-    # HFT detection from Titan: TPH >= 50 or (TPH >= 20 and avg_bet < 50)
+    # Strict Institutional Non-HFT filter: max 3 trades/hr, low daily frequency, high conviction
     total_trades_count = max(len(parsed_trades), 1)
     avg_bet = (volume / total_trades_count) if total_trades_count > 0 else 100.0
-    is_hft = (trades_per_hour >= 50.0) or (trades_per_hour >= 20.0 and avg_bet < 50.0) or (avg_trades_per_day >= 100.0)
+    is_hft = (trades_per_hour > 3.0) or (trades_per_hour >= 1.5 and avg_bet < 500.0) or (avg_trades_per_day > 30.0)
     
     # Authentic Win rate calculation
     if resolved_trades:
@@ -413,7 +413,7 @@ async def scan_for_wallets(db: AsyncSession, full_refresh: bool = False) -> int:
             discovery_state["step_description"] = "Stage 2: Deep 4,000-trade evaluation..."
             processed_count = await evaluate_pending_wallets(db)
             
-            # Post-Evaluation: Live Tape Seeding
+            # Post-Evaluation: Deduplicated Live Tape Sync
             stmt = select(Wallet).where(Wallet.status == 'active').order_by(Wallet.last_scored_at.desc()).limit(10)
             active_wallets = (await db.execute(stmt)).scalars().all()
             
@@ -428,23 +428,40 @@ async def scan_for_wallets(db: AsyncSession, full_refresh: bool = False) -> int:
                         for t in raw_trades:
                             try:
                                 ts_raw = t.get("timestamp") or t.get("match_time") or t.get("created_at") or t.get("time")
+                                if not ts_raw:
+                                    continue
                                 ts_sec = float(ts_raw) / 1000.0 if float(ts_raw) > 1e11 else float(ts_raw)
+                                dt_exec = datetime.fromtimestamp(ts_sec, timezone.utc).replace(tzinfo=None)
+                                cid = str(t.get("conditionId") or t.get("market") or "")
+                                side = str(t.get("side") or "BUY").upper()
                                 
-                                log = ExecutionLog(
-                                    source_wallet_address=w.address,
-                                    market_condition_id=t.get("conditionId") or t.get("market") or "",
-                                    market_question=t.get("title") or "Polymarket Prediction",
-                                    side=str(t.get("side") or "BUY").upper(),
-                                    whale_entry_price=float(t.get("price") or 0.0),
-                                    user_fill_price=float(t.get("price") or 0.0),
-                                    notional_usd=min(float(t.get("usdcSize") or (float(t.get("size") or 0) * float(t.get("price") or 0))), 500.0),
-                                    active_basket_size_at_trade=discovery_state["active_whales_in_basket"],
-                                    is_sandbox=True,
-                                    status="FILLED",
-                                    executed_at=datetime.fromtimestamp(ts_sec, timezone.utc).replace(tzinfo=None)
-                                )
-                                db.add(log)
-                            except:
+                                # Check if already in DB
+                                existing = (await db.execute(
+                                    select(ExecutionLog).where(
+                                        ExecutionLog.source_wallet_address == w.address,
+                                        ExecutionLog.market_condition_id == cid,
+                                        ExecutionLog.executed_at == dt_exec
+                                    )
+                                )).scalar_one_or_none()
+                                
+                                if not existing:
+                                    price = float(t.get("price") or 0.5)
+                                    cash = min(float(t.get("usdcSize") or (float(t.get("size") or 0) * price)), 500.0)
+                                    log = ExecutionLog(
+                                        source_wallet_address=w.address,
+                                        market_condition_id=cid,
+                                        market_question=t.get("title") or "Polymarket Prediction",
+                                        side=side,
+                                        whale_entry_price=price,
+                                        user_fill_price=price,
+                                        notional_usd=cash,
+                                        active_basket_size_at_trade=discovery_state["active_whales_in_basket"],
+                                        is_sandbox=True,
+                                        status="FILLED",
+                                        executed_at=dt_exec
+                                    )
+                                    db.add(log)
+                            except Exception:
                                 pass
                     await db.commit()
                 finally:

@@ -1,0 +1,122 @@
+import asyncio
+import logging
+import time
+from sqlalchemy import select, func
+from app.database import SessionLocal
+from app.models import ExecutionLog, User, Wallet
+from app.discovery.polymarket_client import PolymarketClient
+
+logger = logging.getLogger(__name__)
+
+# In-memory live price cache: condition_id -> {price, ts}
+_live_price_cache: dict[str, dict] = {}
+# Consensus cache: condition_id -> {whale_count, total_cash}
+_consensus_cache: dict[str, dict] = {}
+
+class MarkToMarketService:
+    def __init__(self):
+        self.running = False
+
+    async def start(self):
+        self.running = True
+        logger.info("Mark-to-Market Live Valuation & Consensus Service started.")
+        asyncio.create_task(self._valuation_loop())
+
+    async def stop(self):
+        self.running = False
+
+    async def _valuation_loop(self):
+        while self.running:
+            try:
+                await self.update_valuations_and_consensus()
+            except Exception as e:
+                logger.error(f"Error in Mark-to-Market loop: {e}", exc_info=True)
+            await asyncio.sleep(25.0)
+
+    async def update_valuations_and_consensus(self):
+        client = PolymarketClient()
+        try:
+            async with SessionLocal() as db:
+                # 1. Update consensus across recent active whale trades
+                stmt_recent = select(ExecutionLog).where(
+                    ExecutionLog.status == "FILLED"
+                ).order_by(ExecutionLog.executed_at.desc()).limit(100)
+                recent_logs = (await db.execute(stmt_recent)).scalars().all()
+
+                mkt_wallets: dict[str, set[str]] = {}
+                mkt_cash: dict[str, float] = {}
+                for log in recent_logs:
+                    cid = log.market_condition_id
+                    if not cid:
+                        continue
+                    if cid not in mkt_wallets:
+                        mkt_wallets[cid] = set()
+                        mkt_cash[cid] = 0.0
+                    mkt_wallets[cid].add(log.source_wallet_address.lower())
+                    mkt_cash[cid] += float(log.notional_usd or 0.0)
+
+                for cid, w_set in mkt_wallets.items():
+                    _consensus_cache[cid] = {
+                        "whale_count": len(w_set),
+                        "total_cash": mkt_cash.get(cid, 0.0),
+                        "is_consensus": len(w_set) >= 2
+                    }
+
+                # 2. Fetch live prices for distinct active condition IDs
+                cids_to_price = list(set(log.market_condition_id for log in recent_logs if log.market_condition_id))
+                for cid in cids_to_price[:20]:
+                    try:
+                        live_p = await client.fetch_live_token_price(condition_id=cid)
+                        if live_p is not None and 0.01 <= live_p <= 0.99:
+                            _live_price_cache[cid] = {"price": live_p, "ts": time.time()}
+                    except Exception:
+                        pass
+                    await asyncio.sleep(0.05)
+
+                # 3. Update PnL on user logs and update sandbox balances
+                stmt_users = select(User)
+                users = (await db.execute(stmt_users)).scalars().all()
+
+                for u in users:
+                    stmt_user_logs = select(ExecutionLog).where(
+                        ExecutionLog.user_id == u.id,
+                        ExecutionLog.status == "FILLED"
+                    )
+                    user_logs = (await db.execute(stmt_user_logs)).scalars().all()
+
+                    total_pnl = 0.0
+                    for ulog in user_logs:
+                        cid = ulog.market_condition_id
+                        cached = _live_price_cache.get(cid)
+                        fill_p = float(ulog.user_fill_price or ulog.whale_entry_price or 0.5)
+                        notional = float(ulog.notional_usd or 0.0)
+
+                        if cached and fill_p > 0:
+                            cur_p = cached["price"]
+                            if ulog.side == "BUY":
+                                trade_pnl = notional * ((cur_p - fill_p) / fill_p)
+                            else:
+                                trade_pnl = notional * ((fill_p - cur_p) / fill_p)
+                            ulog.realized_pnl_usd = round(trade_pnl, 2)
+                            total_pnl += trade_pnl
+                        elif ulog.realized_pnl_usd is not None:
+                            total_pnl += float(ulog.realized_pnl_usd)
+
+                    # Update user balance
+                    base_balance = float(u.sandbox_starting_balance_usd or 10000.0)
+                    u.sandbox_balance_usd = round(base_balance + total_pnl, 2)
+                    if u.sandbox_balance_usd > (u.sandbox_high_water_mark_usd or base_balance):
+                        u.sandbox_high_water_mark_usd = u.sandbox_balance_usd
+
+                await db.commit()
+        finally:
+            await client.close()
+
+mark_to_market_service = MarkToMarketService()
+
+def get_live_price(cid: str, fallback: float = 0.5) -> float:
+    entry = _live_price_cache.get(cid)
+    return entry["price"] if entry else fallback
+
+def get_consensus_info(cid: str) -> dict:
+    return _consensus_cache.get(cid, {"whale_count": 1, "total_cash": 0.0, "is_consensus": False})
