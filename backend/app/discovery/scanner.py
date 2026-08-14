@@ -274,7 +274,9 @@ async def evaluate_pending_wallets(db: AsyncSession):
                 stats = calculate_stats_from_trades_and_entry(raw_trades, None, address=addr)
                 
                 # Check DB for existing wallet (already exists, but let's score it)
-                is_valid, reason = score_wallet(stats)
+                scoring = score_wallet(stats)
+                is_valid = scoring.status == "active"
+                reason = scoring.rejection_reason
                 baleen_score = compute_baleen_score(stats)
                 
                 if stats['is_hft']:
