@@ -55,22 +55,29 @@ export function WalletLeaderboard({ onSelectWallet }: WalletLeaderboardProps) {
                 </tr>
               ))
             ) : wallets.length > 0 ? (
-              wallets.map((wallet) => (
-                <tr 
-                  key={wallet.address} 
-                  onClick={() => onSelectWallet(wallet.address)}
-                  className="hover:bg-slate-50/80 transition-colors cursor-pointer group text-xs"
-                >
-                  <td className="p-3.5 px-4 font-mono text-slate-800 font-bold group-hover:text-black transition-colors">
-                    {wallet.address.slice(0, 5)}...{wallet.address.slice(-4)}
-                  </td>
-                  <td className="p-3.5"><Badge tier={wallet.tier} /></td>
-                  <td className="p-3.5 text-right text-slate-800 font-mono font-semibold">{formatWinRate(wallet.winRate || 0)}</td>
-                  <td className={`p-3.5 px-4 text-right font-mono font-bold ${(wallet.pnl || 0) >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
-                    {(wallet.pnl || 0) >= 0 ? '+' : '-'}${Math.abs(wallet.pnl || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}
-                  </td>
-                </tr>
-              ))
+              wallets.map((wallet) => {
+                const isGold = wallet.tier === 'gold_sniper';
+                return (
+                  <tr 
+                    key={wallet.address} 
+                    onClick={() => onSelectWallet(wallet.address)}
+                    className={`transition-colors cursor-pointer group text-xs ${
+                      isGold 
+                        ? 'bg-amber-50/30 hover:bg-amber-50/70 border-l-2 border-l-amber-400' 
+                        : 'hover:bg-slate-50/80 border-l-2 border-l-transparent'
+                    }`}
+                  >
+                    <td className="p-3.5 px-4 font-mono text-slate-800 font-bold group-hover:text-black transition-colors">
+                      {wallet.address.slice(0, 5)}...{wallet.address.slice(-4)}
+                    </td>
+                    <td className="p-3.5"><Badge tier={wallet.tier} /></td>
+                    <td className="p-3.5 text-right text-slate-800 font-mono font-semibold">{formatWinRate(wallet.winRate || 0)}</td>
+                    <td className={`p-3.5 px-4 text-right font-mono font-bold ${(wallet.pnl || 0) >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                      {(wallet.pnl || 0) >= 0 ? '+' : '-'}${Math.abs(wallet.pnl || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                    </td>
+                  </tr>
+                );
+              })
             ) : (
               <tr>
                 <td colSpan={4} className="p-12 text-center text-slate-400 text-xs font-medium">

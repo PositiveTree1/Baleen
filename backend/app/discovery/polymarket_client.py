@@ -52,14 +52,38 @@ class PolymarketClient:
             return data.get("data") or data.get("results") or []
         return []
 
-    async def fetch_wallet_trades(self, address: str, limit: int = 500) -> List[Dict]:
-        url = f"{self.data_api_url}/trades"
-        data = await self._fetch_with_retry(url, params={"maker_address": address, "limit": limit})
-        if isinstance(data, list):
-            return data
-        if isinstance(data, dict):
-            return data.get("data") or data.get("results") or []
-        return []
+    async def fetch_wallet_trades(self, address: str, max_trades: int = 4000) -> List[Dict]:
+        all_trades = []
+        batch_size = 500
+        offset = 0
+        
+        while len(all_trades) < max_trades:
+            url = f"{self.data_api_url}/trades"
+            data = await self._fetch_with_retry(url, params={"maker_address": address, "limit": batch_size, "offset": offset})
+            trades_batch = []
+            if isinstance(data, list):
+                trades_batch = data
+            elif isinstance(data, dict):
+                trades_batch = data.get("data") or data.get("results") or []
+                
+            if not trades_batch and offset == 0:
+                data_user = await self._fetch_with_retry(url, params={"user": address, "limit": batch_size})
+                if isinstance(data_user, list):
+                    trades_batch = data_user
+                elif isinstance(data_user, dict):
+                    trades_batch = data_user.get("data") or data_user.get("results") or []
+                    
+            if not trades_batch:
+                break
+                
+            all_trades.extend(trades_batch)
+            if len(trades_batch) < batch_size:
+                break
+                
+            offset += len(trades_batch)
+            await asyncio.sleep(0.05)
+            
+        return all_trades
 
     async def fetch_order_book(self, token_id: str) -> Optional[Dict]:
         url = f"{self.clob_api_url}/book"

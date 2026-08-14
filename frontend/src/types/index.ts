@@ -14,6 +14,7 @@ export interface WalletDetail extends Wallet {
   aiSummary: string | null;
   maxDrawdown: number;
   scoreHistory: { date: string; score: number }[];
+  dailyPnLHistory?: { date: string; dailyPnL: number; cumulativePnL: number; tradesCount: number }[];
   recentTrades: ExecutionLog[];
 }
 

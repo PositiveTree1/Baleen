@@ -3,10 +3,11 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useEffect, useState } from 'react';
 import { fetchWallet } from '@/lib/api-client';
 import { WalletDetail } from '@/types';
-import { X, ExternalLink, Copy, Check, Sparkles } from 'lucide-react';
+import { X, ExternalLink, Copy, Check, Sparkles, TrendingUp, Compass, ShieldCheck } from 'lucide-react';
 import { Badge } from '../ui/Badge';
 import { Skeleton } from '../ui/Skeleton';
 import { ScoreHistoryChart } from '../charts/ScoreHistoryChart';
+import { CumulativePnLChart } from '../charts/CumulativePnLChart';
 
 interface WalletDrawerProps {
   address: string | null;
@@ -17,6 +18,7 @@ export function WalletDrawer({ address, onClose }: WalletDrawerProps) {
   const [wallet, setWallet] = useState<WalletDetail | null>(null);
   const [loading, setLoading] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [activeChartTab, setActiveChartTab] = useState<'pnl' | 'score'>('pnl');
 
   useEffect(() => {
     if (!address) return;
@@ -24,29 +26,7 @@ export function WalletDrawer({ address, onClose }: WalletDrawerProps) {
     setLoading(true);
     fetchWallet(address).then(data => {
       if (mounted) {
-        if (data) {
-          setWallet(data);
-        } else {
-          // Fallback wallet structure for instant rendering
-          setWallet({
-            address,
-            tier: 'gold_sniper',
-            winRate: 0.72,
-            pnl: 14850,
-            tradesPerDay: 4.2,
-            score: 88,
-            aiStyleTag: 'High-Conviction Whale',
-            aiSummary: 'Active Polymarket prediction whale with high historical win rate and low drawdown concentration.',
-            maxDrawdown: 0.12,
-            scoreHistory: [
-              { date: new Date(Date.now() - 86400000 * 3).toISOString(), score: 85 },
-              { date: new Date(Date.now() - 86400000 * 2).toISOString(), score: 86 },
-              { date: new Date(Date.now() - 86400000 * 1).toISOString(), score: 88 },
-              { date: new Date().toISOString(), score: 88 }
-            ],
-            recentTrades: []
-          });
-        }
+        setWallet(data);
         setLoading(false);
       }
     });
@@ -65,6 +45,8 @@ export function WalletDrawer({ address, onClose }: WalletDrawerProps) {
     return `${num.toFixed(1)}%`;
   };
 
+  const isGold = wallet?.tier === 'gold_sniper';
+
   return (
     <AnimatePresence>
       {address && (
@@ -81,13 +63,21 @@ export function WalletDrawer({ address, onClose }: WalletDrawerProps) {
             animate={{ x: 0 }}
             exit={{ x: '100%' }}
             transition={{ type: 'spring', damping: 30, stiffness: 300 }}
-            className="fixed inset-y-0 right-0 z-50 w-full max-w-lg bg-white/95 border-l border-black/[0.08] shadow-2xl backdrop-blur-2xl overflow-y-auto"
+            className={`fixed inset-y-0 right-0 z-50 w-full max-w-xl bg-white/95 border-l shadow-2xl backdrop-blur-2xl overflow-y-auto ${
+              isGold ? 'border-amber-200/80 shadow-[0_0_50px_rgba(245,158,11,0.08)]' : 'border-black/[0.08]'
+            }`}
           >
             <div className="p-8">
+              {/* Header */}
               <div className="flex items-center justify-between mb-8 pb-4 border-b border-black/[0.06]">
-                <div className="flex items-center gap-2">
-                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
+                <div className="flex items-center gap-2.5">
+                  <span className={`w-2.5 h-2.5 rounded-full ${isGold ? 'bg-amber-500 animate-pulse' : 'bg-emerald-500'}`} />
                   <h2 className="text-base font-bold text-slate-900 tracking-tight">Whale Audit Profile</h2>
+                  {isGold && (
+                    <span className="text-[10px] font-bold font-mono text-amber-900 bg-amber-100/90 px-2 py-0.5 rounded-full border border-amber-300 shadow-sm">
+                      GOLD TIER
+                    </span>
+                  )}
                 </div>
                 <button 
                   onClick={onClose} 
@@ -105,13 +95,13 @@ export function WalletDrawer({ address, onClose }: WalletDrawerProps) {
                     <Skeleton className="h-24 w-full rounded-2xl" />
                     <Skeleton className="h-24 w-full rounded-2xl" />
                   </div>
-                  <Skeleton className="h-48 w-full rounded-2xl" />
+                  <Skeleton className="h-56 w-full rounded-2xl" />
                 </div>
               ) : wallet ? (
-                <div className="space-y-8">
-                  {/* Address & Quick Actions */}
+                <div className="space-y-7">
+                  {/* Address & Quick Links */}
                   <div>
-                    <div className="flex items-center gap-2.5 mb-3">
+                    <div className="flex items-center gap-2 mb-3">
                       <span className="text-xs font-mono text-slate-900 font-bold break-all bg-slate-50 p-3 rounded-2xl border border-black/[0.06] flex-1 shadow-[inset_0_1px_2px_rgba(0,0,0,0.02)]">
                         {wallet.address}
                       </span>
@@ -126,8 +116,18 @@ export function WalletDrawer({ address, onClose }: WalletDrawerProps) {
                         href={`https://polymarket.com/profile/${wallet.address}`} 
                         target="_blank" 
                         rel="noreferrer" 
-                        className="p-3 bg-white hover:bg-slate-50 rounded-2xl border border-black/[0.08] text-slate-700 hover:text-slate-900 transition-colors shadow-sm"
-                        title="View on Polymarket"
+                        className="p-3 bg-white hover:bg-slate-50 rounded-2xl border border-black/[0.08] text-slate-700 hover:text-slate-900 transition-colors shadow-sm inline-flex items-center gap-1 text-xs font-semibold"
+                        title="View Profile on Polymarket"
+                      >
+                        <Compass size={16} />
+                        <span className="hidden sm:inline">Polymarket</span>
+                      </a>
+                      <a 
+                        href={`https://polygonscan.com/address/${wallet.address}`} 
+                        target="_blank" 
+                        rel="noreferrer" 
+                        className="p-3 bg-white hover:bg-slate-50 rounded-2xl border border-black/[0.08] text-slate-700 hover:text-slate-900 transition-colors shadow-sm inline-flex items-center gap-1 text-xs font-semibold"
+                        title="View on Polygonscan"
                       >
                         <ExternalLink size={16} />
                       </a>
@@ -142,18 +142,32 @@ export function WalletDrawer({ address, onClose }: WalletDrawerProps) {
                     </div>
                   </div>
 
-                  {/* AI Plain English Summary */}
-                  <div className="p-5 bg-blue-50/50 border border-blue-100 rounded-3xl shadow-[inset_0_1px_0_rgba(255,255,255,0.8)]">
-                    <div className="flex items-center gap-2 mb-2">
-                      <Sparkles size={14} className="text-blue-600" />
-                      <h4 className="text-[11px] font-bold text-blue-900 uppercase tracking-wider">Groq AI Behavioral Overview</h4>
+                  {/* Groq AI Institutional Overview with Animated Border */}
+                  <motion.div 
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.35 }}
+                    className="p-0.5 rounded-3xl bg-gradient-to-r from-blue-500/30 via-emerald-400/30 to-purple-500/30 animate-ai-border shadow-sm"
+                  >
+                    <div className="p-5 bg-white/95 rounded-[22px] backdrop-blur-xl">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          <Sparkles size={15} className="text-blue-600 animate-pulse" />
+                          <h4 className="text-[11px] font-bold text-slate-900 uppercase tracking-wider">
+                            Groq AI Quantitative Audit
+                          </h4>
+                        </div>
+                        <span className="text-[10px] font-mono font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                          Verified Llama 3.1
+                        </span>
+                      </div>
+                      <p className="text-sm text-slate-700 leading-relaxed font-normal">
+                        {wallet.aiSummary || 'Automated quantitative analysis computed via Groq Llama-3.1 engine based on on-chain trading behavior.'}
+                      </p>
                     </div>
-                    <p className="text-sm text-slate-700 leading-relaxed font-normal">
-                      {wallet.aiSummary || 'Analysis generated automatically via Groq AI based on verified on-chain trading behavior.'}
-                    </p>
-                  </div>
+                  </motion.div>
 
-                  {/* Stats Grid */}
+                  {/* Core Metrics Grid */}
                   <div className="grid grid-cols-2 gap-3">
                     <div className="p-4 bg-slate-50 border border-black/[0.06] rounded-2xl shadow-[inset_0_1px_2px_rgba(0,0,0,0.02)]">
                       <div className="text-[11px] text-slate-500 font-medium mb-1">Win Rate</div>
@@ -170,20 +184,46 @@ export function WalletDrawer({ address, onClose }: WalletDrawerProps) {
                       <div className="text-2xl font-bold text-slate-700 font-mono">{formatPct(wallet.maxDrawdown || 0)}</div>
                     </div>
                     <div className="p-4 bg-slate-50 border border-black/[0.06] rounded-2xl shadow-[inset_0_1px_2px_rgba(0,0,0,0.02)]">
-                      <div className="text-[11px] text-slate-500 font-medium mb-1">Frequency</div>
+                      <div className="text-[11px] text-slate-500 font-medium mb-1">Activity Frequency</div>
                       <div className="text-2xl font-bold text-slate-700 font-mono">{(wallet.tradesPerDay || 0).toFixed(1)} / day</div>
                     </div>
                   </div>
 
-                  {/* Score History Chart */}
-                  {wallet.scoreHistory && wallet.scoreHistory.length > 0 && (
-                    <div>
-                      <h4 className="text-xs font-bold text-slate-700 mb-3 uppercase tracking-wider">Score Decay History</h4>
-                      <div className="h-44 p-4 rounded-3xl bg-slate-50 border border-black/[0.06] shadow-[inset_0_1px_2px_rgba(0,0,0,0.02)]">
-                        <ScoreHistoryChart data={wallet.scoreHistory} />
+                  {/* Chart Tabs: Cumulative PnL vs Baleen Score */}
+                  <div>
+                    <div className="flex items-center justify-between mb-3">
+                      <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
+                        <TrendingUp size={14} className="text-slate-600" />
+                        Performance Trajectory
+                      </h4>
+                      <div className="flex rounded-xl bg-slate-100 p-0.5 border border-black/[0.06]">
+                        <button
+                          onClick={() => setActiveChartTab('pnl')}
+                          className={`text-xs px-3 py-1 rounded-lg font-semibold transition-all ${
+                            activeChartTab === 'pnl' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-900'
+                          }`}
+                        >
+                          Cumulative P&amp;L ($)
+                        </button>
+                        <button
+                          onClick={() => setActiveChartTab('score')}
+                          className={`text-xs px-3 py-1 rounded-lg font-semibold transition-all ${
+                            activeChartTab === 'score' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-900'
+                          }`}
+                        >
+                          Baleen Score
+                        </button>
                       </div>
                     </div>
-                  )}
+
+                    <div className="h-52 p-4 rounded-3xl bg-slate-50 border border-black/[0.06] shadow-[inset_0_1px_2px_rgba(0,0,0,0.02)]">
+                      {activeChartTab === 'pnl' ? (
+                        <CumulativePnLChart data={wallet.dailyPnLHistory || []} />
+                      ) : (
+                        <ScoreHistoryChart data={wallet.scoreHistory || []} />
+                      )}
+                    </div>
+                  </div>
                 </div>
               ) : (
                 <div className="text-center text-slate-400 py-12 text-sm font-medium">Wallet details unavailable.</div>

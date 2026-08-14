@@ -45,6 +45,12 @@ export async function fetchWallet(address: string): Promise<WalletDetail | null>
         date: s.snapshot_at || s.date || new Date().toISOString(), 
         score: s.baleen_score ?? s.score ?? 75 
       })),
+      dailyPnLHistory: (data.daily_pnl_history || []).map((d: any) => ({
+        date: d.date,
+        dailyPnL: d.daily_pnl ?? 0,
+        cumulativePnL: d.cumulative_pnl ?? 0,
+        tradesCount: d.trades_count ?? 1
+      })),
       recentTrades: data.recent_trades || []
     };
   } catch (error) {

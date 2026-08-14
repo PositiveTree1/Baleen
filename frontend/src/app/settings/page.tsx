@@ -53,9 +53,16 @@ export default function SettingsPage() {
   return (
     <div className="min-h-screen bg-[#F8F9FB] text-slate-900 p-6 lg:p-12 selection:bg-slate-900 selection:text-white">
       <div className="max-w-3xl mx-auto">
-        <Link href="/dashboard" className="inline-flex items-center gap-2 text-xs font-semibold text-slate-600 hover:text-slate-900 mb-8 transition-colors">
-          <ArrowLeft size={14} /> Back to Dashboard
-        </Link>
+        <div className="flex items-center gap-4 mb-8">
+          <Link href="/" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
+            <img src="/logo.png" alt="Baleen" className="w-6 h-6 object-contain" />
+            <span className="font-bold text-sm text-slate-900 tracking-tight">Baleen</span>
+          </Link>
+          <span className="text-slate-300">|</span>
+          <Link href="/dashboard" className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-600 hover:text-slate-900 transition-colors">
+            <ArrowLeft size={14} /> Back to Dashboard
+          </Link>
+        </div>
         
         <h1 className="text-3xl font-bold tracking-tight text-slate-900 mb-2">Engine Settings</h1>
         <p className="text-slate-600 text-sm mb-8">Manage your paper trading balance, execution risk regime, and digest alerts.</p>

@@ -61,9 +61,16 @@ export default function AdminPage() {
     <div className="min-h-screen bg-[#F8F9FB] text-slate-900 p-6 lg:p-12 selection:bg-slate-900 selection:text-white">
       <div className="max-w-7xl mx-auto">
         <div className="flex items-center justify-between mb-8 pb-4 border-b border-black/[0.06]">
-          <Link href="/dashboard" className="inline-flex items-center gap-2 text-xs font-semibold text-slate-600 hover:text-slate-900 transition-colors">
-            <ArrowLeft size={14} /> Back to Dashboard
-          </Link>
+          <div className="flex items-center gap-4">
+            <Link href="/" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
+              <img src="/logo.png" alt="Baleen" className="w-6 h-6 object-contain" />
+              <span className="font-bold text-sm text-slate-900 tracking-tight">Baleen Admin</span>
+            </Link>
+            <span className="text-slate-300">|</span>
+            <Link href="/dashboard" className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-600 hover:text-slate-900 transition-colors">
+              <ArrowLeft size={14} /> Dashboard
+            </Link>
+          </div>
           <div className="flex items-center gap-3">
             <Button 
               variant="secondary" 

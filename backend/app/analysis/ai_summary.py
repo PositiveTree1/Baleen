@@ -7,7 +7,6 @@ import random
 
 logger = logging.getLogger(__name__)
 
-# Very basic key rotation
 def get_groq_client() -> Optional[AsyncGroq]:
     keys = [
         settings.GROQ_API_KEY_1,
@@ -23,7 +22,7 @@ def get_groq_client() -> Optional[AsyncGroq]:
 
 async def generate_summary(wallet_stats: dict) -> Tuple[Optional[str], Optional[str]]:
     """
-    Generates summary from §6 prompt.
+    Generates a rich, institutional-grade AI behavioral analysis of the trader.
     Returns (summary, style_tag)
     """
     client = get_groq_client()
@@ -31,39 +30,38 @@ async def generate_summary(wallet_stats: dict) -> Tuple[Optional[str], Optional[
         logger.warning("No Groq API keys configured")
         return None, None
 
+    pnl = wallet_stats.get('all_time_pnl_usd', 0)
+    win_rate = wallet_stats.get('win_rate_pct', 0)
+    trades_per_day = wallet_stats.get('avg_trades_per_day', 0)
+    max_dd = wallet_stats.get('max_drawdown_pct', 0)
+    total_trades = wallet_stats.get('total_trades_analyzed', 100)
+
     prompt = f"""
-    Analyze the following Polymarket trader statistics and provide a brief, 2-sentence summary of their trading style and performance.
-    Then, provide a 1-3 word style tag (e.g., 'High-Conviction Sniper', 'Volume Scalper').
-    
-    Stats:
-    Win Rate: {wallet_stats.get('win_rate_pct', 0)}%
-    Total PnL: ${wallet_stats.get('all_time_pnl_usd', 0)}
-    Avg Trades/Day: {wallet_stats.get('avg_trades_per_day', 0)}
-    Max Drawdown: {wallet_stats.get('max_drawdown_pct', 0)}%
-    
-    Format your response EXACTLY as:
-    SUMMARY: <your 2 sentence summary>
-    TAG: <your 1-3 word tag>
+    You are an expert quantitative hedge fund analyst evaluating a top Polymarket prediction market trader.
+    Provide a concise 2-sentence executive summary detailing their trading edge, positioning conviction, and risk control.
+    Then, provide a high-conviction 2-3 word style tag (e.g. 'High-Conviction Sniper', 'Macro Event Scalper', 'Asymmetric Alpha Hunter', 'Momentum Trend Whale').
+
+    Metrics:
+    - Realized PnL: ${pnl:,.2f}
+    - Win Rate: {win_rate}%
+    - Average Daily Activity: {trades_per_day} trades/day
+    - Historical Max Drawdown: {max_dd}%
+    - Total Trades Analyzed: {total_trades}
+
+    Output format EXACTLY:
+    SUMMARY: <2 punchy, analytical sentences detailing their edge, profit consistency, and risk discipline>
+    TAG: <2-3 word uppercase tag>
     """
     
     try:
         completion = await client.chat.completions.create(
             messages=[{"role": "user", "content": prompt}],
             model="llama-3.1-8b-instant",
-            temperature=0.2,
-            max_tokens=150
+            temperature=0.3,
+            max_tokens=200
         )
         response_text = completion.choices[0].message.content
         
-        # Grounding check: ensure numbers in summary exist in input
-        numbers_in_response = re.findall(r'\d+(?:\.\d+)?', response_text)
-        input_numbers_str = str(wallet_stats)
-        
-        for num in numbers_in_response:
-            # simple check - in reality, we'd want more robust grounding
-            if num not in input_numbers_str and "." not in num: # ignore floats in simple check
-                pass
-                
         summary = None
         tag = None
         
@@ -79,3 +77,4 @@ async def generate_summary(wallet_stats: dict) -> Tuple[Optional[str], Optional[
     except Exception as e:
         logger.error(f"Error generating AI summary: {e}")
         return None, None
+
