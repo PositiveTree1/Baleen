@@ -7,7 +7,8 @@ interface BalanceCounterProps {
 }
 
 export function BalanceCounter({ balance }: BalanceCounterProps) {
-  const springValue = useSpring(0, { stiffness: 380, damping: 30, restDelta: 0.01 });
+  const initial = balance ?? 10000;
+  const springValue = useSpring(initial, { stiffness: 100, damping: 28, restDelta: 0.01 });
   const [isClient, setIsClient] = useState(false);
 
   useEffect(() => {
@@ -18,7 +19,7 @@ export function BalanceCounter({ balance }: BalanceCounterProps) {
   }, [balance, springValue]);
 
   const displayValue = useTransform(springValue, (latest) => {
-    return `$${latest.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    return `$${Math.max(0, latest).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   });
 
   return (

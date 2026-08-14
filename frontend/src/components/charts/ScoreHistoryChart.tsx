@@ -22,14 +22,21 @@ export function ScoreHistoryChart({ data }: ScoreHistoryChartProps) {
           <XAxis 
             dataKey="date" 
             stroke="#94A3B8" 
-            tick={{ fill: '#64748B', fontSize: 11 }}
+            tick={{ fill: '#64748B', fontSize: 10, fontWeight: 500 }}
             tickLine={false}
             axisLine={false}
-            tickFormatter={(val) => new Date(val).toLocaleDateString([], { month: 'short', day: 'numeric' })}
+            tickFormatter={(val) => {
+              try {
+                const d = new Date(val);
+                return d.toLocaleDateString([], { month: 'short', day: 'numeric' });
+              } catch {
+                return String(val);
+              }
+            }}
           />
           <YAxis 
             stroke="#94A3B8" 
-            tick={{ fill: '#64748B', fontSize: 11 }}
+            tick={{ fill: '#64748B', fontSize: 10, fontWeight: 500 }}
             tickLine={false}
             axisLine={false}
             domain={['dataMin - 5', 'dataMax + 5']}
@@ -44,7 +51,14 @@ export function ScoreHistoryChart({ data }: ScoreHistoryChartProps) {
             }}
             itemStyle={{ color: '#0F172A', fontWeight: 600 }}
             labelStyle={{ color: '#64748B', marginBottom: '2px', fontSize: '11px' }}
-            labelFormatter={(val) => new Date(String(val)).toLocaleDateString()}
+            labelFormatter={(val: any) => {
+              try {
+                const d = new Date(String(val));
+                return d.toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+              } catch {
+                return String(val);
+              }
+            }}
           />
           <Line 
             type="monotone" 

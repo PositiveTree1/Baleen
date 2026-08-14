@@ -88,10 +88,50 @@ export function DailyWinLossBarChart({ data }: DailyWinLossBarChartProps) {
               return null;
             }}
           />
-          {/* Green Winning Column on Top */}
-          <Bar dataKey="wonUsd" fill="#10B981" radius={[4, 4, 0, 0]} maxBarSize={28} />
-          {/* Red Losing Column on Bottom */}
-          <Bar dataKey="lostUsd" fill="#F43F5E" radius={[0, 0, 4, 4]} maxBarSize={28} />
+          {/* Green Winning Column on Top with Rounded Upper Corners */}
+          <Bar 
+            dataKey="wonUsd" 
+            maxBarSize={28}
+            shape={(props: any) => {
+              const { x, y, width, height } = props;
+              if (!height || height <= 0) return null;
+              const r = Math.min(4, height / 2);
+              return (
+                <path
+                  d={`M ${x},${y + r}
+                      Q ${x},${y} ${x + r},${y}
+                      L ${x + width - r},${y}
+                      Q ${x + width},${y} ${x + width},${y + r}
+                      L ${x + width},${y + height}
+                      L ${x},${y + height}
+                      Z`}
+                  fill="#10B981"
+                />
+              );
+            }}
+          />
+          {/* Red Losing Column on Bottom with Rounded Bottom Outer Corners */}
+          <Bar 
+            dataKey="lostUsd" 
+            maxBarSize={28}
+            shape={(props: any) => {
+              const { x, y, width, height } = props;
+              if (!height || height <= 0) return null;
+              const r = Math.min(4, height / 2);
+              return (
+                <path
+                  d={`M ${x},${y}
+                      L ${x + width},${y}
+                      L ${x + width},${y + height - r}
+                      Q ${x + width},${y + height} ${x + width - r},${y + height}
+                      L ${x + r},${y + height}
+                      Q ${x},${y + height} ${x},${y + height - r}
+                      Z`}
+                  fill="#F43F5E"
+                />
+              );
+            }}
+          />
         </BarChart>
       </ResponsiveContainer>
     </div>
