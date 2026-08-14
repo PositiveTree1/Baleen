@@ -46,12 +46,20 @@ class PolymarketClient:
     async def fetch_leaderboard(self, window: str = 'all', limit: int = 100) -> List[Dict]:
         url = f"{self.data_api_url}/v1/leaderboard"
         data = await self._fetch_with_retry(url, params={"window": window, "limit": limit})
-        return data if isinstance(data, list) else []
+        if isinstance(data, list):
+            return data
+        if isinstance(data, dict):
+            return data.get("data") or data.get("results") or []
+        return []
 
     async def fetch_wallet_trades(self, address: str, limit: int = 500) -> List[Dict]:
         url = f"{self.data_api_url}/trades"
         data = await self._fetch_with_retry(url, params={"maker_address": address, "limit": limit})
-        return data if isinstance(data, list) else []
+        if isinstance(data, list):
+            return data
+        if isinstance(data, dict):
+            return data.get("data") or data.get("results") or []
+        return []
 
     async def fetch_order_book(self, token_id: str) -> Optional[Dict]:
         url = f"{self.clob_api_url}/book"

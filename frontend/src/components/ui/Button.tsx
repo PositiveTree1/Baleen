@@ -8,20 +8,19 @@ interface ButtonProps extends HTMLMotionProps<'button'> {
 }
 
 export function Button({ variant = 'primary', children, className = '', ...props }: ButtonProps) {
-  const baseClasses = 'px-4 py-2 rounded-lg font-medium transition-colors focus:outline-none disabled:opacity-50';
+  const baseClasses = 'px-4 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 focus:outline-none disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer flex items-center justify-center gap-2';
   let variantClasses = '';
   
   if (variant === 'primary') {
-    variantClasses = 'bg-gradient-to-r from-baleen-cyan to-baleen-blue text-baleen-obsidian hover:shadow-[0_0_15px_rgba(0,242,254,0.4)]';
+    variantClasses = 'bg-white text-zinc-950 font-semibold hover:bg-zinc-200 shadow-sm hover:shadow-apple-glow active:scale-[0.98]';
   } else if (variant === 'secondary') {
-    variantClasses = 'bg-baleen-slate text-baleen-white border border-white/10 hover:bg-white/5';
+    variantClasses = 'bg-white/[0.06] text-white border border-white/10 hover:bg-white/[0.12] hover:border-white/20 active:scale-[0.98]';
   } else if (variant === 'danger') {
-    variantClasses = 'bg-baleen-red/20 text-baleen-red border border-baleen-red/50 hover:bg-baleen-red/30';
+    variantClasses = 'bg-rose-500/15 text-rose-400 border border-rose-500/25 hover:bg-rose-500/25 hover:border-rose-500/40 active:scale-[0.98]';
   }
   
   return (
     <motion.button
-      whileHover={{ scale: 1.02 }}
       whileTap={{ scale: 0.98 }}
       className={`${baseClasses} ${variantClasses} ${className}`}
       {...props}

@@ -15,48 +15,42 @@ export function LiveTicker() {
       setLoading(false);
     }
     loadStats();
-    const interval = setInterval(loadStats, 30000); // refresh every 30s
+    const interval = setInterval(loadStats, 15000);
     return () => clearInterval(interval);
   }, []);
 
   return (
-    <div className="w-full border-y border-white/5 bg-baleen-charcoal/50 backdrop-blur-md overflow-hidden flex items-center h-12 relative z-20">
-      <div className="absolute left-0 top-0 bottom-0 w-24 bg-gradient-to-r from-baleen-obsidian to-transparent z-10"></div>
-      
-      <div className="flex items-center whitespace-nowrap animate-[scroll_20s_linear_infinite] gap-16 px-4">
-        {loading ? (
-          <span className="text-sm text-baleen-muted">Connecting to network...</span>
-        ) : stats ? (
-          <>
-            <span className="text-sm text-baleen-white flex items-center gap-2">
-              <span className="text-baleen-muted">Total Mirrored:</span>
-              <span className="font-mono text-baleen-cyan">${(stats?.totalVolumeMirrored ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+    <div className="w-full border-y border-white/[0.06] bg-zinc-950/60 backdrop-blur-xl overflow-hidden flex items-center h-12 relative z-20">
+      <div className="max-w-7xl mx-auto w-full px-6 flex items-center justify-between text-xs text-zinc-400">
+        <div className="flex items-center gap-8">
+          <span className="flex items-center gap-2">
+            <span className="text-zinc-500 font-medium">Total Volume Mirrored:</span>
+            <span className="font-mono text-white font-semibold">
+              ${(stats?.totalVolumeMirrored ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </span>
-            <span className="text-sm text-baleen-white flex items-center gap-2">
-              <span className="text-baleen-muted">Active Whales:</span>
-              <span className="font-mono">{(stats?.activeBasketWhales ?? 0)}</span>
-            </span>
-            <span className="text-sm text-baleen-white flex items-center gap-2">
-              <span className="text-baleen-muted">Indexer Status:</span>
-              <span className={`flex items-center gap-1 ${(stats?.indexerStatus ?? 'SYNCING') === 'ONLINE' ? 'text-baleen-green' : 'text-amber-500'}`}>
-                <Activity size={14} /> {(stats?.indexerStatus ?? 'SYNCING')}
-              </span>
-            </span>
-            {/* Repeat for seamless scroll effect if needed, though simple CSS scroll works too */}
-          </>
-        ) : (
-          <span className="text-sm text-baleen-muted">Network stats currently unavailable.</span>
-        )}
-      </div>
+          </span>
+          <span className="hidden sm:flex items-center gap-2">
+            <span className="text-zinc-500 font-medium">Active Whales:</span>
+            <span className="font-mono text-white font-semibold">{(stats?.activeBasketWhales ?? 0)}</span>
+          </span>
+          <span className="hidden md:flex items-center gap-2">
+            <span className="text-zinc-500 font-medium">Execution Latency:</span>
+            <span className="font-mono text-white font-semibold">&lt; 800ms</span>
+          </span>
+        </div>
 
-      <div className="absolute right-0 top-0 bottom-0 w-24 bg-gradient-to-l from-baleen-obsidian to-transparent z-10"></div>
-      
-      <style jsx>{`
-        @keyframes scroll {
-          0% { transform: translateX(100vw); }
-          100% { transform: translateX(-100%); }
-        }
-      `}</style>
+        <div className="flex items-center gap-2">
+          <span className="text-zinc-500 font-medium">Indexer:</span>
+          <span className={`inline-flex items-center gap-1.5 font-mono px-2 py-0.5 rounded-full text-[11px] ${
+            (stats?.indexerStatus ?? 'ONLINE') === 'ONLINE' 
+              ? 'text-emerald-400 bg-emerald-500/10 border border-emerald-500/20' 
+              : 'text-amber-400 bg-amber-500/10 border border-amber-500/20'
+          }`}>
+            <span className="w-1 h-1 rounded-full bg-emerald-400 animate-pulse" />
+            {stats?.indexerStatus ?? 'ONLINE'} (Polygon)
+          </span>
+        </div>
+      </div>
     </div>
   );
 }

@@ -63,12 +63,16 @@ export async function streamEvents(
       if (nextBlock && nextBlock > currentBlock) {
         currentBlock = nextBlock;
         saveCheckpoint(currentBlock);
+        // Rate-limiting pause between catch-up queries to respect 30 req/10s (max 2 req/s)
+        await new Promise(resolve => setTimeout(resolve, 500));
       } else {
-        await new Promise(resolve => setTimeout(resolve, 5000));
+        // At the chain tip, poll every 3.5 seconds
+        await new Promise(resolve => setTimeout(resolve, 3500));
       }
-    } catch (err) {
-      console.error('Error in hypersync stream', err);
-      await new Promise(resolve => setTimeout(resolve, 5000));
+    } catch (err: any) {
+      console.error('Error in hypersync stream:', err?.message || err);
+      // If rate limited or error occurs, wait 10 seconds before retrying
+      await new Promise(resolve => setTimeout(resolve, 10000));
     }
   }
 }

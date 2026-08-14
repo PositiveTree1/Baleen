@@ -27,42 +27,53 @@ export default function DashboardPage() {
   }, [session]);
 
   if (status === 'loading') {
-    return <div className="min-h-screen flex items-center justify-center text-baleen-muted">Loading Engine...</div>;
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#090A0F] text-zinc-400 text-sm">
+        <div className="flex items-center gap-3">
+          <div className="w-2 h-2 rounded-full bg-white animate-ping" />
+          <span>Initializing Baleen Engine...</span>
+        </div>
+      </div>
+    );
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-baleen-obsidian">
+    <div className="min-h-screen flex flex-col bg-[#090A0F] text-white selection:bg-white selection:text-black">
       {/* Top Navigation */}
-      <nav className="flex items-center justify-between p-4 px-6 border-b border-white/5 bg-baleen-charcoal/50 backdrop-blur-md">
+      <nav className="flex items-center justify-between py-4 px-6 lg:px-12 border-b border-white/[0.06] bg-[#090A0F]/80 backdrop-blur-2xl sticky top-0 z-40">
         <div className="flex items-center gap-3">
-          <Image src="/logo.png" alt="Baleen Logo" width={24} height={24} className="w-6 h-6 object-contain" />
-          <span className="font-bold text-lg tracking-tight text-baleen-white">Baleen Control</span>
+          <Image src="/logo.png" alt="Baleen Logo" width={26} height={26} className="w-6.5 h-6.5 object-contain" />
+          <span className="font-semibold text-base tracking-tight text-white">Baleen Control</span>
         </div>
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2 text-xs text-baleen-muted mr-4">
-            <div className="w-2 h-2 rounded-full bg-baleen-green animate-pulse" />
+        <div className="flex items-center gap-3">
+          <div className="hidden sm:flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium text-emerald-400 bg-emerald-500/10 border border-emerald-500/20">
+            <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
             <span>Engine Active</span>
           </div>
-          <Link href="/admin" className="text-baleen-muted hover:text-baleen-white transition-colors text-xs uppercase tracking-wider font-semibold">
+          <Link href="/admin" className="text-xs font-medium text-zinc-400 hover:text-white transition-colors px-3 py-1.5 rounded-lg hover:bg-white/[0.06]">
             Admin
           </Link>
-          <Link href="/settings" className="text-baleen-muted hover:text-baleen-white transition-colors">
-            <Settings size={20} />
+          <Link href="/settings" className="p-2 text-zinc-400 hover:text-white hover:bg-white/[0.06] rounded-xl transition-colors">
+            <Settings size={18} />
           </Link>
-          <button onClick={() => signOut()} className="text-baleen-muted hover:text-baleen-red transition-colors">
-            <LogOut size={20} />
+          <button onClick={() => signOut()} className="p-2 text-zinc-400 hover:text-rose-400 hover:bg-rose-500/10 rounded-xl transition-colors cursor-pointer">
+            <LogOut size={18} />
           </button>
         </div>
       </nav>
 
-      <main className="flex-1 p-6 max-w-7xl mx-auto w-full flex flex-col gap-6">
+      <main className="flex-1 p-6 lg:p-12 max-w-7xl mx-auto w-full flex flex-col gap-8">
         {/* Header Section */}
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-6 pb-2">
           <BalanceCounter balance={user?.currentBalance ?? null} />
           
-          <div className="glass-card px-4 py-2 rounded-lg flex items-center gap-3 border border-white/5">
-            <span className="text-xs text-baleen-muted uppercase tracking-wider">Risk Profile</span>
-            <span className="text-sm font-medium text-baleen-cyan">{user?.riskProfile || 'Loading...'}</span>
+          <div className="flex items-center gap-3">
+            <div className="glass-card px-4 py-2.5 rounded-2xl flex items-center gap-3 border border-white/[0.08] shadow-apple-sm">
+              <span className="text-xs text-zinc-500 font-medium">Risk Regime</span>
+              <span className="text-xs font-semibold text-white px-2.5 py-0.5 rounded-full bg-white/[0.08] border border-white/[0.08]">
+                {user?.riskProfile || 'Balanced'}
+              </span>
+            </div>
           </div>
         </div>
 

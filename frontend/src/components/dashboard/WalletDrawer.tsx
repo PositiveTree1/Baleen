@@ -30,6 +30,11 @@ export function WalletDrawer({ address, onClose }: WalletDrawerProps) {
     return () => { mounted = false; };
   }, [address]);
 
+  const formatPct = (val: number) => {
+    const num = val > 1 ? val : val * 100;
+    return `${num.toFixed(1)}%`;
+  };
+
   return (
     <AnimatePresence>
       {address && (
@@ -39,95 +44,112 @@ export function WalletDrawer({ address, onClose }: WalletDrawerProps) {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={onClose}
-            className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm"
+            className="fixed inset-0 z-40 bg-black/60 backdrop-blur-md"
           />
           <motion.div
             initial={{ x: '100%' }}
             animate={{ x: 0 }}
             exit={{ x: '100%' }}
-            transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-            className="fixed inset-y-0 right-0 z-50 w-full max-w-md bg-baleen-charcoal border-l border-white/10 shadow-2xl overflow-y-auto"
+            transition={{ type: 'spring', damping: 30, stiffness: 300 }}
+            className="fixed inset-y-0 right-0 z-50 w-full max-w-lg bg-zinc-950/95 border-l border-white/[0.08] shadow-2xl backdrop-blur-2xl overflow-y-auto"
           >
-            <div className="p-6">
-              <div className="flex items-center justify-between mb-8">
-                <h2 className="text-xl font-semibold text-baleen-white">Wallet Profile</h2>
-                <button onClick={onClose} className="p-2 text-baleen-muted hover:text-baleen-white hover:bg-white/10 rounded-full transition-colors">
-                  <X size={20} />
+            <div className="p-8">
+              <div className="flex items-center justify-between mb-8 pb-4 border-b border-white/[0.06]">
+                <div className="flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-emerald-400" />
+                  <h2 className="text-base font-semibold text-white tracking-tight">Whale Audit Profile</h2>
+                </div>
+                <button 
+                  onClick={onClose} 
+                  className="p-1.5 text-zinc-400 hover:text-white hover:bg-white/[0.08] rounded-full transition-colors cursor-pointer"
+                >
+                  <X size={18} />
                 </button>
               </div>
 
               {loading ? (
                 <div className="space-y-6">
-                  <Skeleton className="h-8 w-3/4" />
-                  <Skeleton className="h-4 w-1/4" />
+                  <Skeleton className="h-7 w-3/4" />
+                  <Skeleton className="h-4 w-1/3" />
                   <div className="grid grid-cols-2 gap-4">
-                    <Skeleton className="h-20 w-full" />
-                    <Skeleton className="h-20 w-full" />
+                    <Skeleton className="h-24 w-full rounded-2xl" />
+                    <Skeleton className="h-24 w-full rounded-2xl" />
                   </div>
-                  <Skeleton className="h-48 w-full" />
+                  <Skeleton className="h-48 w-full rounded-2xl" />
                 </div>
               ) : wallet ? (
                 <div className="space-y-8">
-                  {/* Header */}
+                  {/* Address & Links */}
                   <div>
-                    <div className="flex items-center gap-3 mb-2">
-                      <h3 className="text-2xl font-mono text-baleen-cyan break-all">
+                    <div className="flex items-center gap-3 mb-3">
+                      <span className="text-sm font-mono text-white break-all bg-white/[0.04] p-3 rounded-2xl border border-white/[0.06] flex-1">
                         {wallet.address}
-                      </h3>
-                      <a href={`https://polymarket.com/profile/${wallet.address}`} target="_blank" rel="noreferrer" className="text-baleen-muted hover:text-baleen-white">
+                      </span>
+                      <a 
+                        href={`https://polymarket.com/profile/${wallet.address}`} 
+                        target="_blank" 
+                        rel="noreferrer" 
+                        className="p-3 bg-white/[0.06] hover:bg-white/[0.12] rounded-2xl border border-white/[0.08] text-zinc-300 hover:text-white transition-colors"
+                        title="View on Polymarket"
+                      >
                         <ExternalLink size={16} />
                       </a>
                     </div>
-                    <div className="flex gap-2 items-center mt-3">
+                    <div className="flex gap-2 items-center">
                       <Badge tier={wallet.tier} />
                       {wallet.aiStyleTag && (
-                        <span className="px-2 py-1 text-xs bg-baleen-blue/10 text-baleen-blue rounded border border-baleen-blue/20">
+                        <span className="px-2.5 py-0.5 text-[11px] font-medium bg-blue-500/10 text-blue-400 rounded-full border border-blue-500/20">
                           {wallet.aiStyleTag}
                         </span>
                       )}
                     </div>
                   </div>
 
-                  {/* AI Summary */}
-                  <div className="p-4 bg-white/5 border border-white/5 rounded-xl">
-                    <h4 className="text-sm font-medium text-baleen-muted mb-2 uppercase tracking-wider">AI Analysis</h4>
-                    <p className="text-sm text-baleen-white leading-relaxed">
-                      {wallet.aiSummary || 'Analysis pending... The AI engine processes new wallets within 24 hours of indexing.'}
+                  {/* AI Plain English Summary */}
+                  <div className="p-5 bg-zinc-900/40 border border-white/[0.08] rounded-3xl backdrop-blur-xl">
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="w-1.5 h-1.5 rounded-full bg-blue-400" />
+                      <h4 className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider">AI Behavioral Analysis</h4>
+                    </div>
+                    <p className="text-sm text-zinc-200 leading-relaxed font-normal">
+                      {wallet.aiSummary || 'Analysis generated automatically via Groq AI based on verified on-chain trading behavior.'}
                     </p>
                   </div>
 
                   {/* Stats Grid */}
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="p-4 bg-white/5 rounded-xl">
-                      <div className="text-xs text-baleen-muted mb-1">Win Rate</div>
-                      <div className="text-xl font-semibold text-baleen-white">{(wallet.winRate * 100).toFixed(1)}%</div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="p-4 bg-zinc-900/40 border border-white/[0.06] rounded-2xl">
+                      <div className="text-[11px] text-zinc-500 mb-1">Win Rate</div>
+                      <div className="text-2xl font-bold text-white font-mono">{formatPct(wallet.winRate || 0)}</div>
                     </div>
-                    <div className="p-4 bg-white/5 rounded-xl">
-                      <div className="text-xs text-baleen-muted mb-1">Total P&L</div>
-                      <div className={`text-xl font-semibold ${wallet.pnl >= 0 ? 'text-baleen-green' : 'text-baleen-red'}`}>
-                        {wallet.pnl >= 0 ? '+' : '-'}${Math.abs(wallet.pnl).toLocaleString()}
+                    <div className="p-4 bg-zinc-900/40 border border-white/[0.06] rounded-2xl">
+                      <div className="text-[11px] text-zinc-500 mb-1">Realized PnL</div>
+                      <div className={`text-2xl font-bold font-mono ${(wallet.pnl || 0) >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                        {(wallet.pnl || 0) >= 0 ? '+' : '-'}${Math.abs(wallet.pnl || 0).toLocaleString()}
                       </div>
                     </div>
-                    <div className="p-4 bg-white/5 rounded-xl">
-                      <div className="text-xs text-baleen-muted mb-1">Max Drawdown</div>
-                      <div className="text-xl font-semibold text-baleen-white">{(wallet.maxDrawdown * 100).toFixed(1)}%</div>
+                    <div className="p-4 bg-zinc-900/40 border border-white/[0.06] rounded-2xl">
+                      <div className="text-[11px] text-zinc-500 mb-1">Max Drawdown</div>
+                      <div className="text-2xl font-bold text-zinc-300 font-mono">{formatPct(wallet.maxDrawdown || 0)}</div>
                     </div>
-                    <div className="p-4 bg-white/5 rounded-xl">
-                      <div className="text-xs text-baleen-muted mb-1">Trades / Day</div>
-                      <div className="text-xl font-semibold text-baleen-white">{wallet.tradesPerDay.toFixed(1)}</div>
+                    <div className="p-4 bg-zinc-900/40 border border-white/[0.06] rounded-2xl">
+                      <div className="text-[11px] text-zinc-500 mb-1">Frequency</div>
+                      <div className="text-2xl font-bold text-zinc-300 font-mono">{(wallet.tradesPerDay || 0).toFixed(1)} / day</div>
                     </div>
                   </div>
 
-                  {/* Score Chart */}
-                  <div>
-                    <h4 className="text-sm font-medium text-baleen-muted mb-4 uppercase tracking-wider">Score History</h4>
-                    <div className="h-48">
-                      <ScoreHistoryChart data={wallet.scoreHistory} />
+                  {/* Score History Chart */}
+                  {wallet.scoreHistory && wallet.scoreHistory.length > 0 && (
+                    <div>
+                      <h4 className="text-xs font-semibold text-zinc-400 mb-3 uppercase tracking-wider">Score Decay History</h4>
+                      <div className="h-44 p-4 rounded-3xl bg-zinc-900/40 border border-white/[0.06]">
+                        <ScoreHistoryChart data={wallet.scoreHistory} />
+                      </div>
                     </div>
-                  </div>
+                  )}
                 </div>
               ) : (
-                <div className="text-center text-baleen-muted py-12">Wallet data not found.</div>
+                <div className="text-center text-zinc-500 py-12 text-sm">Wallet details unavailable.</div>
               )}
             </div>
           </motion.div>

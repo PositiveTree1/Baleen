@@ -7,27 +7,35 @@ interface BadgeProps {
 
 export function Badge({ tier, className = '' }: BadgeProps) {
   let colors = '';
-  let label = tier;
+  let label = tier || 'Standard';
 
   switch (tier) {
     case 'gold_sniper':
-      colors = 'bg-baleen-green/10 text-baleen-green border-baleen-green/50 shadow-[0_0_10px_rgba(16,185,129,0.3)]';
+      colors = 'bg-emerald-500/10 text-emerald-400 border-emerald-500/25';
       label = 'Gold Sniper';
       break;
     case 'standard':
-      colors = 'bg-baleen-slate text-baleen-muted border-white/10';
+      colors = 'bg-white/[0.05] text-zinc-300 border-white/10';
       label = 'Standard';
       break;
     case 'dormant':
-      colors = 'bg-amber-500/10 text-amber-500 border-amber-500/50';
+      colors = 'bg-amber-500/10 text-amber-400 border-amber-500/20';
       label = 'Dormant';
       break;
+    case 'pending':
+      colors = 'bg-amber-500/10 text-amber-300 border-amber-500/20';
+      label = 'Pending';
+      break;
+    case 'rejected':
+      colors = 'bg-rose-500/10 text-rose-400 border-rose-500/20';
+      label = 'Rejected';
+      break;
     default:
-      colors = 'bg-baleen-slate text-baleen-white border-white/10';
+      colors = 'bg-white/[0.05] text-zinc-300 border-white/10';
   }
 
   return (
-    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${colors} ${className}`}>
+    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-medium tracking-wide border ${colors} ${className}`}>
       {label}
     </span>
   );

@@ -39,7 +39,18 @@ async function main() {
 
   setInterval(() => {
     console.log(`Stats - Events: ${eventsProcessed}, Matches: ${matchesFound}, Block: ${getResumeBlock()}`);
-  }, 10000);
+    // Send heartbeat to backend
+    fetch(`${config.BACKEND_URL}/api/admin/heartbeat`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        eventsProcessed,
+        matchesFound,
+        block: getResumeBlock(),
+        timestamp: Date.now()
+      })
+    }).catch(() => {});
+  }, 15000);
 
   await streamEvents(client, startBlock, async (event) => {
     eventsProcessed++;

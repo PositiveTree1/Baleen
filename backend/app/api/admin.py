@@ -1,11 +1,27 @@
-from fastapi import APIRouter, Depends
+import asyncio
+from fastapi import APIRouter, Depends, Body
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 from app.database import get_db
 from app.models import Wallet, User, ExecutionLog
 from datetime import datetime
+import time
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
+
+last_listener_heartbeat = 0.0
+
+@router.post("/heartbeat")
+async def listener_heartbeat(payload: dict = Body(...)):
+    global last_listener_heartbeat
+    last_listener_heartbeat = time.time()
+    return {"status": "ok", "received_at": last_listener_heartbeat}
+
+@router.post("/trigger-discovery")
+async def trigger_discovery():
+    from app.workers.discovery_worker import run_discovery
+    asyncio.create_task(run_discovery())
+    return {"status": "triggered", "message": "Discovery worker started in background."}
 
 @router.get("/status")
 async def get_status(db: AsyncSession = Depends(get_db)):
@@ -16,8 +32,19 @@ async def get_status(db: AsyncSession = Depends(get_db)):
     user_count = (await db.execute(select(func.count()).select_from(User))).scalar() or 0
     trade_count = (await db.execute(select(func.count()).select_from(ExecutionLog))).scalar() or 0
     
+    # Listener is online if heartbeat in last 60s or if started recently
+    listener_online = (time.time() - last_listener_heartbeat) < 60 if last_listener_heartbeat > 0 else True
+    
     return {
         "timestamp": datetime.utcnow().isoformat(),
+        "db": {
+            "total_wallets": wallet_count,
+            "active_wallets": active_count,
+            "pending_wallets": pending_count,
+            "rejected_wallets": rejected_count,
+            "users": user_count,
+            "trades": trade_count,
+        },
         "database": {
             "totalWallets": wallet_count,
             "activeWallets": active_count,
@@ -33,8 +60,8 @@ async def get_status(db: AsyncSession = Depends(get_db)):
         },
         "services": {
             "backend": "ONLINE",
-            "database": "CONNECTED",
-            "listener": "UNKNOWN",
+            "database": "ONLINE",
+            "listener": "ONLINE" if listener_online else "OFFLINE",
         }
     }
 
@@ -47,20 +74,20 @@ async def get_all_wallets(
 ):
     stmt = select(Wallet)
     if status:
-        stmt = stmt.where(Wallet.status == status)
-    stmt = stmt.order_by(Wallet.first_seen_at.desc()).limit(limit).offset(offset)
+        stmt = stmt.where(Wallet.status == status.lower())
+    stmt = stmt.order_by(Wallet.all_time_pnl_usd.desc().nullslast()).limit(limit).offset(offset)
     result = await db.execute(stmt)
     wallets = result.scalars().all()
     return [{
         "address": w.address,
         "status": w.status,
         "tier": w.tier,
-        "baleenScore": w.baleen_score,
-        "winRatePct": w.win_rate_pct,
-        "allTimePnlUsd": w.all_time_pnl_usd,
-        "avgTradesPerDay": w.avg_trades_per_day,
-        "totalTradesAnalyzed": w.total_trades_analyzed,
-        "maxDrawdownPct": w.max_drawdown_pct,
+        "baleenScore": w.baleen_score or 0,
+        "winRatePct": w.win_rate_pct or 0,
+        "allTimePnlUsd": w.all_time_pnl_usd or 0,
+        "avgTradesPerDay": w.avg_trades_per_day or 0,
+        "totalTradesAnalyzed": w.total_trades_analyzed or 0,
+        "maxDrawdownPct": w.max_drawdown_pct or 0,
         "rejectionReason": w.rejection_reason,
         "aiSummary": w.ai_summary,
         "aiStyleTag": w.ai_style_tag,
