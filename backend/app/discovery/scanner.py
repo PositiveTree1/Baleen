@@ -108,13 +108,30 @@ async def scan_for_wallets(db: AsyncSession) -> int:
         
         candidates = {} # address -> entry metadata
         
+        # 1. Seed proven VIP Alpha Whales (from Titan battle-tested roster)
+        VIP_ALPHA_SEEDS = [
+            {"address": "0x6d9fc316c3b8377060a44b852ba664adbfd59790", "profit": 299000.0, "volume": 1800000.0, "name": "MEPP $299k Alpha"},
+            {"address": "0x63ce342161250d705dc0b16df89036c8e5f9ba9a", "profit": 2210000.0, "volume": 12500000.0, "name": "0x8dxd $2.21M Whale"},
+            {"address": "0x1cc16713196d456f86fa9c7387dd326a7f73b8df", "profit": 340000.0, "volume": 2100000.0, "name": "Wickier Alpha"},
+            {"address": "0x614dc8d3542c12103d2c6a3553fd761e391d1546", "profit": 410000.0, "volume": 2800000.0, "name": "mr.ozi Alpha"},
+            {"address": "0x7f9e2d1df78614564a70becc7fa14aa9a6623a0e", "profit": 195000.0, "volume": 1400000.0, "name": "nojnn Alpha"},
+            {"address": "0xdf17f4a8dd01a4cfa6fc3da323a2baee5f8697d1", "profit": 285000.0, "volume": 1900000.0, "name": "Clear-Corridor Alpha"},
+            {"address": "0xa675b485303a7bd2e09ff38eb76e1a4ecad77c07", "profit": 125000.0, "volume": 950000.0, "name": "Alpha Sniper 1"},
+            {"address": "0x2c335066fe58fe9237c3d3dc7b275c2a034a0563", "profit": 233233.0, "volume": 1650000.0, "name": "Alpha Sniper 2"},
+            {"address": "0x3dfb153c197d4c19d3b31c1ecd2c7b6860eeabaf", "profit": 148674.0, "volume": 1100000.0, "name": "Alpha Sniper 3"},
+            {"address": "0x04d552e8976bfe66d8b99182390a88091dfe66d8", "profit": 129401.0, "volume": 980000.0, "name": "Alpha Sniper 4"},
+        ]
+        for v in VIP_ALPHA_SEEDS:
+            candidates[v["address"].lower()] = v
+
         for entry in leaderboard_entries:
             if not isinstance(entry, dict):
                 continue
             addr = entry.get("proxyWallet") or entry.get("address") or entry.get("user")
             if addr and isinstance(addr, str) and addr.startswith("0x"):
                 addr_lower = addr.lower()
-                candidates[addr_lower] = entry
+                if addr_lower not in candidates:
+                    candidates[addr_lower] = entry
                 
         for trade in market_trades:
             if not isinstance(trade, dict):
@@ -138,8 +155,8 @@ async def scan_for_wallets(db: AsyncSession) -> int:
 
         logger.info(f"Ingested {len(candidates)} candidate whale wallets for comprehensive analysis...")
 
-        # Process candidates (up to 200 wallets per cycle)
-        for address, meta in list(candidates.items())[:200]:
+        # Process candidates (up to 250 wallets per cycle)
+        for address, meta in list(candidates.items())[:250]:
             try:
                 # 1. Fetch up to 4,000 historical trades from Polymarket API
                 trades = await client.fetch_wallet_trades(address, max_trades=4000)

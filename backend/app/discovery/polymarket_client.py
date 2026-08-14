@@ -122,6 +122,44 @@ class PolymarketClient:
             
         return all_trades
 
+    async def fetch_wallet_activity(self, address: str, max_items: int = 1000) -> List[Dict]:
+        """Pulls trade closures and redemptions from Polymarket activity endpoint."""
+        all_activity = []
+        batch_size = 500
+        offset = 0
+        while len(all_activity) < max_items:
+            url = f"{self.data_api_url}/activity"
+            data = await self._fetch_with_retry(url, params={
+                "user": address,
+                "type": "REDEEM",
+                "limit": batch_size,
+                "offset": offset,
+                "sortBy": "TIMESTAMP",
+                "sortDirection": "DESC"
+            })
+            batch = []
+            if isinstance(data, list):
+                batch = data
+            elif isinstance(data, dict):
+                batch = data.get("data") or data.get("results") or []
+            if not batch:
+                break
+            all_activity.extend(batch)
+            if len(batch) < batch_size:
+                break
+            offset += len(batch)
+            await asyncio.sleep(0.05)
+        return all_activity
+
+    async def fetch_market_trades(self, condition_id: str, limit: int = 500) -> List[Dict]:
+        url = f"{self.data_api_url}/trades"
+        data = await self._fetch_with_retry(url, params={"market": condition_id, "limit": limit})
+        if isinstance(data, list):
+            return data
+        if isinstance(data, dict):
+            return data.get("data") or data.get("results") or []
+        return []
+
     async def fetch_order_book(self, token_id: str) -> Optional[Dict]:
         url = f"{self.clob_api_url}/book"
         return await self._fetch_with_retry(url, params={"token_id": token_id})
