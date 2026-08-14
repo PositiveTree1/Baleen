@@ -94,32 +94,33 @@ def calculate_stats_from_trades_and_entry(trades: list, entry: dict = None, addr
 
 async def scan_for_wallets(db: AsyncSession) -> int:
     """
-    Scans Polymarket for top wallets, calculates stats, scores them, generates summaries,
-    and updates active basket immediately.
+    Scans Polymarket across all leaderboard windows and high-volume recent trades,
+    extracts candidate whale addresses, fetches up to 4,000 historical trades,
+    computes rigorous quantitative metrics, and updates active basket.
     """
     client = PolymarketClient()
     processed_count = 0
     
     try:
-        logger.info("Fetching Polymarket leaderboard and active trades...")
-        leaderboard = await client.fetch_leaderboard(limit=100)
-        recent_trades = await client.fetch_recent_trades(limit=500)
+        logger.info("Ingesting Polymarket all-window leaderboards and high-volume market trades...")
+        leaderboard_entries = await client.fetch_all_leaderboard_windows()
+        market_trades = await client.fetch_high_volume_market_trades(max_trades=3000)
         
         candidates = {} # address -> entry metadata
         
-        for entry in leaderboard:
+        for entry in leaderboard_entries:
             if not isinstance(entry, dict):
                 continue
             addr = entry.get("proxyWallet") or entry.get("address") or entry.get("user")
-            if addr and isinstance(addr, str):
+            if addr and isinstance(addr, str) and addr.startswith("0x"):
                 addr_lower = addr.lower()
                 candidates[addr_lower] = entry
                 
-        for trade in recent_trades:
+        for trade in market_trades:
             if not isinstance(trade, dict):
                 continue
-            maker = trade.get("maker_address") or trade.get("maker")
-            if maker and isinstance(maker, str):
+            maker = trade.get("maker_address") or trade.get("maker") or trade.get("user") or trade.get("taker_address")
+            if maker and isinstance(maker, str) and maker.startswith("0x"):
                 m_lower = maker.lower()
                 if m_lower not in candidates:
                     candidates[m_lower] = trade
@@ -135,12 +136,13 @@ async def scan_for_wallets(db: AsyncSession) -> int:
                     "volume": (ew.all_time_pnl_usd or 120000.0) * 8.0
                 }
 
-        logger.info(f"Analyzing {len(candidates)} candidate wallets...")
+        logger.info(f"Ingested {len(candidates)} candidate whale wallets for comprehensive analysis...")
 
-        for address, meta in list(candidates.items())[:60]: # Process top 60
+        # Process candidates (up to 200 wallets per cycle)
+        for address, meta in list(candidates.items())[:200]:
             try:
-                # 1. Fetch wallet trades
-                trades = await client.fetch_wallet_trades(address, limit=50)
+                # 1. Fetch up to 4,000 historical trades from Polymarket API
+                trades = await client.fetch_wallet_trades(address, max_trades=4000)
                 stats = calculate_stats_from_trades_and_entry(trades, meta, address=address)
                 
                 # 2. Score wallet

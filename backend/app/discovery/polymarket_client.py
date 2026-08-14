@@ -38,10 +38,32 @@ class PolymarketClient:
                 backoff *= 2
         return None
 
-    async def fetch_recent_trades(self, limit: int = 500) -> List[Dict]:
+    async def fetch_recent_trades(self, limit: int = 1000) -> List[Dict]:
         url = f"{self.data_api_url}/trades"
         data = await self._fetch_with_retry(url, params={"limit": limit})
         return data if isinstance(data, list) else []
+
+    async def fetch_high_volume_market_trades(self, max_trades: int = 3000) -> List[Dict]:
+        """Pulls large batches of recent Polymarket market trades to discover active volume whales."""
+        all_trades = []
+        batch_size = 500
+        offset = 0
+        while len(all_trades) < max_trades:
+            url = f"{self.data_api_url}/trades"
+            data = await self._fetch_with_retry(url, params={"limit": batch_size, "offset": offset})
+            batch = []
+            if isinstance(data, list):
+                batch = data
+            elif isinstance(data, dict):
+                batch = data.get("data") or data.get("results") or []
+            if not batch:
+                break
+            all_trades.extend(batch)
+            if len(batch) < batch_size:
+                break
+            offset += len(batch)
+            await asyncio.sleep(0.05)
+        return all_trades
 
     async def fetch_leaderboard(self, window: str = 'all', limit: int = 100) -> List[Dict]:
         url = f"{self.data_api_url}/v1/leaderboard"
@@ -51,6 +73,21 @@ class PolymarketClient:
         if isinstance(data, dict):
             return data.get("data") or data.get("results") or []
         return []
+
+    async def fetch_all_leaderboard_windows(self) -> List[Dict]:
+        """Fetches all-time, monthly, and weekly leaderboards to capture the entire whale landscape."""
+        windows = ['all', 'month', 'week']
+        combined = []
+        seen = set()
+        for w in windows:
+            entries = await self.fetch_leaderboard(window=w, limit=100)
+            for e in entries:
+                if isinstance(e, dict):
+                    addr = e.get("proxyWallet") or e.get("address") or e.get("user")
+                    if addr and addr.lower() not in seen:
+                        seen.add(addr.lower())
+                        combined.append(e)
+        return combined
 
     async def fetch_wallet_trades(self, address: str, max_trades: int = 4000) -> List[Dict]:
         all_trades = []
