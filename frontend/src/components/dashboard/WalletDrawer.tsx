@@ -3,11 +3,12 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useEffect, useState } from 'react';
 import { fetchWallet } from '@/lib/api-client';
 import { WalletDetail } from '@/types';
-import { X, ExternalLink, Copy, Check, Sparkles, TrendingUp, Compass, ShieldCheck } from 'lucide-react';
+import { X, ExternalLink, Copy, Check, Sparkles, TrendingUp, BarChart3, Compass, Search } from 'lucide-react';
 import { Badge } from '../ui/Badge';
 import { Skeleton } from '../ui/Skeleton';
 import { ScoreHistoryChart } from '../charts/ScoreHistoryChart';
 import { CumulativePnLChart } from '../charts/CumulativePnLChart';
+import { DailyWinLossBarChart } from '../charts/DailyWinLossBarChart';
 
 interface WalletDrawerProps {
   address: string | null;
@@ -18,7 +19,7 @@ export function WalletDrawer({ address, onClose }: WalletDrawerProps) {
   const [wallet, setWallet] = useState<WalletDetail | null>(null);
   const [loading, setLoading] = useState(false);
   const [copied, setCopied] = useState(false);
-  const [activeChartTab, setActiveChartTab] = useState<'pnl' | 'score'>('pnl');
+  const [activeChartTab, setActiveChartTab] = useState<'winloss' | 'pnl' | 'score'>('winloss');
 
   useEffect(() => {
     if (!address) return;
@@ -99,7 +100,7 @@ export function WalletDrawer({ address, onClose }: WalletDrawerProps) {
                 </div>
               ) : wallet ? (
                 <div className="space-y-7">
-                  {/* Address & Quick Links */}
+                  {/* Address & Direct Multi-Platform Links */}
                   <div>
                     <div className="flex items-center gap-2 mb-3">
                       <span className="text-xs font-mono text-slate-900 font-bold break-all bg-slate-50 p-3 rounded-2xl border border-black/[0.06] flex-1 shadow-[inset_0_1px_2px_rgba(0,0,0,0.02)]">
@@ -120,14 +121,14 @@ export function WalletDrawer({ address, onClose }: WalletDrawerProps) {
                         title="View Profile on Polymarket"
                       >
                         <Compass size={16} />
-                        <span className="hidden sm:inline">Polymarket</span>
+                        <span className="hidden sm:inline">Profile</span>
                       </a>
                       <a 
                         href={`https://polygonscan.com/address/${wallet.address}`} 
                         target="_blank" 
                         rel="noreferrer" 
                         className="p-3 bg-white hover:bg-slate-50 rounded-2xl border border-black/[0.08] text-slate-700 hover:text-slate-900 transition-colors shadow-sm inline-flex items-center gap-1 text-xs font-semibold"
-                        title="View on Polygonscan"
+                        title="View on Polygonscan Explorer"
                       >
                         <ExternalLink size={16} />
                       </a>
@@ -142,7 +143,7 @@ export function WalletDrawer({ address, onClose }: WalletDrawerProps) {
                     </div>
                   </div>
 
-                  {/* Groq AI Institutional Overview with Animated Border */}
+                  {/* Groq AI Quantitative Overview with Animated Border */}
                   <motion.div 
                     initial={{ opacity: 0, y: 8 }}
                     animate={{ opacity: 1, y: 0 }}
@@ -189,35 +190,45 @@ export function WalletDrawer({ address, onClose }: WalletDrawerProps) {
                     </div>
                   </div>
 
-                  {/* Chart Tabs: Cumulative PnL vs Baleen Score */}
+                  {/* Chart Tabs: Daily Win/Loss vs Cumulative PnL vs Baleen Score */}
                   <div>
-                    <div className="flex items-center justify-between mb-3">
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 mb-3">
                       <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
-                        <TrendingUp size={14} className="text-slate-600" />
-                        Performance Trajectory
+                        <BarChart3 size={14} className="text-slate-600" />
+                        Performance Visualizer
                       </h4>
                       <div className="flex rounded-xl bg-slate-100 p-0.5 border border-black/[0.06]">
                         <button
+                          onClick={() => setActiveChartTab('winloss')}
+                          className={`text-xs px-2.5 py-1 rounded-lg font-semibold transition-all ${
+                            activeChartTab === 'winloss' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-900'
+                          }`}
+                        >
+                          Daily Win / Loss
+                        </button>
+                        <button
                           onClick={() => setActiveChartTab('pnl')}
-                          className={`text-xs px-3 py-1 rounded-lg font-semibold transition-all ${
+                          className={`text-xs px-2.5 py-1 rounded-lg font-semibold transition-all ${
                             activeChartTab === 'pnl' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-900'
                           }`}
                         >
-                          Cumulative P&amp;L ($)
+                          Cumulative P&amp;L
                         </button>
                         <button
                           onClick={() => setActiveChartTab('score')}
-                          className={`text-xs px-3 py-1 rounded-lg font-semibold transition-all ${
+                          className={`text-xs px-2.5 py-1 rounded-lg font-semibold transition-all ${
                             activeChartTab === 'score' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-900'
                           }`}
                         >
-                          Baleen Score
+                          Score Decay
                         </button>
                       </div>
                     </div>
 
-                    <div className="h-52 p-4 rounded-3xl bg-slate-50 border border-black/[0.06] shadow-[inset_0_1px_2px_rgba(0,0,0,0.02)]">
-                      {activeChartTab === 'pnl' ? (
+                    <div className="h-56 p-4 rounded-3xl bg-slate-50 border border-black/[0.06] shadow-[inset_0_1px_2px_rgba(0,0,0,0.02)]">
+                      {activeChartTab === 'winloss' ? (
+                        <DailyWinLossBarChart data={wallet.dailyPnLHistory || []} />
+                      ) : activeChartTab === 'pnl' ? (
                         <CumulativePnLChart data={wallet.dailyPnLHistory || []} />
                       ) : (
                         <ScoreHistoryChart data={wallet.scoreHistory || []} />

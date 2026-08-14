@@ -24,17 +24,13 @@ export function BrandLogo({ size = 'md', href = '/', subtitle, className = '' }:
 
   const content = (
     <div className={`inline-flex items-center gap-2.5 group select-none ${className}`}>
-      <div className="relative flex items-center justify-center rounded-2xl bg-gradient-to-br from-slate-900 via-slate-800 to-slate-950 p-1.5 shadow-[inset_0_1px_1px_rgba(255,255,255,0.4),0_2px_8px_rgba(0,0,0,0.15)] group-hover:scale-105 transition-transform duration-200">
-        <Image 
-          src="/logo.png" 
-          alt="Baleen" 
-          width={imgSizes[size].w} 
-          height={imgSizes[size].h} 
-          className={`${imgSizes[size].cls} object-contain filter invert drop-shadow`}
-        />
-        {/* Soft cold ice cyan ambient pulse */}
-        <div className="absolute inset-0 rounded-2xl bg-cyan-400/15 filter blur-sm -z-10 group-hover:bg-cyan-400/30 transition-colors" />
-      </div>
+      <Image 
+        src="/logo.png" 
+        alt="Baleen" 
+        width={imgSizes[size].w} 
+        height={imgSizes[size].h} 
+        className={`${imgSizes[size].cls} object-contain group-hover:scale-105 transition-transform duration-200`}
+      />
 
       <div className="flex flex-col">
         <span className={`font-brand-futuristic font-black uppercase text-slate-950 ${textSizes[size]} transition-colors group-hover:text-slate-800`}>

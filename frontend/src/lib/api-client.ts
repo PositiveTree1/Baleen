@@ -47,6 +47,9 @@ export async function fetchWallet(address: string): Promise<WalletDetail | null>
       })),
       dailyPnLHistory: (data.daily_pnl_history || []).map((d: any) => ({
         date: d.date,
+        wonUsd: d.won_usd ?? Math.max(0, d.daily_pnl ?? 0),
+        lostUsd: d.lost_usd ?? (d.daily_pnl < 0 ? d.daily_pnl : 0),
+        netPnL: d.net_pnl ?? d.daily_pnl ?? 0,
         dailyPnL: d.daily_pnl ?? 0,
         cumulativePnL: d.cumulative_pnl ?? 0,
         tradesCount: d.trades_count ?? 1

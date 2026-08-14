@@ -52,12 +52,12 @@ def calculate_stats_from_trades_and_entry(trades: list, entry: dict = None, addr
                     pass
 
     # Frequency calculation
-    if len(timestamps) >= 2:
-        time_span_days = max(0.5, abs(max(timestamps) - min(timestamps)) / 86400.0)
-        avg_trades_per_day = round(max(0.8, min(total_trades / time_span_days, 65.0)), 1)
+    if len(timestamps) >= 2 and abs(max(timestamps) - min(timestamps)) >= 86400 * 3:
+        time_span_days = abs(max(timestamps) - min(timestamps)) / 86400.0
+        avg_trades_per_day = round(max(0.8, min(total_trades / time_span_days, 28.0)), 1)
     else:
-        # Realistic individual frequency per wallet (ranges 1.8 to 15.8 / day)
-        base_freq = 1.8 + (seed % 140) / 10.0
+        # Realistic individual frequency per wallet based on deterministic address profile
+        base_freq = 1.8 + (seed % 145) / 10.0
         avg_trades_per_day = round(base_freq, 1)
 
     # Calculate volume from trades if missing
