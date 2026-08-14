@@ -20,24 +20,24 @@ export function TradeLog({ userId }: { userId?: string }) {
   }, [userId]);
 
   return (
-    <div className="glass-card rounded-3xl overflow-hidden mt-6 border border-white/[0.08] shadow-apple bg-zinc-900/40 backdrop-blur-xl">
-      <div className="p-4 px-6 border-b border-white/[0.06] bg-white/[0.02] flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-white tracking-tight">Execution Audit Log</h3>
-        <span className="text-[11px] text-zinc-500 font-mono">Realized Fills</span>
+    <div className="rounded-3xl overflow-hidden mt-6 border border-black/[0.08] shadow-[inset_0_1px_0_rgba(255,255,255,1),0_2px_8px_rgba(0,0,0,0.03),0_16px_36px_-6px_rgba(0,0,0,0.05)] bg-white">
+      <div className="p-4 px-6 border-b border-black/[0.06] bg-slate-50/50 flex items-center justify-between">
+        <h3 className="text-sm font-bold text-slate-900 tracking-tight">Execution Audit Log</h3>
+        <span className="text-[11px] text-slate-500 font-mono font-semibold">Realized Fills</span>
       </div>
       <div className="overflow-x-auto">
         <table className="w-full text-left border-collapse">
           <thead>
-            <tr className="border-b border-white/[0.06] text-[10px] uppercase tracking-wider text-zinc-400 bg-zinc-950/60">
-              <th className="p-4 sm:px-6 font-medium">Timestamp</th>
-              <th className="p-4 font-medium">Prediction Market</th>
-              <th className="p-4 font-medium">Side</th>
-              <th className="p-4 font-medium text-right">Fill Price</th>
-              <th className="p-4 font-medium text-right">Notional ($)</th>
-              <th className="p-4 sm:px-6 font-medium text-right">Realized P&L</th>
+            <tr className="border-b border-black/[0.06] text-[10px] uppercase tracking-wider text-slate-500 bg-slate-50/90 font-semibold">
+              <th className="p-4 sm:px-6 font-semibold">Timestamp</th>
+              <th className="p-4 font-semibold">Prediction Market</th>
+              <th className="p-4 font-semibold">Side</th>
+              <th className="p-4 font-semibold text-right">Fill Price</th>
+              <th className="p-4 font-semibold text-right">Notional ($)</th>
+              <th className="p-4 sm:px-6 font-semibold text-right">Realized P&L</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-white/[0.03]">
+          <tbody className="divide-y divide-black/[0.04]">
             {loading ? (
               Array.from({ length: 4 }).map((_, i) => (
                 <tr key={i}>
@@ -51,40 +51,40 @@ export function TradeLog({ userId }: { userId?: string }) {
               ))
             ) : logs.length > 0 ? (
               logs.map((log) => (
-                <tr key={log.id} className="hover:bg-white/[0.03] transition-colors text-xs">
-                  <td className="p-4 sm:px-6 text-zinc-500 font-mono whitespace-nowrap">
+                <tr key={log.id} className="hover:bg-slate-50/80 transition-colors text-xs">
+                  <td className="p-4 sm:px-6 text-slate-500 font-mono whitespace-nowrap">
                     {log.timestamp ? new Date(log.timestamp).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' }) : '--'}
                   </td>
-                  <td className="p-4 text-zinc-200 truncate max-w-[240px] font-medium" title={log.marketQuestion}>
+                  <td className="p-4 text-slate-800 truncate max-w-[240px] font-semibold" title={log.marketQuestion}>
                     {log.marketQuestion || 'Polymarket Condition'}
                   </td>
                   <td className="p-4">
-                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                      log.side === 'BUY' ? 'text-emerald-400 bg-emerald-500/10' : 'text-rose-400 bg-rose-500/10'
+                    <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold border shadow-[inset_0_1px_0_rgba(255,255,255,0.8)] ${
+                      log.side === 'BUY' ? 'text-emerald-800 bg-emerald-50 border-emerald-200' : 'text-rose-800 bg-rose-50 border-rose-200'
                     }`}>
                       {log.side}
                     </span>
                   </td>
-                  <td className="p-4 text-right font-mono text-white">
+                  <td className="p-4 text-right font-mono text-slate-900 font-bold">
                     ${(log.fillPrice ?? 0).toFixed(3)}
                   </td>
-                  <td className="p-4 text-right font-mono text-zinc-300">
+                  <td className="p-4 text-right font-mono text-slate-700 font-semibold">
                     ${(log.size ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </td>
-                  <td className="p-4 sm:px-6 text-right font-mono font-medium">
+                  <td className="p-4 sm:px-6 text-right font-mono font-bold">
                     {log.pnl !== undefined && log.pnl !== null ? (
-                      <span className={log.pnl >= 0 ? 'text-emerald-400' : 'text-rose-400'}>
+                      <span className={log.pnl >= 0 ? 'text-emerald-600' : 'text-rose-600'}>
                         {log.pnl >= 0 ? '+' : '-'}${Math.abs(log.pnl).toFixed(2)}
                       </span>
                     ) : (
-                      <span className="text-zinc-600">-</span>
+                      <span className="text-slate-400">-</span>
                     )}
                   </td>
                 </tr>
               ))
             ) : (
               <tr>
-                <td colSpan={6} className="p-12 text-center text-zinc-500 text-xs">
+                <td colSpan={6} className="p-12 text-center text-slate-400 text-xs font-medium">
                   No execution logs recorded yet. Signals from basket whales will trigger auto-mirrored trades here.
                 </td>
               </tr>

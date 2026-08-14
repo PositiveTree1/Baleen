@@ -7,12 +7,12 @@ interface CardProps {
 }
 
 export function Card({ children, variant = 'default', className = '' }: CardProps) {
-  let variantClasses = 'glass-card rounded-xl p-6';
+  let variantClasses = 'glass-card rounded-2xl p-6';
   
   if (variant === 'elevated') {
-    variantClasses += ' shadow-lg';
+    variantClasses = 'skeuo-surface rounded-2xl p-6 shadow-skeuo-card';
   } else if (variant === 'interactive') {
-    variantClasses += ' transition-all hover:glow-cyan cursor-pointer';
+    variantClasses = 'glass-card glass-card-hover rounded-2xl p-6 cursor-pointer';
   }
   
   return (

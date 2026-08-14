@@ -28,35 +28,35 @@ export default function DashboardPage() {
 
   if (status === 'loading') {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#090A0F] text-zinc-400 text-sm">
+      <div className="min-h-screen flex items-center justify-center bg-[#F8F9FB] text-slate-500 text-sm">
         <div className="flex items-center gap-3">
-          <div className="w-2 h-2 rounded-full bg-white animate-ping" />
-          <span>Initializing Baleen Engine...</span>
+          <div className="w-2.5 h-2.5 rounded-full bg-slate-900 animate-ping" />
+          <span className="font-medium">Initializing Baleen Engine...</span>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#090A0F] text-white selection:bg-white selection:text-black">
+    <div className="min-h-screen flex flex-col bg-[#F8F9FB] text-slate-900 selection:bg-slate-900 selection:text-white">
       {/* Top Navigation */}
-      <nav className="flex items-center justify-between py-4 px-6 lg:px-12 border-b border-white/[0.06] bg-[#090A0F]/80 backdrop-blur-2xl sticky top-0 z-40">
+      <nav className="flex items-center justify-between py-4 px-6 lg:px-12 border-b border-black/[0.06] bg-white/80 backdrop-blur-2xl sticky top-0 z-40 shadow-[0_1px_2px_rgba(0,0,0,0.02)]">
         <div className="flex items-center gap-3">
           <Image src="/logo.png" alt="Baleen Logo" width={26} height={26} className="w-6.5 h-6.5 object-contain" />
-          <span className="font-semibold text-base tracking-tight text-white">Baleen Control</span>
+          <span className="font-bold text-base tracking-tight text-slate-900">Baleen Control</span>
         </div>
         <div className="flex items-center gap-3">
-          <div className="hidden sm:flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium text-emerald-400 bg-emerald-500/10 border border-emerald-500/20">
-            <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+          <div className="hidden sm:flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold text-emerald-800 bg-emerald-50 border border-emerald-200 shadow-[inset_0_1px_0_rgba(255,255,255,0.8)]">
+            <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
             <span>Engine Active</span>
           </div>
-          <Link href="/admin" className="text-xs font-medium text-zinc-400 hover:text-white transition-colors px-3 py-1.5 rounded-lg hover:bg-white/[0.06]">
+          <Link href="/admin" className="text-xs font-semibold text-slate-600 hover:text-slate-900 transition-colors px-3 py-1.5 rounded-xl hover:bg-black/5">
             Admin
           </Link>
-          <Link href="/settings" className="p-2 text-zinc-400 hover:text-white hover:bg-white/[0.06] rounded-xl transition-colors">
+          <Link href="/settings" className="p-2 text-slate-600 hover:text-slate-900 hover:bg-black/5 rounded-xl transition-colors">
             <Settings size={18} />
           </Link>
-          <button onClick={() => signOut()} className="p-2 text-zinc-400 hover:text-rose-400 hover:bg-rose-500/10 rounded-xl transition-colors cursor-pointer">
+          <button onClick={() => signOut()} className="p-2 text-slate-600 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-colors cursor-pointer">
             <LogOut size={18} />
           </button>
         </div>
@@ -68,9 +68,9 @@ export default function DashboardPage() {
           <BalanceCounter balance={user?.currentBalance ?? null} />
           
           <div className="flex items-center gap-3">
-            <div className="glass-card px-4 py-2.5 rounded-2xl flex items-center gap-3 border border-white/[0.08] shadow-apple-sm">
-              <span className="text-xs text-zinc-500 font-medium">Risk Regime</span>
-              <span className="text-xs font-semibold text-white px-2.5 py-0.5 rounded-full bg-white/[0.08] border border-white/[0.08]">
+            <div className="bg-white px-4 py-2.5 rounded-2xl flex items-center gap-3 border border-black/[0.08] shadow-[inset_0_1px_0_rgba(255,255,255,1),0_1px_3px_rgba(0,0,0,0.04)]">
+              <span className="text-xs text-slate-500 font-medium">Risk Regime</span>
+              <span className="text-xs font-bold text-slate-900 px-2.5 py-0.5 rounded-full bg-slate-100 border border-black/[0.06]">
                 {user?.riskProfile || 'Balanced'}
               </span>
             </div>

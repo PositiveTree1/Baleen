@@ -22,19 +22,19 @@ export function BalanceCounter({ balance }: BalanceCounterProps) {
   });
 
   return (
-    <div className="flex flex-col gap-1">
+    <div className="flex flex-col gap-1.5">
       <div className="flex items-center gap-2">
-        <span className="text-xs text-zinc-400 font-medium tracking-wide">Available Sandbox Capital</span>
-        <span className="px-2 py-0.5 rounded-full text-[10px] font-mono text-zinc-400 bg-white/[0.06] border border-white/[0.08]">
+        <span className="text-xs text-slate-500 font-semibold tracking-wide">Available Sandbox Capital</span>
+        <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold text-slate-700 bg-slate-100 border border-black/[0.06] shadow-[inset_0_1px_0_rgba(255,255,255,0.8)]">
           Paper
         </span>
       </div>
       {isClient && balance !== null && balance !== undefined ? (
-        <motion.span className="text-4xl sm:text-5xl font-bold text-white font-mono tracking-tight">
+        <motion.span className="text-4xl sm:text-5xl font-bold text-slate-900 font-mono tracking-tight">
           {displayValue}
         </motion.span>
       ) : (
-        <span className="text-4xl sm:text-5xl font-bold text-white font-mono tracking-tight opacity-40">
+        <span className="text-4xl sm:text-5xl font-bold text-slate-900 font-mono tracking-tight opacity-40">
           $10,000.00
         </span>
       )}

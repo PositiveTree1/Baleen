@@ -58,65 +58,65 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#090A0F] text-white flex items-center justify-center p-6 selection:bg-white selection:text-black">
-      <div className="w-full max-w-md p-8 rounded-3xl bg-zinc-900/40 border border-white/[0.08] shadow-apple backdrop-blur-2xl">
+    <div className="min-h-screen bg-[#F8F9FB] text-slate-900 flex items-center justify-center p-6 selection:bg-slate-900 selection:text-white">
+      <div className="w-full max-w-md p-8 rounded-3xl bg-white border border-black/[0.08] shadow-[inset_0_1px_0_rgba(255,255,255,1),0_4px_16px_rgba(0,0,0,0.04),0_24px_48px_-12px_rgba(0,0,0,0.08)]">
         <div className="text-center mb-8">
-          <h1 className="text-2xl font-bold tracking-tight text-white mb-1.5">Sign in to Baleen</h1>
-          <p className="text-zinc-400 text-xs font-normal">Access your automated whale-index dashboard</p>
+          <h1 className="text-2xl font-bold tracking-tight text-slate-900 mb-1.5">Sign in to Baleen</h1>
+          <p className="text-slate-500 text-xs font-normal">Access your automated whale-index dashboard</p>
         </div>
 
         {error && (
-          <div className="mb-5 p-3 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs text-center font-medium">
+          <div className="mb-5 p-3 rounded-2xl bg-rose-50 border border-rose-200 text-rose-700 text-xs text-center font-semibold shadow-[inset_0_1px_0_rgba(255,255,255,0.8)]">
             {error}
           </div>
         )}
 
         <form onSubmit={handleSubmit} className="space-y-4 mb-6">
           <div>
-            <label className="block text-[11px] text-zinc-400 mb-1.5 font-medium">Email Address</label>
+            <label className="block text-[11px] text-slate-600 mb-1.5 font-semibold">Email Address</label>
             <input 
               type="email" 
               required
               value={email}
               onChange={e => setEmail(e.target.value)}
-              className="w-full bg-white/[0.04] border border-white/[0.08] rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-white/30 transition-colors"
+              className="w-full bg-slate-50 border border-black/[0.08] rounded-xl px-3.5 py-2.5 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:border-slate-500 transition-colors shadow-[inset_0_1px_2px_rgba(0,0,0,0.03)]"
               placeholder="you@domain.com"
             />
           </div>
           <div>
-            <label className="block text-[11px] text-zinc-400 mb-1.5 font-medium">Password</label>
+            <label className="block text-[11px] text-slate-600 mb-1.5 font-semibold">Password</label>
             <input 
               type="password" 
               required
               value={password}
               onChange={e => setPassword(e.target.value)}
-              className="w-full bg-white/[0.04] border border-white/[0.08] rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-white/30 transition-colors"
+              className="w-full bg-slate-50 border border-black/[0.08] rounded-xl px-3.5 py-2.5 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:border-slate-500 transition-colors shadow-[inset_0_1px_2px_rgba(0,0,0,0.03)]"
               placeholder="••••••••"
             />
           </div>
-          <Button type="submit" className="w-full mt-3 bg-white text-zinc-950 font-semibold" disabled={loading}>
+          <Button type="submit" className="w-full mt-3 font-semibold" disabled={loading}>
             {loading ? 'Authenticating...' : 'Sign In'}
           </Button>
         </form>
 
         <div className="relative flex items-center py-4">
-          <div className="flex-grow border-t border-white/[0.06]"></div>
-          <span className="flex-shrink-0 mx-4 text-[10px] uppercase font-mono text-zinc-500">Fast Access</span>
-          <div className="flex-grow border-t border-white/[0.06]"></div>
+          <div className="flex-grow border-t border-black/[0.06]"></div>
+          <span className="flex-shrink-0 mx-4 text-[10px] uppercase font-mono text-slate-400 font-bold">Fast Access</span>
+          <div className="flex-grow border-t border-black/[0.06]"></div>
         </div>
 
         <Button 
           variant="secondary" 
-          className="w-full mb-3 text-xs"
+          className="w-full mb-3 text-xs font-semibold shadow-sm"
           onClick={handleGuestLogin}
           disabled={loading}
         >
           Explore as Guest (Instant Demo)
         </Button>
 
-        <p className="text-center text-xs text-zinc-500 mt-6">
+        <p className="text-center text-xs text-slate-500 mt-6">
           Don&apos;t have an account?{' '}
-          <Link href="/auth/signup" className="text-white hover:underline font-medium">
+          <Link href="/auth/signup" className="text-slate-900 hover:underline font-bold">
             Create Free Sandbox
           </Link>
         </p>

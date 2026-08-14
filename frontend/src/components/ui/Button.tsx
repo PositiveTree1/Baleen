@@ -8,15 +8,15 @@ interface ButtonProps extends HTMLMotionProps<'button'> {
 }
 
 export function Button({ variant = 'primary', children, className = '', ...props }: ButtonProps) {
-  const baseClasses = 'px-4 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 focus:outline-none disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer flex items-center justify-center gap-2';
+  const baseClasses = 'px-4 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 focus:outline-none disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer flex items-center justify-center gap-2 select-none active:scale-[0.98]';
   let variantClasses = '';
   
   if (variant === 'primary') {
-    variantClasses = 'bg-white text-zinc-950 font-semibold hover:bg-zinc-200 shadow-sm hover:shadow-apple-glow active:scale-[0.98]';
+    variantClasses = 'bg-[#0F172A] hover:bg-[#1E293B] text-white font-semibold border border-black/20 shadow-[inset_0_1px_0_rgba(255,255,255,0.2),0_2px_6px_rgba(0,0,0,0.12),0_8px_16px_-4px_rgba(0,0,0,0.08)]';
   } else if (variant === 'secondary') {
-    variantClasses = 'bg-white/[0.06] text-white border border-white/10 hover:bg-white/[0.12] hover:border-white/20 active:scale-[0.98]';
+    variantClasses = 'bg-white hover:bg-zinc-50 text-zinc-900 border border-black/[0.12] shadow-[inset_0_1px_0_rgba(255,255,255,1),0_1px_3px_rgba(0,0,0,0.06),0_4px_8px_-2px_rgba(0,0,0,0.03)]';
   } else if (variant === 'danger') {
-    variantClasses = 'bg-rose-500/15 text-rose-400 border border-rose-500/25 hover:bg-rose-500/25 hover:border-rose-500/40 active:scale-[0.98]';
+    variantClasses = 'bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 shadow-[inset_0_1px_0_rgba(255,255,255,0.8),0_1px_2px_rgba(225,29,72,0.06)]';
   }
   
   return (

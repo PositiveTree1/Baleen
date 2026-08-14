@@ -8,8 +8,8 @@ interface ScoreHistoryChartProps {
 export function ScoreHistoryChart({ data }: ScoreHistoryChartProps) {
   if (!data || data.length === 0) {
     return (
-      <div className="w-full h-full flex items-center justify-center bg-white/5 rounded-lg border border-white/5">
-        <span className="text-sm text-baleen-muted">No history yet</span>
+      <div className="w-full h-full flex items-center justify-center bg-zinc-50 rounded-2xl border border-black/[0.06]">
+        <span className="text-xs text-zinc-400 font-medium">No score history recorded yet</span>
       </div>
     );
   }
@@ -17,36 +17,42 @@ export function ScoreHistoryChart({ data }: ScoreHistoryChartProps) {
   return (
     <div className="w-full h-full text-xs">
       <ResponsiveContainer width="100%" height="100%">
-        <LineChart data={data} margin={{ top: 5, right: 0, left: -20, bottom: 0 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
+        <LineChart data={data} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
+          <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.06)" vertical={false} />
           <XAxis 
             dataKey="date" 
-            stroke="#9CA3AF" 
-            tick={{ fill: '#9CA3AF' }}
+            stroke="#94A3B8" 
+            tick={{ fill: '#64748B', fontSize: 11 }}
             tickLine={false}
             axisLine={false}
             tickFormatter={(val) => new Date(val).toLocaleDateString([], { month: 'short', day: 'numeric' })}
           />
           <YAxis 
-            stroke="#9CA3AF" 
-            tick={{ fill: '#9CA3AF' }}
+            stroke="#94A3B8" 
+            tick={{ fill: '#64748B', fontSize: 11 }}
             tickLine={false}
             axisLine={false}
-            domain={['dataMin - 10', 'dataMax + 10']}
+            domain={['dataMin - 5', 'dataMax + 5']}
           />
           <Tooltip 
-            contentStyle={{ backgroundColor: '#161B22', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px' }}
-            itemStyle={{ color: '#00F2FE' }}
-            labelStyle={{ color: '#9CA3AF', marginBottom: '4px' }}
+            contentStyle={{ 
+              backgroundColor: '#FFFFFF', 
+              border: '1px solid rgba(0,0,0,0.1)', 
+              borderRadius: '16px',
+              boxShadow: '0 10px 25px -3px rgba(0, 0, 0, 0.08)',
+              padding: '8px 12px'
+            }}
+            itemStyle={{ color: '#0F172A', fontWeight: 600 }}
+            labelStyle={{ color: '#64748B', marginBottom: '2px', fontSize: '11px' }}
             labelFormatter={(val) => new Date(String(val)).toLocaleDateString()}
           />
           <Line 
             type="monotone" 
             dataKey="score" 
-            stroke="#00F2FE" 
-            strokeWidth={2}
-            dot={false}
-            activeDot={{ r: 4, fill: '#00F2FE', stroke: '#161B22', strokeWidth: 2 }}
+            stroke="#2563EB" 
+            strokeWidth={2.5}
+            dot={{ r: 3, fill: '#2563EB', stroke: '#FFFFFF', strokeWidth: 2 }}
+            activeDot={{ r: 5, fill: '#2563EB', stroke: '#FFFFFF', strokeWidth: 2 }}
             isAnimationActive={true}
           />
         </LineChart>
