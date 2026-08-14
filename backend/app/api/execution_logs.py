@@ -5,7 +5,7 @@ from typing import Optional
 from datetime import datetime
 from app.database import get_db
 from app.models import ExecutionLog
-from app.services.mark_to_market import get_live_price, get_consensus_info
+from app.services.mark_to_market import get_live_price, get_consensus
 
 router = APIRouter(prefix="/api/executions", tags=["execution_logs"])
 
@@ -38,9 +38,10 @@ async def get_execution_logs(
     
     def execution_log_to_response(log) -> dict:
         cid = log.market_condition_id or ""
+        outc = log.resolution_outcome or "Yes"
         fill_p = float(log.user_fill_price or log.whale_entry_price or 0.5)
-        cur_p = get_live_price(cid, fill_p)
-        consensus = get_consensus_info(cid)
+        cur_p = get_live_price(cid, outcome=outc, fallback=fill_p)
+        consensus = get_consensus(cid)
         
         # Calculate dynamic PnL
         notional = float(log.notional_usd or 0.0)

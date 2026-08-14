@@ -62,16 +62,18 @@ class MarkToMarketService:
                         "is_consensus": len(w_set) >= 2
                     }
 
-                # 2. Fetch live prices for distinct active condition IDs
-                cids_to_price = list(set(log.market_condition_id for log in recent_logs if log.market_condition_id))
-                for cid in cids_to_price[:20]:
+                # 2. Fetch live prices for distinct (condition_id, outcome) pairs
+                pairs_to_price = list(set((log.market_condition_id, log.resolution_outcome or "Yes") for log in recent_logs if log.market_condition_id))
+                for cid, outc in pairs_to_price[:25]:
+                    cache_key = f"{cid}:{outc.lower()}"
                     try:
-                        live_p = await client.fetch_live_token_price(condition_id=cid)
-                        if live_p is not None and 0.01 <= live_p <= 0.99:
+                        live_p = await client.fetch_live_token_price(condition_id=cid, outcome=outc)
+                        if live_p is not None and 0.005 <= live_p <= 0.995:
+                            _live_price_cache[cache_key] = {"price": live_p, "ts": time.time()}
                             _live_price_cache[cid] = {"price": live_p, "ts": time.time()}
                     except Exception:
                         pass
-                    await asyncio.sleep(0.05)
+                    await asyncio.sleep(0.04)
 
                 # 3. Update PnL on user logs and update sandbox balances
                 stmt_users = select(User)
@@ -87,7 +89,9 @@ class MarkToMarketService:
                     total_pnl = 0.0
                     for ulog in user_logs:
                         cid = ulog.market_condition_id
-                        cached = _live_price_cache.get(cid)
+                        outc = ulog.resolution_outcome or "Yes"
+                        cache_key = f"{cid}:{outc.lower()}"
+                        cached = _live_price_cache.get(cache_key) or _live_price_cache.get(cid)
                         fill_p = float(ulog.user_fill_price or ulog.whale_entry_price or 0.5)
                         notional = float(ulog.notional_usd or 0.0)
 
@@ -114,9 +118,10 @@ class MarkToMarketService:
 
 mark_to_market_service = MarkToMarketService()
 
-def get_live_price(cid: str, fallback: float = 0.5) -> float:
-    entry = _live_price_cache.get(cid)
+def get_live_price(cid: str, outcome: str = "Yes", fallback: float = 0.5) -> float:
+    cache_key = f"{cid}:{outcome.lower()}"
+    entry = _live_price_cache.get(cache_key) or _live_price_cache.get(cid)
     return entry["price"] if entry else fallback
 
-def get_consensus_info(cid: str) -> dict:
+def get_consensus(cid: str) -> dict:
     return _consensus_cache.get(cid, {"whale_count": 1, "total_cash": 0.0, "is_consensus": False})

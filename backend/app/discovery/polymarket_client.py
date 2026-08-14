@@ -238,8 +238,9 @@ class PolymarketClient:
         return all_activity
 
     async def fetch_order_book(self, token_id: str) -> Optional[Dict]:
+        dec_tok = _to_decimal_token(token_id)
         url = f"{self.clob_api_url}/book"
-        return await self._fetch_with_retry(url, params={"token_id": token_id})
+        return await self._fetch_with_retry(url, params={"token_id": dec_tok})
 
     async def fetch_market_info(self, condition_id: str) -> Optional[Dict]:
         url = f"{self.gamma_api_url}/markets"
@@ -250,51 +251,136 @@ class PolymarketClient:
             return data
         return None
 
-    async def fetch_live_token_price(self, condition_id: str = "", asset: str = "", outcome: str = "Yes") -> Optional[float]:
+    async def fetch_live_token_price(
+        self,
+        condition_id: str = "",
+        asset: str = "",
+        outcome: str = "Yes",
+        slug: str = "",
+        event_slug: str = ""
+    ) -> Optional[float]:
         """
-        Titan Price Engine: Resolves live mark-to-market prices directly from CLOB / Gamma.
+        Titan Full Price Engine: Resolves live mark-to-market prices directly using Titan's multi-stage strategy.
+        Handles binary Yes/No markets, multi-candidate markets, and nested multi-event containers.
         """
         import json
-        
-        # 1. Direct CLOB midpoint if asset (token ID) is provided
-        if asset:
+        dec_asset = _to_decimal_token(asset) if asset else ""
+
+        # ── Stage 1: CLOB Midpoint by Token ID (Fastest direct orderbook price) ──
+        if dec_asset:
             try:
-                mid_data = await self._fetch_with_retry(f"{self.clob_api_url}/midpoint", params={"token_id": asset})
+                mid_data = await self._fetch_with_retry(f"{self.clob_api_url}/midpoint", params={"token_id": dec_asset})
                 if isinstance(mid_data, dict) and "mid" in mid_data:
                     mid = float(mid_data["mid"])
-                    if 0.01 <= mid <= 0.99:
-                        return mid
+                    if 0.005 <= mid <= 0.995:
+                        return round(mid, 4)
             except Exception:
                 pass
 
-        # 2. Gamma market lookup
+        # ── Stage 2: CLOB Orderbook Best Bid/Ask ──
+        if dec_asset:
+            try:
+                book = await self.fetch_order_book(dec_asset)
+                if isinstance(book, dict):
+                    bids = book.get("bids", [])
+                    asks = book.get("asks", [])
+                    best_bid = float(bids[0].get("price", 0)) if bids else 0.0
+                    best_ask = float(asks[0].get("price", 1)) if asks else 1.0
+                    if 0 < best_bid < best_ask < 1:
+                        return round((best_bid + best_ask) / 2.0, 4)
+            except Exception:
+                pass
+
+        # ── Stage 3: Gamma Market lookup (by clob_token_ids, slug, or condition_id) ──
         market_payload = None
-        if asset:
-            data = await self._fetch_with_retry(f"{self.gamma_api_url}/markets", params={"clob_token_ids": asset, "limit": 1})
+
+        # 3a. Gamma by clob_token_ids
+        if dec_asset:
+            data = await self._fetch_with_retry(f"{self.gamma_api_url}/markets", params={"clob_token_ids": dec_asset, "limit": 1})
             if isinstance(data, list) and data:
                 market_payload = data[0]
-        
+
+        # 3b. Gamma by slug
+        if not market_payload and slug:
+            data = await self._fetch_with_retry(f"{self.gamma_api_url}/markets", params={"slug": slug, "limit": 1})
+            if isinstance(data, list) and data:
+                market_payload = data[0]
+
+        # 3c. Gamma by event_slug (Multi-event container resolution)
+        if not market_payload and event_slug:
+            event_data = await self._fetch_with_retry(f"{self.gamma_api_url}/events", params={"slug": event_slug, "limit": 1})
+            if isinstance(event_data, list) and event_data:
+                submarkets = event_data[0].get("markets", [])
+                for sm in submarkets:
+                    sm_cid = str(sm.get("conditionId") or sm.get("condition_id") or "").lower()
+                    sm_tokens = sm.get("clobTokenIds") or sm.get("clob_token_ids") or []
+                    if isinstance(sm_tokens, str):
+                        try:
+                            sm_tokens = json.loads(sm_tokens)
+                        except Exception:
+                            sm_tokens = []
+                    sm_tokens = [_to_decimal_token(str(t)) for t in sm_tokens]
+                    if (condition_id and sm_cid == condition_id.lower()) or (dec_asset and dec_asset in sm_tokens):
+                        market_payload = sm
+                        break
+
+        # 3d. Gamma by condition_id
         if not market_payload and condition_id:
             data = await self._fetch_with_retry(f"{self.gamma_api_url}/markets", params={"condition_id": condition_id, "limit": 1})
             if isinstance(data, list) and data:
                 market_payload = data[0]
 
-        if market_payload:
+        # Process Gamma market payload
+        if market_payload and isinstance(market_payload, dict):
             try:
                 raw_prices = market_payload.get("outcomePrices") or "[]"
                 prices = json.loads(raw_prices) if isinstance(raw_prices, str) else list(raw_prices)
                 prices = [float(p) for p in prices]
-                
+
+                raw_tokens = market_payload.get("clobTokenIds") or market_payload.get("clob_token_ids") or "[]"
+                tokens = json.loads(raw_tokens) if isinstance(raw_tokens, str) else list(raw_tokens)
+                tokens = [_to_decimal_token(str(t)) for t in tokens]
+
                 raw_outcomes = market_payload.get("outcomes") or "[]"
                 outcomes = json.loads(raw_outcomes) if isinstance(raw_outcomes, str) else list(raw_outcomes)
-                
-                if outcome and outcomes and outcome.lower() in [o.lower() for o in outcomes]:
+
+                # Priority 1: Match by token ID (Asset match)
+                if dec_asset and tokens:
+                    for idx, tok in enumerate(tokens):
+                        if tok == dec_asset and idx < len(prices):
+                            return round(prices[idx], 4)
+
+                # Priority 2: Exact outcome label match
+                if outcome and outcomes:
                     for idx, o in enumerate(outcomes):
-                        if o.lower() == outcome.lower() and idx < len(prices):
-                            return prices[idx]
-                
-                if prices:
-                    return prices[0] if outcome.lower() in ["yes", "buy"] else (prices[1] if len(prices) > 1 else prices[0])
+                        if str(o).strip().lower() == outcome.strip().lower() and idx < len(prices):
+                            return round(prices[idx], 4)
+
+                # Priority 3: Binary Yes/No fallback
+                if outcome.strip().lower() in ("yes", "buy", "true", "1") and len(prices) >= 1:
+                    return round(prices[0], 4)
+                elif outcome.strip().lower() in ("no", "sell", "false", "0") and len(prices) >= 2:
+                    return round(prices[1], 4)
+                elif prices:
+                    return round(prices[0], 4)
+            except Exception:
+                pass
+
+        # ── Stage 4: Data API /trades fallback (DIRECT MATCH ONLY) ──
+        if condition_id:
+            try:
+                trades_data = await self._fetch_with_retry(f"{self.data_api_url}/trades", params={"conditionId": condition_id, "limit": 20})
+                if isinstance(trades_data, list):
+                    our_lower = outcome.lower().strip()
+                    for t in trades_data:
+                        t_price = float(t.get("price") or 0)
+                        t_outcome = (t.get("outcome") or "").lower().strip()
+                        t_asset = _to_decimal_token(t.get("asset") or "")
+                        if 0.005 <= t_price <= 0.995:
+                            if dec_asset and t_asset == dec_asset:
+                                return round(t_price, 4)
+                            if t_outcome and our_lower and t_outcome == our_lower:
+                                return round(t_price, 4)
             except Exception:
                 pass
 
