@@ -101,6 +101,23 @@ export default function AdminPage() {
     return val === 'ONLINE' || val === 'CONNECTED';
   };
 
+  const formatUptime = (seconds: number) => {
+    if (!seconds) return '0s';
+    const h = Math.floor(seconds / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
+    const s = Math.floor(seconds % 60);
+    if (h > 0) return `${h}h ${m}m ${s}s`;
+    if (m > 0) return `${m}m ${s}s`;
+    return `${s}s`;
+  };
+
+  const formatCronTime = (timestamp: number | null) => {
+    if (!timestamp) return 'Waiting for first ping...';
+    const secondsAgo = Math.floor(Date.now() / 1000 - timestamp);
+    if (secondsAgo < 60) return 'Just now';
+    return `${Math.floor(secondsAgo / 60)}m ago`;
+  };
+
   return (
     <div className="min-h-screen bg-[#F8F9FB] text-slate-900 p-6 lg:p-12 selection:bg-slate-900 selection:text-white">
       <div className="max-w-7xl mx-auto">
@@ -203,19 +220,19 @@ export default function AdminPage() {
               <div className="space-y-3 text-xs">
                 <div className="flex justify-between">
                   <span className="text-slate-600 font-medium">Total Wallets Discovered</span>
-                  <span className="text-slate-900 font-mono font-bold">{status?.db?.total_wallets ?? status?.database?.totalWallets ?? wallets.length}</span>
+                  <span className="text-slate-900 font-mono font-bold">{status?.db_stats?.total ?? wallets.length}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-slate-600 font-medium">Active (In Basket)</span>
-                  <span className="text-emerald-600 font-mono font-bold">{status?.db?.active_wallets ?? status?.database?.activeWallets ?? 0}</span>
+                  <span className="text-emerald-600 font-mono font-bold">{status?.db_stats?.active ?? 0}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-slate-600 font-medium">Pending Analysis</span>
-                  <span className="text-amber-600 font-mono font-bold">{status?.db?.pending_wallets ?? status?.database?.pendingWallets ?? 0}</span>
+                  <span className="text-amber-600 font-mono font-bold">{status?.db_stats?.pending ?? 0}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-slate-600 font-medium">Rejected (Filter Failed)</span>
-                  <span className="text-rose-600 font-mono font-bold">{status?.db?.rejected_wallets ?? status?.database?.rejectedWallets ?? 0}</span>
+                  <span className="text-rose-600 font-mono font-bold">{status?.db_stats?.rejected ?? 0}</span>
                 </div>
                 <div className="border-t border-black/[0.06] my-2 pt-2 flex justify-between">
                   <span className="text-slate-600 font-medium">Registered Users</span>
@@ -248,13 +265,15 @@ export default function AdminPage() {
                 </span>
               </div>
               <div className="flex items-center justify-between p-3 rounded-2xl bg-slate-50 border border-black/[0.04] shadow-[inset_0_1px_2px_rgba(0,0,0,0.02)]">
-                <span className="text-slate-800 font-semibold">Envio Signal Listener</span>
-                <span className={`inline-flex items-center gap-1.5 text-[11px] font-mono font-bold px-2.5 py-0.5 rounded-full border shadow-[inset_0_1px_0_rgba(255,255,255,0.8)] ${
-                  isServiceOnline(status?.services?.listener || 'ONLINE')
-                    ? 'text-emerald-800 bg-emerald-50 border-emerald-200'
-                    : 'text-amber-800 bg-amber-50 border-amber-200'
-                }`}>
-                  <CheckCircle size={12} /> {status?.services?.listener || 'ONLINE'}
+                <span className="text-slate-800 font-semibold">Server Uptime</span>
+                <span className="inline-flex items-center gap-1.5 text-[11px] font-mono font-bold text-slate-700 bg-white px-2.5 py-0.5 rounded-full border shadow-[inset_0_1px_0_rgba(255,255,255,0.8)]">
+                  {formatUptime(status?.uptime_seconds || 0)}
+                </span>
+              </div>
+              <div className="flex items-center justify-between p-3 rounded-2xl bg-slate-50 border border-black/[0.04] shadow-[inset_0_1px_2px_rgba(0,0,0,0.02)]">
+                <span className="text-slate-800 font-semibold">Keep-Alive Cron Ping</span>
+                <span className="inline-flex items-center gap-1.5 text-[11px] font-mono font-bold text-slate-700 bg-white px-2.5 py-0.5 rounded-full border shadow-[inset_0_1px_0_rgba(255,255,255,0.8)]">
+                  {formatCronTime(status?.last_cron_ping)}
                 </span>
               </div>
             </div>

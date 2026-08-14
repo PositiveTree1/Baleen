@@ -23,6 +23,30 @@ async def trigger_discovery():
     asyncio.create_task(run_discovery())
     return {"status": "triggered", "message": "Discovery worker started in background."}
 
+@router.get("/status")
+async def get_admin_status(db: AsyncSession = Depends(get_db)):
+    """Returns real-time progress and server health metrics."""
+    from app.discovery.scanner import discovery_state
+    from app.main import server_start_time, last_cron_ping_time
+    
+    # DB stats
+    total_wallets = (await db.execute(select(func.count()).select_from(Wallet))).scalar() or 0
+    pending_wallets = (await db.execute(select(func.count()).select_from(Wallet).where(Wallet.status == 'pending'))).scalar() or 0
+    active_wallets = (await db.execute(select(func.count()).select_from(Wallet).where(Wallet.status == 'active'))).scalar() or 0
+    rejected_wallets = (await db.execute(select(func.count()).select_from(Wallet).where(Wallet.status == 'rejected'))).scalar() or 0
+    
+    return {
+        "uptime_seconds": time.time() - server_start_time,
+        "last_cron_ping": last_cron_ping_time,
+        "discovery_state": discovery_state,
+        "db_stats": {
+            "total": total_wallets,
+            "pending": pending_wallets,
+            "active": active_wallets,
+            "rejected": rejected_wallets
+        }
+    }
+
 @router.get("/discovery-progress")
 async def get_discovery_progress():
     """Returns real-time progress of Polymarket scraping & scoring pipeline."""
