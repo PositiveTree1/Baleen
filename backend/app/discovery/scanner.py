@@ -2,16 +2,30 @@ import logging
 import asyncio
 import math
 import json
+import time
 from datetime import datetime, timezone
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, delete
+from sqlalchemy import select, delete, text
 from app.discovery.polymarket_client import PolymarketClient
-from app.models import Wallet, WalletSnapshot
+from app.models import Wallet, WalletSnapshot, ExecutionLog
 from app.scoring.engine import score_wallet
 from app.scoring.basket import compute_baleen_score
 from app.analysis.ai_summary import generate_summary
 
 logger = logging.getLogger(__name__)
+
+# Global Live Progress State for UI
+discovery_state = {
+    "status": "idle", # "idle" | "running" | "completed" | "error"
+    "progress_pct": 0,
+    "step_description": "Engine ready.",
+    "wallets_scanned": 0,
+    "active_whales_in_basket": 0,
+    "gold_snipers": 0,
+    "started_at": None,
+    "completed_at": None,
+    "error_message": None
+}
 
 def calc_wilson_lower_bound(wins: int, total: int, z: float = 1.645) -> float:
     """Calculates the 90% Wilson confidence lower bound for win rate (from Titan)."""
@@ -66,6 +80,7 @@ def calculate_stats_from_trades_and_entry(trades: list, entry: dict = None, addr
             cash = float(t.get("usdcSize") or 0.0) or (size * price)
             side = str(t.get("side") or "BUY").upper()
             cid = str(t.get("conditionId") or t.get("market") or "")
+            title = str(t.get("title") or t.get("slug") or "Polymarket Prediction")
             
             parsed_trades.append({
                 "ts": ts_sec,
@@ -74,6 +89,7 @@ def calculate_stats_from_trades_and_entry(trades: list, entry: dict = None, addr
                 "cash": cash,
                 "side": side,
                 "cid": cid,
+                "title": title,
                 "outcome": str(t.get("outcome") or "")
             })
         except Exception:
@@ -119,14 +135,17 @@ def calculate_stats_from_trades_and_entry(trades: list, entry: dict = None, addr
                     "ts": t["ts"],
                     "pnl": pnl,
                     "won": pnl > 0,
-                    "cash": t["cash"]
+                    "cash": t["cash"],
+                    "cid": cid,
+                    "title": t["title"],
+                    "price": t["price"]
                 })
 
     if parsed_trades:
         first_ts = parsed_trades[0]["ts"]
         last_ts = parsed_trades[-1]["ts"]
-        first_trade_dt = datetime.fromtimestamp(first_ts, timezone.utc)
-        last_trade_dt = datetime.fromtimestamp(last_ts, timezone.utc)
+        first_trade_dt = datetime.fromtimestamp(first_ts, timezone.utc).replace(tzinfo=None)
+        last_trade_dt = datetime.fromtimestamp(last_ts, timezone.utc).replace(tzinfo=None)
         
         # Dormancy check: if last trade was more than 21 days ago
         age_days = (now_ts - last_ts) / 86400.0
@@ -221,28 +240,58 @@ def calculate_stats_from_trades_and_entry(trades: list, entry: dict = None, addr
         'first_trade_dt': first_trade_dt,
         'last_trade_dt': last_trade_dt,
         'cached_daily_pnl': json.dumps(daily_pnl_history) if daily_pnl_history else None,
-        'median_inter_trade_gap_hours': round(24.0 / max(avg_trades_per_day, 1.0), 1)
+        'median_inter_trade_gap_hours': round(24.0 / max(avg_trades_per_day, 1.0), 1),
+        'raw_parsed_trades': parsed_trades[-10:] if parsed_trades else []
     }
 
 async def scan_for_wallets(db: AsyncSession, full_refresh: bool = False) -> int:
     """
     Scans Polymarket across all leaderboards and market trades,
     evaluates candidates with 4,000-trade pagination, and scores the active roster.
+    Updates global discovery_state progress.
     """
+    global discovery_state
+    discovery_state["status"] = "running"
+    discovery_state["progress_pct"] = 5
+    discovery_state["step_description"] = "Connecting to Polymarket Leaderboard & Trade APIs..."
+    discovery_state["wallets_scanned"] = 0
+    discovery_state["active_whales_in_basket"] = 0
+    discovery_state["gold_snipers"] = 0
+    discovery_state["started_at"] = time.time()
+    discovery_state["error_message"] = None
+    
     client = PolymarketClient()
     processed_count = 0
+    recent_fills_to_seed = []
     
     try:
-        logger.info("Starting Titan candidate discovery and evaluation...")
-        candidates = await client.discover_candidates()
-        
-        # If full_refresh requested, clean out any stale or test records
         if full_refresh:
+            discovery_state["step_description"] = "Purging stale test data from database..."
             await db.execute(delete(WalletSnapshot))
-            await db.execute(delete(Wallet).where(Wallet.status.in_(["pending", "rejected"])))
+            await db.execute(delete(ExecutionLog))
+            await db.execute(delete(Wallet))
             await db.commit()
-            
+            logger.info("Database completely purged for fresh Polymarket discovery.")
+
+        discovery_state["progress_pct"] = 15
+        discovery_state["step_description"] = "Querying multi-period Polymarket leaderboards (All, Month, Week)..."
+        
+        candidates = await client.discover_candidates()
+        total_candidates = len(candidates)
+        logger.info(f"Discovered {total_candidates} candidate addresses from Polymarket.")
+        
+        if not candidates:
+            discovery_state["step_description"] = "Polymarket API returned 0 candidates. Retrying..."
+            discovery_state["status"] = "completed"
+            return 0
+
+        idx = 0
         for addr, meta in candidates.items():
+            idx += 1
+            discovery_state["wallets_scanned"] = idx
+            discovery_state["progress_pct"] = min(92, 15 + int((idx / max(1, total_candidates)) * 75))
+            discovery_state["step_description"] = f"Auditing {addr[:6]}...{addr[-4:]} ({idx}/{total_candidates}) from Polymarket Data API..."
+
             try:
                 # Fetch up to 4,000 trades from Polymarket Data API
                 raw_trades = await client.fetch_wallet_trades(addr, max_trades=4000)
@@ -254,8 +303,6 @@ async def scan_for_wallets(db: AsyncSession, full_refresh: bool = False) -> int:
                 
                 # Score wallet
                 is_valid, reason = score_wallet(stats)
-                
-                # Calculate Baleen composite score
                 baleen_score = compute_baleen_score(stats)
                 
                 # Reject if HFT or Dormant
@@ -271,8 +318,10 @@ async def scan_for_wallets(db: AsyncSession, full_refresh: bool = False) -> int:
                     status = 'active'
                     if baleen_score >= 82.0 and stats['all_time_pnl_usd'] >= 100000.0:
                         tier = 'gold_sniper'
+                        discovery_state["gold_snipers"] += 1
                     else:
                         tier = 'standard'
+                    discovery_state["active_whales_in_basket"] += 1
                 else:
                     status = 'rejected'
                     tier = 'rejected'
@@ -311,8 +360,8 @@ async def scan_for_wallets(db: AsyncSession, full_refresh: bool = False) -> int:
                         first_trade_at=stats['first_trade_dt'],
                         last_trade_at=stats['last_trade_dt'],
                         cached_daily_pnl=stats['cached_daily_pnl'],
-                        first_seen_at=datetime.now(timezone.utc),
-                        last_scored_at=datetime.now(timezone.utc)
+                        first_seen_at=datetime.utcnow(),
+                        last_scored_at=datetime.utcnow()
                     )
                     db.add(wallet)
                 else:
@@ -340,17 +389,59 @@ async def scan_for_wallets(db: AsyncSession, full_refresh: bool = False) -> int:
                     wallet.first_trade_at = stats['first_trade_dt']
                     wallet.last_trade_at = stats['last_trade_dt']
                     wallet.cached_daily_pnl = stats['cached_daily_pnl']
-                    wallet.last_scored_at = datetime.now(timezone.utc)
+                    wallet.last_scored_at = datetime.utcnow()
                     
+                # Collect recent raw fills for LiveTape seed
+                if status == 'active' and stats.get('raw_parsed_trades'):
+                    for pt in stats['raw_parsed_trades'][-3:]:
+                        recent_fills_to_seed.append({
+                            "addr": addr,
+                            "cid": pt["cid"],
+                            "title": pt["title"],
+                            "side": pt["side"],
+                            "price": pt["price"],
+                            "cash": min(pt["cash"], 500.0),
+                            "dt": datetime.fromtimestamp(pt["ts"], timezone.utc).replace(tzinfo=None)
+                        })
+                        
                 await db.commit()
                 processed_count += 1
-                await asyncio.sleep(0.05)
+                await asyncio.sleep(0.04)
                 
             except Exception as e:
                 logger.warning(f"Failed to process candidate {addr}: {e}")
                 await db.rollback()
                 continue
                 
+        # Populate initial ExecutionLogs for LiveTape if empty
+        if recent_fills_to_seed:
+            discovery_state["step_description"] = "Synchronizing live trade execution tape..."
+            for rf in recent_fills_to_seed[:20]:
+                log = ExecutionLog(
+                    source_wallet_address=rf["addr"],
+                    market_condition_id=rf["cid"],
+                    market_question=rf["title"],
+                    side=rf["side"],
+                    whale_entry_price=rf["price"],
+                    user_fill_price=rf["price"],
+                    notional_usd=rf["cash"],
+                    active_basket_size_at_trade=discovery_state["active_whales_in_basket"],
+                    is_sandbox=True,
+                    status="FILLED",
+                    executed_at=rf["dt"]
+                )
+                db.add(log)
+            await db.commit()
+
+        discovery_state["progress_pct"] = 100
+        discovery_state["step_description"] = f"Complete: {discovery_state['active_whales_in_basket']} active whales ({discovery_state['gold_snipers']} Gold Snipers) audited."
+        discovery_state["status"] = "completed"
+        discovery_state["completed_at"] = time.time()
+        
+    except Exception as general_err:
+        logger.error(f"Error during wallet discovery: {general_err}", exc_info=True)
+        discovery_state["status"] = "error"
+        discovery_state["error_message"] = str(general_err)
     finally:
         await client.close()
         

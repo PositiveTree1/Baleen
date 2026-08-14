@@ -23,6 +23,12 @@ async def trigger_discovery():
     asyncio.create_task(run_discovery())
     return {"status": "triggered", "message": "Discovery worker started in background."}
 
+@router.get("/discovery-progress")
+async def get_discovery_progress():
+    """Returns real-time progress of Polymarket scraping & scoring pipeline."""
+    from app.discovery.scanner import discovery_state
+    return discovery_state
+
 @router.post("/re-evaluate")
 async def re_evaluate_wallets(db: AsyncSession = Depends(get_db)):
     """
@@ -45,6 +51,27 @@ async def re_evaluate_wallets(db: AsyncSession = Depends(get_db)):
         "evaluated": count,
         "active": active_count,
         "message": f"Successfully re-evaluated {count} wallets from Polymarket. {active_count} active in basket."
+    }
+
+@router.post("/purge-and-rescan")
+async def purge_and_rescan(db: AsyncSession = Depends(get_db)):
+    """
+    Hard-wipes all existing wallets and starts background discovery from scratch from Polymarket API.
+    """
+    from app.discovery.scanner import scan_for_wallets, discovery_state
+    
+    if discovery_state["status"] == "running":
+        return {"status": "running", "message": "Discovery already in progress."}
+        
+    async def _run_bg():
+        from app.database import SessionLocal
+        async with SessionLocal() as bg_db:
+            await scan_for_wallets(bg_db, full_refresh=True)
+            
+    asyncio.create_task(_run_bg())
+    return {
+        "status": "started",
+        "message": "Database purge initiated. Background Polymarket scraping & audit started."
     }
 
 @router.get("/status")

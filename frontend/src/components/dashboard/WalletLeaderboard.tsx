@@ -1,10 +1,11 @@
 'use client';
 import { useEffect, useState } from 'react';
-import { fetchWallets, reEvaluateWallets } from '@/lib/api-client';
+import { fetchWallets, reEvaluateWallets, fetchDiscoveryProgress } from '@/lib/api-client';
 import { Wallet } from '@/types';
 import { Badge } from '../ui/Badge';
 import { Skeleton } from '../ui/Skeleton';
-import { RotateCw } from 'lucide-react';
+import { RotateCw, Sparkles } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 
 interface WalletLeaderboardProps {
   onSelectWallet: (address: string) => void;
@@ -14,6 +15,7 @@ export function WalletLeaderboard({ onSelectWallet }: WalletLeaderboardProps) {
   const [wallets, setWallets] = useState<Wallet[]>([]);
   const [loading, setLoading] = useState(true);
   const [evaluating, setEvaluating] = useState(false);
+  const [progress, setProgress] = useState<any>(null);
 
   const load = async () => {
     const data = await fetchWallets();
@@ -28,11 +30,24 @@ export function WalletLeaderboard({ onSelectWallet }: WalletLeaderboardProps) {
   const handleReevaluate = async () => {
     setEvaluating(true);
     try {
-      await reEvaluateWallets();
-      await load();
+      reEvaluateWallets();
+      
+      // Poll progress every 800ms
+      const interval = setInterval(async () => {
+        const prog = await fetchDiscoveryProgress();
+        if (prog) {
+          setProgress(prog);
+          if (prog.status === 'completed' || prog.status === 'error') {
+            clearInterval(interval);
+            setTimeout(() => {
+              setEvaluating(false);
+              setProgress(null);
+              load();
+            }, 1000);
+          }
+        }
+      }, 800);
     } catch {
-      // ignore
-    } finally {
       setEvaluating(false);
     }
   };
@@ -59,6 +74,29 @@ export function WalletLeaderboard({ onSelectWallet }: WalletLeaderboardProps) {
           <span>{evaluating ? "Evaluating..." : "Re-evaluate All"}</span>
         </button>
       </div>
+
+      {/* Live Animated Progress Bar */}
+      <AnimatePresence>
+        {evaluating && progress && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            className="bg-indigo-50/80 border-b border-indigo-100 p-3 px-5 text-xs text-indigo-900"
+          >
+            <div className="flex justify-between items-center mb-1.5 font-medium">
+              <span className="truncate max-w-[280px]">{progress.step_description || 'Scanning Polymarket...'}</span>
+              <span className="font-mono font-bold">{progress.progress_pct || 0}%</span>
+            </div>
+            <div className="w-full h-1.5 bg-indigo-200/60 rounded-full overflow-hidden">
+              <div 
+                className="h-full bg-indigo-600 rounded-full transition-all duration-300"
+                style={{ width: `${progress.progress_pct || 5}%` }}
+              />
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
       
       <div className="flex-1 overflow-y-auto">
         <table className="w-full text-left border-collapse">
@@ -89,8 +127,8 @@ export function WalletLeaderboard({ onSelectWallet }: WalletLeaderboardProps) {
                     onClick={() => onSelectWallet(wallet.address)}
                     className={`transition-colors cursor-pointer group text-xs ${
                       isGold 
-                        ? 'bg-amber-50/30 hover:bg-amber-50/70 border-l-2 border-l-amber-400' 
-                        : 'hover:bg-slate-50/80 border-l-2 border-l-transparent'
+                        ? 'bg-amber-500/[0.03] hover:bg-amber-500/[0.08]' 
+                        : 'hover:bg-slate-50/80'
                     }`}
                   >
                     <td className="p-3.5 px-4 font-mono text-slate-800 font-bold group-hover:text-black transition-colors">

@@ -33,12 +33,19 @@ async def test_get_wallet_detail_and_snapshots():
         db.add(snap)
         await db.commit()
 
-    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
-        res = await ac.get(f"/api/wallets/{test_addr}")
-        assert res.status_code == 200
-        data = res.json()
-        assert data["wallet"]["address"] == test_addr
-        assert data["wallet"]["tier"] == "gold_sniper"
-        assert len(data["score_history"]) >= 1
-        assert len(data["daily_pnl_history"]) >= 1
-        assert data["wallet"]["ai_summary"] is not None
+    try:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+            res = await ac.get(f"/api/wallets/{test_addr}")
+            assert res.status_code == 200
+            data = res.json()
+            assert data["wallet"]["address"] == test_addr
+            assert data["wallet"]["tier"] == "gold_sniper"
+            assert len(data["score_history"]) >= 1
+            assert len(data["daily_pnl_history"]) >= 1
+            assert data["wallet"]["ai_summary"] is not None
+    finally:
+        async with SessionLocal() as db:
+            from sqlalchemy import delete
+            await db.execute(delete(WalletSnapshot).where(WalletSnapshot.wallet_address == test_addr))
+            await db.execute(delete(Wallet).where(Wallet.address == test_addr))
+            await db.commit()

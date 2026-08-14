@@ -223,3 +223,26 @@ export async function reEvaluateWallets(): Promise<{ status: string; evaluated?:
   }
 }
 
+export async function purgeAndRescanWallets(): Promise<{ status: string; message: string } | null> {
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/admin/purge-and-rescan`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+    });
+    if (!res.ok) return null;
+    return await res.json();
+  } catch {
+    return null;
+  }
+}
+
+export async function fetchDiscoveryProgress(): Promise<any> {
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/admin/discovery-progress`);
+    if (!res.ok) return null;
+    return await res.json();
+  } catch {
+    return null;
+  }
+}
+

@@ -33,13 +33,17 @@ class LiveTradeMirrorService:
             try:
                 await self._poll_active_whales()
             except Exception as e:
-                logger.debug(f"Error in live whale polling loop: {e}")
+                logger.error(f"Error in live whale polling loop: {e}", exc_info=True)
             await asyncio.sleep(8.0)
 
     async def _poll_active_whales(self):
         async with SessionLocal() as db:
-            # Query all active wallets in basket
-            stmt = select(Wallet).where(Wallet.status == "active")
+            # Query all active non-dormant, non-HFT wallets in basket
+            stmt = select(Wallet).where(
+                Wallet.status == "active",
+                Wallet.dormant == False,
+                Wallet.is_hft == False
+            )
             active_wallets = (await db.execute(stmt)).scalars().all()
             
             if not active_wallets:
@@ -85,15 +89,15 @@ class LiveTradeMirrorService:
                             continue
 
                         self.seen_trade_keys.add(trade_key)
-                        trade_dt = datetime.fromtimestamp(ts_sec, timezone.utc)
+                        trade_dt = datetime.fromtimestamp(ts_sec, timezone.utc).replace(tzinfo=None)
 
                         # If trade is new (occurred recently or after wallet's last recorded trade)
-                        if not w.last_trade_at or trade_dt > w.last_trade_at.replace(tzinfo=timezone.utc):
+                        if not w.last_trade_at or trade_dt > w.last_trade_at:
                             w.last_trade_at = trade_dt
                             w.dormant = False
                             new_trades.append({
                                 "cid": cid,
-                                "title": str(t.get("title") or t.get("slug") or "Polymarket Event"),
+                                "title": str(t.get("title") or t.get("slug") or "Polymarket Prediction"),
                                 "side": side,
                                 "price": price,
                                 "size": size,
@@ -143,7 +147,7 @@ class LiveTradeMirrorService:
                         await db.commit()
 
                 except Exception as w_err:
-                    logger.debug(f"Error polling live trades for {addr}: {w_err}")
+                    logger.error(f"Error polling live trades for {addr}: {w_err}", exc_info=True)
                     continue
                 
                 await asyncio.sleep(0.1)

@@ -1,12 +1,13 @@
 'use client';
 import { useState, useEffect } from 'react';
-import { fetchAdminStatus, fetchAdminWallets, reEvaluateWallets } from '@/lib/api-client';
+import { fetchAdminStatus, fetchAdminWallets, reEvaluateWallets, purgeAndRescanWallets, fetchDiscoveryProgress } from '@/lib/api-client';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { BrandLogo } from '@/components/ui/BrandLogo';
 import Link from 'next/link';
-import { ArrowLeft, Activity, Database, Users, Wallet, CheckCircle, XCircle, RefreshCw, Sparkles, Filter, RotateCw } from 'lucide-react';
+import { ArrowLeft, Activity, Database, Users, Wallet, CheckCircle, XCircle, RefreshCw, Sparkles, Filter, RotateCw, Trash2 } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 
 export default function AdminPage() {
   const [status, setStatus] = useState<any>(null);
@@ -14,6 +15,7 @@ export default function AdminPage() {
   const [loading, setLoading] = useState(true);
   const [triggering, setTriggering] = useState(false);
   const [evaluating, setEvaluating] = useState(false);
+  const [progress, setProgress] = useState<any>(null);
   const [filter, setFilter] = useState<'all' | 'active' | 'pending' | 'rejected'>('all');
   const [search, setSearch] = useState('');
 
@@ -34,6 +36,46 @@ export default function AdminPage() {
     return () => clearInterval(interval);
   }, []);
 
+  const startProgressPolling = () => {
+    const pInterval = setInterval(async () => {
+      const prog = await fetchDiscoveryProgress();
+      if (prog) {
+        setProgress(prog);
+        if (prog.status === 'completed' || prog.status === 'error') {
+          clearInterval(pInterval);
+          setTimeout(() => {
+            setEvaluating(false);
+            setProgress(null);
+            loadData();
+          }, 1000);
+        }
+      }
+    }, 800);
+  };
+
+  const handleReevaluate = async () => {
+    setEvaluating(true);
+    try {
+      reEvaluateWallets();
+      startProgressPolling();
+    } catch {
+      setEvaluating(false);
+    }
+  };
+
+  const handlePurgeAndRescan = async () => {
+    if (!confirm("Are you sure you want to PURGE all database records and start scraping Polymarket fresh from scratch?")) {
+      return;
+    }
+    setEvaluating(true);
+    try {
+      await purgeAndRescanWallets();
+      startProgressPolling();
+    } catch {
+      setEvaluating(false);
+    }
+  };
+
   const handleTriggerDiscovery = async () => {
     setTriggering(true);
     try {
@@ -45,18 +87,6 @@ export default function AdminPage() {
       }, 2000);
     } catch {
       setTriggering(false);
-    }
-  };
-
-  const handleReevaluate = async () => {
-    setEvaluating(true);
-    try {
-      await reEvaluateWallets();
-      await loadData();
-    } catch {
-      // ignore
-    } finally {
-      setEvaluating(false);
     }
   };
 
@@ -98,18 +128,61 @@ export default function AdminPage() {
               className="text-xs py-2 px-3.5 shadow-sm border-indigo-200 text-indigo-900 bg-indigo-50/50 hover:bg-indigo-100/60 font-semibold"
             >
               <RotateCw size={14} className={evaluating ? 'animate-spin text-indigo-600' : 'text-indigo-600'} /> 
-              {evaluating ? 'Re-evaluating...' : 'Re-evaluate All Wallets'}
+              {evaluating ? 'Evaluating...' : 'Re-evaluate All'}
+            </Button>
+            <Button 
+              variant="danger" 
+              onClick={handlePurgeAndRescan} 
+              disabled={evaluating}
+              className="text-xs py-2 px-3.5 shadow-sm border border-rose-200 text-rose-700 bg-rose-50 hover:bg-rose-100 font-semibold"
+            >
+              <Trash2 size={14} /> Purge & Rescan Polymarket
             </Button>
             <Button 
               variant="primary" 
               onClick={handleTriggerDiscovery} 
-              disabled={triggering}
+              disabled={triggering || evaluating}
               className="text-xs py-2 px-4 font-semibold"
             >
-              <Sparkles size={14} /> {triggering ? 'Scanning Polymarket...' : 'Run Discovery & Score Now'}
+              <Sparkles size={14} /> {triggering ? 'Scanning...' : 'Discovery Scan'}
             </Button>
           </div>
         </div>
+
+        {/* Live Discovery Progress Bar */}
+        <AnimatePresence>
+          {evaluating && progress && (
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              className="mb-8 p-5 bg-white border border-indigo-200 rounded-3xl shadow-[0_4px_20px_rgba(99,102,241,0.12)]"
+            >
+              <div className="flex justify-between items-center mb-2.5">
+                <div className="flex items-center gap-2">
+                  <RotateCw size={16} className="text-indigo-600 animate-spin" />
+                  <span className="text-sm font-bold text-slate-900">
+                    {progress.step_description || 'Scraping and auditing Polymarket wallets...'}
+                  </span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className="text-xs font-mono text-slate-500">
+                    {progress.wallets_scanned} scanned • {progress.gold_snipers} Gold Snipers
+                  </span>
+                  <span className="text-xs font-mono font-bold text-indigo-600 bg-indigo-50 px-2.5 py-0.5 rounded-full border border-indigo-200">
+                    {progress.progress_pct}%
+                  </span>
+                </div>
+              </div>
+              <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
+                <div 
+                  className="h-full bg-indigo-600 rounded-full transition-all duration-300"
+                  style={{ width: `${progress.progress_pct || 5}%` }}
+                />
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
         
         <div className="mb-10">
           <h1 className="text-3xl font-bold tracking-tight text-slate-900 mb-2 flex items-center gap-3">
