@@ -1,3 +1,5 @@
+import asyncio
+import logging
 from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
@@ -8,7 +10,6 @@ from app.api import wallets, execution_logs, users, admin
 from app.workers.discovery_worker import run_discovery
 from app.workers.scoring_worker import run_rescoring
 from app.workers.analysis_worker import run_analysis
-import logging
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -61,7 +62,7 @@ async def shutdown_event():
 
 @app.get("/health")
 async def health_check():
-    return {"status": "ok"}
+    return {"status": "ok", "service": "Baleen Backend"}
 
 @app.get("/api/stats")
 async def get_stats(db: AsyncSession = Depends(get_db)):
@@ -124,4 +125,4 @@ async def diagnostics(db: AsyncSession = Depends(get_db)):
 
 @app.get("/")
 async def root():
-    return {"message": "Welcome to Baleen API"}
+    return {"status": "ok", "service": "Baleen Backend", "message": "Welcome to Baleen API"}
