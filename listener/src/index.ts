@@ -4,23 +4,36 @@ import { createHyperSyncClient, streamEvents } from './hypersync';
 import { matchesBasketWallet } from './event-processor';
 import { enqueueSignal, postSignalToBackend } from './queue';
 
-async function fetchBasketWallets(): Promise<Set<string>> {
-  try {
-    const res = await fetch(`${config.BACKEND_URL}/api/wallets?status=active`);
-    if (res.ok) {
-      const wallets: any[] = await res.json();
-      return new Set(wallets.map(w => (w.address || w).toLowerCase()));
+async function fetchBasketWallets(retries = 5, backoffMs = 2000): Promise<Set<string>> {
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    try {
+      const url = `${config.BACKEND_URL}/api/wallets?status=active`;
+      const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
+      if (res.ok) {
+        const wallets: any[] = await res.json();
+        const set = new Set<string>(wallets.map(w => (w.address || w).toLowerCase()));
+        if (set.size > 0) {
+          return set;
+        }
+      }
+    } catch (e: any) {
+      if (attempt === retries) {
+        console.warn(`[WARN] Failed to fetch basket wallets after ${retries} attempts: ${e?.message || e}`);
+      } else {
+        console.log(`[INFO] Backend not ready yet (${e?.message || 'waiting'}), retrying in ${backoffMs / 1000}s...`);
+        await new Promise(r => setTimeout(r, backoffMs));
+        backoffMs *= 1.5;
+      }
     }
-  } catch (e) {
-    console.error('Failed to fetch basket wallets, using empty set', e);
   }
   return new Set();
 }
 
 async function main() {
   console.log('Starting Baleen Signal Listener...');
+  console.log(`Connecting to Backend at: ${config.BACKEND_URL}`);
   
-  let basketWallets = await fetchBasketWallets();
+  let basketWallets = await fetchBasketWallets(6, 2000);
   console.log(`Loaded ${basketWallets.size} basket wallets.`);
 
   const client = createHyperSyncClient();
