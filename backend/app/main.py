@@ -32,13 +32,31 @@ app.include_router(admin.router)
 
 scheduler = AsyncIOScheduler()
 import time
+import os
+import httpx
+from app.config import settings
+
 server_start_time = time.time()
-last_cron_ping_time = None
+last_cron_ping_time = time.time()
 
 async def keep_alive_job():
+    """Pings the public endpoint every 5 minutes to prevent Render idle spin-down."""
     global last_cron_ping_time
-    last_cron_ping_time = time.time()
-    logger.info("Keep-alive cron ping executed to prevent container sleep.")
+    external_url = (
+        os.environ.get("RENDER_EXTERNAL_URL")
+        or os.environ.get("BACKEND_PUBLIC_URL")
+        or getattr(settings, "BACKEND_URL", None)
+        or "http://localhost:8000"
+    ).rstrip("/")
+    target = f"{external_url}/health"
+    try:
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            resp = await client.get(target)
+            last_cron_ping_time = time.time()
+            logger.info(f"Keep-alive public ping succeeded: {target} (status {resp.status_code})")
+    except Exception as e:
+        logger.warning(f"Keep-alive ping error to {target}: {e}")
+        last_cron_ping_time = time.time()
 
 @app.on_event("startup")
 async def startup_event():
@@ -54,9 +72,12 @@ async def startup_event():
         await run_analysis()
         
     scheduler.add_job(nightly_job, 'interval', hours=24, id='nightly_job')
-    scheduler.add_job(keep_alive_job, 'interval', minutes=10, id='keep_alive_job')
+    scheduler.add_job(keep_alive_job, 'interval', minutes=5, id='keep_alive_job')
     scheduler.start()
-    logger.info("Scheduler started.")
+    logger.info("Scheduler started with 5-minute keep-alive ping cadence.")
+    
+    # Fire initial ping in background
+    asyncio.create_task(keep_alive_job())
     
     # Start live Polymarket trade mirror for active basket
     from app.services.live_poller import live_trade_mirror
@@ -71,7 +92,14 @@ async def shutdown_event():
 
 @app.get("/health")
 async def health_check():
-    return {"status": "ok", "service": "Baleen Backend"}
+    global last_cron_ping_time
+    last_cron_ping_time = time.time()
+    return {
+        "status": "ok",
+        "service": "Baleen Backend",
+        "uptime_seconds": round(time.time() - server_start_time, 1),
+        "last_ping": last_cron_ping_time
+    }
 
 @app.get("/api/stats")
 async def get_stats(db: AsyncSession = Depends(get_db)):

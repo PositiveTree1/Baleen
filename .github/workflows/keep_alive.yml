@@ -1,0 +1,23 @@
+name: 24/7 Render Keep-Alive Cron
+
+on:
+  schedule:
+    # Runs every 10 minutes, 24/7/365 in the cloud
+    - cron: '*/10 * * * *'
+  workflow_dispatch: # Allows manual trigger from GitHub Actions tab
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Render Backend Health Endpoint
+        env:
+          TARGET_URL: ${{ secrets.RENDER_BACKEND_URL || secrets.BACKEND_URL }}
+        run: |
+          if [ -n "$TARGET_URL" ]; then
+            CLEAN_URL="${TARGET_URL%/}"
+            echo "Pinging $CLEAN_URL/health to keep container awake..."
+            curl -s -f -m 30 "$CLEAN_URL/health" || echo "Ping failed or server waking up."
+          else
+            echo "Notice: RENDER_BACKEND_URL secret not set in GitHub repository settings. Set it to your https://<app>.onrender.com URL to enable external 24/7 cloud pings."
+          fi
