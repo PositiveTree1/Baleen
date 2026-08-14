@@ -27,12 +27,19 @@ export default function AdminPage() {
     ]);
     setStatus(statusData);
     setWallets(walletsData);
+    if (statusData?.discovery_state?.status === 'running') {
+      setProgress(statusData.discovery_state);
+      setEvaluating(true);
+    } else if (statusData?.discovery_state?.status === 'completed' && evaluating) {
+      setEvaluating(false);
+      setProgress(null);
+    }
     setLoading(false);
   };
 
   useEffect(() => {
     loadData();
-    const interval = setInterval(loadData, 15000);
+    const interval = setInterval(loadData, 5000);
     return () => clearInterval(interval);
   }, []);
 

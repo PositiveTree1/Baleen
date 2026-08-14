@@ -273,16 +273,26 @@ async def evaluate_pending_wallets(db: AsyncSession):
                 raw_trades = await client.fetch_wallet_trades(addr, max_trades=4000)
                 stats = calculate_stats_from_trades_and_entry(raw_trades, None, address=addr)
                 
+                # Fetch verified Polymarket all-time profile PnL
+                profile_pnl = await client.fetch_wallet_profile_pnl(addr)
+                if profile_pnl is not None:
+                    stats['all_time_pnl_usd'] = round(profile_pnl, 2)
+                    wallet.all_time_pnl_usd = round(profile_pnl, 2)
+                
                 # Check DB for existing wallet (already exists, but let's score it)
                 scoring = score_wallet(stats)
                 is_valid = scoring.status == "active"
                 reason = scoring.rejection_reason
                 baleen_score = compute_baleen_score(stats)
                 
-                if stats['is_hft']:
+                if stats['all_time_pnl_usd'] < 50000.0:
                     wallet.status = 'rejected'
                     wallet.tier = 'rejected'
-                    wallet.rejection_reason = 'High-Frequency Bot detected (TPH >= 50 or automated spam)'
+                    wallet.rejection_reason = f'All-time Polymarket realized PnL (${stats["all_time_pnl_usd"]:,.0f}) is below $50k threshold'
+                elif stats['is_hft']:
+                    wallet.status = 'rejected'
+                    wallet.tier = 'rejected'
+                    wallet.rejection_reason = 'High-Frequency Bot detected (TPH > 3 or automated trading)'
                 elif stats['is_dormant']:
                     wallet.status = 'rejected'
                     wallet.tier = 'dormant'

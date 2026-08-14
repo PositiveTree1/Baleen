@@ -73,21 +73,21 @@ class PolymarketClient:
         except Exception as e:
             logger.debug(f"Large trades discovery error: {e}")
 
-        # 2. Multi-Period Leaderboards (All, Month, Week)
-        periods = ["all", "month", "week"]
-        for p in periods:
+        # 2. Paginated All-Time Leaderboards (Top 500 Verified All-Time Whales)
+        for offset in [0, 100, 200, 300, 400]:
             try:
-                # Try v1/leaderboard and leaderboard
                 lb_data = await self._fetch_with_retry(f"{self.data_api_url}/v1/leaderboard", {
-                    "window": p,
-                    "limit": 100
+                    "window": "all",
+                    "limit": 100,
+                    "offset": offset
                 })
                 if not lb_data:
                     lb_data = await self._fetch_with_retry(f"{self.data_api_url}/leaderboard", {
-                        "timePeriod": p.upper(),
+                        "timePeriod": "ALL",
                         "category": "OVERALL",
                         "orderBy": "PNL",
-                        "limit": 100
+                        "limit": 100,
+                        "offset": offset
                     })
                 
                 rows = []
@@ -103,27 +103,28 @@ class PolymarketClient:
                             pnl = float(entry.get("profile_profit") or entry.get("profit") or entry.get("pnl") or 0.0)
                             vol = float(entry.get("profile_volume") or entry.get("volume") or 0.0)
                             name = entry.get("name") or entry.get("username") or ""
-                            if w not in candidates or pnl > (candidates[w].get("profit") or 0):
+                            
+                            # Only store true all-time positive profit
+                            if w not in candidates:
                                 candidates[w] = {
                                     "address": w,
-                                    "source": f"leaderboard_{p}",
+                                    "source": "leaderboard_all_time",
                                     "profit": pnl,
                                     "volume": vol,
                                     "name": name,
                                     "rank": entry.get("rank")
                                 }
-                await asyncio.sleep(0.1)
+                await asyncio.sleep(0.05)
             except Exception as e:
-                logger.debug(f"Leaderboard {p} discovery error: {e}")
+                logger.debug(f"Leaderboard all-time offset {offset} error: {e}")
 
-        # 3. Top Volume Active Markets Holder Scan
+        # 3. Top Volume Active Markets Scan
         try:
             market_data = await self._fetch_with_retry(f"{self.gamma_api_url}/markets", {
-                "limit": 60,
+                "limit": 50,
                 "active": "true"
             })
             if market_data and isinstance(market_data, list):
-                # Sort by volume descending, take top 15
                 top_mkts = sorted(market_data, key=lambda m: float(m.get("volume") or 0), reverse=True)[:15]
                 for m in top_mkts:
                     cid = m.get("conditionId") or m.get("condition_id")
@@ -131,10 +132,10 @@ class PolymarketClient:
                         continue
                     m_trades = await self._fetch_with_retry(f"{self.data_api_url}/trades", {
                         "conditionId": cid,
-                        "limit": 40,
+                        "limit": 50,
                         "filterType": "CASH",
                         "side": "BUY",
-                        "filterAmount": 500
+                        "filterAmount": 1000
                     })
                     if m_trades and isinstance(m_trades, list):
                         for t in m_trades:
@@ -151,6 +152,27 @@ class PolymarketClient:
 
         logger.info(f"Titan discovery yielded {len(candidates)} unique whale candidates.")
         return candidates
+
+    async def fetch_wallet_profile_pnl(self, address: str) -> Optional[float]:
+        """Queries Polymarket Data API directly to verify true all-time realized PnL."""
+        try:
+            # Query all-time leaderboard entry for this specific user
+            data = await self._fetch_with_retry(f"{self.data_api_url}/v1/leaderboard", {
+                "user": address,
+                "window": "all"
+            })
+            if not data:
+                data = await self._fetch_with_retry(f"{self.data_api_url}/leaderboard", {
+                    "user": address,
+                    "timePeriod": "ALL"
+                })
+            
+            rows = data if isinstance(data, list) else (data.get("data") or data.get("results") or []) if isinstance(data, dict) else []
+            if rows and isinstance(rows[0], dict):
+                return float(rows[0].get("profile_profit") or rows[0].get("profit") or rows[0].get("pnl") or 0.0)
+        except Exception as e:
+            logger.debug(f"Error fetching profile PnL for {address}: {e}")
+        return None
 
     async def fetch_wallet_trades(self, address: str, max_trades: int = 4000) -> List[Dict]:
         """Pulls multi-page trade history up to 4,000 trades for a wallet."""

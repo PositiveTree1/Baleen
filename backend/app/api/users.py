@@ -120,18 +120,24 @@ async def signup(req: SignupRequest, db: AsyncSession = Depends(get_db)):
     
     return user_to_response(new_user)
 
+SHARED_GUEST_EMAIL = "guest@baleen.local"
+SHARED_GUEST_PASSWORD = "baleen_shared_guest_sandbox_password"
+
 @router.post("/api/auth/guest")
 async def guest_login(db: AsyncSession = Depends(get_db)):
-    guest_email = f"guest_{uuid.uuid4().hex[:8]}@baleen.local"
-    guest_password = uuid.uuid4().hex
-    new_user = User(
-        email=guest_email,
-        password_hash=hash_password(guest_password),
-        sandbox_starting_balance_usd=10000.0,
-        sandbox_balance_usd=10000.0,
-        sandbox_high_water_mark_usd=10000.0,
-    )
-    db.add(new_user)
-    await db.commit()
-    await db.refresh(new_user)
-    return {"email": guest_email, "password": guest_password, **user_to_response(new_user)}
+    stmt = select(User).where(User.email == SHARED_GUEST_EMAIL)
+    guest = (await db.execute(stmt)).scalar_one_or_none()
+    
+    if not guest:
+        guest = User(
+            email=SHARED_GUEST_EMAIL,
+            password_hash=hash_password(SHARED_GUEST_PASSWORD),
+            sandbox_starting_balance_usd=10000.0,
+            sandbox_balance_usd=10000.0,
+            sandbox_high_water_mark_usd=10000.0,
+        )
+        db.add(guest)
+        await db.commit()
+        await db.refresh(guest)
+        
+    return {"email": SHARED_GUEST_EMAIL, "password": SHARED_GUEST_PASSWORD, **user_to_response(guest)}

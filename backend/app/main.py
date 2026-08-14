@@ -63,8 +63,8 @@ async def startup_event():
     # Init DB
     await init_db()
     
-    # Schedule workers
-    scheduler.add_job(run_discovery, 'interval', hours=6, id='discovery_job')
+    # Schedule workers (Discovery runs every 20 minutes for continuous whale pipeline growth)
+    scheduler.add_job(run_discovery, 'interval', minutes=20, id='discovery_job')
     
     # Rescoring runs every 24 hours
     async def nightly_job():
