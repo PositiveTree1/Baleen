@@ -60,7 +60,7 @@ async function main() {
       matchesFound++;
       console.log('Match found!', signal);
       await enqueueSignal(signal);
-      // await postSignalToBackend(signal); // Optionally enable posting directly
+      await postSignalToBackend(signal);
     }
   });
 

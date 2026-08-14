@@ -7,7 +7,7 @@ interface BalanceCounterProps {
 }
 
 export function BalanceCounter({ balance }: BalanceCounterProps) {
-  const springValue = useSpring(0, { stiffness: 60, damping: 22 });
+  const springValue = useSpring(0, { stiffness: 380, damping: 30, restDelta: 0.01 });
   const [isClient, setIsClient] = useState(false);
 
   useEffect(() => {

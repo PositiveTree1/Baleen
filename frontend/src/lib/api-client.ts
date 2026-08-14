@@ -30,18 +30,22 @@ export async function fetchWallet(address: string): Promise<WalletDetail | null>
     const res = await fetch(`${API_BASE_URL}/api/wallets/${address}`);
     if (!res.ok) return null;
     const data = await res.json();
+    const w = data.wallet || data;
     return {
-      address: data.wallet.address,
-      tier: data.wallet.tier,
-      winRate: data.wallet.win_rate_pct || 0,
-      pnl: data.wallet.all_time_pnl_usd || 0,
-      tradesPerDay: data.wallet.avg_trades_per_day || 0,
-      score: data.wallet.baleen_score || 0,
-      aiStyleTag: data.wallet.ai_style_tag || null,
-      aiSummary: data.wallet.ai_summary || null,
-      maxDrawdown: data.wallet.max_drawdown_pct || 0,
-      scoreHistory: data.score_history.map((s: any) => ({ date: s.snapshot_at, score: s.baleen_score })),
-      recentTrades: data.recent_trades
+      address: w.address,
+      tier: w.tier,
+      winRate: w.win_rate_pct || 0,
+      pnl: w.all_time_pnl_usd || 0,
+      tradesPerDay: w.avg_trades_per_day || 0,
+      score: w.baleen_score || 0,
+      aiStyleTag: w.ai_style_tag || null,
+      aiSummary: w.ai_summary || null,
+      maxDrawdown: w.max_drawdown_pct || 0,
+      scoreHistory: (data.score_history || []).map((s: any) => ({ 
+        date: s.snapshot_at || s.date || new Date().toISOString(), 
+        score: s.baleen_score ?? s.score ?? 75 
+      })),
+      recentTrades: data.recent_trades || []
     };
   } catch (error) {
     return null;
