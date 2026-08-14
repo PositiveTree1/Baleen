@@ -9,6 +9,7 @@ import { Skeleton } from '../ui/Skeleton';
 import { ScoreHistoryChart } from '../charts/ScoreHistoryChart';
 import { CumulativePnLChart } from '../charts/CumulativePnLChart';
 import { DailyWinLossBarChart } from '../charts/DailyWinLossBarChart';
+import { TypewriterText } from '../ui/TypewriterText';
 
 interface WalletDrawerProps {
   address: string | null;
@@ -22,23 +23,27 @@ export function WalletDrawer({ address, onClose }: WalletDrawerProps) {
   const [activeChartTab, setActiveChartTab] = useState<'winloss' | 'pnl' | 'score'>('winloss');
 
   useEffect(() => {
-    if (!address) return;
-    let mounted = true;
+    if (!address) {
+      setWallet(null);
+      return;
+    }
     setLoading(true);
-    fetchWallet(address).then(data => {
-      if (mounted) {
+    fetchWallet(address)
+      .then((data) => {
         setWallet(data);
         setLoading(false);
-      }
-    });
-    return () => { mounted = false; };
+      })
+      .catch(() => {
+        setLoading(false);
+      });
   }, [address]);
 
   const handleCopy = () => {
-    if (!address) return;
-    navigator.clipboard.writeText(address);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    if (address) {
+      navigator.clipboard.writeText(address);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
   };
 
   const formatPct = (val: number) => {
@@ -52,20 +57,23 @@ export function WalletDrawer({ address, onClose }: WalletDrawerProps) {
     <AnimatePresence>
       {address && (
         <>
+          {/* Backdrop */}
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={onClose}
-            className="fixed inset-0 z-40 bg-black/30 backdrop-blur-sm"
+            className="fixed inset-0 bg-slate-900/20 backdrop-blur-sm z-40"
           />
+
+          {/* Drawer Container */}
           <motion.div
             initial={{ x: '100%' }}
             animate={{ x: 0 }}
             exit={{ x: '100%' }}
             transition={{ type: 'spring', damping: 30, stiffness: 300 }}
-            className={`fixed inset-y-0 right-0 z-50 w-full max-w-xl bg-white/95 border-l shadow-2xl backdrop-blur-2xl overflow-y-auto ${
-              isGold ? 'border-amber-200/80 shadow-[0_0_50px_rgba(245,158,11,0.08)]' : 'border-black/[0.08]'
+            className={`fixed inset-y-0 right-0 z-50 w-full max-w-xl bg-white border-l shadow-2xl overflow-y-auto ${
+              isGold ? 'border-amber-300/80 shadow-[0_0_50px_rgba(245,158,11,0.08)]' : 'border-black/[0.08]'
             }`}
           >
             <div className="p-8">
@@ -78,13 +86,9 @@ export function WalletDrawer({ address, onClose }: WalletDrawerProps) {
                     ) : (
                       <span className="w-2 h-2 rounded-full bg-emerald-500" />
                     )}
-                    <h2 className="text-base font-semibold text-slate-900 tracking-tight">Whale Audit Profile</h2>
+                    <h2 className="text-base font-bold text-slate-900 tracking-tight">Whale Audit Profile</h2>
                   </div>
-                  {isGold && (
-                    <span className="text-[11px] font-semibold text-amber-900 bg-amber-500/[0.06] border border-amber-400/30 px-2.5 py-0.5 rounded-full">
-                      Gold Tier Alpha
-                    </span>
-                  )}
+                  {isGold && <Badge tier="gold_sniper" />}
                 </div>
                 <button 
                   onClick={onClose} 
@@ -142,34 +146,38 @@ export function WalletDrawer({ address, onClose }: WalletDrawerProps) {
                     <div className="flex flex-wrap gap-2 items-center">
                       <Badge tier={wallet.tier} />
                       {wallet.aiStyleTag && (
-                        <span className="px-3 py-1 text-[11px] font-medium bg-slate-50 text-slate-700 rounded-full border border-black/[0.06]">
+                        <span className="px-3 py-1 text-xs font-semibold bg-slate-100 text-slate-800 rounded-full border border-black/[0.06]">
                           {wallet.aiStyleTag}
                         </span>
                       )}
                     </div>
                   </div>
 
-                  {/* Google-Style AI Quantitative Overview with Transient Luminous Shimmer Border */}
+                  {/* Google-Style AI Quantitative Overview with High-Contrast Luminous Glow & Fast Typewriter */}
                   <motion.div 
-                    initial={{ opacity: 0, y: 14 }}
+                    initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.45, delay: 0.22, ease: [0.16, 1, 0.3, 1] }}
-                    className="p-[1.5px] rounded-[24px] gemini-shimmer-border shadow-sm overflow-hidden"
+                    transition={{ duration: 0.3, delay: 0.15 }}
+                    className="relative p-[1.5px] rounded-[24px] bg-gradient-to-r from-blue-500 via-indigo-500 to-purple-500 shadow-[0_4px_20px_rgba(99,102,241,0.15)] overflow-hidden"
                   >
-                    <div className="p-5 bg-white/95 rounded-[22.5px] backdrop-blur-2xl">
-                      <div className="flex items-center justify-between mb-2.5">
+                    <div className="p-5 bg-white rounded-[22.5px] relative">
+                      <div className="flex items-center justify-between mb-3">
                         <div className="flex items-center gap-2">
-                          <Sparkles size={15} className="text-indigo-600 animate-pulse" />
-                          <h4 className="text-[11px] font-bold text-slate-900 uppercase tracking-wider">
+                          <Sparkles size={16} className="text-indigo-600 animate-pulse shrink-0" />
+                          <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider">
                             Groq AI Quantitative Audit
                           </h4>
                         </div>
-                        <span className="text-[10px] font-mono font-medium text-slate-500 bg-slate-100/80 px-2.5 py-0.5 rounded-full border border-black/[0.04]">
-                          Llama 3.1
+                        <span className="text-[10px] font-mono font-semibold text-indigo-700 bg-indigo-50 px-2.5 py-0.5 rounded-full border border-indigo-200/80">
+                          Llama 3.1 70B
                         </span>
                       </div>
-                      <p className="text-sm text-slate-700 leading-relaxed font-normal">
-                        {wallet.aiSummary || 'Automated quantitative analysis computed via Groq Llama-3.1 engine based on on-chain trading behavior.'}
+                      <p className="text-sm text-slate-900 leading-relaxed font-medium min-h-[48px]">
+                        <TypewriterText 
+                          text={wallet.aiSummary || 'Automated quantitative analysis computed via Groq Llama-3.1 engine based on on-chain trading behavior.'}
+                          speed={8}
+                          delay={150}
+                        />
                       </p>
                     </div>
                   </motion.div>

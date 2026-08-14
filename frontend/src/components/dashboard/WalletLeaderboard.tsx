@@ -1,9 +1,10 @@
 'use client';
 import { useEffect, useState } from 'react';
-import { fetchWallets } from '@/lib/api-client';
+import { fetchWallets, reEvaluateWallets } from '@/lib/api-client';
 import { Wallet } from '@/types';
 import { Badge } from '../ui/Badge';
 import { Skeleton } from '../ui/Skeleton';
+import { RotateCw } from 'lucide-react';
 
 interface WalletLeaderboardProps {
   onSelectWallet: (address: string) => void;
@@ -12,15 +13,29 @@ interface WalletLeaderboardProps {
 export function WalletLeaderboard({ onSelectWallet }: WalletLeaderboardProps) {
   const [wallets, setWallets] = useState<Wallet[]>([]);
   const [loading, setLoading] = useState(true);
+  const [evaluating, setEvaluating] = useState(false);
+
+  const load = async () => {
+    const data = await fetchWallets();
+    setWallets(data);
+    setLoading(false);
+  };
 
   useEffect(() => {
-    async function load() {
-      const data = await fetchWallets();
-      setWallets(data);
-      setLoading(false);
-    }
     load();
   }, []);
+
+  const handleReevaluate = async () => {
+    setEvaluating(true);
+    try {
+      await reEvaluateWallets();
+      await load();
+    } catch {
+      // ignore
+    } finally {
+      setEvaluating(false);
+    }
+  };
 
   const formatWinRate = (wr: number) => {
     const val = wr > 1 ? wr : wr * 100;
@@ -30,8 +45,19 @@ export function WalletLeaderboard({ onSelectWallet }: WalletLeaderboardProps) {
   return (
     <div className="rounded-3xl overflow-hidden h-[420px] flex flex-col border border-black/[0.08] shadow-[inset_0_1px_0_rgba(255,255,255,1),0_2px_8px_rgba(0,0,0,0.03),0_12px_28px_-4px_rgba(0,0,0,0.05)] bg-white">
       <div className="p-4 px-6 border-b border-black/[0.06] bg-slate-50/50 flex items-center justify-between">
-        <h3 className="text-sm font-bold text-slate-900 tracking-tight">Active Index Basket</h3>
-        <span className="text-[11px] text-slate-500 font-mono font-semibold">{wallets.length} tracked</span>
+        <div className="flex items-center gap-2.5">
+          <h3 className="text-sm font-bold text-slate-900 tracking-tight">Active Index Basket</h3>
+          <span className="text-[11px] text-slate-500 font-mono font-semibold">({wallets.length} tracked)</span>
+        </div>
+        <button
+          onClick={handleReevaluate}
+          disabled={evaluating}
+          className="flex items-center gap-1.5 px-3 py-1 bg-white hover:bg-slate-50 text-slate-700 hover:text-slate-900 border border-black/[0.08] rounded-xl text-xs font-semibold shadow-sm transition-all cursor-pointer disabled:opacity-50"
+          title="Re-evaluate all wallets from live Polymarket API"
+        >
+          <RotateCw size={12} className={evaluating ? "animate-spin text-indigo-600" : ""} />
+          <span>{evaluating ? "Evaluating..." : "Re-evaluate All"}</span>
+        </button>
       </div>
       
       <div className="flex-1 overflow-y-auto">

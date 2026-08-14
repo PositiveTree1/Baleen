@@ -210,3 +210,16 @@ export async function fetchAdminWallets(status?: string): Promise<any[]> {
   } catch { return []; }
 }
 
+export async function reEvaluateWallets(): Promise<{ status: string; evaluated?: number; active?: number; message?: string } | null> {
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/admin/re-evaluate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+    });
+    if (!res.ok) return null;
+    return await res.json();
+  } catch {
+    return null;
+  }
+}
+

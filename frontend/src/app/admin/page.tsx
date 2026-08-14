@@ -1,18 +1,19 @@
 'use client';
 import { useState, useEffect } from 'react';
-import { fetchAdminStatus, fetchAdminWallets } from '@/lib/api-client';
+import { fetchAdminStatus, fetchAdminWallets, reEvaluateWallets } from '@/lib/api-client';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { BrandLogo } from '@/components/ui/BrandLogo';
 import Link from 'next/link';
-import { ArrowLeft, Activity, Database, Users, Wallet, CheckCircle, XCircle, RefreshCw, Sparkles, Filter } from 'lucide-react';
+import { ArrowLeft, Activity, Database, Users, Wallet, CheckCircle, XCircle, RefreshCw, Sparkles, Filter, RotateCw } from 'lucide-react';
 
 export default function AdminPage() {
   const [status, setStatus] = useState<any>(null);
   const [wallets, setWallets] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [triggering, setTriggering] = useState(false);
+  const [evaluating, setEvaluating] = useState(false);
   const [filter, setFilter] = useState<'all' | 'active' | 'pending' | 'rejected'>('all');
   const [search, setSearch] = useState('');
 
@@ -47,6 +48,18 @@ export default function AdminPage() {
     }
   };
 
+  const handleReevaluate = async () => {
+    setEvaluating(true);
+    try {
+      await reEvaluateWallets();
+      await loadData();
+    } catch {
+      // ignore
+    } finally {
+      setEvaluating(false);
+    }
+  };
+
   const filteredWallets = wallets.filter(w => {
     const s = (w.status || '').toLowerCase();
     const matchesFilter = filter === 'all' || s === filter;
@@ -77,6 +90,15 @@ export default function AdminPage() {
               className="text-xs py-2 px-3 shadow-sm"
             >
               <RefreshCw size={14} className={loading ? 'animate-spin' : ''} /> Refresh
+            </Button>
+            <Button 
+              variant="secondary" 
+              onClick={handleReevaluate} 
+              disabled={evaluating}
+              className="text-xs py-2 px-3.5 shadow-sm border-indigo-200 text-indigo-900 bg-indigo-50/50 hover:bg-indigo-100/60 font-semibold"
+            >
+              <RotateCw size={14} className={evaluating ? 'animate-spin text-indigo-600' : 'text-indigo-600'} /> 
+              {evaluating ? 'Re-evaluating...' : 'Re-evaluate All Wallets'}
             </Button>
             <Button 
               variant="primary" 

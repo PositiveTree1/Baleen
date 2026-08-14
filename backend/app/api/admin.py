@@ -23,6 +23,30 @@ async def trigger_discovery():
     asyncio.create_task(run_discovery())
     return {"status": "triggered", "message": "Discovery worker started in background."}
 
+@router.post("/re-evaluate")
+async def re_evaluate_wallets(db: AsyncSession = Depends(get_db)):
+    """
+    Clears stale test data and completely re-evaluates all candidates
+    directly from live Polymarket API using Titan Engine algorithms.
+    """
+    from app.discovery.scanner import scan_for_wallets
+    count = await scan_for_wallets(db, full_refresh=True)
+    
+    active_count = (await db.execute(
+        select(func.count()).select_from(Wallet).where(
+            Wallet.status == "active",
+            Wallet.is_hft == False,
+            Wallet.dormant == False
+        )
+    )).scalar() or 0
+    
+    return {
+        "status": "completed",
+        "evaluated": count,
+        "active": active_count,
+        "message": f"Successfully re-evaluated {count} wallets from Polymarket. {active_count} active in basket."
+    }
+
 @router.get("/status")
 async def get_status(db: AsyncSession = Depends(get_db)):
     wallet_count = (await db.execute(select(func.count()).select_from(Wallet))).scalar() or 0
