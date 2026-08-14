@@ -31,6 +31,14 @@ app.include_router(users.router)
 app.include_router(admin.router)
 
 scheduler = AsyncIOScheduler()
+import time
+server_start_time = time.time()
+last_cron_ping_time = None
+
+async def keep_alive_job():
+    global last_cron_ping_time
+    last_cron_ping_time = time.time()
+    logger.info("Keep-alive cron ping executed to prevent container sleep.")
 
 @app.on_event("startup")
 async def startup_event():
@@ -46,6 +54,7 @@ async def startup_event():
         await run_analysis()
         
     scheduler.add_job(nightly_job, 'interval', hours=24, id='nightly_job')
+    scheduler.add_job(keep_alive_job, 'interval', minutes=10, id='keep_alive_job')
     scheduler.start()
     logger.info("Scheduler started.")
     
