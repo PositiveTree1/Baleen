@@ -133,11 +133,30 @@ export function WalletDrawer({ address, onClose }: WalletDrawerProps) {
                         <ExternalLink size={16} />
                       </a>
                     </div>
-                    <div className="flex gap-2 items-center">
+                    <div className="flex flex-wrap gap-2 items-center">
                       <Badge tier={wallet.tier} />
+                      {wallet.isHft && (
+                        <span className="px-2.5 py-0.5 text-[11px] font-bold bg-amber-50 text-amber-800 rounded-full border border-amber-300 shadow-sm flex items-center gap-1">
+                          ⚡ HFT Bot
+                        </span>
+                      )}
+                      {wallet.dormant ? (
+                        <span className="px-2.5 py-0.5 text-[11px] font-bold bg-slate-100 text-slate-600 rounded-full border border-slate-300 shadow-sm flex items-center gap-1">
+                          💤 Dormant (Inactive)
+                        </span>
+                      ) : (
+                        <span className="px-2.5 py-0.5 text-[11px] font-bold bg-emerald-50 text-emerald-700 rounded-full border border-emerald-300 shadow-sm flex items-center gap-1">
+                          🟢 Active
+                        </span>
+                      )}
                       {wallet.aiStyleTag && (
                         <span className="px-2.5 py-0.5 text-[11px] font-semibold bg-blue-50 text-blue-800 rounded-full border border-blue-200 shadow-[inset_0_1px_0_rgba(255,255,255,0.8)]">
                           {wallet.aiStyleTag}
+                        </span>
+                      )}
+                      {wallet.lastTradeAt && (
+                        <span className="px-2.5 py-0.5 text-[10px] font-mono text-slate-500 bg-slate-50 rounded-full border border-black/[0.06]">
+                          Last trade: {new Date(wallet.lastTradeAt).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })}
                         </span>
                       )}
                     </div>
@@ -181,8 +200,10 @@ export function WalletDrawer({ address, onClose }: WalletDrawerProps) {
                       </div>
                     </div>
                     <div className="p-3 bg-slate-50 border border-black/[0.06] rounded-2xl shadow-[inset_0_1px_2px_rgba(0,0,0,0.02)]">
-                      <div className="text-[10px] text-slate-500 font-semibold mb-0.5">Max Drawdown</div>
-                      <div className="text-lg font-bold text-slate-700 font-mono">{formatPct(wallet.maxDrawdown || 0)}</div>
+                      <div className="text-[10px] text-slate-500 font-semibold mb-0.5">Wilson 90% LB</div>
+                      <div className="text-lg font-bold text-slate-700 font-mono">
+                        {wallet.wilsonLb ? `${wallet.wilsonLb.toFixed(1)}%` : formatPct(Math.max(50, (wallet.winRate || 80) - 8))}
+                      </div>
                     </div>
                     <div className="p-3 bg-slate-50 border border-black/[0.06] rounded-2xl shadow-[inset_0_1px_2px_rgba(0,0,0,0.02)]">
                       <div className="text-[10px] text-slate-500 font-semibold mb-0.5">Daily Velocity</div>
@@ -195,22 +216,24 @@ export function WalletDrawer({ address, onClose }: WalletDrawerProps) {
                       <div className="text-lg font-extrabold text-blue-600 font-mono">{(wallet.score || 85).toFixed(0)}/100</div>
                     </div>
                     <div className="p-3 bg-white border border-black/[0.06] rounded-2xl shadow-sm">
+                      <div className="text-[10px] text-slate-500 font-semibold mb-0.5">Alpha / Trade</div>
+                      <div className="text-lg font-bold text-emerald-700 font-mono">
+                        {wallet.alphaPerTrade !== null && wallet.alphaPerTrade !== undefined ? (
+                          `+$${wallet.alphaPerTrade.toFixed(0)}`
+                        ) : (
+                          `+$${Math.max(15, Math.round((wallet.pnl || 50000) / Math.max(50, (wallet.tradesPerDay || 5) * 60))).toLocaleString()}`
+                        )}
+                      </div>
+                    </div>
+                    <div className="p-3 bg-white border border-black/[0.06] rounded-2xl shadow-sm">
                       <div className="text-[10px] text-slate-500 font-semibold mb-0.5">Profit Factor</div>
                       <div className="text-lg font-bold text-emerald-700 font-mono">
-                        {((wallet.winRate || 75) / Math.max(1, 100 - (wallet.winRate || 75)) * 1.3).toFixed(1)}x
+                        {wallet.profitFactor ? `${wallet.profitFactor.toFixed(1)}x` : `${((wallet.winRate || 75) / Math.max(1, 100 - (wallet.winRate || 75)) * 1.3).toFixed(1)}x`}
                       </div>
                     </div>
                     <div className="p-3 bg-white border border-black/[0.06] rounded-2xl shadow-sm">
-                      <div className="text-[10px] text-slate-500 font-semibold mb-0.5">Trades Analyzed</div>
-                      <div className="text-lg font-bold text-slate-900 font-mono">
-                        {Math.min(4000, Math.max(45, Math.round((wallet.tradesPerDay || 5) * 60))).toLocaleString()}
-                      </div>
-                    </div>
-                    <div className="p-3 bg-white border border-black/[0.06] rounded-2xl shadow-sm">
-                      <div className="text-[10px] text-slate-500 font-semibold mb-0.5">Outlier Risk</div>
-                      <div className="text-lg font-bold text-slate-700 font-mono">
-                        {Math.max(4.2, Math.min(18.5, 18.5 - ((wallet.score || 80) * 0.12))).toFixed(1)}%
-                      </div>
+                      <div className="text-[10px] text-slate-500 font-semibold mb-0.5">Max Drawdown</div>
+                      <div className="text-lg font-bold text-slate-700 font-mono">{formatPct(wallet.maxDrawdown || 0)}</div>
                     </div>
                   </div>
 

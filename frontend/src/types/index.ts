@@ -4,9 +4,17 @@ export interface Wallet {
   address: string;
   tier: Tier;
   winRate: number;
+  wilsonLb?: number | null;
   pnl: number;
   tradesPerDay: number;
+  tradesPerHour?: number | null;
   score: number;
+  isHft?: boolean;
+  dormant?: boolean;
+  alphaPerTrade?: number | null;
+  profitFactor?: number | null;
+  firstTradeAt?: string | null;
+  lastTradeAt?: string | null;
   aiStyleTag?: string | null;
 }
 

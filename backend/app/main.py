@@ -48,13 +48,15 @@ async def startup_event():
     scheduler.start()
     logger.info("Scheduler started.")
     
-    # Run discovery immediately on startup so we have data right away
-    import asyncio
-    asyncio.create_task(run_discovery())
-    logger.info("Initial discovery run triggered.")
+    # Start live Polymarket trade mirror for active basket
+    from app.services.live_poller import live_trade_mirror
+    asyncio.create_task(live_trade_mirror.start())
+    logger.info("Live Polymarket trade mirror initialized.")
 
 @app.on_event("shutdown")
 async def shutdown_event():
+    from app.services.live_poller import live_trade_mirror
+    await live_trade_mirror.stop()
     scheduler.shutdown()
 
 @app.get("/health")
