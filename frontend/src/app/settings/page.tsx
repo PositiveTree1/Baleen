@@ -63,13 +63,13 @@ export default function SettingsPage() {
               <div className="p-4 bg-white/5 rounded-lg border border-white/5">
                 <div className="text-xs text-baleen-muted mb-1">Starting Balance</div>
                 <div className="text-xl font-mono text-baleen-white">
-                  ${user?.startingBalance.toLocaleString(undefined, { minimumFractionDigits: 2 }) || '0.00'}
+                  ${(user?.startingBalance ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
                 </div>
               </div>
               <div className="p-4 bg-white/5 rounded-lg border border-white/5">
                 <div className="text-xs text-baleen-muted mb-1">Current Balance</div>
                 <div className="text-xl font-mono text-baleen-white">
-                  ${user?.currentBalance.toLocaleString(undefined, { minimumFractionDigits: 2 }) || '0.00'}
+                  ${(user?.currentBalance ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
                 </div>
               </div>
             </div>

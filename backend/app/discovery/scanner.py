@@ -23,12 +23,14 @@ async def scan_for_wallets(db: AsyncSession) -> int:
         addresses = set()
         
         for entry in leaderboard:
-            if "address" in entry:
-                addresses.add(entry["address"].lower())
+            addr = entry.get("proxyWallet") or entry.get("address") or entry.get("user")
+            if addr:
+                addresses.add(addr.lower())
                 
         for trade in recent_trades:
-            if "maker" in trade:
-                addresses.add(trade["maker"].lower())
+            maker = trade.get("maker_address") or trade.get("maker")
+            if maker:
+                addresses.add(maker.lower())
                 
         # 3. Add to DB if they don't exist
         for address in addresses:

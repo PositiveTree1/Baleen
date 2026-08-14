@@ -49,7 +49,7 @@ export function LiveTape() {
                 >
                   <div className="flex items-center gap-3 w-1/3">
                     <span className="text-baleen-muted">{new Date(log.timestamp).toLocaleTimeString([], { hour12: false })}</span>
-                    <span className="text-baleen-white truncate">{log.walletAddress.slice(0,6)}...</span>
+                    <span className="text-baleen-white truncate">{(log.walletAddress || '0x0000').slice(0,6)}...</span>
                   </div>
                   <div className="w-1/3 truncate px-2 text-baleen-muted" title={log.marketQuestion}>
                     {log.marketQuestion}
@@ -58,7 +58,7 @@ export function LiveTape() {
                     <span className={`font-semibold ${log.side === 'BUY' ? 'text-baleen-green' : 'text-baleen-red'}`}>
                       {log.side}
                     </span>
-                    <span className="text-baleen-white w-16 text-right">${log.fillPrice.toFixed(3)}</span>
+                    <span className="text-baleen-white w-16 text-right">${(log.fillPrice ?? 0).toFixed(3)}</span>
                   </div>
                 </motion.div>
               ))}

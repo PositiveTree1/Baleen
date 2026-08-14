@@ -30,16 +30,16 @@ export function LiveTicker() {
           <>
             <span className="text-sm text-baleen-white flex items-center gap-2">
               <span className="text-baleen-muted">Total Mirrored:</span>
-              <span className="font-mono text-baleen-cyan">${stats.totalVolumeMirrored.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+              <span className="font-mono text-baleen-cyan">${(stats?.totalVolumeMirrored ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
             </span>
             <span className="text-sm text-baleen-white flex items-center gap-2">
               <span className="text-baleen-muted">Active Whales:</span>
-              <span className="font-mono">{stats.activeBasketWhales}</span>
+              <span className="font-mono">{(stats?.activeBasketWhales ?? 0)}</span>
             </span>
             <span className="text-sm text-baleen-white flex items-center gap-2">
               <span className="text-baleen-muted">Indexer Status:</span>
-              <span className={`flex items-center gap-1 ${stats.indexerStatus === 'ONLINE' ? 'text-baleen-green' : 'text-amber-500'}`}>
-                <Activity size={14} /> {stats.indexerStatus}
+              <span className={`flex items-center gap-1 ${(stats?.indexerStatus ?? 'SYNCING') === 'ONLINE' ? 'text-baleen-green' : 'text-amber-500'}`}>
+                <Activity size={14} /> {(stats?.indexerStatus ?? 'SYNCING')}
               </span>
             </span>
             {/* Repeat for seamless scroll effect if needed, though simple CSS scroll works too */}

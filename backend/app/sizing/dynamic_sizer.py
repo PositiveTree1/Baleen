@@ -21,7 +21,7 @@ def size_trade(user_balance: float, risk_profile: str, n_active: int, whale_trad
     raw_order_value = base_notional * whale_risk_pct
     
     risk_caps = {'conservative': 0.05, 'balanced': 0.10, 'aggressive': 0.20}
-    max_allowed = user_balance * risk_caps.get(risk_profile, 0.10)
+    max_allowed = user_balance * risk_caps.get(risk_profile.lower() if risk_profile else 'balanced', 0.10)
     
     order_value = min(raw_order_value, max_allowed)
     

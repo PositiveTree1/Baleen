@@ -60,10 +60,10 @@ export function TradeLog({ userId }: { userId?: string }) {
                     {log.side}
                   </td>
                   <td className="p-4 text-right font-mono text-baleen-white">
-                    ${log.fillPrice.toFixed(3)}
+                    ${(log.fillPrice ?? 0).toFixed(3)}
                   </td>
                   <td className="p-4 text-right font-mono text-baleen-white">
-                    ${log.size.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                    ${(log.size ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
                   </td>
                   <td className="p-4 text-right font-mono">
                     {log.pnl !== undefined ? (

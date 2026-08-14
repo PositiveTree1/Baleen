@@ -3,8 +3,18 @@ from sqlalchemy import select, update
 from app.models import Wallet
 from app.scoring.engine import score_wallet
 import logging
+from datetime import datetime
 
 logger = logging.getLogger(__name__)
+
+def compute_baleen_score(stats: dict) -> float:
+    pnl = stats.get('all_time_pnl_usd', 0) or 0
+    win_rate = stats.get('win_rate_pct', 0) or 0
+    drawdown = stats.get('max_drawdown_pct', 100) or 100
+    pnl_score = min(pnl / 500000, 1.0) * 40  # up to 40 points
+    wr_score = min(win_rate / 100, 1.0) * 40  # up to 40 points  
+    dd_score = max(1.0 - drawdown / 50, 0) * 20  # up to 20 points
+    return round(pnl_score + wr_score + dd_score, 1)
 
 async def get_active_basket(db: AsyncSession) -> list[Wallet]:
     """Returns active, non-dormant wallets."""
@@ -43,13 +53,7 @@ async def refresh_basket(db: AsyncSession):
         wallet.status = score_res.status
         wallet.tier = score_res.tier
         wallet.rejection_reason = score_res.rejection_reason
-        
-        # If it drops below Gold tier (and was previously Gold), we can reject it
-        if wallet.tier != "Gold Sniper" and wallet.status == "active":
-             # We only support Gold Sniper for active tracking right now, based on requirements context
-             # "A wallet dropping below gold tier gets status='rejected'"
-             wallet.status = "rejected"
-             wallet.rejection_reason = "DROPPED_BELOW_GOLD_TIER"
-             wallet.tier = None
+        wallet.baleen_score = compute_baleen_score(stats)
+        wallet.last_scored_at = datetime.utcnow()
 
     await db.commit()

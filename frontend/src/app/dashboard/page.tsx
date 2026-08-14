@@ -39,6 +39,13 @@ export default function DashboardPage() {
           <span className="font-bold text-lg tracking-tight text-baleen-white">Baleen Control</span>
         </div>
         <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 text-xs text-baleen-muted mr-4">
+            <div className="w-2 h-2 rounded-full bg-baleen-green animate-pulse" />
+            <span>Engine Active</span>
+          </div>
+          <Link href="/admin" className="text-baleen-muted hover:text-baleen-white transition-colors text-xs uppercase tracking-wider font-semibold">
+            Admin
+          </Link>
           <Link href="/settings" className="text-baleen-muted hover:text-baleen-white transition-colors">
             <Settings size={20} />
           </Link>

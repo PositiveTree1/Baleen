@@ -49,7 +49,7 @@ async def generate_summary(wallet_stats: dict) -> Tuple[Optional[str], Optional[
     try:
         completion = await client.chat.completions.create(
             messages=[{"role": "user", "content": prompt}],
-            model="llama3-8b-8192",
+            model="llama-3.1-8b-instant",
             temperature=0.2,
             max_tokens=150
         )
@@ -68,11 +68,11 @@ async def generate_summary(wallet_stats: dict) -> Tuple[Optional[str], Optional[
         tag = None
         
         for line in response_text.split('\n'):
-            line = line.strip()
-            if line.startswith("SUMMARY:"):
-                summary = line.replace("SUMMARY:", "").strip()
-            elif line.startswith("TAG:"):
-                tag = line.replace("TAG:", "").strip()
+            line = line.strip().replace('**', '')
+            if line.upper().startswith("SUMMARY:"):
+                summary = line[line.upper().index("SUMMARY:") + 8:].strip()
+            elif line.upper().startswith("TAG:"):
+                tag = line[line.upper().index("TAG:") + 4:].strip()
                 
         return summary, tag
 

@@ -1,8 +1,10 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
-from app.database import init_db
-from app.api import wallets, execution_logs, users
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select, func
+from app.database import init_db, get_db
+from app.api import wallets, execution_logs, users, admin
 from app.workers.discovery_worker import run_discovery
 from app.workers.scoring_worker import run_rescoring
 from app.workers.analysis_worker import run_analysis
@@ -25,6 +27,7 @@ app.add_middleware(
 app.include_router(wallets.router)
 app.include_router(execution_logs.router)
 app.include_router(users.router)
+app.include_router(admin.router)
 
 scheduler = AsyncIOScheduler()
 
@@ -54,11 +57,22 @@ async def health_check():
     return {"status": "ok"}
 
 @app.get("/api/stats")
-async def get_stats():
+async def get_stats(db: AsyncSession = Depends(get_db)):
+    from app.models import Wallet, ExecutionLog
+    from sqlalchemy import func
+    
+    wallet_count = (await db.execute(
+        select(func.count()).select_from(Wallet).where(Wallet.status == "active")
+    )).scalar() or 0
+    
+    total_volume = (await db.execute(
+        select(func.coalesce(func.sum(ExecutionLog.notional_usd), 0))
+    )).scalar() or 0
+    
     return {
-        "active_wallets_tracked": 12,
-        "total_volume_analyzed_usd": 50000.0,
-        "average_win_rate": 0.55
+        "totalVolumeMirrored": round(total_volume, 2),
+        "activeBasketWhales": wallet_count,
+        "indexerStatus": "ONLINE"
     }
 
 @app.get("/")

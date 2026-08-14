@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import Link from 'next/link';
+import { guestLogin } from '@/lib/api-client';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -26,6 +27,29 @@ export default function LoginPage() {
 
     if (res?.error) {
       setError('Invalid email or password');
+      setLoading(false);
+    } else {
+      router.push('/dashboard');
+      router.refresh();
+    }
+  };
+
+  const handleGuestLogin = async () => {
+    setLoading(true);
+    setError('');
+    const guest = await guestLogin();
+    if (!guest) {
+      setError('Failed to create guest session');
+      setLoading(false);
+      return;
+    }
+    const res = await signIn('credentials', {
+      email: guest.email,
+      password: guest.password,
+      redirect: false,
+    });
+    if (res?.error) {
+      setError('Guest login failed');
       setLoading(false);
     } else {
       router.push('/dashboard');
@@ -78,6 +102,15 @@ export default function LoginPage() {
           <span className="flex-shrink-0 mx-4 text-xs text-baleen-muted">OR</span>
           <div className="flex-grow border-t border-white/10"></div>
         </div>
+
+        <Button 
+          variant="secondary" 
+          className="w-full mb-4"
+          onClick={handleGuestLogin}
+          disabled={loading}
+        >
+          Continue as Guest
+        </Button>
 
         <Button 
           variant="secondary" 

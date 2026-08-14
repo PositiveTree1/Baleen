@@ -50,7 +50,7 @@ class PolymarketClient:
 
     async def fetch_wallet_trades(self, address: str, limit: int = 500) -> List[Dict]:
         url = f"{self.data_api_url}/trades"
-        data = await self._fetch_with_retry(url, params={"maker": address, "limit": limit})
+        data = await self._fetch_with_retry(url, params={"maker_address": address, "limit": limit})
         return data if isinstance(data, list) else []
 
     async def fetch_order_book(self, token_id: str) -> Optional[Dict]:

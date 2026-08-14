@@ -24,10 +24,31 @@ async def list_wallets(
         
     stmt = stmt.limit(limit).offset(offset)
     result = await db.execute(stmt)
-    return result.scalars().all()
+    
+    def wallet_to_response(w) -> dict:
+        return {
+            "address": w.address,
+            "tier": w.tier,
+            "win_rate_pct": w.win_rate_pct,
+            "all_time_pnl_usd": w.all_time_pnl_usd,
+            "avg_trades_per_day": w.avg_trades_per_day,
+            "baleen_score": w.baleen_score,
+            "ai_style_tag": w.ai_style_tag,
+            "ai_summary": w.ai_summary,
+            "max_drawdown_pct": w.max_drawdown_pct,
+            "status": w.status,
+            "dormant": w.dormant,
+            "total_trades_analyzed": w.total_trades_analyzed,
+            "rejection_reason": w.rejection_reason,
+            "first_seen_at": w.first_seen_at.isoformat() if w.first_seen_at else None,
+            "last_scored_at": w.last_scored_at.isoformat() if w.last_scored_at else None,
+        }
+
+    return [wallet_to_response(w) for w in result.scalars().all()]
 
 @router.get("/{address}")
 async def get_wallet(address: str, db: AsyncSession = Depends(get_db)):
+    address = address.lower()
     # Wallet
     stmt = select(Wallet).where(Wallet.address == address)
     wallet = (await db.execute(stmt)).scalar_one_or_none()
@@ -44,7 +65,7 @@ async def get_wallet(address: str, db: AsyncSession = Depends(get_db)):
     trades = (await db.execute(trade_stmt)).scalars().all()
     
     return {
-        "wallet": wallet,
+        "wallet": wallet_to_response(wallet),
         "score_history": snapshots,
         "recent_trades": trades
     }

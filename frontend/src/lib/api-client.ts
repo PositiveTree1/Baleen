@@ -57,7 +57,19 @@ export async function fetchExecutionLogs(userId?: string, params?: Record<string
     }
     const res = await fetch(url.toString());
     if (!res.ok) return [];
-    return await res.json();
+    const data = await res.json();
+    return data.map((log: any) => ({
+      id: log.id,
+      timestamp: log.timestamp || log.executed_at,
+      walletAddress: log.walletAddress || log.source_wallet_address,
+      marketQuestion: log.marketQuestion || log.market_question,
+      side: log.side,
+      entryPrice: log.entryPrice ?? log.whale_entry_price ?? 0,
+      fillPrice: log.fillPrice ?? log.user_fill_price ?? 0,
+      size: log.size ?? log.notional_usd ?? 0,
+      status: log.status,
+      pnl: log.pnl ?? log.realized_pnl_usd ?? 0,
+    }));
   } catch (error) {
     return [];
   }
@@ -67,7 +79,15 @@ export async function fetchUserSettings(userId: string): Promise<User | null> {
   try {
     const res = await fetch(`${API_BASE_URL}/api/users/${userId}`);
     if (!res.ok) return null;
-    return await res.json();
+    const data = await res.json();
+    return {
+      id: data.id,
+      email: data.email,
+      startingBalance: data.startingBalance ?? data.sandbox_starting_balance_usd ?? 10000,
+      currentBalance: data.currentBalance ?? data.sandbox_balance_usd ?? 10000,
+      riskProfile: data.riskProfile ?? data.risk_profile ?? 'Balanced',
+      dailyDigestOptIn: data.dailyDigestOptIn ?? data.daily_digest_opt_in ?? true,
+    };
   } catch (error) {
     return null;
   }
@@ -78,10 +98,21 @@ export async function updateUserSettings(userId: string, data: Partial<User>): P
     const res = await fetch(`${API_BASE_URL}/api/users/${userId}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data),
+      body: JSON.stringify({
+        risk_profile: data.riskProfile,
+        daily_digest_opt_in: data.dailyDigestOptIn,
+      }),
     });
     if (!res.ok) return null;
-    return await res.json();
+    const result = await res.json();
+    return {
+      id: result.id,
+      email: result.email,
+      startingBalance: result.startingBalance ?? result.sandbox_starting_balance_usd ?? 10000,
+      currentBalance: result.currentBalance ?? result.sandbox_balance_usd ?? 10000,
+      riskProfile: result.riskProfile ?? result.risk_profile ?? 'Balanced',
+      dailyDigestOptIn: result.dailyDigestOptIn ?? result.daily_digest_opt_in ?? true,
+    };
   } catch (error) {
     return null;
   }
@@ -95,7 +126,15 @@ export async function signUp(email: string, password: string, startingBalance: n
       body: JSON.stringify({ email, password, startingBalance }),
     });
     if (!res.ok) return null;
-    return await res.json();
+    const data = await res.json();
+    return {
+      id: data.id,
+      email: data.email,
+      startingBalance: data.startingBalance ?? data.sandbox_starting_balance_usd ?? startingBalance,
+      currentBalance: data.currentBalance ?? data.sandbox_balance_usd ?? startingBalance,
+      riskProfile: data.riskProfile ?? data.risk_profile ?? 'Balanced',
+      dailyDigestOptIn: data.dailyDigestOptIn ?? data.daily_digest_opt_in ?? true,
+    };
   } catch (error) {
     return null;
   }
@@ -110,3 +149,35 @@ export async function fetchPlatformStats(): Promise<PlatformStats | null> {
     return null;
   }
 }
+
+export async function guestLogin(): Promise<{ email: string; password: string } | null> {
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/auth/guest`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+    });
+    if (!res.ok) return null;
+    return await res.json();
+  } catch (error) {
+    return null;
+  }
+}
+
+export async function fetchAdminStatus(): Promise<any> {
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/admin/status`);
+    if (!res.ok) return null;
+    return await res.json();
+  } catch { return null; }
+}
+
+export async function fetchAdminWallets(status?: string): Promise<any[]> {
+  try {
+    const url = new URL(`${API_BASE_URL}/api/admin/wallets`);
+    if (status) url.searchParams.append('status', status);
+    const res = await fetch(url.toString());
+    if (!res.ok) return [];
+    return await res.json();
+  } catch { return []; }
+}
+

@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, Body
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from typing import Optional
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, model_validator
 import uuid
 # We'd normally use passlib, but keeping it simple/mocked without extra dependencies for now
 import hashlib 
@@ -15,16 +15,43 @@ router = APIRouter(tags=["users"])
 class SignupRequest(BaseModel):
     email: str
     password: str
-    sandbox_starting_balance_usd: float = 10000.0
+    sandbox_starting_balance_usd: float = Field(default=10000.0, alias='startingBalance')
+
+    class Config:
+        populate_by_name = True
 
 class LoginRequest(BaseModel):
     email: str
     password: str
 
 class UpdateSettingsRequest(BaseModel):
-    user_id: str
     risk_profile: Optional[str] = None
     daily_digest_opt_in: Optional[bool] = None
+    
+    class Config:
+        populate_by_name = True
+    
+    @model_validator(mode='before')
+    @classmethod
+    def convert_camel_case(cls, data):
+        if isinstance(data, dict):
+            converted = {}
+            for key, value in data.items():
+                # Convert camelCase to snake_case
+                snake_key = ''.join(['_' + c.lower() if c.isupper() else c for c in key]).lstrip('_')
+                converted[snake_key] = value
+            return converted
+        return data
+
+def user_to_response(user) -> dict:
+    return {
+        "id": str(user.id),
+        "email": user.email,
+        "startingBalance": user.sandbox_starting_balance_usd,
+        "currentBalance": user.sandbox_balance_usd,
+        "riskProfile": user.risk_profile or "Balanced",
+        "dailyDigestOptIn": user.daily_digest_opt_in if user.daily_digest_opt_in is not None else True,
+    }
 
 def hash_password(password: str) -> str:
     return hashlib.sha256(password.encode()).hexdigest()
@@ -43,7 +70,7 @@ async def login(req: LoginRequest, db: AsyncSession = Depends(get_db)):
     if not verify_password(req.password, user.password_hash):
         raise HTTPException(status_code=401, detail="Invalid credentials")
     
-    return {"id": str(user.id), "email": user.email}
+    return {"id": str(user.id), "email": user.email, **user_to_response(user)}
 
 @router.get("/api/users/{user_id}")
 async def get_settings(user_id: str, db: AsyncSession = Depends(get_db)):
@@ -53,11 +80,11 @@ async def get_settings(user_id: str, db: AsyncSession = Depends(get_db)):
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
         
-    return user
+    return user_to_response(user)
 
 @router.patch("/api/users/{user_id}")
-async def update_settings(req: UpdateSettingsRequest, db: AsyncSession = Depends(get_db)):
-    stmt = select(User).where(User.id == req.user_id)
+async def update_settings(user_id: str, req: UpdateSettingsRequest, db: AsyncSession = Depends(get_db)):
+    stmt = select(User).where(User.id == user_id)
     user = (await db.execute(stmt)).scalar_one_or_none()
     
     if not user:
@@ -69,7 +96,7 @@ async def update_settings(req: UpdateSettingsRequest, db: AsyncSession = Depends
         user.daily_digest_opt_in = req.daily_digest_opt_in
         
     await db.commit()
-    return user
+    return user_to_response(user)
 
 @router.post("/api/auth/signup")
 async def signup(req: SignupRequest, db: AsyncSession = Depends(get_db)):
@@ -91,4 +118,20 @@ async def signup(req: SignupRequest, db: AsyncSession = Depends(get_db)):
     await db.commit()
     await db.refresh(new_user)
     
-    return new_user
+    return user_to_response(new_user)
+
+@router.post("/api/auth/guest")
+async def guest_login(db: AsyncSession = Depends(get_db)):
+    guest_email = f"guest_{uuid.uuid4().hex[:8]}@baleen.local"
+    guest_password = uuid.uuid4().hex
+    new_user = User(
+        email=guest_email,
+        password_hash=hash_password(guest_password),
+        sandbox_starting_balance_usd=10000.0,
+        sandbox_balance_usd=10000.0,
+        sandbox_high_water_mark_usd=10000.0,
+    )
+    db.add(new_user)
+    await db.commit()
+    await db.refresh(new_user)
+    return {"email": guest_email, "password": guest_password, **user_to_response(new_user)}
