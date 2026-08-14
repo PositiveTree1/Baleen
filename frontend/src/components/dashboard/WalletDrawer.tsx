@@ -71,12 +71,18 @@ export function WalletDrawer({ address, onClose }: WalletDrawerProps) {
             <div className="p-8">
               {/* Header */}
               <div className="flex items-center justify-between mb-8 pb-4 border-b border-black/[0.06]">
-                <div className="flex items-center gap-2.5">
-                  <span className={`w-2.5 h-2.5 rounded-full ${isGold ? 'bg-amber-500 animate-pulse' : 'bg-emerald-500'}`} />
-                  <h2 className="text-base font-bold text-slate-900 tracking-tight">Whale Audit Profile</h2>
+                <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-2">
+                    {isGold ? (
+                      <span className="w-2 h-2 rounded-full bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.6)]" />
+                    ) : (
+                      <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                    )}
+                    <h2 className="text-base font-semibold text-slate-900 tracking-tight">Whale Audit Profile</h2>
+                  </div>
                   {isGold && (
-                    <span className="text-[10px] font-bold font-mono text-amber-900 bg-amber-100/90 px-2 py-0.5 rounded-full border border-amber-300 shadow-sm">
-                      GOLD TIER
+                    <span className="text-[11px] font-semibold text-amber-900 bg-amber-500/[0.06] border border-amber-400/30 px-2.5 py-0.5 rounded-full">
+                      Gold Tier Alpha
                     </span>
                   )}
                 </div>
@@ -135,50 +141,31 @@ export function WalletDrawer({ address, onClose }: WalletDrawerProps) {
                     </div>
                     <div className="flex flex-wrap gap-2 items-center">
                       <Badge tier={wallet.tier} />
-                      {wallet.isHft && (
-                        <span className="px-2.5 py-0.5 text-[11px] font-bold bg-amber-50 text-amber-800 rounded-full border border-amber-300 shadow-sm flex items-center gap-1">
-                          ⚡ HFT Bot
-                        </span>
-                      )}
-                      {wallet.dormant ? (
-                        <span className="px-2.5 py-0.5 text-[11px] font-bold bg-slate-100 text-slate-600 rounded-full border border-slate-300 shadow-sm flex items-center gap-1">
-                          💤 Dormant (Inactive)
-                        </span>
-                      ) : (
-                        <span className="px-2.5 py-0.5 text-[11px] font-bold bg-emerald-50 text-emerald-700 rounded-full border border-emerald-300 shadow-sm flex items-center gap-1">
-                          🟢 Active
-                        </span>
-                      )}
                       {wallet.aiStyleTag && (
-                        <span className="px-2.5 py-0.5 text-[11px] font-semibold bg-blue-50 text-blue-800 rounded-full border border-blue-200 shadow-[inset_0_1px_0_rgba(255,255,255,0.8)]">
+                        <span className="px-3 py-1 text-[11px] font-medium bg-slate-50 text-slate-700 rounded-full border border-black/[0.06]">
                           {wallet.aiStyleTag}
-                        </span>
-                      )}
-                      {wallet.lastTradeAt && (
-                        <span className="px-2.5 py-0.5 text-[10px] font-mono text-slate-500 bg-slate-50 rounded-full border border-black/[0.06]">
-                          Last trade: {new Date(wallet.lastTradeAt).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })}
                         </span>
                       )}
                     </div>
                   </div>
 
-                  {/* Groq AI Quantitative Overview with Animated Border */}
+                  {/* Google-Style AI Quantitative Overview with Transient Luminous Shimmer Border */}
                   <motion.div 
-                    initial={{ opacity: 0, y: 8 }}
+                    initial={{ opacity: 0, y: 14 }}
                     animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.35 }}
-                    className="p-0.5 rounded-3xl bg-gradient-to-r from-blue-500/30 via-emerald-400/30 to-purple-500/30 animate-ai-border shadow-sm"
+                    transition={{ duration: 0.45, delay: 0.22, ease: [0.16, 1, 0.3, 1] }}
+                    className="p-[1.5px] rounded-[24px] gemini-shimmer-border shadow-sm overflow-hidden"
                   >
-                    <div className="p-5 bg-white/95 rounded-[22px] backdrop-blur-xl">
-                      <div className="flex items-center justify-between mb-2">
+                    <div className="p-5 bg-white/95 rounded-[22.5px] backdrop-blur-2xl">
+                      <div className="flex items-center justify-between mb-2.5">
                         <div className="flex items-center gap-2">
-                          <Sparkles size={15} className="text-blue-600 animate-pulse" />
+                          <Sparkles size={15} className="text-indigo-600 animate-pulse" />
                           <h4 className="text-[11px] font-bold text-slate-900 uppercase tracking-wider">
                             Groq AI Quantitative Audit
                           </h4>
                         </div>
-                        <span className="text-[10px] font-mono font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
-                          Verified Llama 3.1
+                        <span className="text-[10px] font-mono font-medium text-slate-500 bg-slate-100/80 px-2.5 py-0.5 rounded-full border border-black/[0.04]">
+                          Llama 3.1
                         </span>
                       </div>
                       <p className="text-sm text-slate-700 leading-relaxed font-normal">

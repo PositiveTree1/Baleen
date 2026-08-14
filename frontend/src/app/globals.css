@@ -108,6 +108,35 @@
   ::-webkit-scrollbar-thumb:hover {
     background: rgba(0, 0, 0, 0.25); 
   }
+
+  @keyframes ai-border {
+    0%, 100% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+  }
+
+  @keyframes gemini-sweep {
+    0% {
+      background-position: 0% 50%;
+      opacity: 1;
+      filter: drop-shadow(0 0 12px rgba(99, 102, 241, 0.4));
+    }
+    60% {
+      background-position: 100% 50%;
+      opacity: 0.9;
+      filter: drop-shadow(0 0 8px rgba(56, 189, 248, 0.3));
+    }
+    100% {
+      background-position: 200% 50%;
+      opacity: 0.35;
+      filter: none;
+    }
+  }
+
+  .gemini-shimmer-border {
+    background: linear-gradient(115deg, #38BDF8, #818CF8, #C084FC, #34D399, #60A5FA);
+    background-size: 250% 250%;
+    animation: gemini-sweep 3.2s cubic-bezier(0.16, 1, 0.3, 1) 0.2s forwards;
+  }
 }
 
 @keyframes ai-pulse-border {

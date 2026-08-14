@@ -48,12 +48,19 @@ async def list_wallets(
     offset: int = 0,
     db: AsyncSession = Depends(get_db)
 ):
-    stmt = select(Wallet).where(Wallet.status == "active")
+    stmt = select(Wallet).where(
+        Wallet.status == "active",
+        Wallet.is_hft == False
+    )
     
-    if tier:
-        stmt = stmt.where(Wallet.tier == tier)
     if dormant is not None:
         stmt = stmt.where(Wallet.dormant == dormant)
+    else:
+        # Default: only show active non-dormant whales on user dashboard
+        stmt = stmt.where(Wallet.dormant == False)
+        
+    if tier:
+        stmt = stmt.where(Wallet.tier == tier)
         
     stmt = stmt.order_by(Wallet.baleen_score.desc().nullslast()).limit(limit).offset(offset)
     result = await db.execute(stmt)
