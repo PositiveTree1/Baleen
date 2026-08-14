@@ -47,6 +47,11 @@ async def startup_event():
     scheduler.add_job(nightly_job, 'interval', hours=24, id='nightly_job')
     scheduler.start()
     logger.info("Scheduler started.")
+    
+    # Run discovery immediately on startup so we have data right away
+    import asyncio
+    asyncio.create_task(run_discovery())
+    logger.info("Initial discovery run triggered.")
 
 @app.on_event("shutdown")
 async def shutdown_event():
@@ -74,6 +79,46 @@ async def get_stats(db: AsyncSession = Depends(get_db)):
         "activeBasketWhales": wallet_count,
         "indexerStatus": "ONLINE"
     }
+
+@app.get("/api/diagnostics")
+async def diagnostics(db: AsyncSession = Depends(get_db)):
+    """Test all external API connections and report results."""
+    import httpx
+    from app.models import Wallet, User
+    results = {}
+    
+    # Test Polymarket Data API
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        for name, url in [
+            ("polymarket_leaderboard", "https://data-api.polymarket.com/leaderboard"),
+            ("polymarket_trades", "https://data-api.polymarket.com/trades"),
+            ("gamma_markets", "https://gamma-api.polymarket.com/markets"),
+        ]:
+            try:
+                res = await client.get(url, params={"limit": 2})
+                data = res.json()
+                if isinstance(data, list) and data:
+                    results[name] = {"status": "OK", "count": len(data), "sample_keys": list(data[0].keys())[:10]}
+                elif isinstance(data, dict):
+                    results[name] = {"status": "OK", "type": "dict", "keys": list(data.keys())[:10]}
+                else:
+                    results[name] = {"status": "EMPTY", "raw": str(data)[:100]}
+            except Exception as e:
+                results[name] = {"status": "ERROR", "error": str(e)[:200]}
+    
+    # Test database
+    try:
+        wallet_count = (await db.execute(select(func.count()).select_from(Wallet))).scalar()
+        user_count = (await db.execute(select(func.count()).select_from(User))).scalar()
+        results["database"] = {"status": "OK", "wallets": wallet_count, "users": user_count}
+    except Exception as e:
+        results["database"] = {"status": "ERROR", "error": str(e)[:200]}
+    
+    # Test scheduler
+    jobs = [{"id": job.id, "next_run": str(job.next_run_time)} for job in scheduler.get_jobs()]
+    results["scheduler"] = {"jobs": jobs}
+    
+    return results
 
 @app.get("/")
 async def root():
