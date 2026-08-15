@@ -30,14 +30,17 @@ def score_wallet(wallet_stats: dict) -> ScoringResult:
     if outlier_pct > 0.35:
         return ScoringResult("rejected", None, "OUTLIER_CONCENTRATION_TOO_HIGH", False)
 
-    # TIER: Gold Sniper if win_rate >= 85.0% AND max_drawdown <= 10.0%
+    # FILTER 4: Minimum Win Rate >= 55.0% (reject losing wallets with negative alpha)
+    if win_rate < 55.0:
+        return ScoringResult("rejected", None, "WIN_RATE_TOO_LOW", False)
+
     # TIER: Gold Sniper if win_rate >= 85.0% AND max_drawdown <= 10.0%
     if win_rate >= 85.0 and max_drawdown <= 10.0:
         tier = "gold_sniper"
     else:
         tier = "standard"
 
-    # FILTER 4: Copyability check (flag, don't reject)
+    # Copyability check (flag, don't reject)
     copyability_flag = False
     
     return ScoringResult("active", tier, None, copyability_flag)

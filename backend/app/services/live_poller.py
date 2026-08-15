@@ -83,6 +83,8 @@ class LiveTradeMirrorService:
                         price = float(t.get("price") or 0.5)
                         size = float(t.get("size") or 0.0)
                         cash = float(t.get("usdcSize") or 0.0) or (size * price)
+                        outcome = str(t.get("outcome") or "Yes")
+                        asset = str(t.get("asset") or "")
                         trade_key = f"{addr}:{cid}:{side}:{ts_sec}:{price}:{size}"
 
                         if trade_key in self.seen_trade_keys:
@@ -102,7 +104,9 @@ class LiveTradeMirrorService:
                                 "price": price,
                                 "size": size,
                                 "cash": cash,
-                                "dt": trade_dt
+                                "dt": trade_dt,
+                                "outcome": outcome,
+                                "asset": asset
                             })
 
                     # Mirror new trades into ExecutionLogs
@@ -118,6 +122,8 @@ class LiveTradeMirrorService:
                                 side=nt["side"],
                                 whale_entry_price=nt["price"],
                                 user_fill_price=nt["price"],
+                                resolution_outcome=nt["outcome"],
+                                onchain_tx_hash=nt["asset"],
                                 notional_usd=min(nt["cash"], 500.0),
                                 active_basket_size_at_trade=len(active_wallets),
                                 is_sandbox=True,
@@ -136,6 +142,8 @@ class LiveTradeMirrorService:
                                     side=nt["side"],
                                     whale_entry_price=nt["price"],
                                     user_fill_price=nt["price"],
+                                    resolution_outcome=nt["outcome"],
+                                    onchain_tx_hash=nt["asset"],
                                     notional_usd=min(nt["cash"] * 0.05, 100.0),
                                     active_basket_size_at_trade=len(active_wallets),
                                     is_sandbox=True,

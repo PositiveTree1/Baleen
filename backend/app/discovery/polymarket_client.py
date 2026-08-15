@@ -266,6 +266,27 @@ class PolymarketClient:
         import json
         dec_asset = _to_decimal_token(asset) if asset else ""
 
+        # ── Pre-Stage: Extract asset/slug hints from Data API if not provided (Titan MarketCache strategy) ──
+        if not dec_asset and condition_id:
+            try:
+                t_hints = await self._fetch_with_retry(f"{self.data_api_url}/trades", params={"conditionId": condition_id, "limit": 4})
+                if isinstance(t_hints, list) and t_hints:
+                    for th in t_hints:
+                        if isinstance(th, dict):
+                            th_outcome = str(th.get("outcome") or "")
+                            th_asset = str(th.get("asset") or "")
+                            th_slug = str(th.get("slug") or "")
+                            if th_slug and not slug:
+                                slug = th_slug
+                            if th_asset:
+                                if not dec_asset:
+                                    dec_asset = _to_decimal_token(th_asset)
+                                if outcome and th_outcome.lower() == outcome.lower():
+                                    dec_asset = _to_decimal_token(th_asset)
+                                    break
+            except Exception:
+                pass
+
         # ── Stage 1: CLOB Midpoint by Token ID (Fastest direct orderbook price) ──
         if dec_asset:
             try:

@@ -214,7 +214,7 @@ export function WalletDrawer({ address, onClose }: WalletDrawerProps) {
                       <div className="text-[10px] text-slate-500 font-semibold mb-0.5">Alpha / Trade</div>
                       <div className="text-lg font-bold text-emerald-700 font-mono">
                         {wallet.alphaPerTrade !== null && wallet.alphaPerTrade !== undefined ? (
-                          `+$${wallet.alphaPerTrade.toFixed(0)}`
+                          `${wallet.alphaPerTrade >= 0 ? '+' : '-'}$${Math.abs(wallet.alphaPerTrade).toFixed(0)}`
                         ) : (
                           `+$${Math.max(15, Math.round((wallet.pnl || 50000) / Math.max(50, (wallet.tradesPerDay || 5) * 60))).toLocaleString()}`
                         )}

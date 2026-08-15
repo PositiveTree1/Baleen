@@ -62,12 +62,12 @@ class MarkToMarketService:
                         "is_consensus": len(w_set) >= 2
                     }
 
-                # 2. Fetch live prices for distinct (condition_id, outcome) pairs
-                pairs_to_price = list(set((log.market_condition_id, log.resolution_outcome or "Yes") for log in recent_logs if log.market_condition_id))
-                for cid, outc in pairs_to_price[:25]:
+                # 2. Fetch live prices for distinct (condition_id, outcome, asset) pairs
+                pairs_to_price = list(set((log.market_condition_id, log.resolution_outcome or "Yes", log.onchain_tx_hash or "") for log in recent_logs if log.market_condition_id))
+                for cid, outc, asset_id in pairs_to_price[:30]:
                     cache_key = f"{cid}:{outc.lower()}"
                     try:
-                        live_p = await client.fetch_live_token_price(condition_id=cid, outcome=outc)
+                        live_p = await client.fetch_live_token_price(condition_id=cid, asset=asset_id, outcome=outc)
                         if live_p is not None and 0.005 <= live_p <= 0.995:
                             _live_price_cache[cache_key] = {"price": live_p, "ts": time.time()}
                             _live_price_cache[cid] = {"price": live_p, "ts": time.time()}
