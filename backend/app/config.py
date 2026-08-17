@@ -2,8 +2,11 @@ import os
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from pathlib import Path
 
+project_root = Path(__file__).resolve().parent.parent
+default_db_path = (project_root / "baleen.db").as_posix()
+
 class Settings(BaseSettings):
-    DATABASE_URL: str = "sqlite+aiosqlite:///./baleen.db"
+    DATABASE_URL: str = f"sqlite+aiosqlite:///{default_db_path}"
     GROQ_API_KEY_1: str = ""
     GROQ_API_KEY_2: str = ""
     GROQ_API_KEY_3: str = ""
