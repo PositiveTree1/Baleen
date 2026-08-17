@@ -16,6 +16,7 @@ class LiveTradeMirrorService:
         self.data_api_url = settings.POLYMARKET_DATA_API_URL
         self.seen_trade_keys = set()
         self.client = None
+        self.started_at = datetime.utcnow().timestamp()
 
     async def start(self):
         self.running = True
@@ -85,9 +86,9 @@ class LiveTradeMirrorService:
                         cash = float(t.get("usdcSize") or 0.0) or (size * price)
                         outcome = str(t.get("outcome") or "Yes")
                         asset = str(t.get("asset") or "")
-                        # 1. Recency Guard: Only mirror trades that occurred in the last 15 minutes
-                        now_epoch = datetime.utcnow().timestamp()
-                        if (now_epoch - ts_sec) > 900:
+                        # 1. Real-time Live Guard: Never copy historical trades; only copy trades that occur while server is running
+                        if ts_sec < self.started_at:
+                            self.seen_trade_keys.add(trade_key)
                             continue
 
                         # 2. Price Boundary & Resolved Market Guard: Only trade active markets (0.10 <= price <= 0.90)
