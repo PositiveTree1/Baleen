@@ -38,10 +38,18 @@ async function main() {
 
   const client = createHyperSyncClient();
   let startBlock = getResumeBlock();
-  if (!startBlock) {
-    startBlock = await client.getHeight();
+  try {
+    const currentHeight = await client.getHeight();
+    if (!startBlock || (currentHeight - startBlock > 5000)) {
+      startBlock = Math.max(1, currentHeight - 500);
+      console.log(`[INFO] Starting at recent chain height: ${startBlock} (tip is ${currentHeight})`);
+    } else {
+      console.log(`Resuming from block: ${startBlock} (tip is ${currentHeight})`);
+    }
+  } catch (e: any) {
+    console.warn(`[WARN] Could not fetch chain height, starting from ${startBlock || 'tip'}: ${e?.message || e}`);
+    if (!startBlock) startBlock = 68000000;
   }
-  console.log(`Resuming from block: ${startBlock}`);
 
   let eventsProcessed = 0;
   let matchesFound = 0;
