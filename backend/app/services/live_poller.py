@@ -85,6 +85,16 @@ class LiveTradeMirrorService:
                         cash = float(t.get("usdcSize") or 0.0) or (size * price)
                         outcome = str(t.get("outcome") or "Yes")
                         asset = str(t.get("asset") or "")
+                        # 1. Recency Guard: Only mirror trades that occurred in the last 15 minutes
+                        now_epoch = datetime.utcnow().timestamp()
+                        if (now_epoch - ts_sec) > 900:
+                            continue
+
+                        # 2. Price Boundary & Resolved Market Guard: Only trade active markets (0.10 <= price <= 0.90)
+                        if price < 0.10 or price > 0.90:
+                            logger.debug(f"Skipping trade with extreme price {price} (resolving/resolved market): {cid}")
+                            continue
+
                         trade_key = f"{addr}:{cid}:{side}:{ts_sec}:{price}:{size}"
 
                         if trade_key in self.seen_trade_keys:
@@ -112,7 +122,7 @@ class LiveTradeMirrorService:
                     # Mirror new trades into ExecutionLogs
                     if new_trades:
                         for nt in new_trades:
-                            logger.info(f"🎯 NEW WHALE TRADE DETECTED: {addr[:10]}... {nt['side']} ${nt['cash']:,.2f} @ {nt['price']}")
+                            logger.info(f"🎯 NEW LIVE WHALE TRADE DETECTED: {addr[:10]}... {nt['side']} ${nt['cash']:,.2f} @ {nt['price']}")
                             
                             # Create system execution log
                             log = ExecutionLog(
@@ -124,7 +134,7 @@ class LiveTradeMirrorService:
                                 user_fill_price=nt["price"],
                                 resolution_outcome=nt["outcome"],
                                 onchain_tx_hash=nt["asset"],
-                                notional_usd=min(nt["cash"], 500.0),
+                                notional_usd=round(min(max(5.0, nt["cash"] * 0.1), 250.0), 2),
                                 active_basket_size_at_trade=len(active_wallets),
                                 is_sandbox=True,
                                 status="FILLED",

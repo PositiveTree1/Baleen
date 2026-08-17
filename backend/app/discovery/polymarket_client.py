@@ -147,8 +147,8 @@ class PolymarketClient:
                             "address": w,
                             "source": "large_trade",
                             "trade_cash": cash,
-                            "profit": 55000.0,
-                            "volume": cash * 10
+                            "profit": 0.0,
+                            "volume": cash * 5
                         }
         except Exception as e:
             logger.debug(f"Large trades discovery error: {e}")
@@ -180,8 +180,8 @@ class PolymarketClient:
                                 candidates[w] = {
                                     "address": w,
                                     "source": "market_scan",
-                                    "profit": 55000.0,
-                                    "volume": cash * 8
+                                    "profit": 0.0,
+                                    "volume": cash * 5
                                 }
                     await asyncio.sleep(0.04)
         except Exception as e:
@@ -331,6 +331,30 @@ class PolymarketClient:
                                 if outcome and th_outcome.lower() == outcome.lower():
                                     dec_asset = _to_decimal_token(th_asset)
                                     break
+            except Exception:
+                pass
+
+        # ── Stage 0: Direct Data API Recent Fill Price (Fastest & Most Reliable) ──
+        if dec_asset:
+            try:
+                t_recent = await self._fetch_with_retry(f"{self.data_api_url}/trades", params={"asset": dec_asset, "limit": 1})
+                if isinstance(t_recent, list) and t_recent:
+                    p_val = float(t_recent[0].get("price") or 0.0)
+                    if 0.005 <= p_val <= 0.995:
+                        return round(p_val, 4)
+            except Exception:
+                pass
+
+        if condition_id:
+            try:
+                t_recent = await self._fetch_with_retry(f"{self.data_api_url}/trades", params={"conditionId": condition_id, "limit": 2})
+                if isinstance(t_recent, list) and t_recent:
+                    for tr in t_recent:
+                        tr_outc = str(tr.get("outcome") or "")
+                        if not outcome or tr_outc.lower() == outcome.lower():
+                            p_val = float(tr.get("price") or 0.0)
+                            if 0.005 <= p_val <= 0.995:
+                                return round(p_val, 4)
             except Exception:
                 pass
 

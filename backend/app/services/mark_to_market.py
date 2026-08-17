@@ -75,7 +75,25 @@ class MarkToMarketService:
                         pass
                     await asyncio.sleep(0.04)
 
-                # 3. Update PnL on user logs and update sandbox balances
+                # 3. Update PnL on all execution logs (system feed + user copy trades)
+                stmt_all_logs = select(ExecutionLog).where(ExecutionLog.status == "FILLED")
+                all_logs = (await db.execute(stmt_all_logs)).scalars().all()
+                for elog in all_logs:
+                    cid = elog.market_condition_id
+                    outc = elog.resolution_outcome or "Yes"
+                    cache_key = f"{cid}:{outc.lower()}"
+                    cached = _live_price_cache.get(cache_key) or _live_price_cache.get(cid)
+                    fill_p = float(elog.user_fill_price or elog.whale_entry_price or 0.5)
+                    notional = float(elog.notional_usd or 0.0)
+                    if cached and fill_p > 0:
+                        cur_p = cached["price"]
+                        if elog.side == "BUY":
+                            trade_pnl = notional * ((cur_p - fill_p) / fill_p)
+                        else:
+                            trade_pnl = notional * ((fill_p - cur_p) / fill_p)
+                        elog.realized_pnl_usd = round(trade_pnl, 2)
+
+                # 4. Update user sandbox balances based on their active filled trades
                 stmt_users = select(User)
                 users = (await db.execute(stmt_users)).scalars().all()
 
@@ -86,27 +104,7 @@ class MarkToMarketService:
                     )
                     user_logs = (await db.execute(stmt_user_logs)).scalars().all()
 
-                    total_pnl = 0.0
-                    for ulog in user_logs:
-                        cid = ulog.market_condition_id
-                        outc = ulog.resolution_outcome or "Yes"
-                        cache_key = f"{cid}:{outc.lower()}"
-                        cached = _live_price_cache.get(cache_key) or _live_price_cache.get(cid)
-                        fill_p = float(ulog.user_fill_price or ulog.whale_entry_price or 0.5)
-                        notional = float(ulog.notional_usd or 0.0)
-
-                        if cached and fill_p > 0:
-                            cur_p = cached["price"]
-                            if ulog.side == "BUY":
-                                trade_pnl = notional * ((cur_p - fill_p) / fill_p)
-                            else:
-                                trade_pnl = notional * ((fill_p - cur_p) / fill_p)
-                            ulog.realized_pnl_usd = round(trade_pnl, 2)
-                            total_pnl += trade_pnl
-                        elif ulog.realized_pnl_usd is not None:
-                            total_pnl += float(ulog.realized_pnl_usd)
-
-                    # Update user balance
+                    total_pnl = sum(float(ulog.realized_pnl_usd or 0.0) for ulog in user_logs)
                     base_balance = float(u.sandbox_starting_balance_usd or 10000.0)
                     u.sandbox_balance_usd = round(base_balance + total_pnl, 2)
                     if u.sandbox_balance_usd > (u.sandbox_high_water_mark_usd or base_balance):

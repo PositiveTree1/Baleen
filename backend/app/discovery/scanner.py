@@ -197,13 +197,17 @@ def calculate_stats_from_trades_and_entry(trades: List[Dict], entry: Optional[Di
         if volume == 0:
             volume = trade_vol
             
-        # Calculate realized PnL if not already provided
+        # Calculate authentic realized PnL from verified profile or closed trades
         total_raw_pnl = sum(r["pnl"] for r in resolved_trades) if resolved_trades else 0.0
         if realized_pnl <= 0:
-            if total_raw_pnl > 0:
+            if total_raw_pnl != 0:
                 realized_pnl = total_raw_pnl
             else:
-                realized_pnl = max(50000.0, trade_vol * 0.08)
+                realized_pnl = 0.0
+
+        # Cap anomalous market-maker volume spikes (Polymarket all-time top is ~$21.5M)
+        if realized_pnl > 22000000.0:
+            realized_pnl = 0.0  # Discard MM volume anomaly
 
         total_target = realized_pnl
             
@@ -358,10 +362,10 @@ async def evaluate_pending_wallets(db: AsyncSession):
                 reason = scoring.rejection_reason
                 baleen_score = compute_baleen_score(stats)
                 
-                if stats['all_time_pnl_usd'] < 50000.0:
+                if stats['all_time_pnl_usd'] < 50000.0 or stats['all_time_pnl_usd'] > 22000000.0:
                     wallet.status = 'rejected'
                     wallet.tier = 'rejected'
-                    wallet.rejection_reason = f'All-time Polymarket realized PnL (${stats["all_time_pnl_usd"]:,.0f}) is below $50k threshold'
+                    wallet.rejection_reason = f'All-time Polymarket realized PnL (${stats["all_time_pnl_usd"]:,.0f}) is outside verified whale threshold ($50k - $22M)'
                     discovery_state["rejected"] += 1
                 elif stats['win_rate_pct'] < 55.0:
                     wallet.status = 'rejected'
