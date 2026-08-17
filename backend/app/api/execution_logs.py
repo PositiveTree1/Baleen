@@ -19,23 +19,6 @@ async def get_execution_logs(
     offset: int = 0,
     db: AsyncSession = Depends(get_db)
 ):
-    stmt = select(ExecutionLog)
-    if user_id:
-        stmt = stmt.where(ExecutionLog.user_id == user_id)
-    else:
-        # System-wide live feed: show deduplicated system logs
-        stmt = stmt.where(ExecutionLog.user_id.is_(None))
-    
-    if status:
-        stmt = stmt.where(ExecutionLog.status == status)
-    if start_date:
-        stmt = stmt.where(ExecutionLog.executed_at >= start_date)
-    if end_date:
-        stmt = stmt.where(ExecutionLog.executed_at <= end_date)
-        
-    stmt = stmt.order_by(ExecutionLog.executed_at.desc()).limit(limit).offset(offset)
-    result = await db.execute(stmt)
-    
     def execution_log_to_response(log) -> dict:
         cid = log.market_condition_id or ""
         outc = log.resolution_outcome or "Yes"
@@ -73,5 +56,22 @@ async def get_execution_logs(
             "consensus": consensus,
             "polymarketUrl": f"https://polymarket.com/event/{cid}" if cid else "https://polymarket.com"
         }
-    
+
+    stmt = select(ExecutionLog)
+    if status:
+        stmt = stmt.where(ExecutionLog.status == status)
+    if start_date:
+        stmt = stmt.where(ExecutionLog.executed_at >= start_date)
+    if end_date:
+        stmt = stmt.where(ExecutionLog.executed_at <= end_date)
+
+    if user_id:
+        user_stmt = stmt.where(ExecutionLog.user_id == user_id).order_by(ExecutionLog.executed_at.desc()).limit(limit).offset(offset)
+        user_res = (await db.execute(user_stmt)).scalars().all()
+        if user_res:
+            return [execution_log_to_response(log) for log in user_res]
+
+    # System-wide live feed: show deduplicated system logs
+    system_stmt = stmt.where(ExecutionLog.user_id.is_(None)).order_by(ExecutionLog.executed_at.desc()).limit(limit).offset(offset)
+    result = await db.execute(system_stmt)
     return [execution_log_to_response(log) for log in result.scalars().all()]

@@ -53,28 +53,40 @@ async def generate_summary(wallet_stats: dict) -> Tuple[Optional[str], Optional[
     TAG: <2-3 word uppercase tag>
     """
     
-    try:
-        completion = await client.chat.completions.create(
-            messages=[{"role": "user", "content": prompt}],
-            model="llama-3.1-8b-instant",
-            temperature=0.3,
-            max_tokens=200
-        )
-        response_text = completion.choices[0].message.content
-        
-        summary = None
-        tag = None
-        
-        for line in response_text.split('\n'):
-            line = line.strip().replace('**', '')
-            if line.upper().startswith("SUMMARY:"):
-                summary = line[line.upper().index("SUMMARY:") + 8:].strip()
-            elif line.upper().startswith("TAG:"):
-                tag = line[line.upper().index("TAG:") + 4:].strip()
-                
-        return summary, tag
+    for model_name in ["groq/compound-mini", "qwen/qwen3.6-27b"]:
+        try:
+            completion = await client.chat.completions.create(
+                messages=[{"role": "user", "content": prompt}],
+                model=model_name,
+                temperature=0.3,
+                max_tokens=250
+            )
+            response_text = completion.choices[0].message.content or ""
+            
+            # Remove any thinking block if present
+            if "</think>" in response_text:
+                response_text = response_text.split("</think>")[-1].strip()
 
-    except Exception as e:
-        logger.error(f"Error generating AI summary: {e}")
-        return None, None
+            summary = None
+            tag = None
+            
+            for line in response_text.split('\n'):
+                line = line.strip().replace('**', '')
+                if line.upper().startswith("SUMMARY:"):
+                    summary = line[line.upper().index("SUMMARY:") + 8:].strip()
+                elif line.upper().startswith("TAG:"):
+                    tag = line[line.upper().index("TAG:") + 4:].strip()
+                    
+            if summary:
+                if not tag:
+                    tag = "Alpha Whale"
+                return summary, tag
+
+        except Exception as e:
+            logger.error(f"Error generating AI summary with {model_name}: {e}")
+
+    # Fallback to analytical template if Groq API rate limits
+    summary = f"Systematic quantitative prediction trader exhibiting ${pnl:,.0f} realized profit and {win_rate:.1f}% accuracy with disciplined risk control."
+    tag = "High-Conviction Sniper" if win_rate >= 80 else "Macro Whale"
+    return summary, tag
 

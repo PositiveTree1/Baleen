@@ -459,12 +459,12 @@ async def scan_for_wallets(db: AsyncSession, full_refresh: bool = False):
     
     try:
         if full_refresh:
-            discovery_state["step_description"] = "Purging candidate wallets..."
+            discovery_state["step_description"] = "Purging stale unranked candidates..."
             await db.execute(delete(WalletSnapshot))
-            # Keep ExecutionLogs so user history and copy trades remain intact!
-            await db.execute(delete(Wallet))
+            # Keep active wallets intact so the dashboard never goes blank! Only purge rejected or pending queue
+            await db.execute(delete(Wallet).where(Wallet.status.in_(["rejected", "pending"])))
             await db.commit()
-            logger.info("Wallet candidates purged for fresh discovery.")
+            logger.info("Stale pending candidates purged for fresh discovery scan.")
 
         discovery_state["progress_pct"] = 15
         discovery_state["step_description"] = "Stage 1: Multi-Period Leaderboard & Trade Scraping..."
@@ -481,7 +481,6 @@ async def scan_for_wallets(db: AsyncSession, full_refresh: bool = False):
         # STAGE 1: Save all discovered candidates as pending
         saved_count = 0
         for idx, (addr, meta) in enumerate(candidates.items(), 1):
-            pnl = meta.get("profit", 0.0)
             discovery_state["progress_pct"] = min(50, 15 + int((idx / max(1, total_candidates)) * 35))
             
             stmt = select(Wallet).where(Wallet.address == addr)
@@ -490,7 +489,7 @@ async def scan_for_wallets(db: AsyncSession, full_refresh: bool = False):
                 wallet = Wallet(
                     address=addr,
                     status="pending",
-                    all_time_pnl_usd=pnl,
+                    all_time_pnl_usd=None,
                     first_seen_at=datetime.utcnow()
                 )
                 db.add(wallet)
