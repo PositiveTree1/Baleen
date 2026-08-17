@@ -73,32 +73,7 @@ class PolymarketClient:
         except Exception as e:
             logger.debug(f"Large trades discovery error: {e}")
 
-        # 1. Seeded VIP Alpha Whales from Titan Engine (Guaranteed High-Profit Track Records)
-        vip_wallets = [
-            ("0x6d9fc316c3b8377060a44b852ba664adbfd59790", "MEPP Alpha", 1850000.0),
-            ("0x63ce342161250d705dc0b16df89036c8e5f9ba9a", "0x8dxd", 14500000.0),
-            ("0x1cc16713196d456f86fa9c7387dd326a7f73b8df", "Wickier", 980000.0),
-            ("0x614dc8d3542c12103d2c6a3553fd761e391d1546", "mr.ozi", 820000.0),
-            ("0x7f9e2d1df78614564a70becc7fa14aa9a6623a0e", "nojnn", 640000.0),
-            ("0xdf17f4a8dd01a4cfa6fc3da323a2baee5f8697d1", "Clear-Corridor", 2100000.0),
-            ("0x73e3fec494611d73c170cb2f23850fd998b21be9", "Titan Sniper", 520000.0),
-            ("0x918349a2a7b8e19e917d52f6fefbcceb35235889", "Whale Alpha 1", 3200000.0),
-            ("0x547a49f854619d8dddb14f346b0a88fb0d970a25", "Whale Alpha 2", 2400000.0),
-            ("0xb482ebddb639e44ffc2b3e83921ebcb071e626e2", "Whale Alpha 3", 1100000.0),
-            ("0xa62174c8b74ff6b7e52b2f6efba983ef4b5ff4f9", "Macro Alpha", 920000.0),
-            ("0xd749e4917a1c876b5c3e61c5ebbc19f864e22295", "Event Arb", 1600000.0)
-        ]
-        for w_addr, w_name, w_vol in vip_wallets:
-            w_addr_lower = w_addr.lower()
-            candidates[w_addr_lower] = {
-                "address": w_addr_lower,
-                "source": "titan_vip",
-                "profit": 0.0,
-                "volume": w_vol,
-                "name": w_name
-            }
-
-        # 2. Paginated Multi-Period Leaderboards (ALL, MONTH, WEEK)
+        # 1. Paginated Multi-Period Leaderboards (ALL, MONTH, WEEK)
         for period in ["ALL", "MONTH", "WEEK"]:
             for offset in [0, 100, 200]:
                 try:

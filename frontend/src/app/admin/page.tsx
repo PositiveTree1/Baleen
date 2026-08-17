@@ -12,34 +12,44 @@ import { motion, AnimatePresence } from 'framer-motion';
 export default function AdminPage() {
   const [status, setStatus] = useState<any>(null);
   const [wallets, setWallets] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [initialLoading, setInitialLoading] = useState(true);
+  const [justRefreshed, setJustRefreshed] = useState(false);
   const [triggering, setTriggering] = useState(false);
   const [evaluating, setEvaluating] = useState(false);
   const [progress, setProgress] = useState<any>(null);
   const [filter, setFilter] = useState<'all' | 'active' | 'pending' | 'rejected'>('all');
   const [search, setSearch] = useState('');
 
-  const loadData = async () => {
-    setLoading(true);
-    const [statusData, walletsData] = await Promise.all([
-      fetchAdminStatus(),
-      fetchAdminWallets()
-    ]);
-    setStatus(statusData);
-    setWallets(walletsData);
-    if (statusData?.discovery_state?.status === 'running') {
-      setProgress(statusData.discovery_state);
-      setEvaluating(true);
-    } else if (statusData?.discovery_state?.status === 'completed' && evaluating) {
-      setEvaluating(false);
-      setProgress(null);
+  const loadData = async (isManual = false) => {
+    try {
+      const [statusData, walletsData] = await Promise.all([
+        fetchAdminStatus(),
+        fetchAdminWallets()
+      ]);
+      setStatus(statusData);
+      setWallets(walletsData);
+      
+      if (statusData?.discovery_state?.status === 'running') {
+        setProgress(statusData.discovery_state);
+        setEvaluating(true);
+      } else if (statusData?.discovery_state?.status === 'completed' && evaluating) {
+        setEvaluating(false);
+        setProgress(null);
+      }
+      
+      // Visual feedback pulse when data is refreshed
+      setJustRefreshed(true);
+      setTimeout(() => setJustRefreshed(false), 900);
+    } catch (e) {
+      console.error("Admin refresh error:", e);
+    } finally {
+      setInitialLoading(false);
     }
-    setLoading(false);
   };
 
   useEffect(() => {
     loadData();
-    const interval = setInterval(loadData, 5000);
+    const interval = setInterval(() => loadData(false), 5000);
     return () => clearInterval(interval);
   }, []);
 
@@ -139,11 +149,11 @@ export default function AdminPage() {
           <div className="flex items-center gap-3">
             <Button 
               variant="secondary" 
-              onClick={loadData} 
-              disabled={loading}
+              onClick={() => loadData(true)} 
+              disabled={initialLoading || justRefreshed}
               className="text-xs py-2 px-3 shadow-sm"
             >
-              <RefreshCw size={14} className={loading ? 'animate-spin' : ''} /> Refresh
+              <RefreshCw size={14} className={justRefreshed ? 'animate-spin text-indigo-600' : ''} /> Refresh
             </Button>
             <Button 
               variant="secondary" 
@@ -221,7 +231,7 @@ export default function AdminPage() {
             <h2 className="text-sm font-bold text-slate-900 mb-5 flex items-center gap-2">
               <Database size={16} className="text-slate-600" /> Database Entities
             </h2>
-            {loading && !status ? (
+            {initialLoading && !status ? (
               <div className="space-y-3"><Skeleton className="h-4 w-full" /><Skeleton className="h-4 w-2/3" /></div>
             ) : (
               <div className="space-y-3 text-xs">
@@ -313,12 +323,23 @@ export default function AdminPage() {
         </div>
 
         {/* Wallet Pipeline Filter Tabs */}
-        <div className="rounded-3xl overflow-hidden border border-black/[0.08] shadow-[inset_0_1px_0_rgba(255,255,255,1),0_2px_8px_rgba(0,0,0,0.03),0_16px_36px_-6px_rgba(0,0,0,0.05)] bg-white">
+        <div className={`rounded-3xl overflow-hidden border transition-all duration-700 bg-white ${
+          justRefreshed 
+            ? 'border-indigo-400/80 shadow-[0_0_24px_rgba(99,102,241,0.16)] ring-1 ring-indigo-300/50' 
+            : 'border-black/[0.08] shadow-[inset_0_1px_0_rgba(255,255,255,1),0_2px_8px_rgba(0,0,0,0.03),0_16px_36px_-6px_rgba(0,0,0,0.05)]'
+        }`}>
           <div className="p-6 border-b border-black/[0.06] flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-slate-50/50">
             <div>
-              <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
-                <Wallet size={18} className="text-slate-700" /> Discovered Whale Pipeline
-              </h2>
+              <div className="flex items-center gap-2.5">
+                <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
+                  <Wallet size={18} className="text-slate-700" /> Discovered Whale Pipeline
+                </h2>
+                {justRefreshed && (
+                  <span className="inline-flex items-center gap-1 text-[10px] font-mono font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-200 animate-pulse">
+                    Synced
+                  </span>
+                )}
+              </div>
               <p className="text-xs text-slate-500 mt-1">Full auditable funnel of all candidate and active wallets.</p>
             </div>
             
@@ -360,7 +381,7 @@ export default function AdminPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-black/[0.04]">
-                {loading ? (
+                {initialLoading && wallets.length === 0 ? (
                   Array.from({ length: 6 }).map((_, i) => (
                     <tr key={i}>
                       <td colSpan={7} className="p-4"><Skeleton className="h-4 w-full" /></td>
