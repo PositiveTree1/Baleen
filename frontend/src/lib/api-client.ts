@@ -243,6 +243,22 @@ export async function updateUserSettings(userId: string, data: Partial<User>): P
   }
 }
 
+export async function resetSandboxAmount(userId?: string, newBalance: number = 10000): Promise<boolean> {
+  try {
+    const url = userId 
+      ? `${API_BASE_URL}/api/users/${userId}/reset-sandbox`
+      : `${API_BASE_URL}/api/users/reset-sandbox`;
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ newBalance }),
+    });
+    return res.ok;
+  } catch (error) {
+    return false;
+  }
+}
+
 export async function signUp(email: string, password: string, startingBalance: number): Promise<User | null> {
   try {
     const res = await fetch(`${API_BASE_URL}/api/auth/signup`, {

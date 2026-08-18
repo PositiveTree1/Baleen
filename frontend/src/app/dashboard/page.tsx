@@ -8,6 +8,7 @@ import { TradeLog } from '@/components/dashboard/TradeLog';
 import { PortfolioAnalytics } from '@/components/dashboard/PortfolioAnalytics';
 import { WalletDrawer } from '@/components/dashboard/WalletDrawer';
 import { TradeDrawer } from '@/components/dashboard/TradeDrawer';
+import { ResetSandboxModal } from '@/components/dashboard/ResetSandboxModal';
 import { CommandPalette } from '@/components/ui/CommandPalette';
 import { fetchUserSettings, fetchPortfolioSummary, fetchExecutionLogs } from '@/lib/api-client';
 import { User, ExecutionLog } from '@/types';
@@ -21,6 +22,7 @@ export default function DashboardPage() {
   const { data: session, status } = useSession();
   const [selectedWallet, setSelectedWallet] = useState<string | null>(null);
   const [selectedTrade, setSelectedTrade] = useState<ExecutionLog | null>(null);
+  const [isResetOpen, setIsResetOpen] = useState(false);
   const [soundActive, setSoundActive] = useState(false);
   const [logs, setLogs] = useState<ExecutionLog[]>([]);
   const [user, setUser] = useState<User | null>(null);
@@ -113,7 +115,12 @@ export default function DashboardPage() {
       <main className="flex-1 p-6 lg:p-12 max-w-7xl mx-auto w-full flex flex-col gap-8">
         {/* Header Section with Balance & Regime */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-6 pb-2">
-          <BalanceCounter balance={liveBalance} pnl={livePnl} pnlPct={livePnlPct} />
+          <BalanceCounter 
+            balance={liveBalance} 
+            pnl={livePnl} 
+            pnlPct={livePnlPct} 
+            onResetClick={() => setIsResetOpen(true)}
+          />
           
           <div className="flex items-center gap-3">
             <div className="bg-white px-4 py-2.5 rounded-2xl flex items-center gap-3 border border-black/[0.08] shadow-[inset_0_1px_0_rgba(255,255,255,1),0_1px_3px_rgba(0,0,0,0.04)]">
@@ -128,6 +135,7 @@ export default function DashboardPage() {
         {/* Portfolio Net Worth Curve & Alpha Performance Analytics */}
         <PortfolioAnalytics
           logs={logs}
+          userId={session?.user?.id}
           startingBalance={portfolio?.startingBalance ?? user?.startingBalance ?? 10000.0}
           currentBalance={liveBalance}
           onSelectTrade={setSelectedTrade}
@@ -164,6 +172,15 @@ export default function DashboardPage() {
           setSelectedTrade(null);
           setSelectedWallet(addr);
         }}
+      />
+
+      {/* Reset Sandbox Modal */}
+      <ResetSandboxModal
+        isOpen={isResetOpen}
+        onClose={() => setIsResetOpen(false)}
+        userId={session?.user?.id}
+        currentBalance={liveBalance}
+        onResetComplete={loadData}
       />
     </div>
   );

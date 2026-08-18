@@ -141,3 +141,96 @@ async def guest_login(db: AsyncSession = Depends(get_db)):
         await db.refresh(guest)
         
     return {"email": SHARED_GUEST_EMAIL, "password": SHARED_GUEST_PASSWORD, **user_to_response(guest)}
+
+
+class ResetSandboxRequest(BaseModel):
+    new_starting_balance: float = Field(default=10000.0, alias='newBalance')
+
+    class Config:
+        populate_by_name = True
+
+
+@router.post("/api/users/{user_id}/reset-sandbox")
+async def reset_user_sandbox(
+    user_id: str,
+    req: ResetSandboxRequest = Body(default=ResetSandboxRequest()),
+    db: AsyncSession = Depends(get_db)
+):
+    from app.models import ExecutionLog, PortfolioSnapshot
+    from sqlalchemy import delete
+    from datetime import datetime
+    import uuid
+
+    try:
+        u_uuid = uuid.UUID(user_id)
+        stmt = select(User).where(User.id == u_uuid)
+    except Exception:
+        stmt = select(User).where(User.id == user_id)
+
+    user = (await db.execute(stmt)).scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    new_bal = float(req.new_starting_balance or 10000.0)
+    user.sandbox_starting_balance_usd = new_bal
+    user.sandbox_balance_usd = new_bal
+    user.sandbox_high_water_mark_usd = new_bal
+
+    # Clear previous execution logs & snapshots for this user
+    await db.execute(delete(ExecutionLog).where(ExecutionLog.user_id == user.id))
+    await db.execute(delete(PortfolioSnapshot).where(PortfolioSnapshot.user_id == user.id))
+
+    # Add initial clean starting snapshot
+    db.add(PortfolioSnapshot(
+        user_id=user.id,
+        timestamp=datetime.utcnow(),
+        balance=new_bal,
+        total_pnl=0.0,
+        active_trades_count=0
+    ))
+
+    await db.commit()
+    await db.refresh(user)
+    return user_to_response(user)
+
+
+@router.post("/api/users/reset-sandbox")
+async def reset_global_sandbox(
+    req: ResetSandboxRequest = Body(default=ResetSandboxRequest()),
+    db: AsyncSession = Depends(get_db)
+):
+    from app.models import ExecutionLog, PortfolioSnapshot
+    from sqlalchemy import delete
+    from datetime import datetime
+
+    new_bal = float(req.new_starting_balance or 10000.0)
+
+    # 1. Reset guest user
+    stmt = select(User).where(User.email == SHARED_GUEST_EMAIL)
+    guest = (await db.execute(stmt)).scalar_one_or_none()
+    if guest:
+        guest.sandbox_starting_balance_usd = new_bal
+        guest.sandbox_balance_usd = new_bal
+        guest.sandbox_high_water_mark_usd = new_bal
+
+    # 2. Reset global execution logs & snapshots
+    await db.execute(delete(ExecutionLog).where(ExecutionLog.user_id.is_(None)))
+    await db.execute(delete(PortfolioSnapshot).where(PortfolioSnapshot.user_id.is_(None)))
+
+    # Initial starting snapshot
+    db.add(PortfolioSnapshot(
+        user_id=None,
+        timestamp=datetime.utcnow(),
+        balance=new_bal,
+        total_pnl=0.0,
+        active_trades_count=0
+    ))
+
+    await db.commit()
+    return {
+        "success": True,
+        "message": "Sandbox successfully reset",
+        "startingBalance": new_bal,
+        "currentBalance": new_bal
+    }
+

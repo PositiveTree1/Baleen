@@ -7,9 +7,10 @@ interface BalanceCounterProps {
   balance: number | null;
   pnl?: number | null;
   pnlPct?: number | null;
+  onResetClick?: () => void;
 }
 
-export function BalanceCounter({ balance, pnl, pnlPct }: BalanceCounterProps) {
+export function BalanceCounter({ balance, pnl, pnlPct, onResetClick }: BalanceCounterProps) {
   const initial = balance ?? 10000;
   const springValue = useSpring(initial, { stiffness: 100, damping: 28, restDelta: 0.01 });
   const [isClient, setIsClient] = useState(false);
@@ -30,11 +31,20 @@ export function BalanceCounter({ balance, pnl, pnlPct }: BalanceCounterProps) {
 
   return (
     <div className="flex flex-col gap-1.5">
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 flex-wrap">
         <span className="text-xs text-slate-500 font-semibold tracking-wide">Available Sandbox Capital</span>
         <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold text-slate-700 bg-slate-100 border border-black/[0.06] shadow-[inset_0_1px_0_rgba(255,255,255,0.8)]">
           Paper
         </span>
+        {onResetClick && (
+          <button
+            onClick={onResetClick}
+            className="text-[10px] font-mono font-bold text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 px-2 py-0.5 rounded-full border border-black/[0.06] transition-colors cursor-pointer"
+            title="Reset sandbox capital amount"
+          >
+            Reset
+          </button>
+        )}
         {hasPnl && (
           <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold border shadow-[inset_0_1px_0_rgba(255,255,255,0.8)] ${
             isPositive 

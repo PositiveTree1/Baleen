@@ -103,9 +103,18 @@ async def get_portfolio_summary(
     else:
         stmt = stmt.where(ExecutionLog.user_id.is_(None))
     
-    logs = (await db.execute(stmt)).scalars().all()
-    
     starting_balance = 10000.0
+    if user_id:
+        from app.models import User
+        from uuid import UUID
+        try:
+            u_uuid = UUID(user_id)
+            u_obj = (await db.execute(select(User).where(User.id == u_uuid))).scalar_one_or_none()
+            if u_obj and u_obj.sandbox_starting_balance_usd is not None:
+                starting_balance = float(u_obj.sandbox_starting_balance_usd)
+        except Exception:
+            pass
+
     total_pnl = 0.0
     total_notional = 0.0
     total_fees = 0.0

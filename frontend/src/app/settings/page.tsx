@@ -6,18 +6,20 @@ import { User } from '@/types';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { BrandLogo } from '@/components/ui/BrandLogo';
+import { ResetSandboxModal } from '@/components/dashboard/ResetSandboxModal';
 import { ArrowLeft, Save } from 'lucide-react';
 import Link from 'next/link';
 
 export default function SettingsPage() {
   const { data: session } = useSession();
   const [user, setUser] = useState<User | null>(null);
+  const [isResetOpen, setIsResetOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [savedSuccess, setSavedSuccess] = useState(false);
   const [riskProfile, setRiskProfile] = useState<'Conservative' | 'Balanced' | 'Aggressive'>('Balanced');
   const [dailyDigest, setDailyDigest] = useState(true);
 
-  useEffect(() => {
+  const loadUserData = () => {
     if (session?.user?.id) {
       fetchUserSettings(session.user.id).then(data => {
         if (data) {
@@ -27,6 +29,10 @@ export default function SettingsPage() {
         }
       });
     }
+  };
+
+  useEffect(() => {
+    loadUserData();
   }, [session]);
 
   async function handleSave() {
@@ -68,7 +74,16 @@ export default function SettingsPage() {
         <div className="space-y-6">
           {/* Account Status Card */}
           <div className="p-6 rounded-3xl border border-black/[0.08] shadow-[inset_0_1px_0_rgba(255,255,255,1),0_2px_8px_rgba(0,0,0,0.03),0_12px_28px_-4px_rgba(0,0,0,0.05)] bg-white">
-            <h2 className="text-sm font-bold text-slate-900 mb-4">Sandbox Capital Allocation</h2>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-sm font-bold text-slate-900">Sandbox Capital Allocation</h2>
+              <button
+                type="button"
+                onClick={() => setIsResetOpen(true)}
+                className="text-xs font-semibold text-indigo-600 hover:text-indigo-800 bg-indigo-50 hover:bg-indigo-100/80 px-3 py-1 rounded-xl border border-indigo-200 transition-colors cursor-pointer"
+              >
+                Reset Sandbox Amount
+              </button>
+            </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="p-4 rounded-2xl bg-slate-50 border border-black/[0.06] shadow-[inset_0_1px_2px_rgba(0,0,0,0.02)]">
                 <div className="text-[11px] text-slate-500 font-medium mb-1">Starting Allocation</div>
@@ -155,6 +170,14 @@ export default function SettingsPage() {
           </div>
         </div>
       </div>
+
+      <ResetSandboxModal
+        isOpen={isResetOpen}
+        onClose={() => setIsResetOpen(false)}
+        userId={session?.user?.id}
+        currentBalance={user?.currentBalance ?? 10000}
+        onResetComplete={loadUserData}
+      />
     </div>
   );
 }
