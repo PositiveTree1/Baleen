@@ -232,60 +232,40 @@ async def get_trade_price_chart(
     
     raw_points_map: dict[float, float] = {}
 
-    # Source 1: Polymarket CLOB prices-history
+    # 1. Fetch authentic price history from Polymarket CLOB
     if asset_id:
         try:
-            async with httpx.AsyncClient(timeout=6.0) as client:
+            async with httpx.AsyncClient(timeout=8.0) as client:
                 res = await client.get(
                     "https://clob.polymarket.com/prices-history",
-                    params={"market": asset_id, "interval": "max", "fidelity": 30}
+                    params={"market": asset_id, "interval": "max", "fidelity": 60}
                 )
                 if res.status_code == 200:
                     data = res.json()
-                    rows = data.get("history") or data.get("data") or []
+                    rows = data.get("history") or data.get("data") or data.get("prices") or []
                     for pt in rows:
-                        t_val = pt.get("t") or pt.get("timestamp")
-                        p_val = pt.get("p") or pt.get("price")
-                        if t_val and p_val is not None:
-                            ts = float(t_val)
-                            if ts > 1e11:
-                                ts /= 1000.0
-                            p_float = float(p_val)
-                            if 0.001 <= p_float <= 1.0:
-                                raw_points_map[ts] = p_float
-        except Exception:
-            pass
-
-    # Source 2: Data API recent real trades on this token
-    if asset_id:
-        try:
-            async with httpx.AsyncClient(timeout=6.0) as client:
-                res = await client.get(
-                    "https://data-api.polymarket.com/trades",
-                    params={"token_id": asset_id, "limit": 60}
-                )
-                if res.status_code == 200:
-                    trades = res.json()
-                    if isinstance(trades, list):
-                        for tr in trades:
-                            t_val = tr.get("timestamp") or tr.get("match_time")
-                            p_val = tr.get("price")
-                            if t_val and p_val is not None:
+                        t_val = pt.get("t") or pt.get("timestamp") or pt.get("ts") or pt.get("time")
+                        p_val = pt.get("p") or pt.get("price") or pt.get("value")
+                        if t_val is not None and p_val is not None:
+                            try:
                                 ts = float(t_val)
                                 if ts > 1e11:
                                     ts /= 1000.0
                                 p_float = float(p_val)
                                 if 0.001 <= p_float <= 1.0:
                                     raw_points_map[ts] = p_float
+                            except Exception:
+                                pass
         except Exception:
             pass
 
     await pm_client.close()
 
-    # Source 3: Ensure execution fill point and current live point are included
+    # 2. Append execution fill point and latest live point cleanly
     if log.executed_at:
         exec_ts = log.executed_at.timestamp()
-        raw_points_map[exec_ts] = fill_p
+        if exec_ts not in raw_points_map:
+            raw_points_map[exec_ts] = fill_p
     
     now_ts = time.time()
     raw_points_map[now_ts] = cur_p
