@@ -322,31 +322,7 @@ class PolymarketClient:
             except Exception:
                 pass
 
-        # ── Stage 0: Direct Data API Recent Fill Price (Fastest & Most Reliable) ──
-        if dec_asset:
-            try:
-                t_recent = await self._fetch_with_retry(f"{self.data_api_url}/trades", params={"asset": dec_asset, "limit": 1})
-                if isinstance(t_recent, list) and t_recent:
-                    p_val = float(t_recent[0].get("price") or 0.0)
-                    if 0.005 <= p_val <= 0.995:
-                        return round(p_val, 4)
-            except Exception:
-                pass
-
-        if condition_id:
-            try:
-                t_recent = await self._fetch_with_retry(f"{self.data_api_url}/trades", params={"market": condition_id, "limit": 4})
-                if isinstance(t_recent, list) and t_recent:
-                    for tr in t_recent:
-                        tr_outc = str(tr.get("outcome") or "")
-                        if not outcome or tr_outc.lower() == outcome.lower():
-                            p_val = float(tr.get("price") or 0.0)
-                            if 0.005 <= p_val <= 0.995:
-                                return round(p_val, 4)
-            except Exception:
-                pass
-
-        # ── Stage 1: CLOB Midpoint by Token ID (Fastest direct orderbook price) ──
+        # ── Stage 0: Direct CLOB Midpoint / Price by Token ID ──
         if dec_asset:
             try:
                 mid_data = await self._fetch_with_retry(f"{self.clob_api_url}/midpoint", params={"token_id": dec_asset})
@@ -357,54 +333,23 @@ class PolymarketClient:
             except Exception:
                 pass
 
-        # ── Stage 2: CLOB Orderbook Best Bid/Ask ──
-        if dec_asset:
             try:
-                book = await self.fetch_order_book(dec_asset)
-                if isinstance(book, dict):
-                    bids = book.get("bids", [])
-                    asks = book.get("asks", [])
-                    best_bid = float(bids[0].get("price", 0)) if bids else 0.0
-                    best_ask = float(asks[0].get("price", 1)) if asks else 1.0
-                    if 0 < best_bid < best_ask < 1:
-                        return round((best_bid + best_ask) / 2.0, 4)
+                price_data = await self._fetch_with_retry(f"{self.clob_api_url}/price", params={"token_id": dec_asset, "side": "BUY"})
+                if isinstance(price_data, dict) and "price" in price_data:
+                    p = float(price_data["price"])
+                    if 0.005 <= p <= 0.995:
+                        return round(p, 4)
             except Exception:
                 pass
 
-        # ── Stage 3: Gamma Market lookup (by clob_token_ids, slug, or condition_id) ──
+        # ── Stage 1: Gamma Market lookup (by clob_token_ids, condition_id, or slug) ──
         market_payload = None
 
-        # 3a. Gamma by clob_token_ids
         if dec_asset:
             data = await self._fetch_with_retry(f"{self.gamma_api_url}/markets", params={"clob_token_ids": dec_asset, "limit": 1})
             if isinstance(data, list) and data:
                 market_payload = data[0]
 
-        # 3b. Gamma by slug
-        if not market_payload and slug:
-            data = await self._fetch_with_retry(f"{self.gamma_api_url}/markets", params={"slug": slug, "limit": 1})
-            if isinstance(data, list) and data:
-                market_payload = data[0]
-
-        # 3c. Gamma by event_slug (Multi-event container resolution)
-        if not market_payload and event_slug:
-            event_data = await self._fetch_with_retry(f"{self.gamma_api_url}/events", params={"slug": event_slug, "limit": 1})
-            if isinstance(event_data, list) and event_data:
-                submarkets = event_data[0].get("markets", [])
-                for sm in submarkets:
-                    sm_cid = str(sm.get("conditionId") or sm.get("condition_id") or "").lower()
-                    sm_tokens = sm.get("clobTokenIds") or sm.get("clob_token_ids") or []
-                    if isinstance(sm_tokens, str):
-                        try:
-                            sm_tokens = json.loads(sm_tokens)
-                        except Exception:
-                            sm_tokens = []
-                    sm_tokens = [_to_decimal_token(str(t)) for t in sm_tokens]
-                    if (condition_id and sm_cid == condition_id.lower()) or (dec_asset and dec_asset in sm_tokens):
-                        market_payload = sm
-                        break
-
-        # 3d. Gamma by condition_id
         if not market_payload and condition_id:
             data = await self._fetch_with_retry(f"{self.gamma_api_url}/markets", params={"condition_id": condition_id, "limit": 1})
             if isinstance(data, list) and data:
@@ -412,7 +357,11 @@ class PolymarketClient:
             elif isinstance(data, dict) and "outcomePrices" in data:
                 market_payload = data
 
-        # Process Gamma market payload
+        if not market_payload and slug:
+            data = await self._fetch_with_retry(f"{self.gamma_api_url}/markets", params={"slug": slug, "limit": 1})
+            if isinstance(data, list) and data:
+                market_payload = data[0]
+
         if market_payload and isinstance(market_payload, dict):
             try:
                 raw_prices = market_payload.get("outcomePrices") or "[]"
@@ -426,43 +375,51 @@ class PolymarketClient:
                 raw_outcomes = market_payload.get("outcomes") or "[]"
                 outcomes = json.loads(raw_outcomes) if isinstance(raw_outcomes, str) else list(raw_outcomes)
 
-                # Priority 1: Match by token ID (Asset match)
+                # Priority 1: Match by token ID
                 if dec_asset and tokens:
                     for idx, tok in enumerate(tokens):
                         if tok == dec_asset and idx < len(prices):
                             return round(prices[idx], 4)
 
-                # Priority 2: Exact outcome label match
+                # Priority 2: Match by outcome name
                 if outcome and outcomes:
                     for idx, o in enumerate(outcomes):
                         if str(o).strip().lower() == outcome.strip().lower() and idx < len(prices):
                             return round(prices[idx], 4)
 
-                # Priority 3: Binary Yes/No fallback
+                # Priority 3: Yes/No mapping
                 if outcome.strip().lower() in ("yes", "buy", "true", "1") and len(prices) >= 1:
                     return round(prices[0], 4)
                 elif outcome.strip().lower() in ("no", "sell", "false", "0") and len(prices) >= 2:
                     return round(prices[1], 4)
-                elif prices:
-                    return round(prices[0], 4)
             except Exception:
                 pass
 
-        # ── Stage 4: Data API /trades fallback (DIRECT MATCH ONLY) ──
+        # ── Stage 2: Data API recent trades strictly filtered by conditionId or asset ──
+        if dec_asset:
+            try:
+                t_recent = await self._fetch_with_retry(f"{self.data_api_url}/trades", params={"asset": dec_asset, "limit": 2})
+                if isinstance(t_recent, list) and t_recent:
+                    for tr in t_recent:
+                        if _to_decimal_token(tr.get("asset") or "") == dec_asset:
+                            p_val = float(tr.get("price") or 0.0)
+                            if 0.005 <= p_val <= 0.995:
+                                return round(p_val, 4)
+            except Exception:
+                pass
+
         if condition_id:
             try:
-                trades_data = await self._fetch_with_retry(f"{self.data_api_url}/trades", params={"market": condition_id, "limit": 20})
-                if isinstance(trades_data, list):
-                    our_lower = outcome.lower().strip()
-                    for t in trades_data:
-                        t_price = float(t.get("price") or 0)
-                        t_outcome = (t.get("outcome") or "").lower().strip()
-                        t_asset = _to_decimal_token(t.get("asset") or "")
-                        if 0.005 <= t_price <= 0.995:
-                            if dec_asset and t_asset == dec_asset:
-                                return round(t_price, 4)
-                            if t_outcome and our_lower and t_outcome == our_lower:
-                                return round(t_price, 4)
+                t_recent = await self._fetch_with_retry(f"{self.data_api_url}/trades", params={"conditionId": condition_id, "limit": 4})
+                if isinstance(t_recent, list) and t_recent:
+                    for tr in t_recent:
+                        tr_cid = str(tr.get("conditionId") or tr.get("condition_id") or "").lower()
+                        if tr_cid == condition_id.lower():
+                            tr_outc = str(tr.get("outcome") or "")
+                            if not outcome or tr_outc.lower() == outcome.lower():
+                                p_val = float(tr.get("price") or 0.0)
+                                if 0.005 <= p_val <= 0.995:
+                                    return round(p_val, 4)
             except Exception:
                 pass
 

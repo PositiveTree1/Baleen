@@ -6,10 +6,11 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Activity, Flame, Filter, Search, Zap } from 'lucide-react';
 
 interface LiveTapeProps {
+  userId?: string;
   onSelectTrade?: (trade: ExecutionLog) => void;
 }
 
-export function LiveTape({ onSelectTrade }: LiveTapeProps) {
+export function LiveTape({ userId, onSelectTrade }: LiveTapeProps) {
   const [logs, setLogs] = useState<ExecutionLog[]>([]);
   const [loading, setLoading] = useState(true);
   const [sideFilter, setSideFilter] = useState<'ALL' | 'BUY' | 'SELL' | 'CONSENSUS'>('ALL');
@@ -17,14 +18,14 @@ export function LiveTape({ onSelectTrade }: LiveTapeProps) {
 
   useEffect(() => {
     async function load() {
-      const data = await fetchExecutionLogs(undefined, { limit: '30' });
+      const data = await fetchExecutionLogs(userId, { limit: '30' });
       setLogs(data);
       setLoading(false);
     }
     load();
-    const interval = setInterval(load, 5000);
+    const interval = setInterval(load, 4000);
     return () => clearInterval(interval);
-  }, []);
+  }, [userId]);
 
   const filteredLogs = logs.filter((log) => {
     if (sideFilter === 'BUY' && log.side !== 'BUY') return false;

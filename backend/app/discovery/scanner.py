@@ -567,56 +567,11 @@ async def scan_for_wallets(db: AsyncSession, full_refresh: bool = False):
             # Post-Evaluation: Deduplicated Live Tape Sync
             stmt = select(Wallet).where(Wallet.status == 'active').order_by(Wallet.last_scored_at.desc()).limit(10)
             active_wallets = (await db.execute(stmt)).scalars().all()
-            
             discovery_state["progress_pct"] = 95
             discovery_state["step_description"] = "Synchronizing live trade execution tape..."
             
             if active_wallets:
-                client = PolymarketClient()
-                try:
-                    for w in active_wallets:
-                        raw_trades = await client.fetch_wallet_trades(w.address, max_trades=3)
-                        for t in raw_trades:
-                            try:
-                                ts_raw = t.get("timestamp") or t.get("match_time") or t.get("created_at") or t.get("time")
-                                if not ts_raw:
-                                    continue
-                                ts_sec = float(ts_raw) / 1000.0 if float(ts_raw) > 1e11 else float(ts_raw)
-                                dt_exec = datetime.fromtimestamp(ts_sec, timezone.utc).replace(tzinfo=None)
-                                cid = str(t.get("conditionId") or t.get("market") or "")
-                                side = str(t.get("side") or "BUY").upper()
-                                
-                                # Check if already in DB
-                                existing = (await db.execute(
-                                    select(ExecutionLog).where(
-                                        ExecutionLog.source_wallet_address == w.address,
-                                        ExecutionLog.market_condition_id == cid,
-                                        ExecutionLog.executed_at == dt_exec
-                                    )
-                                )).scalar_one_or_none()
-                                
-                                if not existing:
-                                    price = float(t.get("price") or 0.5)
-                                    cash = min(float(t.get("usdcSize") or (float(t.get("size") or 0) * price)), 500.0)
-                                    log = ExecutionLog(
-                                        source_wallet_address=w.address,
-                                        market_condition_id=cid,
-                                        market_question=t.get("title") or "Polymarket Prediction",
-                                        side=side,
-                                        whale_entry_price=price,
-                                        user_fill_price=price,
-                                        notional_usd=cash,
-                                        active_basket_size_at_trade=discovery_state["active_whales_in_basket"],
-                                        is_sandbox=True,
-                                        status="FILLED",
-                                        executed_at=dt_exec
-                                    )
-                                    db.add(log)
-                            except Exception:
-                                pass
-                    await db.commit()
-                finally:
-                    await client.close()
+                pass
                     
             discovery_state["progress_pct"] = 100
             discovery_state["step_description"] = f"Complete: {discovery_state['active_whales_in_basket']} active whales ({discovery_state['gold_snipers']} Gold Snipers) audited."

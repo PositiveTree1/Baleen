@@ -8,10 +8,11 @@ import { RotateCw, Search, DollarSign, TrendingUp, Award } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 interface WalletLeaderboardProps {
+  userId?: string;
   onSelectWallet: (address: string) => void;
 }
 
-export function WalletLeaderboard({ onSelectWallet }: WalletLeaderboardProps) {
+export function WalletLeaderboard({ userId, onSelectWallet }: WalletLeaderboardProps) {
   const [wallets, setWallets] = useState<Wallet[]>([]);
   const [copiedStats, setCopiedStats] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -23,7 +24,7 @@ export function WalletLeaderboard({ onSelectWallet }: WalletLeaderboardProps) {
   const load = async () => {
     const [walletsData, copiedData] = await Promise.all([
       fetchWallets(),
-      fetchCopiedWalletStats()
+      fetchCopiedWalletStats(userId)
     ]);
     setWallets(walletsData);
     setCopiedStats(copiedData);
@@ -34,7 +35,7 @@ export function WalletLeaderboard({ onSelectWallet }: WalletLeaderboardProps) {
     load();
     const interval = setInterval(load, 8000);
     return () => clearInterval(interval);
-  }, []);
+  }, [userId]);
 
   const handleReevaluate = async () => {
     setEvaluating(true);

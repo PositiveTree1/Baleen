@@ -65,13 +65,12 @@ class MarkToMarketService:
                 # 2. Fetch live prices for distinct (condition_id, outcome, asset) pairs
                 pairs_to_price = list(set((log.market_condition_id, log.resolution_outcome or "Yes", log.onchain_tx_hash or "") for log in recent_logs if log.market_condition_id))
                 for cid, outc, asset_id in pairs_to_price[:30]:
-                    cache_key = f"{cid}:{outc.lower().strip()}"
+                    cache_key = f"{cid.lower().strip()}:{outc.lower().strip()}"
                     try:
                         live_p = await client.fetch_live_token_price(condition_id=cid, asset=asset_id, outcome=outc)
                         if live_p is not None and 0.005 <= live_p <= 0.995:
                             entry = {"price": live_p, "ts": time.time()}
                             _live_price_cache[cache_key] = entry
-                            _live_price_cache[cid] = entry
                             if asset_id:
                                 _live_price_cache[asset_id] = entry
                     except Exception as e:
@@ -167,11 +166,9 @@ def get_live_price(cid: str = "", outcome: str = "Yes", asset: str = "", fallbac
     if asset and asset in _live_price_cache:
         return _live_price_cache[asset]["price"]
     if cid:
-        cache_key = f"{cid}:{outcome.lower().strip()}"
+        cache_key = f"{cid.lower().strip()}:{outcome.lower().strip()}"
         if cache_key in _live_price_cache:
             return _live_price_cache[cache_key]["price"]
-        if cid in _live_price_cache:
-            return _live_price_cache[cid]["price"]
     return fallback
 
 def get_consensus(cid: str) -> dict:

@@ -159,7 +159,7 @@ async def reset_user_sandbox(
     from app.models import ExecutionLog, PortfolioSnapshot
     from sqlalchemy import delete
     from datetime import datetime
-    import uuid
+    import uuid, time
 
     try:
         u_uuid = uuid.UUID(user_id)
@@ -176,18 +176,39 @@ async def reset_user_sandbox(
     user.sandbox_balance_usd = new_bal
     user.sandbox_high_water_mark_usd = new_bal
 
-    # Clear previous execution logs & snapshots for this user
+    # Clear execution logs and snapshots for this user
     await db.execute(delete(ExecutionLog).where(ExecutionLog.user_id == user.id))
     await db.execute(delete(PortfolioSnapshot).where(PortfolioSnapshot.user_id == user.id))
 
-    # Add initial clean starting snapshot
+    # Also clear system global logs if demo/guest
+    if user.email == SHARED_GUEST_EMAIL:
+        await db.execute(delete(ExecutionLog).where(ExecutionLog.user_id.is_(None)))
+        await db.execute(delete(PortfolioSnapshot).where(PortfolioSnapshot.user_id.is_(None)))
+
+    # Initial starting snapshot
+    now_dt = datetime.utcnow()
     db.add(PortfolioSnapshot(
         user_id=user.id,
-        timestamp=datetime.utcnow(),
+        timestamp=now_dt,
         balance=new_bal,
         total_pnl=0.0,
         active_trades_count=0
     ))
+
+    # Reset poller started_at to now
+    try:
+        from app.services.live_poller import live_poller_service
+        live_poller_service.started_at = time.time()
+        live_poller_service.seen_trade_keys.clear()
+    except Exception:
+        pass
+
+    # Clear price caches
+    try:
+        from app.services.mark_to_market import _live_price_cache
+        _live_price_cache.clear()
+    except Exception:
+        pass
 
     await db.commit()
     await db.refresh(user)
@@ -202,6 +223,7 @@ async def reset_global_sandbox(
     from app.models import ExecutionLog, PortfolioSnapshot
     from sqlalchemy import delete
     from datetime import datetime
+    import time
 
     new_bal = float(req.new_starting_balance or 10000.0)
 
@@ -213,24 +235,41 @@ async def reset_global_sandbox(
         guest.sandbox_balance_usd = new_bal
         guest.sandbox_high_water_mark_usd = new_bal
 
-    # 2. Reset global execution logs & snapshots
-    await db.execute(delete(ExecutionLog).where(ExecutionLog.user_id.is_(None)))
-    await db.execute(delete(PortfolioSnapshot).where(PortfolioSnapshot.user_id.is_(None)))
+    # 2. Reset ALL execution logs & snapshots
+    await db.execute(delete(ExecutionLog))
+    await db.execute(delete(PortfolioSnapshot))
 
     # Initial starting snapshot
+    now_dt = datetime.utcnow()
     db.add(PortfolioSnapshot(
         user_id=None,
-        timestamp=datetime.utcnow(),
+        timestamp=now_dt,
         balance=new_bal,
         total_pnl=0.0,
         active_trades_count=0
     ))
 
+    # Reset poller started_at to now
+    try:
+        from app.services.live_poller import live_poller_service
+        live_poller_service.started_at = time.time()
+        live_poller_service.seen_trade_keys.clear()
+    except Exception:
+        pass
+
+    # Clear price caches
+    try:
+        from app.services.mark_to_market import _live_price_cache
+        _live_price_cache.clear()
+    except Exception:
+        pass
+
     await db.commit()
     return {
         "success": True,
-        "message": "Sandbox successfully reset",
+        "message": "Sandbox completely reset",
         "startingBalance": new_bal,
         "currentBalance": new_bal
     }
+
 
