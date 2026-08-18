@@ -1,5 +1,6 @@
 import { Hero } from '@/components/landing/Hero';
 import { LiveTicker } from '@/components/landing/LiveTicker';
+import { ProfitSimulator } from '@/components/landing/ProfitSimulator';
 import { FeaturesGrid } from '@/components/landing/FeaturesGrid';
 import { Leaderboard } from '@/components/landing/Leaderboard';
 import { BrandLogo } from '@/components/ui/BrandLogo';
@@ -24,8 +25,9 @@ export default function LandingPage() {
 
       <Hero />
       <LiveTicker />
-      <FeaturesGrid />
+      <ProfitSimulator />
       <Leaderboard />
+      <FeaturesGrid />
       
       <footer className="py-16 text-center border-t border-black/[0.06] bg-white text-slate-500 text-xs">
         <div className="max-w-6xl mx-auto px-6 flex flex-col sm:flex-row items-center justify-between gap-4">

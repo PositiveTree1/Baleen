@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { fetchExecutionLogs } from '@/lib/api-client';
 import { ExecutionLog } from '@/types';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Activity } from 'lucide-react';
+import { Activity, Flame, Filter, Search, Zap } from 'lucide-react';
 
 interface LiveTapeProps {
   onSelectTrade?: (trade: ExecutionLog) => void;
@@ -12,10 +12,12 @@ interface LiveTapeProps {
 export function LiveTape({ onSelectTrade }: LiveTapeProps) {
   const [logs, setLogs] = useState<ExecutionLog[]>([]);
   const [loading, setLoading] = useState(true);
+  const [sideFilter, setSideFilter] = useState<'ALL' | 'BUY' | 'SELL' | 'CONSENSUS'>('ALL');
+  const [search, setSearch] = useState('');
 
   useEffect(() => {
     async function load() {
-      const data = await fetchExecutionLogs(undefined, { limit: '20' });
+      const data = await fetchExecutionLogs(undefined, { limit: '30' });
       setLogs(data);
       setLoading(false);
     }
@@ -24,29 +26,58 @@ export function LiveTape({ onSelectTrade }: LiveTapeProps) {
     return () => clearInterval(interval);
   }, []);
 
+  const filteredLogs = logs.filter((log) => {
+    if (sideFilter === 'BUY' && log.side !== 'BUY') return false;
+    if (sideFilter === 'SELL' && log.side !== 'SELL') return false;
+    if (sideFilter === 'CONSENSUS' && !log.consensus?.is_consensus) return false;
+    if (search && !log.marketQuestion?.toLowerCase().includes(search.toLowerCase()) && !log.walletAddress?.toLowerCase().includes(search.toLowerCase())) return false;
+    return true;
+  });
+
   return (
-    <div className="rounded-3xl overflow-hidden h-[420px] flex flex-col border border-black/[0.08] shadow-[inset_0_1px_0_rgba(255,255,255,1),0_2px_8px_rgba(0,0,0,0.03),0_12px_28px_-4px_rgba(0,0,0,0.05)] bg-white">
-      <div className="p-4 px-6 border-b border-black/[0.06] flex items-center justify-between bg-slate-50/50">
+    <div className="rounded-3xl overflow-hidden h-[460px] flex flex-col border border-black/[0.08] shadow-[inset_0_1px_0_rgba(255,255,255,1),0_2px_8px_rgba(0,0,0,0.03),0_12px_28px_-4px_rgba(0,0,0,0.05)] bg-white">
+      <div className="p-4 px-6 border-b border-black/[0.06] flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-50/50">
         <div className="flex items-center gap-2.5">
           <Activity size={16} className="text-slate-900" />
           <h3 className="text-sm font-bold text-slate-900 tracking-tight">Live Execution Tape</h3>
+          <div className="flex items-center gap-1.5 ml-2">
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-500 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+            </span>
+            <span className="text-[10px] font-mono text-emerald-700 font-bold bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+              Polygon CTF
+            </span>
+          </div>
         </div>
+
+        {/* Filter Pills */}
         <div className="flex items-center gap-2">
-          <span className="text-[11px] font-mono text-slate-500 font-semibold">Polygon CTF</span>
-          <span className="relative flex h-2 w-2">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-500 opacity-75"></span>
-            <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-          </span>
+          <div className="flex rounded-xl bg-slate-200/60 p-0.5 border border-black/[0.04] text-[11px]">
+            {(['ALL', 'BUY', 'SELL', 'CONSENSUS'] as const).map((side) => (
+              <button
+                key={side}
+                onClick={() => setSideFilter(side)}
+                className={`px-2.5 py-0.5 rounded-lg font-semibold transition-all cursor-pointer ${
+                  sideFilter === side 
+                    ? 'bg-white text-slate-950 shadow-sm border border-black/[0.04]' 
+                    : 'text-slate-500 hover:text-slate-900'
+                }`}
+              >
+                {side === 'CONSENSUS' ? '🔥 Consensus' : side}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
       
       <div className="flex-1 overflow-y-auto p-3.5 scroll-smooth">
         {loading ? (
           <div className="p-8 text-center text-xs text-slate-400 font-medium">Connecting to signal stream...</div>
-        ) : logs.length > 0 ? (
+        ) : filteredLogs.length > 0 ? (
           <div className="space-y-1.5">
             <AnimatePresence initial={false}>
-              {logs.map((log) => (
+              {filteredLogs.map((log) => (
                 <motion.div
                   key={log.id}
                   initial={{ opacity: 0, y: -6 }}
@@ -69,7 +100,8 @@ export function LiveTape({ onSelectTrade }: LiveTapeProps) {
                   </div>
                   <div className="w-1/3 flex justify-end items-center gap-3">
                     {log.consensus?.is_consensus && (
-                      <span className="hidden sm:inline-block px-1.5 py-0.5 rounded text-[9px] font-bold bg-indigo-100 text-indigo-800">
+                      <span className="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold bg-indigo-100 text-indigo-800 border border-indigo-200">
+                        <Flame size={10} className="text-indigo-600" />
                         {log.consensus.whale_count} Whales
                       </span>
                     )}

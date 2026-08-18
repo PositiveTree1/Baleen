@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/Button';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { BrandLogo } from '@/components/ui/BrandLogo';
 import Link from 'next/link';
-import { ArrowLeft, Activity, Database, Users, Wallet, CheckCircle, XCircle, RefreshCw, Sparkles, Filter, RotateCw, Trash2 } from 'lucide-react';
+import { ArrowLeft, Activity, Database, Users, Wallet, CheckCircle, AlertTriangle, RefreshCw, Sparkles, Filter, RotateCw, Trash2, Search, ExternalLink } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 export default function AdminPage() {
@@ -37,7 +37,6 @@ export default function AdminPage() {
         setProgress(null);
       }
       
-      // Visual feedback pulse when data is refreshed
       setJustRefreshed(true);
       setTimeout(() => setJustRefreshed(false), 900);
     } catch (e) {
@@ -58,7 +57,7 @@ export default function AdminPage() {
       const prog = await fetchDiscoveryProgress();
       if (prog) {
         setProgress(prog);
-        if (prog.status === 'completed' || prog.status === 'error') {
+        if (prog.status === 'completed' || prog.status === 'error' || prog.status === 'interrupted') {
           clearInterval(pInterval);
           setTimeout(() => {
             setEvaluating(false);
@@ -73,7 +72,7 @@ export default function AdminPage() {
   const handleReevaluate = async () => {
     setEvaluating(true);
     try {
-      reEvaluateWallets();
+      await reEvaluateWallets();
       startProgressPolling();
     } catch {
       setEvaluating(false);
@@ -114,10 +113,6 @@ export default function AdminPage() {
     return matchesFilter && matchesSearch;
   });
 
-  const isServiceOnline = (val: string) => {
-    return val === 'ONLINE' || val === 'CONNECTED';
-  };
-
   const formatUptime = (seconds: number) => {
     if (!seconds) return '0s';
     const h = Math.floor(seconds / 3600);
@@ -129,24 +124,29 @@ export default function AdminPage() {
   };
 
   const formatCronTime = (timestamp: number | null) => {
-    if (!timestamp) return 'Waiting for first ping...';
+    if (!timestamp) return 'Waiting for ping...';
     const secondsAgo = Math.floor(Date.now() / 1000 - timestamp);
     if (secondsAgo < 60) return 'Just now';
     return `${Math.floor(secondsAgo / 60)}m ago`;
   };
 
+  const dbType = status?.database?.type || (status?.database?.using_sqlite_fallback ? 'SQLite (Local Failover)' : 'Supabase PostgreSQL');
+  const isPostgres = !status?.database?.using_sqlite_fallback && !dbType.includes('SQLite');
+
   return (
     <div className="min-h-screen bg-[#F8F9FB] text-slate-900 p-6 lg:p-12 selection:bg-slate-900 selection:text-white">
       <div className="max-w-7xl mx-auto">
-        <div className="flex items-center justify-between mb-8 pb-4 border-b border-black/[0.06]">
+        {/* Top Header */}
+        <div className="flex flex-wrap items-center justify-between gap-4 mb-8 pb-4 border-b border-black/[0.06]">
           <div className="flex items-center gap-4">
             <BrandLogo size="sm" subtitle="Admin Console" />
             <span className="text-slate-300">|</span>
             <Link href="/dashboard" className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-600 hover:text-slate-900 transition-colors">
-              <ArrowLeft size={14} /> Dashboard
+              <ArrowLeft size={14} /> Back to Dashboard
             </Link>
           </div>
-          <div className="flex items-center gap-3">
+
+          <div className="flex flex-wrap items-center gap-2.5">
             <Button 
               variant="secondary" 
               onClick={() => loadData(true)} 
@@ -170,7 +170,7 @@ export default function AdminPage() {
               disabled={evaluating}
               className="text-xs py-2 px-3.5 shadow-sm border border-rose-200 text-rose-700 bg-rose-50 hover:bg-rose-100 font-semibold"
             >
-              <Trash2 size={14} /> Purge & Rescan Polymarket
+              <Trash2 size={14} /> Purge &amp; Rescan
             </Button>
             <Button 
               variant="primary" 
@@ -201,10 +201,10 @@ export default function AdminPage() {
                 </div>
                 <div className="flex items-center gap-3">
                   <span className="text-xs font-mono text-slate-500">
-                    {progress.wallets_scanned} scanned • {progress.gold_snipers} Gold Snipers
+                    {progress.wallets_scanned} scanned • {progress.gold_snipers || 0} Gold Snipers
                   </span>
                   <span className="text-xs font-mono font-bold text-indigo-600 bg-indigo-50 px-2.5 py-0.5 rounded-full border border-indigo-200">
-                    {progress.progress_pct}%
+                    {progress.progress_pct || 0}%
                   </span>
                 </div>
               </div>
@@ -220,13 +220,13 @@ export default function AdminPage() {
         
         <div className="mb-10">
           <h1 className="text-3xl font-bold tracking-tight text-slate-900 mb-2 flex items-center gap-3">
-            <Activity className="text-slate-900" size={26} /> Engine Control Panel
+            <Activity className="text-slate-900" size={26} /> Engine Control Plane
           </h1>
-          <p className="text-slate-600 text-sm">Real-time status of Polymarket indexer, scoring pipeline, and database models.</p>
+          <p className="text-slate-600 text-sm">Real-time status of Polymarket indexer, Supabase database models, and scoring workers.</p>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
-          {/* Database Stats */}
+          {/* Database Entities */}
           <div className="p-6 rounded-3xl border border-black/[0.08] shadow-[inset_0_1px_0_rgba(255,255,255,1),0_2px_8px_rgba(0,0,0,0.03),0_12px_28px_-4px_rgba(0,0,0,0.05)] bg-white">
             <h2 className="text-sm font-bold text-slate-900 mb-5 flex items-center gap-2">
               <Database size={16} className="text-slate-600" /> Database Entities
@@ -248,48 +248,53 @@ export default function AdminPage() {
                   <span className="text-amber-600 font-mono font-bold">{status?.db_stats?.pending ?? 0}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-slate-600 font-medium">Rejected (Filter Failed)</span>
+                  <span className="text-slate-600 font-medium">Rejected (Failed Rules)</span>
                   <span className="text-rose-600 font-mono font-bold">{status?.db_stats?.rejected ?? 0}</span>
                 </div>
                 <div className="border-t border-black/[0.06] my-2 pt-2 flex justify-between">
                   <span className="text-slate-600 font-medium">Registered Users</span>
-                  <span className="text-slate-900 font-mono font-bold">{status?.db?.users ?? status?.database?.totalUsers ?? 0}</span>
+                  <span className="text-slate-900 font-mono font-bold">{status?.database?.totalUsers ?? status?.db?.users ?? 0}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-slate-600 font-medium">Total Audited Fills</span>
-                  <span className="text-slate-900 font-mono font-bold">{status?.db?.trades ?? status?.database?.totalTrades ?? 0}</span>
+                  <span className="text-slate-600 font-medium">Total Executions Tape</span>
+                  <span className="text-slate-900 font-mono font-bold">{status?.database?.totalTrades ?? status?.db?.trades ?? 0}</span>
                 </div>
               </div>
             )}
           </div>
 
-          {/* Service Status */}
+          {/* Microservice Health */}
           <div className="p-6 rounded-3xl border border-black/[0.08] shadow-[inset_0_1px_0_rgba(255,255,255,1),0_2px_8px_rgba(0,0,0,0.03),0_12px_28px_-4px_rgba(0,0,0,0.05)] bg-white">
             <h2 className="text-sm font-bold text-slate-900 mb-5 flex items-center gap-2">
-              <Activity size={16} className="text-slate-600" /> Microservice Health
+              <Activity size={16} className="text-slate-600" /> Storage &amp; Infrastructure
             </h2>
             <div className="space-y-3.5 text-xs">
-              <div className="flex items-center justify-between p-3 rounded-2xl bg-slate-50 border border-black/[0.04] shadow-[inset_0_1px_2px_rgba(0,0,0,0.02)]">
-                <span className="text-slate-800 font-semibold">FastAPI Backend API</span>
-                <span className="inline-flex items-center gap-1.5 text-[11px] font-mono font-bold text-emerald-800 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200 shadow-[inset_0_1px_0_rgba(255,255,255,0.8)]">
+              <div className="flex items-center justify-between p-3 rounded-2xl bg-slate-50 border border-black/[0.04]">
+                <span className="text-slate-800 font-semibold">Backend Engine</span>
+                <span className="inline-flex items-center gap-1 text-[11px] font-mono font-bold text-emerald-800 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200">
                   <CheckCircle size={12} /> ONLINE
                 </span>
               </div>
-              <div className="flex items-center justify-between p-3 rounded-2xl bg-slate-50 border border-black/[0.04] shadow-[inset_0_1px_2px_rgba(0,0,0,0.02)]">
-                <span className="text-slate-800 font-semibold">Neon PostgreSQL DB</span>
-                <span className="inline-flex items-center gap-1.5 text-[11px] font-mono font-bold text-emerald-800 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200 shadow-[inset_0_1px_0_rgba(255,255,255,0.8)]">
-                  <CheckCircle size={12} /> CONNECTED
+              <div className="flex items-center justify-between p-3 rounded-2xl bg-slate-50 border border-black/[0.04]">
+                <span className="text-slate-800 font-semibold">Database Engine</span>
+                <span className={`inline-flex items-center gap-1 text-[11px] font-mono font-bold px-2.5 py-0.5 rounded-full border ${
+                  isPostgres
+                    ? 'text-emerald-800 bg-emerald-50 border-emerald-200' 
+                    : 'text-amber-800 bg-amber-50 border-amber-200'
+                }`}>
+                  {isPostgres ? <CheckCircle size={12} /> : <AlertTriangle size={12} />}
+                  {isPostgres ? 'Supabase Postgres' : 'SQLite Failover'}
                 </span>
               </div>
-              <div className="flex items-center justify-between p-3 rounded-2xl bg-slate-50 border border-black/[0.04] shadow-[inset_0_1px_2px_rgba(0,0,0,0.02)]">
+              <div className="flex items-center justify-between p-3 rounded-2xl bg-slate-50 border border-black/[0.04]">
                 <span className="text-slate-800 font-semibold">Server Uptime</span>
-                <span className="inline-flex items-center gap-1.5 text-[11px] font-mono font-bold text-slate-700 bg-white px-2.5 py-0.5 rounded-full border shadow-[inset_0_1px_0_rgba(255,255,255,0.8)]">
+                <span className="font-mono font-bold text-slate-700 bg-white px-2.5 py-0.5 rounded-full border shadow-sm">
                   {formatUptime(status?.uptime_seconds || 0)}
                 </span>
               </div>
-              <div className="flex items-center justify-between p-3 rounded-2xl bg-slate-50 border border-black/[0.04] shadow-[inset_0_1px_2px_rgba(0,0,0,0.02)]">
-                <span className="text-slate-800 font-semibold">Keep-Alive Cron Ping</span>
-                <span className="inline-flex items-center gap-1.5 text-[11px] font-mono font-bold text-slate-700 bg-white px-2.5 py-0.5 rounded-full border shadow-[inset_0_1px_0_rgba(255,255,255,0.8)]">
+              <div className="flex items-center justify-between p-3 rounded-2xl bg-slate-50 border border-black/[0.04]">
+                <span className="text-slate-800 font-semibold">Keep-Alive Heartbeat</span>
+                <span className="font-mono font-bold text-slate-700 bg-white px-2.5 py-0.5 rounded-full border shadow-sm">
                   {formatCronTime(status?.last_cron_ping)}
                 </span>
               </div>
@@ -299,30 +304,30 @@ export default function AdminPage() {
           {/* Job Schedules */}
           <div className="p-6 rounded-3xl border border-black/[0.08] shadow-[inset_0_1px_0_rgba(255,255,255,1),0_2px_8px_rgba(0,0,0,0.03),0_12px_28px_-4px_rgba(0,0,0,0.05)] bg-white">
             <h2 className="text-sm font-bold text-slate-900 mb-5 flex items-center gap-2">
-              <RefreshCw size={16} className="text-slate-600" /> Automated Cron Cadence
+              <RefreshCw size={16} className="text-slate-600" /> Continuous Pipeline
             </h2>
             <div className="space-y-3.5 text-xs">
               <div className="flex justify-between items-center">
                 <span className="text-slate-600 font-medium">Whale Discovery Scan</span>
-                <span className="font-mono text-slate-900 font-bold px-2 py-0.5 rounded bg-slate-100 border border-black/[0.04]">Every 6 hours</span>
+                <span className="font-mono text-slate-900 font-bold px-2 py-0.5 rounded bg-slate-100 border border-black/[0.04]">Every 20 minutes</span>
               </div>
               <div className="flex justify-between items-center">
-                <span className="text-slate-600 font-medium">Basket Rescoring Pass</span>
-                <span className="font-mono text-slate-900 font-bold px-2 py-0.5 rounded bg-slate-100 border border-black/[0.04]">Every 24 hours</span>
+                <span className="text-slate-600 font-medium">Mark-to-Market Valuation</span>
+                <span className="font-mono text-slate-900 font-bold px-2 py-0.5 rounded bg-slate-100 border border-black/[0.04]">Every 25 seconds</span>
               </div>
               <div className="flex justify-between items-center">
-                <span className="text-slate-600 font-medium">AI Whale Behavioral Summaries</span>
-                <span className="font-mono text-slate-900 font-bold px-2 py-0.5 rounded bg-slate-100 border border-black/[0.04]">Nightly (Groq)</span>
+                <span className="text-slate-600 font-medium">AI Behavioral Analysis</span>
+                <span className="font-mono text-slate-900 font-bold px-2 py-0.5 rounded bg-slate-100 border border-black/[0.04]">Nightly (Groq Llama-3.1)</span>
               </div>
               <div className="flex justify-between items-center">
-                <span className="text-slate-600 font-medium">Dormancy & Drawdown Verification</span>
-                <span className="font-mono text-emerald-800 font-bold px-2.5 py-0.5 rounded-full bg-emerald-50 border border-emerald-200">Continuous</span>
+                <span className="text-slate-600 font-medium">Render Idle Keep-Alive</span>
+                <span className="font-mono text-emerald-800 font-bold px-2.5 py-0.5 rounded-full bg-emerald-50 border border-emerald-200">5m Ping Cadence</span>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Wallet Pipeline Filter Tabs */}
+        {/* Whale Pipeline Table */}
         <div className={`rounded-3xl overflow-hidden border transition-all duration-700 bg-white ${
           justRefreshed 
             ? 'border-indigo-400/80 shadow-[0_0_24px_rgba(99,102,241,0.16)] ring-1 ring-indigo-300/50' 
@@ -344,19 +349,22 @@ export default function AdminPage() {
             </div>
             
             <div className="flex flex-wrap items-center gap-3">
-              <input
-                type="text"
-                placeholder="Search 0x address..."
-                value={search}
-                onChange={e => setSearch(e.target.value)}
-                className="text-xs bg-white border border-black/[0.1] rounded-xl px-3.5 py-2 text-slate-900 placeholder-slate-400 focus:outline-none focus:border-slate-400 shadow-sm w-48 font-mono"
-              />
+              <div className="relative">
+                <Search size={12} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input
+                  type="text"
+                  placeholder="Search 0x address..."
+                  value={search}
+                  onChange={e => setSearch(e.target.value)}
+                  className="text-xs bg-white border border-black/[0.1] rounded-xl pl-8 pr-3 py-2 text-slate-900 placeholder-slate-400 focus:outline-none focus:border-slate-400 shadow-sm w-48 font-mono"
+                />
+              </div>
               <div className="flex rounded-xl bg-slate-100 p-1 border border-black/[0.06]">
                 {(['all', 'active', 'pending', 'rejected'] as const).map(f => (
                   <button
                     key={f}
                     onClick={() => setFilter(f)}
-                    className={`text-xs px-3.5 py-1.5 rounded-lg capitalize font-semibold transition-all ${
+                    className={`text-xs px-3 py-1.5 rounded-lg capitalize font-semibold transition-all cursor-pointer ${
                       filter === f ? 'bg-white text-slate-900 shadow-sm border border-black/[0.04]' : 'text-slate-500 hover:text-slate-900'
                     }`}
                   >
@@ -398,10 +406,18 @@ export default function AdminPage() {
                     return (
                       <tr key={w.address} className="hover:bg-slate-50/80 transition-colors text-xs">
                         <td className="p-4 sm:px-6 font-mono text-slate-800 font-semibold">
-                          {w.address}
+                          <a 
+                            href={`https://polymarket.com/profile/${w.address}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="hover:text-indigo-600 transition-colors inline-flex items-center gap-1"
+                          >
+                            <span>{w.address.slice(0, 8)}...{w.address.slice(-6)}</span>
+                            <ExternalLink size={11} className="opacity-40" />
+                          </a>
                         </td>
                         <td className="p-4">
-                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold capitalize border shadow-[inset_0_1px_0_rgba(255,255,255,0.8)] ${
+                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold capitalize border shadow-sm ${
                             statusVal === 'active' 
                               ? 'bg-emerald-50 text-emerald-800 border-emerald-200' 
                               : statusVal === 'rejected' 
@@ -428,7 +444,7 @@ export default function AdminPage() {
                 ) : (
                   <tr>
                     <td colSpan={7} className="p-16 text-center text-slate-400 text-xs font-medium">
-                      No matching wallets in this category. Click &quot;Run Discovery &amp; Score Now&quot; to fetch and score immediately.
+                      No matching wallets in this category. Click &quot;Discovery Scan&quot; above to fetch and score immediately.
                     </td>
                   </tr>
                 )}

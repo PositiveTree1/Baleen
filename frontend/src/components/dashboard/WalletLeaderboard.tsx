@@ -4,7 +4,7 @@ import { fetchWallets, reEvaluateWallets, fetchDiscoveryProgress } from '@/lib/a
 import { Wallet } from '@/types';
 import { Badge } from '../ui/Badge';
 import { Skeleton } from '../ui/Skeleton';
-import { RotateCw, Sparkles } from 'lucide-react';
+import { RotateCw, Sparkles, Search, ArrowUpDown, Filter } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 interface WalletLeaderboardProps {
@@ -16,6 +16,8 @@ export function WalletLeaderboard({ onSelectWallet }: WalletLeaderboardProps) {
   const [loading, setLoading] = useState(true);
   const [evaluating, setEvaluating] = useState(false);
   const [progress, setProgress] = useState<any>(null);
+  const [search, setSearch] = useState('');
+  const [tab, setTab] = useState<'all' | 'gold' | 'top_pnl'>('all');
 
   const load = async () => {
     const data = await fetchWallets();
@@ -57,22 +59,65 @@ export function WalletLeaderboard({ onSelectWallet }: WalletLeaderboardProps) {
     return `${val.toFixed(0)}%`;
   };
 
+  const filteredWallets = wallets.filter((w) => {
+    if (search && !w.address.toLowerCase().includes(search.toLowerCase())) return false;
+    if (tab === 'gold') return w.tier === 'gold_sniper';
+    if (tab === 'top_pnl') return (w.pnl || 0) >= 100000;
+    return true;
+  });
+
   return (
-    <div className="rounded-3xl overflow-hidden h-[420px] flex flex-col border border-black/[0.08] shadow-[inset_0_1px_0_rgba(255,255,255,1),0_2px_8px_rgba(0,0,0,0.03),0_12px_28px_-4px_rgba(0,0,0,0.05)] bg-white">
-      <div className="p-4 px-6 border-b border-black/[0.06] bg-slate-50/50 flex items-center justify-between">
-        <div className="flex items-center gap-2.5">
-          <h3 className="text-sm font-bold text-slate-900 tracking-tight">Active Index Basket</h3>
-          <span className="text-[11px] text-slate-500 font-mono font-semibold">({wallets.length} tracked)</span>
+    <div className="rounded-3xl overflow-hidden h-[460px] flex flex-col border border-black/[0.08] shadow-[inset_0_1px_0_rgba(255,255,255,1),0_2px_8px_rgba(0,0,0,0.03),0_12px_28px_-4px_rgba(0,0,0,0.05)] bg-white">
+      <div className="p-4 px-6 border-b border-black/[0.06] bg-slate-50/50 flex flex-col gap-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <h3 className="text-sm font-bold text-slate-900 tracking-tight">Active Index Basket</h3>
+            <span className="text-[11px] text-slate-500 font-mono font-semibold">({filteredWallets.length} active)</span>
+          </div>
+          <button
+            onClick={handleReevaluate}
+            disabled={evaluating}
+            className="flex items-center gap-1.5 px-3 py-1 bg-white hover:bg-slate-50 text-slate-700 hover:text-slate-900 border border-black/[0.08] rounded-xl text-xs font-semibold shadow-sm transition-all cursor-pointer disabled:opacity-50"
+            title="Re-evaluate all wallets from live Polymarket API"
+          >
+            <RotateCw size={12} className={evaluating ? "animate-spin text-indigo-600" : ""} />
+            <span>{evaluating ? "Evaluating..." : "Re-evaluate"}</span>
+          </button>
         </div>
-        <button
-          onClick={handleReevaluate}
-          disabled={evaluating}
-          className="flex items-center gap-1.5 px-3 py-1 bg-white hover:bg-slate-50 text-slate-700 hover:text-slate-900 border border-black/[0.08] rounded-xl text-xs font-semibold shadow-sm transition-all cursor-pointer disabled:opacity-50"
-          title="Re-evaluate all wallets from live Polymarket API"
-        >
-          <RotateCw size={12} className={evaluating ? "animate-spin text-indigo-600" : ""} />
-          <span>{evaluating ? "Evaluating..." : "Re-evaluate All"}</span>
-        </button>
+
+        {/* Search & Tabs */}
+        <div className="flex items-center gap-2">
+          <div className="relative flex-1">
+            <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input
+              type="text"
+              placeholder="Filter 0x address..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full pl-7 pr-2.5 py-1 text-xs font-mono bg-white border border-black/[0.08] rounded-xl focus:outline-none focus:border-slate-400"
+            />
+          </div>
+          <div className="flex rounded-xl bg-slate-200/60 p-0.5 border border-black/[0.04] text-[11px]">
+            <button
+              onClick={() => setTab('all')}
+              className={`px-2 py-0.5 rounded-lg font-semibold transition-all ${tab === 'all' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-900'}`}
+            >
+              All
+            </button>
+            <button
+              onClick={() => setTab('gold')}
+              className={`px-2 py-0.5 rounded-lg font-semibold transition-all ${tab === 'gold' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-900'}`}
+            >
+              Gold
+            </button>
+            <button
+              onClick={() => setTab('top_pnl')}
+              className={`px-2 py-0.5 rounded-lg font-semibold transition-all ${tab === 'top_pnl' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-900'}`}
+            >
+              $100k+
+            </button>
+          </div>
+        </div>
       </div>
 
       {/* Live Animated Progress Bar */}
@@ -101,11 +146,11 @@ export function WalletLeaderboard({ onSelectWallet }: WalletLeaderboardProps) {
       <div className="flex-1 overflow-y-auto">
         <table className="w-full text-left border-collapse">
           <thead>
-            <tr className="border-b border-black/[0.06] text-[10px] uppercase tracking-wider text-slate-500 bg-slate-50/90 sticky top-0 backdrop-blur-md z-10 font-semibold">
-              <th className="p-3.5 px-4 font-semibold">Wallet</th>
-              <th className="p-3.5 font-semibold">Tier</th>
-              <th className="p-3.5 font-semibold text-right">Win Rate</th>
-              <th className="p-3.5 px-4 font-semibold text-right">PnL</th>
+            <tr className="border-b border-black/[0.06] text-[10px] uppercase tracking-wider text-slate-500 bg-slate-50/90 sticky top-0 backdrop-blur-md z-10 font-bold">
+              <th className="p-3.5 px-4">Wallet</th>
+              <th className="p-3.5">Tier</th>
+              <th className="p-3.5 text-right">Win Rate</th>
+              <th className="p-3.5 px-4 text-right">PnL</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-black/[0.04]">
@@ -118,8 +163,8 @@ export function WalletLeaderboard({ onSelectWallet }: WalletLeaderboardProps) {
                   <td className="p-3.5 px-4"><Skeleton className="h-3.5 w-12 ml-auto" /></td>
                 </tr>
               ))
-            ) : wallets.length > 0 ? (
-              wallets.map((wallet) => {
+            ) : filteredWallets.length > 0 ? (
+              filteredWallets.map((wallet) => {
                 const isGold = wallet.tier === 'gold_sniper';
                 return (
                   <tr 
@@ -131,8 +176,8 @@ export function WalletLeaderboard({ onSelectWallet }: WalletLeaderboardProps) {
                         : 'hover:bg-slate-50/80'
                     }`}
                   >
-                    <td className="p-3.5 px-4 font-mono text-slate-800 font-bold group-hover:text-black transition-colors">
-                      {wallet.address.slice(0, 5)}...{wallet.address.slice(-4)}
+                    <td className="p-3.5 px-4 font-mono text-slate-800 font-bold group-hover:text-indigo-600 transition-colors">
+                      {wallet.address.slice(0, 6)}...{wallet.address.slice(-4)}
                     </td>
                     <td className="p-3.5"><Badge tier={wallet.tier} /></td>
                     <td className="p-3.5 text-right text-slate-800 font-mono font-semibold">{formatWinRate(wallet.winRate || 0)}</td>
@@ -145,7 +190,7 @@ export function WalletLeaderboard({ onSelectWallet }: WalletLeaderboardProps) {
             ) : (
               <tr>
                 <td colSpan={4} className="p-12 text-center text-slate-400 text-xs font-medium">
-                  Discovery scan running...
+                  {search ? 'No matching wallets.' : 'Discovery scan running...'}
                 </td>
               </tr>
             )}
