@@ -1,10 +1,10 @@
 'use client';
 import { useEffect, useState } from 'react';
-import { fetchWallets, reEvaluateWallets, fetchDiscoveryProgress } from '@/lib/api-client';
+import { fetchWallets, reEvaluateWallets, fetchDiscoveryProgress, fetchCopiedWalletStats } from '@/lib/api-client';
 import { Wallet } from '@/types';
 import { Badge } from '../ui/Badge';
 import { Skeleton } from '../ui/Skeleton';
-import { RotateCw, Sparkles, Search, ArrowUpDown, Filter } from 'lucide-react';
+import { RotateCw, Search, DollarSign, TrendingUp, Award } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 interface WalletLeaderboardProps {
@@ -13,28 +13,33 @@ interface WalletLeaderboardProps {
 
 export function WalletLeaderboard({ onSelectWallet }: WalletLeaderboardProps) {
   const [wallets, setWallets] = useState<Wallet[]>([]);
+  const [copiedStats, setCopiedStats] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [evaluating, setEvaluating] = useState(false);
   const [progress, setProgress] = useState<any>(null);
   const [search, setSearch] = useState('');
-  const [tab, setTab] = useState<'all' | 'gold' | 'top_pnl'>('all');
+  const [tab, setTab] = useState<'all' | 'gold' | 'copied'>('copied');
 
   const load = async () => {
-    const data = await fetchWallets();
-    setWallets(data);
+    const [walletsData, copiedData] = await Promise.all([
+      fetchWallets(),
+      fetchCopiedWalletStats()
+    ]);
+    setWallets(walletsData);
+    setCopiedStats(copiedData);
     setLoading(false);
   };
 
   useEffect(() => {
     load();
+    const interval = setInterval(load, 8000);
+    return () => clearInterval(interval);
   }, []);
 
   const handleReevaluate = async () => {
     setEvaluating(true);
     try {
       reEvaluateWallets();
-      
-      // Poll progress every 800ms
       const interval = setInterval(async () => {
         const prog = await fetchDiscoveryProgress();
         if (prog) {
@@ -62,7 +67,11 @@ export function WalletLeaderboard({ onSelectWallet }: WalletLeaderboardProps) {
   const filteredWallets = wallets.filter((w) => {
     if (search && !w.address.toLowerCase().includes(search.toLowerCase())) return false;
     if (tab === 'gold') return w.tier === 'gold_sniper';
-    if (tab === 'top_pnl') return (w.pnl || 0) >= 100000;
+    return true;
+  });
+
+  const filteredCopied = copiedStats.filter((c) => {
+    if (search && !c.address.toLowerCase().includes(search.toLowerCase())) return false;
     return true;
   });
 
@@ -72,7 +81,9 @@ export function WalletLeaderboard({ onSelectWallet }: WalletLeaderboardProps) {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <h3 className="text-sm font-bold text-slate-900 tracking-tight">Active Index Basket</h3>
-            <span className="text-[11px] text-slate-500 font-mono font-semibold">({filteredWallets.length} active)</span>
+            <span className="text-[11px] text-slate-500 font-mono font-semibold">
+              ({tab === 'copied' ? `${filteredCopied.length} copied` : `${filteredWallets.length} active`})
+            </span>
           </div>
           <button
             onClick={handleReevaluate}
@@ -97,24 +108,24 @@ export function WalletLeaderboard({ onSelectWallet }: WalletLeaderboardProps) {
               className="w-full pl-7 pr-2.5 py-1 text-xs font-mono bg-white border border-black/[0.08] rounded-xl focus:outline-none focus:border-slate-400"
             />
           </div>
-          <div className="flex rounded-xl bg-slate-200/60 p-0.5 border border-black/[0.04] text-[11px]">
+          <div className="flex rounded-xl bg-slate-200/60 p-0.5 border border-black/[0.04] text-[11px] shrink-0">
             <button
-              onClick={() => setTab('all')}
-              className={`px-2 py-0.5 rounded-lg font-semibold transition-all ${tab === 'all' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-900'}`}
+              onClick={() => setTab('copied')}
+              className={`px-2.5 py-0.5 rounded-lg font-semibold transition-all ${tab === 'copied' ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-500 hover:text-slate-900'}`}
             >
-              All
+              Copied Alpha
             </button>
             <button
               onClick={() => setTab('gold')}
-              className={`px-2 py-0.5 rounded-lg font-semibold transition-all ${tab === 'gold' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-900'}`}
+              className={`px-2.5 py-0.5 rounded-lg font-semibold transition-all ${tab === 'gold' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-900'}`}
             >
               Gold
             </button>
             <button
-              onClick={() => setTab('top_pnl')}
-              className={`px-2 py-0.5 rounded-lg font-semibold transition-all ${tab === 'top_pnl' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-900'}`}
+              onClick={() => setTab('all')}
+              className={`px-2.5 py-0.5 rounded-lg font-semibold transition-all ${tab === 'all' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-900'}`}
             >
-              $100k+
+              All
             </button>
           </div>
         </div>
@@ -143,59 +154,117 @@ export function WalletLeaderboard({ onSelectWallet }: WalletLeaderboardProps) {
         )}
       </AnimatePresence>
       
-      <div className="flex-1 overflow-y-auto">
-        <table className="w-full text-left border-collapse">
-          <thead>
-            <tr className="border-b border-black/[0.06] text-[10px] uppercase tracking-wider text-slate-500 bg-slate-50/90 sticky top-0 backdrop-blur-md z-10 font-bold">
-              <th className="p-3.5 px-4">Wallet</th>
-              <th className="p-3.5">Tier</th>
-              <th className="p-3.5 text-right">Win Rate</th>
-              <th className="p-3.5 px-4 text-right">PnL</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-black/[0.04]">
-            {loading ? (
-              Array.from({ length: 5 }).map((_, i) => (
-                <tr key={i}>
-                  <td className="p-3.5 px-4"><Skeleton className="h-3.5 w-16" /></td>
-                  <td className="p-3.5"><Skeleton className="h-3.5 w-14" /></td>
-                  <td className="p-3.5"><Skeleton className="h-3.5 w-8 ml-auto" /></td>
-                  <td className="p-3.5 px-4"><Skeleton className="h-3.5 w-12 ml-auto" /></td>
-                </tr>
-              ))
-            ) : filteredWallets.length > 0 ? (
-              filteredWallets.map((wallet) => {
-                const isGold = wallet.tier === 'gold_sniper';
-                return (
-                  <tr 
-                    key={wallet.address} 
-                    onClick={() => onSelectWallet(wallet.address)}
-                    className={`transition-colors cursor-pointer group text-xs ${
-                      isGold 
-                        ? 'bg-amber-500/[0.03] hover:bg-amber-500/[0.08]' 
-                        : 'hover:bg-slate-50/80'
-                    }`}
-                  >
-                    <td className="p-3.5 px-4 font-mono text-slate-800 font-bold group-hover:text-indigo-600 transition-colors">
-                      {wallet.address.slice(0, 6)}...{wallet.address.slice(-4)}
-                    </td>
-                    <td className="p-3.5"><Badge tier={wallet.tier} /></td>
-                    <td className="p-3.5 text-right text-slate-800 font-mono font-semibold">{formatWinRate(wallet.winRate || 0)}</td>
-                    <td className={`p-3.5 px-4 text-right font-mono font-bold ${(wallet.pnl || 0) >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
-                      {(wallet.pnl || 0) >= 0 ? '+' : '-'}${Math.abs(wallet.pnl || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}
-                    </td>
-                  </tr>
-                );
-              })
-            ) : (
-              <tr>
-                <td colSpan={4} className="p-12 text-center text-slate-400 text-xs font-medium">
-                  {search ? 'No matching wallets.' : 'Discovery scan running...'}
-                </td>
+      {/* Scrollable Container without horizontal scrollbar */}
+      <div className="flex-1 overflow-y-auto overflow-x-hidden">
+        {tab === 'copied' ? (
+          <table className="w-full text-left border-collapse table-fixed">
+            <thead>
+              <tr className="border-b border-black/[0.06] text-[10px] uppercase tracking-wider text-slate-500 bg-slate-50/90 sticky top-0 backdrop-blur-md z-10 font-bold">
+                <th className="p-3.5 px-4 w-[34%]">Whale Address</th>
+                <th className="p-3.5 text-center w-[22%]">Fills</th>
+                <th className="p-3.5 text-right w-[22%]">Win Rate</th>
+                <th className="p-3.5 px-4 text-right w-[22%]">Copied P&L</th>
               </tr>
-            )}
-          </tbody>
-        </table>
+            </thead>
+            <tbody className="divide-y divide-black/[0.04]">
+              {loading ? (
+                Array.from({ length: 5 }).map((_, i) => (
+                  <tr key={i}>
+                    <td className="p-3.5 px-4"><Skeleton className="h-3.5 w-16" /></td>
+                    <td className="p-3.5"><Skeleton className="h-3.5 w-8 mx-auto" /></td>
+                    <td className="p-3.5"><Skeleton className="h-3.5 w-8 ml-auto" /></td>
+                    <td className="p-3.5 px-4"><Skeleton className="h-3.5 w-12 ml-auto" /></td>
+                  </tr>
+                ))
+              ) : filteredCopied.length > 0 ? (
+                filteredCopied.map((item) => {
+                  const isProfit = (item.netPnl || 0) >= 0;
+                  return (
+                    <tr 
+                      key={item.address} 
+                      onClick={() => onSelectWallet(item.address)}
+                      className="transition-colors cursor-pointer hover:bg-indigo-50/60 group text-xs"
+                    >
+                      <td className="p-3.5 px-4 font-mono text-slate-800 font-bold group-hover:text-indigo-600 transition-colors truncate">
+                        {item.address.slice(0, 6)}...{item.address.slice(-4)}
+                      </td>
+                      <td className="p-3.5 text-center font-mono text-slate-600 font-semibold">
+                        <span className="px-2 py-0.5 rounded-full bg-slate-100 text-[11px] font-bold">
+                          {item.tradesCopied}
+                        </span>
+                      </td>
+                      <td className="p-3.5 text-right text-slate-800 font-mono font-semibold">
+                        {item.winRateCopied.toFixed(0)}%
+                      </td>
+                      <td className={`p-3.5 px-4 text-right font-mono font-bold ${isProfit ? 'text-emerald-600' : 'text-rose-600'}`}>
+                        {isProfit ? '+' : '-'}${Math.abs(item.netPnl || 0).toFixed(1)}
+                      </td>
+                    </tr>
+                  );
+                })
+              ) : (
+                <tr>
+                  <td colSpan={4} className="p-10 text-center text-slate-400 text-xs font-medium">
+                    No copied trades executed yet. Mirrored fills will appear here.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        ) : (
+          <table className="w-full text-left border-collapse table-fixed">
+            <thead>
+              <tr className="border-b border-black/[0.06] text-[10px] uppercase tracking-wider text-slate-500 bg-slate-50/90 sticky top-0 backdrop-blur-md z-10 font-bold">
+                <th className="p-3.5 px-4 w-[34%]">Wallet</th>
+                <th className="p-3.5 w-[22%]">Tier</th>
+                <th className="p-3.5 text-right w-[22%]">Win Rate</th>
+                <th className="p-3.5 px-4 text-right w-[22%]">Total PnL</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-black/[0.04]">
+              {loading ? (
+                Array.from({ length: 5 }).map((_, i) => (
+                  <tr key={i}>
+                    <td className="p-3.5 px-4"><Skeleton className="h-3.5 w-16" /></td>
+                    <td className="p-3.5"><Skeleton className="h-3.5 w-14" /></td>
+                    <td className="p-3.5"><Skeleton className="h-3.5 w-8 ml-auto" /></td>
+                    <td className="p-3.5 px-4"><Skeleton className="h-3.5 w-12 ml-auto" /></td>
+                  </tr>
+                ))
+              ) : filteredWallets.length > 0 ? (
+                filteredWallets.map((wallet) => {
+                  const isGold = wallet.tier === 'gold_sniper';
+                  return (
+                    <tr 
+                      key={wallet.address} 
+                      onClick={() => onSelectWallet(wallet.address)}
+                      className={`transition-colors cursor-pointer group text-xs ${
+                        isGold 
+                          ? 'bg-amber-500/[0.03] hover:bg-amber-500/[0.08]' 
+                          : 'hover:bg-slate-50/80'
+                      }`}
+                    >
+                      <td className="p-3.5 px-4 font-mono text-slate-800 font-bold group-hover:text-indigo-600 transition-colors truncate">
+                        {wallet.address.slice(0, 6)}...{wallet.address.slice(-4)}
+                      </td>
+                      <td className="p-3.5"><Badge tier={wallet.tier} /></td>
+                      <td className="p-3.5 text-right text-slate-800 font-mono font-semibold">{formatWinRate(wallet.winRate || 0)}</td>
+                      <td className={`p-3.5 px-4 text-right font-mono font-bold ${(wallet.pnl || 0) >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                        {(wallet.pnl || 0) >= 0 ? '+' : '-'}${Math.abs(wallet.pnl || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                      </td>
+                    </tr>
+                  );
+                })
+              ) : (
+                <tr>
+                  <td colSpan={4} className="p-12 text-center text-slate-400 text-xs font-medium">
+                    {search ? 'No matching wallets.' : 'Discovery scan running...'}
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        )}
       </div>
     </div>
   );

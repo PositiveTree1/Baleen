@@ -111,6 +111,10 @@ class MarkToMarketService:
                         elog.realized_pnl_usd = round(net_pnl, 2)
 
                 # 4. Update user sandbox balances based on their active filled trades
+                from app.models import PortfolioSnapshot
+                from datetime import datetime
+
+                now_dt = datetime.utcnow()
                 stmt_users = select(User)
                 users = (await db.execute(stmt_users)).scalars().all()
 
@@ -126,6 +130,32 @@ class MarkToMarketService:
                     u.sandbox_balance_usd = round(base_balance + total_pnl, 2)
                     if u.sandbox_balance_usd > (u.sandbox_high_water_mark_usd or base_balance):
                         u.sandbox_high_water_mark_usd = u.sandbox_balance_usd
+
+                    # Record user snapshot
+                    db.add(PortfolioSnapshot(
+                        user_id=u.id,
+                        timestamp=now_dt,
+                        balance=u.sandbox_balance_usd,
+                        total_pnl=round(total_pnl, 2),
+                        active_trades_count=len(user_logs)
+                    ))
+
+                # Record global platform sandbox snapshot
+                stmt_sys_logs = select(ExecutionLog).where(
+                    ExecutionLog.user_id.is_(None),
+                    ExecutionLog.status == "FILLED"
+                )
+                sys_logs = (await db.execute(stmt_sys_logs)).scalars().all()
+                sys_pnl = sum(float(l.realized_pnl_usd or 0.0) for l in sys_logs)
+                sys_balance = round(10000.0 + sys_pnl, 2)
+
+                db.add(PortfolioSnapshot(
+                    user_id=None,
+                    timestamp=now_dt,
+                    balance=sys_balance,
+                    total_pnl=round(sys_pnl, 2),
+                    active_trades_count=len(sys_logs)
+                ))
 
                 await db.commit()
         finally:

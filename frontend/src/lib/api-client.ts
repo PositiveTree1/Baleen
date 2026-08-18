@@ -153,6 +153,53 @@ export async function fetchPortfolioSummary(userId?: string): Promise<{
   }
 }
 
+export async function fetchPortfolioSnapshots(userId?: string): Promise<{
+  id: string;
+  timestamp: string;
+  time: string;
+  date: string;
+  balance: number;
+  pnl: number;
+  activeTrades: number;
+}[]> {
+  try {
+    const url = userId 
+      ? `${API_BASE_URL}/api/executions/snapshots?userId=${encodeURIComponent(userId)}`
+      : `${API_BASE_URL}/api/executions/snapshots`;
+    const res = await fetch(url);
+    if (!res.ok) return [];
+    return await res.json();
+  } catch (error) {
+    return [];
+  }
+}
+
+export async function fetchCopiedWalletStats(userId?: string): Promise<{
+  address: string;
+  tier: string;
+  score: number;
+  aiStyleTag: string;
+  tradesCopied: number;
+  totalNotional: number;
+  netPnl: number;
+  roiPct: number;
+  winRateCopied: number;
+  profitFactor: number;
+  wins: number;
+  losses: number;
+}[]> {
+  try {
+    const url = userId 
+      ? `${API_BASE_URL}/api/wallets/copied-stats?userId=${encodeURIComponent(userId)}`
+      : `${API_BASE_URL}/api/wallets/copied-stats`;
+    const res = await fetch(url);
+    if (!res.ok) return [];
+    return await res.json();
+  } catch (error) {
+    return [];
+  }
+}
+
 export async function fetchUserSettings(userId: string): Promise<User | null> {
   try {
     const res = await fetch(`${API_BASE_URL}/api/users/${userId}`);

@@ -1,11 +1,13 @@
 'use client';
-import { useMemo } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { ExecutionLog } from '@/types';
+import { fetchPortfolioSnapshots } from '@/lib/api-client';
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip } from 'recharts';
 import { TrendingUp, TrendingDown, Award, AlertTriangle, ShieldCheck, DollarSign, PieChart, Zap } from 'lucide-react';
 
 interface PortfolioAnalyticsProps {
   logs: ExecutionLog[];
+  userId?: string;
   startingBalance?: number;
   currentBalance?: number;
   onSelectTrade?: (trade: ExecutionLog) => void;
@@ -13,45 +15,42 @@ interface PortfolioAnalyticsProps {
 
 export function PortfolioAnalytics({
   logs,
+  userId,
   startingBalance = 10000.0,
   currentBalance = 10000.0,
   onSelectTrade
 }: PortfolioAnalyticsProps) {
-  // 1. Calculate Winners and Losers
-  const { topWinner, topLoser, winCount, lossCount, winRate, categoryStats, pnlTimeline } = useMemo(() => {
+  const [snapshots, setSnapshots] = useState<{
+    id: string;
+    timestamp: string;
+    time: string;
+    date: string;
+    balance: number;
+    pnl: number;
+    activeTrades: number;
+  }[]>([]);
+
+  useEffect(() => {
+    async function loadSnapshots() {
+      const data = await fetchPortfolioSnapshots(userId);
+      if (data && data.length > 0) {
+        setSnapshots(data);
+      }
+    }
+    loadSnapshots();
+    const interval = setInterval(loadSnapshots, 8000);
+    return () => clearInterval(interval);
+  }, [userId]);
+
+  // 1. Calculate Winners and Losers and timeline
+  const { topWinner, topLoser, winCount, lossCount, winRate, pnlTimeline } = useMemo(() => {
     let bestWin: ExecutionLog | null = null;
     let worstLoss: ExecutionLog | null = null;
     let wins = 0;
     let losses = 0;
-    const catMap: Record<string, { count: number; volume: number; pnl: number; wins: number }> = {};
 
-    // Sort logs chronologically for the net worth curve
-    const sortedLogs = [...logs].sort((a, b) => {
-      const ta = a.timestamp ? new Date(a.timestamp).getTime() : 0;
-      const tb = b.timestamp ? new Date(b.timestamp).getTime() : 0;
-      return ta - tb;
-    });
-
-    let runningBalance = startingBalance;
-    const timeline = [{
-      time: 'Start',
-      balance: startingBalance,
-      pnl: 0,
-      date: 'Inception'
-    }];
-
-    for (const log of sortedLogs) {
+    for (const log of logs) {
       const pnl = log.pnl ?? 0;
-      runningBalance += pnl;
-
-      const dateStr = log.timestamp ? new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
-      timeline.push({
-        time: dateStr || `T-${timeline.length}`,
-        balance: Math.round(runningBalance * 100) / 100,
-        pnl: Math.round(pnl * 100) / 100,
-        date: log.timestamp ? new Date(log.timestamp).toLocaleDateString([], { month: 'short', day: 'numeric' }) : ''
-      });
-
       if (pnl > 0) {
         wins++;
         if (!bestWin || pnl > (bestWin.pnl ?? 0)) {
@@ -63,19 +62,47 @@ export function PortfolioAnalytics({
           worstLoss = log;
         }
       }
-
-      const cat = log.marketCategory || 'General';
-      if (!catMap[cat]) {
-        catMap[cat] = { count: 0, volume: 0, pnl: 0, wins: 0 };
-      }
-      catMap[cat].count++;
-      catMap[cat].volume += (log.size ?? 0);
-      catMap[cat].pnl += pnl;
-      if (pnl > 0) catMap[cat].wins++;
     }
 
     const totalResolved = wins + losses;
     const wr = totalResolved > 0 ? (wins / totalResolved) * 100 : 85.0;
+
+    let timeline = [];
+    if (snapshots.length >= 2) {
+      timeline = snapshots.map(s => ({
+        time: s.time || '00:00',
+        balance: s.balance,
+        pnl: s.pnl,
+        date: s.date || 'Today'
+      }));
+    } else {
+      // Build chronological curve from trades
+      const sortedLogs = [...logs].sort((a, b) => {
+        const ta = a.timestamp ? new Date(a.timestamp).getTime() : 0;
+        const tb = b.timestamp ? new Date(b.timestamp).getTime() : 0;
+        return ta - tb;
+      });
+
+      let running = startingBalance;
+      timeline.push({
+        time: 'Start',
+        balance: startingBalance,
+        pnl: 0,
+        date: 'Inception'
+      });
+
+      for (const log of sortedLogs) {
+        const pnl = log.pnl ?? 0;
+        running += pnl;
+        const dateStr = log.timestamp ? new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
+        timeline.push({
+          time: dateStr || `T-${timeline.length}`,
+          balance: Math.round(running * 100) / 100,
+          pnl: Math.round(pnl * 100) / 100,
+          date: log.timestamp ? new Date(log.timestamp).toLocaleDateString([], { month: 'short', day: 'numeric' }) : ''
+        });
+      }
+    }
 
     return {
       topWinner: bestWin,
@@ -83,10 +110,9 @@ export function PortfolioAnalytics({
       winCount: wins,
       lossCount: losses,
       winRate: wr,
-      categoryStats: catMap,
       pnlTimeline: timeline
     };
-  }, [logs, startingBalance]);
+  }, [logs, snapshots, startingBalance]);
 
   const isNetPositive = currentBalance >= startingBalance;
   const netPnL = currentBalance - startingBalance;
@@ -103,7 +129,7 @@ export function PortfolioAnalytics({
               <div className="flex items-center gap-2">
                 <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Sandbox Capital Curve</span>
                 <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
-                  <Zap size={10} /> Real-Time MTM
+                  <Zap size={10} /> Live Blockchain MTM
                 </span>
               </div>
               <div className="flex items-baseline gap-3 mt-1">
@@ -144,7 +170,7 @@ export function PortfolioAnalytics({
                   tick={{ fontSize: 10, fill: '#94A3B8' }} 
                   axisLine={false} 
                   tickLine={false}
-                  tickFormatter={(val) => `$${Math.round(val)}`}
+                  tickFormatter={(val) => `$${Math.round(val).toLocaleString()}`}
                 />
                 <Tooltip 
                   content={({ active, payload }) => {
@@ -153,7 +179,7 @@ export function PortfolioAnalytics({
                       return (
                         <div className="bg-slate-950 text-white px-3.5 py-2.5 rounded-2xl text-xs font-mono shadow-2xl border border-white/10">
                           <div className="text-[10px] text-slate-400">{d.date} • {d.time}</div>
-                          <div className="text-base font-bold text-white mt-0.5">${d.balance.toLocaleString()}</div>
+                          <div className="text-base font-bold text-white mt-0.5">${d.balance.toLocaleString(undefined, { minimumFractionDigits: 2 })}</div>
                           <div className={`text-[11px] font-bold ${d.pnl >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
                             {d.pnl >= 0 ? '+' : ''}${d.pnl.toFixed(2)} Trade Impact
                           </div>

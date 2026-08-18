@@ -150,6 +150,42 @@ async def get_portfolio_summary(
     }
 
 
+@router.get("/snapshots")
+async def get_portfolio_snapshots(
+    user_id: Optional[str] = Query(None, alias="userId"),
+    limit: int = 150,
+    db: AsyncSession = Depends(get_db)
+):
+    from app.models import PortfolioSnapshot
+    from uuid import UUID
+
+    stmt = select(PortfolioSnapshot)
+    if user_id:
+        try:
+            u_uuid = UUID(user_id)
+            stmt = stmt.where(PortfolioSnapshot.user_id == u_uuid)
+        except Exception:
+            stmt = stmt.where(PortfolioSnapshot.user_id.is_(None))
+    else:
+        stmt = stmt.where(PortfolioSnapshot.user_id.is_(None))
+
+    stmt = stmt.order_by(PortfolioSnapshot.timestamp.asc()).limit(limit)
+    rows = (await db.execute(stmt)).scalars().all()
+
+    return [
+        {
+            "id": str(r.id),
+            "timestamp": r.timestamp.isoformat() if r.timestamp else None,
+            "time": r.timestamp.strftime("%H:%M") if r.timestamp else "",
+            "date": r.timestamp.strftime("%d %b") if r.timestamp else "",
+            "balance": round(float(r.balance), 2),
+            "pnl": round(float(r.total_pnl), 2),
+            "activeTrades": r.active_trades_count
+        }
+        for r in rows
+    ]
+
+
 @router.get("/{trade_id}/chart")
 async def get_trade_price_chart(
     trade_id: str,

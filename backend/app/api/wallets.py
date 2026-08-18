@@ -67,6 +67,87 @@ async def list_wallets(
     result = await db.execute(stmt)
     return [wallet_to_response(w) for w in result.scalars().all()]
 
+@router.get("/copied-stats")
+async def get_copied_wallet_stats(
+    user_id: Optional[str] = Query(None, alias="userId"),
+    db: AsyncSession = Depends(get_db)
+):
+    from uuid import UUID
+
+    stmt = select(ExecutionLog).where(ExecutionLog.status == "FILLED")
+    if user_id:
+        try:
+            u_uuid = UUID(user_id)
+            stmt = stmt.where(ExecutionLog.user_id == u_uuid)
+        except Exception:
+            stmt = stmt.where(ExecutionLog.user_id.is_(None))
+    else:
+        stmt = stmt.where(ExecutionLog.user_id.is_(None))
+
+    logs = (await db.execute(stmt)).scalars().all()
+
+    wallet_stats = {}
+    for log in logs:
+        addr = (log.source_wallet_address or "unknown").lower()
+        if addr not in wallet_stats:
+            wallet_stats[addr] = {
+                "address": addr,
+                "trades_copied": 0,
+                "total_notional": 0.0,
+                "net_pnl": 0.0,
+                "wins": 0,
+                "losses": 0,
+                "gross_profit": 0.0,
+                "gross_loss": 0.0,
+            }
+        
+        pnl = float(log.realized_pnl_usd or 0.0)
+        notional = float(log.notional_usd or 0.0)
+        wallet_stats[addr]["trades_copied"] += 1
+        wallet_stats[addr]["total_notional"] += notional
+        wallet_stats[addr]["net_pnl"] += pnl
+
+        if pnl > 0:
+            wallet_stats[addr]["wins"] += 1
+            wallet_stats[addr]["gross_profit"] += pnl
+        elif pnl < 0:
+            wallet_stats[addr]["losses"] += 1
+            wallet_stats[addr]["gross_loss"] += abs(pnl)
+
+    addrs = list(wallet_stats.keys())
+    w_meta_map = {}
+    if addrs:
+        w_stmt = select(Wallet).where(Wallet.address.in_(addrs))
+        w_rows = (await db.execute(w_stmt)).scalars().all()
+        for w in w_rows:
+            w_meta_map[w.address.lower()] = w
+
+    results = []
+    for addr, stats in wallet_stats.items():
+        w_obj = w_meta_map.get(addr)
+        total_resolved = stats["wins"] + stats["losses"]
+        wr = (stats["wins"] / total_resolved * 100.0) if total_resolved > 0 else 0.0
+        pf = (stats["gross_profit"] / stats["gross_loss"]) if stats["gross_loss"] > 0 else (10.0 if stats["gross_profit"] > 0 else 1.0)
+        roi = (stats["net_pnl"] / stats["total_notional"] * 100.0) if stats["total_notional"] > 0 else 0.0
+
+        results.append({
+            "address": addr,
+            "tier": w_obj.tier if w_obj else "gold_sniper",
+            "score": w_obj.baleen_score if w_obj else 90.0,
+            "aiStyleTag": w_obj.ai_style_tag if w_obj else "Tactical Whale",
+            "tradesCopied": stats["trades_copied"],
+            "totalNotional": round(stats["total_notional"], 2),
+            "netPnl": round(stats["net_pnl"], 2),
+            "roiPct": round(roi, 2),
+            "winRateCopied": round(wr, 1),
+            "profitFactor": round(pf, 2),
+            "wins": stats["wins"],
+            "losses": stats["losses"],
+        })
+
+    results.sort(key=lambda r: r["netPnl"], reverse=True)
+    return results
+
 @router.get("/{address}")
 async def get_wallet(address: str, db: AsyncSession = Depends(get_db)):
     clean_addr = address.lower()

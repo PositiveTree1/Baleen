@@ -155,3 +155,13 @@ class KeyValue(Base):
     value = Column(String, nullable=True)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
+class PortfolioSnapshot(Base):
+    __tablename__ = "portfolio_snapshots"
+
+    id = Column(GUID(), primary_key=True, default=uuid.uuid4)
+    user_id = Column(GUID(), ForeignKey("users.id"), nullable=True)
+    timestamp = Column(DateTime, default=datetime.utcnow)
+    balance = Column(Float, nullable=False)
+    total_pnl = Column(Float, nullable=False)
+    active_trades_count = Column(Integer, default=0)
+
