@@ -272,6 +272,26 @@ async def get_trade_price_chart(
 
     # Format into chronological points list
     sorted_ts = sorted(raw_points_map.keys())
+    
+    # 3. Binary Outcome Alignment Guard:
+    # Polymarket CLOB prices-history returns Token 0 (YES) probabilities.
+    # If the user traded Token 1 (NO) or if the fill price matches the inverted probability,
+    # invert all historical CLOB points (p = 1.0 - p) so the trajectory accurately represents the traded token.
+    is_no_outcome = str(log.resolution_outcome or "").strip().lower() in ("no", "sell", "false", "0")
+    
+    if sorted_ts:
+        hist_prices = [raw_points_map[t] for t in sorted_ts[:-1]] # exclude latest now_ts
+        avg_hist = sum(hist_prices) / len(hist_prices) if hist_prices else fill_p
+        
+        # If fill_p is drastically closer to (1.0 - avg_hist) than to avg_hist (e.g. fill=0.175 vs hist=0.825)
+        should_invert = is_no_outcome or (abs((1.0 - avg_hist) - fill_p) + 0.15 < abs(avg_hist - fill_p))
+        
+        if should_invert:
+            for t in sorted_ts:
+                # Invert historical points, but preserve exact fill and current price
+                if t != exec_ts and t != now_ts:
+                    raw_points_map[t] = round(1.0 - raw_points_map[t], 4)
+
     history_points = []
     for ts in sorted_ts:
         dt_str = datetime.fromtimestamp(ts).strftime("%d %b %H:%M")

@@ -54,8 +54,12 @@ export function TradePriceChart({ tradeId, fillPrice, currentPrice, side }: Trad
   }
 
   const history = data?.history || [];
-  const minP = Math.max(0.0, Math.min(...history.map(h => h.price), fillPrice, currentPrice) - 0.05);
-  const maxP = Math.min(1.0, Math.max(...history.map(h => h.price), fillPrice, currentPrice) + 0.05);
+  const allPrices = [...history.map(h => h.price), fillPrice, currentPrice].filter(p => p > 0);
+  const rawMin = allPrices.length > 0 ? Math.min(...allPrices) : 0.0;
+  const rawMax = allPrices.length > 0 ? Math.max(...allPrices) : 1.0;
+  const padding = Math.max(0.02, (rawMax - rawMin) * 0.15);
+  const minP = Math.max(0.0, Math.floor((rawMin - padding) * 100) / 100);
+  const maxP = Math.min(1.0, Math.ceil((rawMax + padding) * 100) / 100);
 
   return (
     <div className="p-4 rounded-2xl bg-slate-50 border border-black/[0.06] space-y-3 shadow-[inset_0_1px_2px_rgba(0,0,0,0.02)]">

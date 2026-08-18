@@ -176,35 +176,51 @@ class PolymarketClient:
         logger.info(f"Titan discovery yielded {len(candidates)} unique whale candidates.")
         return candidates
 
-    async def fetch_wallet_profile_pnl(self, address: str) -> Optional[float]:
-        """Queries Polymarket Data API directly to verify true all-time realized PnL."""
+    async def fetch_wallet_positions(self, address: str) -> List[Dict]:
+        """Pulls all positions for a wallet with exact cashPnl, realizedPnl, and avgPrice."""
         try:
-            # Method 1: Official Polymarket Leaderboard check
-            for period in ["ALL", "MONTH", "WEEK"]:
-                lb_data = await self._fetch_with_retry(f"{self.data_api_url}/leaderboard", {
+            url = f"{self.data_api_url}/positions"
+            data = await self._fetch_with_retry(url, params={
+                "user": address,
+                "limit": 500,
+                "sortBy": "CASHPNL",
+                "sortDirection": "DESC"
+            })
+            if isinstance(data, list):
+                return data
+            elif isinstance(data, dict):
+                return data.get("data") or data.get("results") or []
+        except Exception as e:
+            logger.debug(f"Error fetching positions for {address}: {e}")
+        return []
+
+    async def fetch_wallet_profile(self, address: str) -> Optional[Dict]:
+        """Pulls verified Polymarket leaderboard profile stats."""
+        try:
+            for period in ["ALL", "MONTH"]:
+                lb_data = await self._fetch_with_retry(f"{self.data_api_url}/v1/leaderboard", {
                     "user": address,
                     "timePeriod": period
                 })
                 rows = lb_data if isinstance(lb_data, list) else (lb_data.get("data") or lb_data.get("results") or []) if isinstance(lb_data, dict) else []
                 if rows and isinstance(rows[0], dict):
-                    pnl = float(rows[0].get("pnl") or rows[0].get("profit") or rows[0].get("profile_profit") or 0.0)
-                    if pnl != 0.0:
-                        return round(pnl, 2)
-
-            # Method 2: Positions API (Sum of cashPnL across positions)
-            pos_data = await self._fetch_with_retry(f"{self.data_api_url}/positions", {
-                "user": address,
-                "limit": 100,
-                "sortBy": "CURRENT",
-                "sortDirection": "DESC",
-                "sizeThreshold": 0.1
-            })
-            if pos_data and isinstance(pos_data, list):
-                realized_sum = sum(float(p.get("cashPnl") or 0.0) for p in pos_data)
-                if abs(realized_sum) > 50.0:
-                    return round(realized_sum, 2)
+                    return rows[0]
         except Exception as e:
-            logger.debug(f"Error fetching profile PnL for {address}: {e}")
+            logger.debug(f"Error fetching profile for {address}: {e}")
+        return None
+
+    async def fetch_wallet_profile_pnl(self, address: str) -> Optional[float]:
+        """Queries Polymarket Data API directly to verify true all-time realized PnL."""
+        prof = await self.fetch_wallet_profile(address)
+        if prof:
+            pnl = float(prof.get("pnl") or prof.get("profit") or prof.get("profile_profit") or 0.0)
+            if pnl != 0.0:
+                return round(pnl, 2)
+        positions = await self.fetch_wallet_positions(address)
+        if positions:
+            pnl_sum = sum(float(p.get("cashPnl") or 0.0) for p in positions)
+            if abs(pnl_sum) > 10.0:
+                return round(pnl_sum, 2)
         return None
 
     async def fetch_wallet_trades(self, address: str, max_trades: int = 4000) -> List[Dict]:
