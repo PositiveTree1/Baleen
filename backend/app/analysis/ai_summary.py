@@ -70,23 +70,40 @@ async def generate_summary(wallet_stats: dict) -> Tuple[Optional[str], Optional[
             summary = None
             tag = None
             
-            for line in response_text.split('\n'):
-                line = line.strip().replace('**', '')
-                if line.upper().startswith("SUMMARY:"):
-                    summary = line[line.upper().index("SUMMARY:") + 8:].strip()
-                elif line.upper().startswith("TAG:"):
-                    tag = line[line.upper().index("TAG:") + 4:].strip()
-                    
-            if summary:
+            # Robust extraction: regex or prefix matching
+            summary_match = re.search(r'(?:SUMMARY|Executive Summary):\s*(.*?)(?=\n(?:TAG|Tag):|\Z)', response_text, re.DOTALL | re.IGNORECASE)
+            if summary_match:
+                summary = summary_match.group(1).strip().replace('**', '').replace('\n', ' ')
+            
+            tag_match = re.search(r'(?:TAG|Style Tag):\s*([^\n\r]+)', response_text, re.IGNORECASE)
+            if tag_match:
+                tag = tag_match.group(1).strip().replace('**', '').strip('"\'')
+
+            # Fallback if format wasn't strictly followed
+            if not summary and response_text:
+                clean_lines = [l.strip() for l in response_text.split('\n') if l.strip() and not l.upper().startswith(('TAG:', 'METRICS:', 'HERE IS'))]
+                if clean_lines:
+                    summary = " ".join(clean_lines[:2])
+
+            if summary and len(summary) > 20:
                 if not tag:
-                    tag = "Alpha Whale"
+                    tag = "Alpha Whale" if win_rate < 80 else "High-Conviction Sniper"
                 return summary, tag
 
         except Exception as e:
             logger.error(f"Error generating AI summary with {model_name}: {e}")
 
     # Fallback to analytical template if Groq API rate limits
-    summary = f"Systematic quantitative prediction trader exhibiting ${pnl:,.0f} realized profit and {win_rate:.1f}% accuracy with disciplined risk control."
-    tag = "High-Conviction Sniper" if win_rate >= 80 else "Macro Whale"
+    if win_rate >= 80:
+        summary = f"High-precision tactical sniper maintaining {win_rate:.1f}% accuracy across {total_trades} audited positions with ${pnl:,.0f} net realized profit and disciplined drawdown management."
+        tag = "High-Conviction Sniper"
+    elif trades_per_day >= 8:
+        summary = f"High-volume systematic market participant generating ${pnl:,.0f} in net profit across high-velocity event contracts with consistent liquidity positioning."
+        tag = "Momentum Scalper"
+    else:
+        summary = f"Institutional macro trader exhibiting ${pnl:,.0f} lifetime profit and {win_rate:.1f}% win rate with strong asymmetric risk-reward execution."
+        tag = "Macro Alpha Whale"
+        
     return summary, tag
+
 

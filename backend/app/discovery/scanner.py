@@ -163,19 +163,16 @@ def calculate_stats_from_trades_and_entry(trades: List[Dict], entry: Optional[Di
                     cost = avg_c * sh
                     pos_map[cid]["shares"] -= sh
                     pos_map[cid]["cost"] -= cost
-                else:
-                    cost = payout * 0.55 # realistic historical cost basis
-                
-                pnl = payout - cost
-                resolved_trades.append({
-                    "ts": ts_sec,
-                    "pnl": pnl,
-                    "won": pnl > 0,
-                    "cash": payout,
-                    "cid": cid,
-                    "title": "Redeemed Position",
-                    "price": 1.0
-                })
+                    pnl = payout - cost
+                    resolved_trades.append({
+                        "ts": ts_sec,
+                        "pnl": pnl,
+                        "won": pnl > 0,
+                        "cash": payout,
+                        "cid": cid,
+                        "title": "Redeemed Position",
+                        "price": 1.0
+                    })
 
     if parsed_trades:
         first_ts = parsed_trades[0]["ts"]
@@ -362,10 +359,15 @@ async def evaluate_pending_wallets(db: AsyncSession):
                 reason = scoring.rejection_reason
                 baleen_score = compute_baleen_score(stats)
                 
-                if stats['all_time_pnl_usd'] < 50000.0 or stats['all_time_pnl_usd'] > 22000000.0:
+                if stats.get('trades_count', 0) < 5:
                     wallet.status = 'rejected'
                     wallet.tier = 'rejected'
-                    wallet.rejection_reason = f'All-time Polymarket realized PnL (${stats["all_time_pnl_usd"]:,.0f}) is outside verified whale threshold ($50k - $22M)'
+                    wallet.rejection_reason = f"Insufficient on-chain trading history ({stats.get('trades_count', 0)} trades < 5 minimum required)"
+                    discovery_state["rejected"] += 1
+                elif stats['all_time_pnl_usd'] < 25000.0 or stats['all_time_pnl_usd'] > 22000000.0:
+                    wallet.status = 'rejected'
+                    wallet.tier = 'rejected'
+                    wallet.rejection_reason = f'All-time Polymarket realized PnL (${stats["all_time_pnl_usd"]:,.0f}) is outside verified whale threshold ($25k - $22M)'
                     discovery_state["rejected"] += 1
                 elif stats['win_rate_pct'] < 55.0:
                     wallet.status = 'rejected'
