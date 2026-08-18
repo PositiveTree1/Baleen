@@ -168,7 +168,19 @@ class PolymarketClient:
     async def fetch_wallet_profile_pnl(self, address: str) -> Optional[float]:
         """Queries Polymarket Data API directly to verify true all-time realized PnL."""
         try:
-            # Method 1: Positions API (most accurate live total PnL from Polymarket)
+            # Method 1: Official Polymarket Leaderboard check
+            for period in ["ALL", "MONTH", "WEEK"]:
+                lb_data = await self._fetch_with_retry(f"{self.data_api_url}/leaderboard", {
+                    "user": address,
+                    "timePeriod": period
+                })
+                rows = lb_data if isinstance(lb_data, list) else (lb_data.get("data") or lb_data.get("results") or []) if isinstance(lb_data, dict) else []
+                if rows and isinstance(rows[0], dict):
+                    pnl = float(rows[0].get("pnl") or rows[0].get("profit") or rows[0].get("profile_profit") or 0.0)
+                    if pnl != 0.0:
+                        return round(pnl, 2)
+
+            # Method 2: Positions API (Sum of cashPnL across positions)
             pos_data = await self._fetch_with_retry(f"{self.data_api_url}/positions", {
                 "user": address,
                 "limit": 100,
@@ -178,20 +190,8 @@ class PolymarketClient:
             })
             if pos_data and isinstance(pos_data, list):
                 realized_sum = sum(float(p.get("cashPnl") or 0.0) for p in pos_data)
-                if abs(realized_sum) > 100.0:
+                if abs(realized_sum) > 50.0:
                     return round(realized_sum, 2)
-
-            # Method 2: Leaderboard check
-            for period in ["ALL", "MONTH"]:
-                lb_data = await self._fetch_with_retry(f"{self.data_api_url}/leaderboard", {
-                    "user": address,
-                    "timePeriod": period
-                })
-                rows = lb_data if isinstance(lb_data, list) else (lb_data.get("data") or lb_data.get("results") or []) if isinstance(lb_data, dict) else []
-                if rows and isinstance(rows[0], dict):
-                    pnl = float(rows[0].get("profile_profit") or rows[0].get("profit") or rows[0].get("pnl") or 0.0)
-                    if pnl != 0.0:
-                        return round(pnl, 2)
         except Exception as e:
             logger.debug(f"Error fetching profile PnL for {address}: {e}")
         return None

@@ -324,12 +324,15 @@ async def evaluate_pending_wallets(db: AsyncSession):
     total_pending = len(pending_wallets)
     logger.info(f"Stage 2: Starting deep audit of {total_pending} pending candidate wallets...")
     
+    active_cnt = (await db.execute(select(func.count()).select_from(Wallet).where(Wallet.status == "active"))).scalar() or 0
+    gold_cnt = (await db.execute(select(func.count()).select_from(Wallet).where(Wallet.status == "active", Wallet.tier == "gold_sniper"))).scalar() or 0
+
     discovery_state["status"] = "running"
     discovery_state["total_candidates"] = total_pending
     discovery_state["wallets_scanned"] = 0
     discovery_state["rejected"] = 0
-    discovery_state["active_whales_in_basket"] = 0
-    discovery_state["gold_snipers"] = 0
+    discovery_state["active_whales_in_basket"] = active_cnt
+    discovery_state["gold_snipers"] = gold_cnt
     discovery_state["step_description"] = "Deep auditing candidate whale trade histories..."
 
     processed_count = 0
@@ -447,12 +450,15 @@ async def scan_for_wallets(db: AsyncSession, full_refresh: bool = False):
     """
     global discovery_state
     
+    active_cnt = (await db.execute(select(func.count()).select_from(Wallet).where(Wallet.status == "active"))).scalar() or 0
+    gold_cnt = (await db.execute(select(func.count()).select_from(Wallet).where(Wallet.status == "active", Wallet.tier == "gold_sniper"))).scalar() or 0
+    
     discovery_state["status"] = "running"
     discovery_state["progress_pct"] = 5
     discovery_state["step_description"] = "Connecting to Polymarket Leaderboard & Trade APIs..."
     discovery_state["wallets_scanned"] = 0
-    discovery_state["active_whales_in_basket"] = 0
-    discovery_state["gold_snipers"] = 0
+    discovery_state["active_whales_in_basket"] = active_cnt
+    discovery_state["gold_snipers"] = gold_cnt
     discovery_state["started_at"] = time.time()
     discovery_state["error_message"] = None
     

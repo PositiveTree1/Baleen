@@ -39,7 +39,7 @@ async def generate_summary(wallet_stats: dict) -> Tuple[Optional[str], Optional[
     prompt = f"""
     You are an expert quantitative hedge fund analyst evaluating a top Polymarket prediction market trader.
     Provide a concise 2-sentence executive summary detailing their trading edge, positioning conviction, and risk control.
-    Then, provide a high-conviction 2-3 word style tag (e.g. 'High-Conviction Sniper', 'Macro Event Scalper', 'Asymmetric Alpha Hunter', 'Momentum Trend Whale').
+    Then, provide a high-conviction 2-3 word style tag.
 
     Metrics:
     - Realized PnL: ${pnl:,.2f}
@@ -48,9 +48,9 @@ async def generate_summary(wallet_stats: dict) -> Tuple[Optional[str], Optional[
     - Historical Max Drawdown: {max_dd}%
     - Total Trades Analyzed: {total_trades}
 
-    Output format EXACTLY:
-    SUMMARY: <2 punchy, analytical sentences detailing their edge, profit consistency, and risk discipline>
-    TAG: <2-3 word uppercase tag>
+    Respond ONLY in this exact format with real analytical content (never output angle brackets or template placeholders):
+    SUMMARY: The trader exhibits systematic risk management and strong predictive edge across audited markets. Positioning is characterized by disciplined capital deployment.
+    TAG: High-Conviction Sniper
     """
     
     for model_name in ["groq/compound-mini", "qwen/qwen3.6-27b"]:
@@ -81,13 +81,26 @@ async def generate_summary(wallet_stats: dict) -> Tuple[Optional[str], Optional[
 
             # Fallback if format wasn't strictly followed
             if not summary and response_text:
-                clean_lines = [l.strip() for l in response_text.split('\n') if l.strip() and not l.upper().startswith(('TAG:', 'METRICS:', 'HERE IS'))]
+                clean_lines = [l.strip() for l in response_text.split('\n') if l.strip() and not l.upper().startswith(('TAG:', 'METRICS:', 'HERE IS', '1.', '2.'))]
                 if clean_lines:
                     summary = " ".join(clean_lines[:2])
 
+            # Sanitize and strip placeholders
+            if tag:
+                tag = re.sub(r'[<\[].*?[>\]]', '', tag).strip()
+                tag = tag.replace('TAG:', '').replace('Style Tag:', '').strip()
+                if any(placeholder in tag.upper() for placeholder in ["WORD", "UPPERCASE", "TAG", "PLACEHOLDER", "PUNCHY"]):
+                    tag = None
+
+            if summary:
+                summary = re.sub(r'[<\[].*?[>\]]', '', summary).strip()
+                summary = re.sub(r'^(?:SUMMARY|Executive Summary):\s*', '', summary, flags=re.IGNORECASE).strip()
+                if any(bad in summary for bad in ["Metrics Provided:", "Deconstruct Metrics", "2 punchy", "analytical sentences"]):
+                    summary = None
+
             if summary and len(summary) > 20:
-                if not tag:
-                    tag = "Alpha Whale" if win_rate < 80 else "High-Conviction Sniper"
+                if not tag or len(tag) < 3:
+                    tag = "High-Conviction Sniper" if win_rate >= 80 else "Macro Alpha Whale"
                 return summary, tag
 
         except Exception as e:
