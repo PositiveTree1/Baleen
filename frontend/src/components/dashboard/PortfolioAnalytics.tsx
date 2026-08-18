@@ -43,7 +43,7 @@ export function PortfolioAnalytics({
   }, [userId]);
 
   // 1. Calculate Winners and Losers and timeline
-  const { topWinner, topLoser, winCount, lossCount, winRate, pnlTimeline } = useMemo(() => {
+  const { topWinner, topLoser, winCount, lossCount, winRate, totalResolved, pnlTimeline } = useMemo(() => {
     let bestWin: ExecutionLog | null = null;
     let worstLoss: ExecutionLog | null = null;
     let wins = 0;
@@ -65,7 +65,7 @@ export function PortfolioAnalytics({
     }
 
     const totalResolved = wins + losses;
-    const wr = totalResolved > 0 ? (wins / totalResolved) * 100 : 85.0;
+    const wr = totalResolved > 0 ? (wins / totalResolved) * 100 : 0.0;
 
     let timeline = [];
     if (snapshots.length >= 2) {
@@ -110,6 +110,7 @@ export function PortfolioAnalytics({
       winCount: wins,
       lossCount: losses,
       winRate: wr,
+      totalResolved,
       pnlTimeline: timeline
     };
   }, [logs, snapshots, startingBalance]);
@@ -209,7 +210,7 @@ export function PortfolioAnalytics({
               Cohort Execution Performance
             </div>
             <div className="text-2xl font-bold font-mono text-white">
-              {winRate.toFixed(1)}% Win Rate
+              {totalResolved > 0 ? `${winRate.toFixed(1)}% Win Rate` : '0.0% Win Rate'}
             </div>
             <p className="text-xs text-slate-400 mt-1">
               Across {logs.length} mirrored whale positions with Polymarket dynamic taker fees deducted.
@@ -222,14 +223,20 @@ export function PortfolioAnalytics({
               <span className="text-emerald-400 font-bold">{winCount} Won</span>
             </div>
             <div className="w-full h-2 bg-white/10 rounded-full overflow-hidden flex">
-              <div 
-                className="h-full bg-emerald-500 rounded-full" 
-                style={{ width: `${winRate}%` }} 
-              />
-              <div 
-                className="h-full bg-rose-500" 
-                style={{ width: `${100 - winRate}%` }} 
-              />
+              {totalResolved > 0 ? (
+                <>
+                  <div 
+                    className="h-full bg-emerald-500 rounded-full transition-all duration-500" 
+                    style={{ width: `${winRate}%` }} 
+                  />
+                  <div 
+                    className="h-full bg-rose-500 transition-all duration-500" 
+                    style={{ width: `${100 - winRate}%` }} 
+                  />
+                </>
+              ) : (
+                <div className="h-full w-full bg-slate-800" />
+              )}
             </div>
             <div className="flex justify-between items-center text-xs font-mono">
               <span className="text-slate-400">Drawdown Positions:</span>
