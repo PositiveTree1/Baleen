@@ -346,14 +346,12 @@ async def evaluate_pending_wallets(db: AsyncSession):
                 wallet.alpha_per_trade = stats.get('alpha_per_trade', 25.0)
                 wallet.profit_factor = stats.get('profit_factor', 1.5)
                 wallet.first_trade_at = stats.get('first_trade_at')
-                wallet.last_trade_at = stats.get('last_trade_at')
                 wallet.cached_daily_pnl = json.dumps(stats.get('daily_pnl_history', [])) if stats.get('daily_pnl_history') else None
                 wallet.last_scored_at = datetime.utcnow()
-
                 if raw_profile and isinstance(raw_profile, dict):
-                    p_name = raw_profile.get("name") or raw_profile.get("pseudonym") or raw_profile.get("username")
-                    if p_name:
-                        wallet.pseudonym = str(p_name)
+                    p_name = raw_profile.get("userName") or raw_profile.get("name") or raw_profile.get("pseudonym")
+                    if p_name and not wallet.ai_style_tag:
+                        wallet.ai_style_tag = str(p_name)
                 
                 await db.commit()
                 processed_count += 1
