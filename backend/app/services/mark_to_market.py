@@ -81,6 +81,7 @@ class MarkToMarketService:
                 # 3. Update PnL on all execution logs (system feed + user copy trades)
                 stmt_all_logs = select(ExecutionLog).where(ExecutionLog.status == "FILLED")
                 all_logs = (await db.execute(stmt_all_logs)).scalars().all()
+                from app.services.polymarket_fees import calculate_polymarket_fee
                 for elog in all_logs:
                     cid = elog.market_condition_id or ""
                     outc = elog.resolution_outcome or "Yes"
@@ -88,13 +89,26 @@ class MarkToMarketService:
                     fill_p = float(elog.user_fill_price or elog.whale_entry_price or 0.5)
                     notional = float(elog.notional_usd or 0.0)
 
+                    # Ensure fee is calculated and cached
+                    if (elog.fee_usd is None or elog.fee_usd == 0.0) and notional > 0:
+                        fee_info = calculate_polymarket_fee(
+                            notional_usd=notional,
+                            price=fill_p,
+                            market_title=elog.market_question or ""
+                        )
+                        elog.fee_usd = fee_info["fee_usd"]
+                        elog.market_category = fee_info["category"]
+
+                    fee = float(elog.fee_usd or 0.0)
                     cur_p = get_live_price(cid, outcome=outc, asset=asset_id, fallback=fill_p)
                     if cur_p > 0 and fill_p > 0:
                         if elog.side == "BUY":
-                            trade_pnl = notional * ((cur_p - fill_p) / fill_p)
+                            gross_pnl = notional * ((cur_p - fill_p) / fill_p)
                         else:
-                            trade_pnl = notional * ((fill_p - cur_p) / fill_p)
-                        elog.realized_pnl_usd = round(trade_pnl, 2)
+                            gross_pnl = notional * ((fill_p - cur_p) / fill_p)
+                        # Net PnL after Polymarket trading fee
+                        net_pnl = gross_pnl - fee
+                        elog.realized_pnl_usd = round(net_pnl, 2)
 
                 # 4. Update user sandbox balances based on their active filled trades
                 stmt_users = select(User)

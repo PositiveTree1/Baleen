@@ -19,25 +19,36 @@ async def get_execution_logs(
     offset: int = 0,
     db: AsyncSession = Depends(get_db)
 ):
+    from app.services.polymarket_fees import calculate_polymarket_fee
+
     def execution_log_to_response(log) -> dict:
         cid = log.market_condition_id or ""
         outc = log.resolution_outcome or "Yes"
         fill_p = float(log.user_fill_price or log.whale_entry_price or 0.5)
         cur_p = get_live_price(cid, outcome=outc, asset=log.onchain_tx_hash or "", fallback=fill_p)
         consensus = get_consensus(cid)
-        
-        # Calculate dynamic PnL
         notional = float(log.notional_usd or 0.0)
-        pnl = log.realized_pnl_usd
-        if pnl is None and fill_p > 0:
+
+        # Polymarket Dynamic Fee Calculation
+        fee_info = calculate_polymarket_fee(
+            notional_usd=notional,
+            price=fill_p,
+            market_title=log.market_question or ""
+        )
+        fee_usd = float(log.fee_usd) if log.fee_usd is not None and log.fee_usd > 0 else fee_info["fee_usd"]
+        category = log.market_category or fee_info["category"]
+        
+        # Calculate dynamic Gross & Net PnL
+        if fill_p > 0:
             if log.side == "BUY":
-                pnl = round(notional * ((cur_p - fill_p) / fill_p), 2)
+                gross_pnl = notional * ((cur_p - fill_p) / fill_p)
             else:
-                pnl = round(notional * ((fill_p - cur_p) / fill_p), 2)
-        elif pnl is not None:
-            pnl = round(pnl, 2)
-            
-        pnl_pct = round(((cur_p - fill_p) / fill_p) * 100.0, 1) if fill_p > 0 and log.side == "BUY" else round(((fill_p - cur_p) / fill_p) * 100.0, 1) if fill_p > 0 else 0.0
+                gross_pnl = notional * ((fill_p - cur_p) / fill_p)
+        else:
+            gross_pnl = 0.0
+
+        net_pnl = log.realized_pnl_usd if log.realized_pnl_usd is not None else round(gross_pnl - fee_usd, 2)
+        pnl_pct = round((net_pnl / notional) * 100.0, 1) if notional > 0 else 0.0
 
         return {
             "id": str(log.id),
@@ -51,7 +62,11 @@ async def get_execution_logs(
             "currentPrice": cur_p,
             "size": log.notional_usd,
             "status": log.status,
-            "pnl": pnl,
+            "feeUsd": round(fee_usd, 4),
+            "marketCategory": category,
+            "categoryRate": fee_info["category_rate"],
+            "pnl": round(net_pnl, 2),
+            "grossPnl": round(gross_pnl, 2),
             "pnlPct": pnl_pct,
             "consensus": consensus,
             "polymarketUrl": f"https://polymarket.com/event/{cid}" if cid else "https://polymarket.com"
@@ -93,6 +108,7 @@ async def get_portfolio_summary(
     starting_balance = 10000.0
     total_pnl = 0.0
     total_notional = 0.0
+    total_fees = 0.0
     
     for log in logs:
         cid = log.market_condition_id or ""
@@ -102,12 +118,21 @@ async def get_portfolio_summary(
         notional = float(log.notional_usd or 0.0)
         total_notional += notional
         
+        fee_info = calculate_polymarket_fee(
+            notional_usd=notional,
+            price=fill_p,
+            market_title=log.market_question or ""
+        )
+        fee = float(log.fee_usd) if log.fee_usd is not None and log.fee_usd > 0 else fee_info["fee_usd"]
+        total_fees += fee
+        
         trade_pnl = log.realized_pnl_usd
         if trade_pnl is None and fill_p > 0:
             if log.side == "BUY":
-                trade_pnl = notional * ((cur_p - fill_p) / fill_p)
+                gross_pnl = notional * ((cur_p - fill_p) / fill_p)
             else:
-                trade_pnl = notional * ((fill_p - cur_p) / fill_p)
+                gross_pnl = notional * ((fill_p - cur_p) / fill_p)
+            trade_pnl = gross_pnl - fee
         if trade_pnl is not None:
             total_pnl += float(trade_pnl)
             
@@ -119,6 +144,7 @@ async def get_portfolio_summary(
         "currentBalance": current_balance,
         "totalPnlUsd": round(total_pnl, 2),
         "totalPnlPct": pnl_pct,
+        "totalFeesPaidUsd": round(total_fees, 2),
         "filledTradesCount": len(logs),
         "totalNotionalInvested": round(total_notional, 2)
     }

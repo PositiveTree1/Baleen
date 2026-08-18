@@ -64,13 +64,27 @@ export interface ExecutionLog {
   size: number;
   status: 'PENDING' | 'FILLED' | 'FAILED';
   pnl?: number;
+  grossPnl?: number;
   pnlPct?: number;
+  feeUsd?: number;
+  marketCategory?: string;
+  categoryRate?: number;
   consensus?: {
     whale_count: number;
     total_cash: number;
     is_consensus: boolean;
   };
   polymarketUrl?: string;
+}
+
+export interface PortfolioSummary {
+  startingBalance: number;
+  currentBalance: number;
+  totalPnlUsd: number;
+  totalPnlPct: number;
+  totalFeesPaidUsd?: number;
+  filledTradesCount: number;
+  totalNotionalInvested: number;
 }
 
 export interface FeeCharge {

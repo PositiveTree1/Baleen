@@ -133,9 +133,18 @@ class LiveTradeMirrorService:
 
                     # Mirror new trades into ExecutionLogs
                     if new_trades:
+                        from app.services.polymarket_fees import calculate_polymarket_fee
                         for nt in new_trades:
                             logger.info(f"🎯 NEW LIVE WHALE TRADE DETECTED: {addr[:10]}... {nt['side']} ${nt['cash']:,.2f} @ {nt['price']}")
                             
+                            sys_notional = round(min(max(5.0, nt["cash"] * 0.1), 250.0), 2)
+                            fee_calc = calculate_polymarket_fee(
+                                notional_usd=sys_notional,
+                                price=nt["price"],
+                                market_title=nt["title"],
+                                is_maker=False
+                            )
+
                             # Create system execution log
                             log = ExecutionLog(
                                 source_wallet_address=w.address,
@@ -146,7 +155,9 @@ class LiveTradeMirrorService:
                                 user_fill_price=nt["price"],
                                 resolution_outcome=nt["outcome"],
                                 onchain_tx_hash=nt["asset"],
-                                notional_usd=round(min(max(5.0, nt["cash"] * 0.1), 250.0), 2),
+                                notional_usd=sys_notional,
+                                fee_usd=fee_calc["fee_usd"],
+                                market_category=fee_calc["category"],
                                 active_basket_size_at_trade=len(active_wallets),
                                 is_sandbox=True,
                                 status="FILLED",
@@ -156,6 +167,13 @@ class LiveTradeMirrorService:
 
                             # If users exist, record copy-trade execution
                             for u in users:
+                                u_notional = round(min(nt["cash"] * 0.05, 100.0), 2)
+                                u_fee_calc = calculate_polymarket_fee(
+                                    notional_usd=u_notional,
+                                    price=nt["price"],
+                                    market_title=nt["title"],
+                                    is_maker=False
+                                )
                                 user_log = ExecutionLog(
                                     user_id=u.id,
                                     source_wallet_address=w.address,
@@ -166,7 +184,9 @@ class LiveTradeMirrorService:
                                     user_fill_price=nt["price"],
                                     resolution_outcome=nt["outcome"],
                                     onchain_tx_hash=nt["asset"],
-                                    notional_usd=min(nt["cash"] * 0.05, 100.0),
+                                    notional_usd=u_notional,
+                                    fee_usd=u_fee_calc["fee_usd"],
+                                    market_category=u_fee_calc["category"],
                                     active_basket_size_at_trade=len(active_wallets),
                                     is_sandbox=True,
                                     status="FILLED",

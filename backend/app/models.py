@@ -120,6 +120,8 @@ class ExecutionLog(Base):
     latency_ms = Column(Float, nullable=True)
     resolution_outcome = Column(String, nullable=True)
     realized_pnl_usd = Column(Float, nullable=True)
+    fee_usd = Column(Float, default=0.0)
+    market_category = Column(String, default="General")
     onchain_tx_hash = Column(String, nullable=True)
     onchain_log_index = Column(Integer, nullable=True)
     executed_at = Column(DateTime, default=datetime.utcnow)

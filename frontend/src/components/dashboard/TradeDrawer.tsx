@@ -125,7 +125,7 @@ export function TradeDrawer({ trade, onClose, onSelectWallet }: TradeDrawerProps
               {/* Live PnL Box */}
               <div className={`p-4 rounded-2xl border ${isProfit ? 'bg-emerald-50/50 border-emerald-200' : 'bg-rose-50/50 border-rose-200'} space-y-1`}>
                 <div className="flex justify-between items-center">
-                  <span className="text-[11px] font-bold uppercase text-slate-500">Live Mark-to-Market P&L</span>
+                  <span className="text-[11px] font-bold uppercase text-slate-500">Live Net P&L (After PM Fees)</span>
                   <span className={`text-xs font-mono font-bold ${isProfit ? 'text-emerald-700' : 'text-rose-700'}`}>
                     {isProfit ? '+' : ''}{pnlPct.toFixed(1)}%
                   </span>
@@ -133,6 +133,25 @@ export function TradeDrawer({ trade, onClose, onSelectWallet }: TradeDrawerProps
                 <div className={`text-2xl font-mono font-bold ${isProfit ? 'text-emerald-700' : 'text-rose-700'}`}>
                   {isProfit ? '+' : '-'}${Math.abs(pnl).toFixed(2)}
                 </div>
+              </div>
+
+              {/* Polymarket Dynamic Fee Details */}
+              <div className="p-4 rounded-2xl bg-slate-50 border border-black/[0.06] space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-bold text-slate-500 uppercase">Polymarket Taker Fee</span>
+                  <span className="text-[10px] font-mono font-bold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-200">
+                    {trade.marketCategory || 'General'} ({(trade.categoryRate ? trade.categoryRate * 100 : 5).toFixed(0)}% curve)
+                  </span>
+                </div>
+                <div className="flex items-center justify-between text-xs font-mono">
+                  <span className="text-slate-500">Dynamic Taker Fee:</span>
+                  <span className="font-bold text-slate-900">
+                    {trade.feeUsd ? `-$${trade.feeUsd.toFixed(4)}` : '$0.00'}
+                  </span>
+                </div>
+                <p className="text-[10px] text-slate-400 leading-tight">
+                  Calculated via Polymarket quadratic formula: <code className="font-mono text-slate-600">Notional × Rate × (1 - Price)</code>
+                </p>
               </div>
 
               {/* Whale Source & Link */}
