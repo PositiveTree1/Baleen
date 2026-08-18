@@ -201,7 +201,7 @@ async def get_trade_price_chart(
     db: AsyncSession = Depends(get_db)
 ):
     import httpx, time
-    from app.discovery.polymarket_client import _to_decimal_token
+    from app.discovery.polymarket_client import PolymarketClient, _to_decimal_token
     from uuid import UUID
 
     try:
@@ -214,13 +214,25 @@ async def get_trade_price_chart(
     if not log:
         return {"error": "Trade not found", "history": []}
 
+    pm_client = PolymarketClient()
     asset_id = _to_decimal_token(log.onchain_tx_hash or "")
+
+    # Resolve token ID via Gamma if not already stored
+    if not asset_id and log.market_condition_id:
+        try:
+            asset_id = await pm_client.get_token_id_for_condition(
+                log.market_condition_id, 
+                log.resolution_outcome or "Yes"
+            )
+        except Exception:
+            pass
+
     fill_p = float(log.user_fill_price or log.whale_entry_price or 0.5)
     cur_p = get_live_price(log.market_condition_id or "", outcome=log.resolution_outcome or "Yes", asset=asset_id, fallback=fill_p)
     
-    history_points = []
-    
-    # 1. Fetch from Polymarket CLOB prices-history endpoint (like Titan)
+    raw_points_map: dict[float, float] = {}
+
+    # Source 1: Polymarket CLOB prices-history
     if asset_id:
         try:
             async with httpx.AsyncClient(timeout=6.0) as client:
@@ -230,38 +242,64 @@ async def get_trade_price_chart(
                 )
                 if res.status_code == 200:
                     data = res.json()
-                    raw_points = data.get("history") or data.get("data") or []
-                    for pt in raw_points:
+                    rows = data.get("history") or data.get("data") or []
+                    for pt in rows:
                         t_val = pt.get("t") or pt.get("timestamp")
                         p_val = pt.get("p") or pt.get("price")
                         if t_val and p_val is not None:
                             ts = float(t_val)
                             if ts > 1e11:
                                 ts /= 1000.0
-                            dt_str = datetime.fromtimestamp(ts).strftime("%d %b %H:%M")
-                            history_points.append({
-                                "timestamp": ts,
-                                "date": dt_str,
-                                "price": round(float(p_val), 4)
-                            })
+                            p_float = float(p_val)
+                            if 0.001 <= p_float <= 1.0:
+                                raw_points_map[ts] = p_float
         except Exception:
             pass
 
-    # 2. Fallback / Enrichment: If empty, build a clean trajectory from entry to current price
-    if not history_points:
-        exec_ts = log.executed_at.timestamp() if log.executed_at else (time.time() - 3600)
-        now_ts = time.time()
-        step = max(60, (now_ts - exec_ts) / 8.0)
-        for i in range(9):
-            t_curr = exec_ts + (i * step)
-            pct = i / 8.0
-            interp_price = fill_p + (cur_p - fill_p) * pct
-            dt_str = datetime.fromtimestamp(t_curr).strftime("%d %b %H:%M")
-            history_points.append({
-                "timestamp": t_curr,
-                "date": dt_str,
-                "price": round(interp_price, 4)
-            })
+    # Source 2: Data API recent real trades on this token
+    if asset_id:
+        try:
+            async with httpx.AsyncClient(timeout=6.0) as client:
+                res = await client.get(
+                    "https://data-api.polymarket.com/trades",
+                    params={"token_id": asset_id, "limit": 60}
+                )
+                if res.status_code == 200:
+                    trades = res.json()
+                    if isinstance(trades, list):
+                        for tr in trades:
+                            t_val = tr.get("timestamp") or tr.get("match_time")
+                            p_val = tr.get("price")
+                            if t_val and p_val is not None:
+                                ts = float(t_val)
+                                if ts > 1e11:
+                                    ts /= 1000.0
+                                p_float = float(p_val)
+                                if 0.001 <= p_float <= 1.0:
+                                    raw_points_map[ts] = p_float
+        except Exception:
+            pass
+
+    await pm_client.close()
+
+    # Source 3: Ensure execution fill point and current live point are included
+    if log.executed_at:
+        exec_ts = log.executed_at.timestamp()
+        raw_points_map[exec_ts] = fill_p
+    
+    now_ts = time.time()
+    raw_points_map[now_ts] = cur_p
+
+    # Format into chronological points list
+    sorted_ts = sorted(raw_points_map.keys())
+    history_points = []
+    for ts in sorted_ts:
+        dt_str = datetime.fromtimestamp(ts).strftime("%d %b %H:%M")
+        history_points.append({
+            "timestamp": ts,
+            "date": dt_str,
+            "price": round(raw_points_map[ts], 4)
+        })
 
     prices = [p["price"] for p in history_points]
     return {

@@ -284,6 +284,36 @@ class PolymarketClient:
             return data
         return None
 
+    async def get_token_id_for_condition(self, condition_id: str, outcome: str = "Yes") -> Optional[str]:
+        """Resolves the exact CLOB decimal token ID for a given condition ID and outcome."""
+        if not condition_id:
+            return None
+        try:
+            data = await self._fetch_with_retry(
+                f"{self.gamma_api_url}/markets",
+                params={"condition_id": condition_id, "limit": 1}
+            )
+            m = data[0] if (isinstance(data, list) and data) else (data if isinstance(data, dict) else None)
+            if m:
+                tokens_raw = m.get("clobTokenIds") or m.get("clob_token_ids") or "[]"
+                tokens = json.loads(tokens_raw) if isinstance(tokens_raw, str) else list(tokens_raw)
+                outcomes_raw = m.get("outcomes") or "[]"
+                outcomes = json.loads(outcomes_raw) if isinstance(outcomes_raw, str) else list(outcomes_raw)
+                
+                outc_lower = outcome.strip().lower()
+                for idx, o in enumerate(outcomes):
+                    if str(o).strip().lower() == outc_lower and idx < len(tokens):
+                        return _to_decimal_token(str(tokens[idx]))
+                if tokens:
+                    if outc_lower in ("yes", "buy", "true", "1") and len(tokens) >= 1:
+                        return _to_decimal_token(str(tokens[0]))
+                    elif outc_lower in ("no", "sell", "false", "0") and len(tokens) >= 2:
+                        return _to_decimal_token(str(tokens[1]))
+                    return _to_decimal_token(str(tokens[0]))
+        except Exception:
+            pass
+        return None
+
     async def fetch_live_token_price(
         self,
         condition_id: str = "",
@@ -296,29 +326,24 @@ class PolymarketClient:
         Titan Full Price Engine: Resolves live mark-to-market prices directly using Titan's multi-stage strategy.
         Handles binary Yes/No markets, multi-candidate markets, and nested multi-event containers.
         """
-        import json
         dec_asset = _to_decimal_token(asset) if asset else ""
 
-        # ── Pre-Stage: Extract asset/slug hints from Data API if not provided (Titan MarketCache strategy) ──
+        # Pre-Stage: Resolve exact decimal token ID if condition_id is known
+        if not dec_asset and condition_id:
+            dec_asset = await self.get_token_id_for_condition(condition_id, outcome)
+
+        # Fallback to Data API recent trades to find asset token ID if still unknown
         if not dec_asset and condition_id:
             try:
-                t_hints = await self._fetch_with_retry(f"{self.data_api_url}/trades", params={"market": condition_id, "limit": 4})
-                if not t_hints or not isinstance(t_hints, list):
-                    t_hints = await self._fetch_with_retry(f"{self.data_api_url}/trades", params={"conditionId": condition_id, "limit": 4})
+                t_hints = await self._fetch_with_retry(f"{self.data_api_url}/trades", params={"conditionId": condition_id, "limit": 4})
                 if isinstance(t_hints, list) and t_hints:
                     for th in t_hints:
                         if isinstance(th, dict):
                             th_outcome = str(th.get("outcome") or "")
                             th_asset = str(th.get("asset") or "")
-                            th_slug = str(th.get("slug") or "")
-                            if th_slug and not slug:
-                                slug = th_slug
-                            if th_asset:
-                                if not dec_asset:
-                                    dec_asset = _to_decimal_token(th_asset)
-                                if outcome and th_outcome.lower() == outcome.lower():
-                                    dec_asset = _to_decimal_token(th_asset)
-                                    break
+                            if th_asset and (not outcome or th_outcome.lower() == outcome.lower()):
+                                dec_asset = _to_decimal_token(th_asset)
+                                break
             except Exception:
                 pass
 
