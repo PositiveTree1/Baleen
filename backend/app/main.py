@@ -58,10 +58,46 @@ async def keep_alive_job():
         logger.warning(f"Keep-alive ping error to {target}: {e}")
         last_cron_ping_time = time.time()
 
+async def _auto_discovery_if_empty():
+    """Check if the wallets table is empty and auto-trigger discovery if so.
+    This ensures a fresh deploy immediately populates data instead of waiting
+    for the first scheduled interval (20 minutes).
+    """
+    from app.database import SessionLocal
+    from app.models import Wallet
+    try:
+        async with SessionLocal() as db:
+            wallet_count = (await db.execute(
+                select(func.count()).select_from(Wallet)
+            )).scalar() or 0
+            
+            if wallet_count == 0:
+                logger.info(
+                    "🔍 Database is empty (0 wallets). "
+                    "Auto-triggering initial discovery scan..."
+                )
+                # Small delay to let the rest of startup complete
+                await asyncio.sleep(5)
+                await run_discovery()
+                logger.info("✅ Initial auto-discovery completed.")
+            else:
+                logger.info(f"Database has {wallet_count} wallets. Skipping auto-discovery.")
+    except Exception as e:
+        logger.error(f"Auto-discovery check failed: {e}")
+
 @app.on_event("startup")
 async def startup_event():
     # Init DB
     await init_db()
+    
+    # Restore last discovery state from DB (survives restarts)
+    from app.discovery.scanner import load_discovery_state_from_db
+    await load_discovery_state_from_db()
+    
+    # Log database type prominently
+    from app.database import _using_sqlite_fallback, engine
+    db_type = "SQLite (LOCAL FALLBACK)" if _using_sqlite_fallback else f"PostgreSQL ({engine.url.drivername})"
+    logger.info(f"{'⚠️' if _using_sqlite_fallback else '✅'} Active database: {db_type}")
     
     # Schedule workers (Discovery runs every 20 minutes for continuous whale pipeline growth)
     scheduler.add_job(run_discovery, 'interval', minutes=20, id='discovery_job')
@@ -89,6 +125,9 @@ async def startup_event():
     asyncio.create_task(mark_to_market_service.start())
     logger.info("Mark-to-Market Valuation & Consensus Service initialized.")
 
+    # Auto-trigger discovery if the database is empty (e.g. fresh deploy)
+    asyncio.create_task(_auto_discovery_if_empty())
+
 @app.on_event("shutdown")
 async def shutdown_event():
     from app.services.live_poller import live_trade_mirror
@@ -100,12 +139,14 @@ async def shutdown_event():
 @app.get("/health")
 async def health_check():
     global last_cron_ping_time
+    from app.database import _using_sqlite_fallback
     last_cron_ping_time = time.time()
     return {
         "status": "ok",
         "service": "Baleen Backend",
         "uptime_seconds": round(time.time() - server_start_time, 1),
-        "last_ping": last_cron_ping_time
+        "last_ping": last_cron_ping_time,
+        "database": "PostgreSQL" if not _using_sqlite_fallback else "SQLite (DEGRADED)",
     }
 
 @app.get("/api/stats")
@@ -132,6 +173,7 @@ async def diagnostics(db: AsyncSession = Depends(get_db)):
     """Test all external API connections and report results."""
     import httpx
     from app.models import Wallet, User
+    from app.database import _using_sqlite_fallback, engine
     results = {}
     
     # Test Polymarket Data API
@@ -157,7 +199,13 @@ async def diagnostics(db: AsyncSession = Depends(get_db)):
     try:
         wallet_count = (await db.execute(select(func.count()).select_from(Wallet))).scalar()
         user_count = (await db.execute(select(func.count()).select_from(User))).scalar()
-        results["database"] = {"status": "OK", "wallets": wallet_count, "users": user_count}
+        results["database"] = {
+            "status": "OK",
+            "type": "Supabase PostgreSQL" if not _using_sqlite_fallback else "SQLite (Local Fallback)",
+            "driver": engine.url.drivername,
+            "wallets": wallet_count,
+            "users": user_count,
+        }
     except Exception as e:
         results["database"] = {"status": "ERROR", "error": str(e)[:200]}
     

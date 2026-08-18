@@ -10,9 +10,13 @@ logger = logging.getLogger(__name__)
 # Determine active database URL with fallback handling
 db_url = settings.async_database_url
 
+# Track whether we're using the fallback so we can report it
+_using_sqlite_fallback = False
+
 # If running with SQLite, ensure WAL mode is enabled
 engine_kwargs = {"echo": False, "future": True}
 if "sqlite" in db_url:
+    _using_sqlite_fallback = True
     if os.path.exists("/data") and "sqlite+aiosqlite:///./baleen.db" in db_url:
         db_url = "sqlite+aiosqlite:////data/baleen.db"
     engine_kwargs["connect_args"] = {"check_same_thread": False}
@@ -26,7 +30,22 @@ else:
 try:
     engine = create_async_engine(db_url, **engine_kwargs)
 except Exception as e:
-    logger.warning(f"Failed to create engine with {db_url}: {e}. Falling back to SQLite.")
+    _using_sqlite_fallback = True
+    # On Render/production, refuse to silently degrade — crash loud so the deploy logs show the problem
+    if os.environ.get("RENDER") or os.environ.get("RENDER_EXTERNAL_URL"):
+        logger.critical(
+            f"FATAL: Cannot connect to PostgreSQL ({db_url}): {e}. "
+            f"Set DATABASE_URL in Render environment variables to your Supabase connection string. "
+            f"Refusing to fall back to ephemeral SQLite in production."
+        )
+        raise RuntimeError(
+            f"PostgreSQL connection failed and SQLite fallback is disabled in production. "
+            f"Set the DATABASE_URL environment variable in Render. Error: {e}"
+        ) from e
+    logger.warning(
+        f"⚠️  Failed to create engine with {db_url}: {e}. "
+        f"Falling back to SQLite. Data will NOT persist across restarts!"
+    )
     fallback_url = "sqlite+aiosqlite:////data/baleen.db" if os.path.exists("/data") else "sqlite+aiosqlite:///./baleen.db"
     engine = create_async_engine(fallback_url, echo=False, future=True, connect_args={"check_same_thread": False})
 
@@ -55,7 +74,7 @@ NEW_COLS = [
 ]
 
 async def init_db():
-    global engine, SessionLocal, AsyncSessionLocal
+    global engine, SessionLocal, AsyncSessionLocal, _using_sqlite_fallback
     try:
         async with engine.begin() as conn:
             # Enable WAL mode if SQLite
@@ -73,9 +92,31 @@ async def init_db():
                         await conn.execute(text(f"ALTER TABLE {table} ADD COLUMN IF NOT EXISTS {col} {col_type};"))
                 except Exception:
                     pass
-        logger.info(f"Database initialized successfully ({engine.url.drivername}).")
+
+        db_driver = engine.url.drivername
+        is_postgres = "postgres" in db_driver
+        if is_postgres:
+            logger.info(f"✅ Database initialized successfully — connected to Supabase PostgreSQL ({db_driver}).")
+        else:
+            logger.warning(
+                f"⚠️  Database initialized with LOCAL SQLite ({db_driver}). "
+                f"Data will NOT persist across deploys/restarts! "
+                f"Set DATABASE_URL to your Supabase PostgreSQL connection string."
+            )
     except Exception as exc:
+        # On Render/production, crash loud instead of silently degrading
+        if os.environ.get("RENDER") or os.environ.get("RENDER_EXTERNAL_URL"):
+            logger.critical(
+                f"FATAL: PostgreSQL initialization failed: {exc}. "
+                f"Check your DATABASE_URL environment variable in Render settings."
+            )
+            raise RuntimeError(
+                f"PostgreSQL initialization failed in production. "
+                f"Fix DATABASE_URL in Render environment variables. Error: {exc}"
+            ) from exc
+
         logger.error(f"Error initializing primary database ({engine.url.drivername}): {exc}. Activating SQLite fallback...")
+        _using_sqlite_fallback = True
         fallback_url = "sqlite+aiosqlite:////data/baleen.db" if os.path.exists("/data") else "sqlite+aiosqlite:///./baleen.db"
         engine = create_async_engine(fallback_url, echo=False, future=True, connect_args={"check_same_thread": False})
         SessionLocal.configure(bind=engine)
@@ -88,6 +129,9 @@ async def init_db():
                     await conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {col} {col_type};"))
                 except Exception:
                     pass
-        logger.info(f"SQLite fallback database initialized at {fallback_url}.")
+        logger.warning(
+            f"⚠️  SQLite fallback database initialized at {fallback_url}. "
+            f"Data will NOT persist across deploys/restarts!"
+        )
 
 

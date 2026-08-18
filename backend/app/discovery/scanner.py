@@ -6,9 +6,9 @@ import time
 from typing import List, Dict, Optional, Tuple, Any
 from datetime import datetime, timezone
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, delete, text
+from sqlalchemy import select, delete, text, func
 from app.discovery.polymarket_client import PolymarketClient
-from app.models import Wallet, WalletSnapshot, ExecutionLog
+from app.models import Wallet, WalletSnapshot, ExecutionLog, KeyValue
 from app.scoring.engine import score_wallet
 from app.scoring.basket import compute_baleen_score
 from app.analysis.ai_summary import generate_summary
@@ -27,6 +27,50 @@ discovery_state = {
     "completed_at": None,
     "error_message": None
 }
+
+_KV_DISCOVERY_STATE_KEY = "discovery_state"
+
+async def _persist_discovery_state(db: AsyncSession):
+    """Save the current discovery_state dict to the kv_store table."""
+    try:
+        serializable = {k: v for k, v in discovery_state.items()}
+        value_json = json.dumps(serializable)
+        existing = (await db.execute(
+            select(KeyValue).where(KeyValue.key == _KV_DISCOVERY_STATE_KEY)
+        )).scalar_one_or_none()
+        if existing:
+            existing.value = value_json
+            existing.updated_at = datetime.utcnow()
+        else:
+            db.add(KeyValue(key=_KV_DISCOVERY_STATE_KEY, value=value_json))
+        await db.commit()
+    except Exception as e:
+        logger.debug(f"Could not persist discovery state: {e}")
+
+async def load_discovery_state_from_db():
+    """Load the last persisted discovery_state from DB on startup."""
+    global discovery_state
+    try:
+        from app.database import SessionLocal
+        async with SessionLocal() as db:
+            row = (await db.execute(
+                select(KeyValue).where(KeyValue.key == _KV_DISCOVERY_STATE_KEY)
+            )).scalar_one_or_none()
+            if row and row.value:
+                saved = json.loads(row.value)
+                # If the last state was "running", it means the server crashed mid-scan
+                if saved.get("status") == "running":
+                    saved["status"] = "interrupted"
+                    saved["step_description"] = (
+                        f"Previous scan was interrupted (server restarted). "
+                        f"Last progress: {saved.get('progress_pct', 0)}%. "
+                        f"A new scan will run automatically."
+                    )
+                discovery_state.update(saved)
+                logger.info(f"Restored discovery state from DB: status={discovery_state['status']}")
+    except Exception as e:
+        logger.debug(f"Could not load discovery state from DB: {e}")
+
 
 def calc_wilson_lower_bound(wins: int, total: int, z: float = 1.645) -> float:
     """Calculates the 90% Wilson confidence lower bound for win rate (from Titan)."""
@@ -578,10 +622,13 @@ async def scan_for_wallets(db: AsyncSession, full_refresh: bool = False):
             discovery_state["step_description"] = f"Complete: {discovery_state['active_whales_in_basket']} active whales ({discovery_state['gold_snipers']} Gold Snipers) audited."
             discovery_state["status"] = "completed"
             discovery_state["completed_at"] = time.time()
+            await _persist_discovery_state(db)
         except Exception as e:
             logger.error(f"Error during Stage 2 deep evaluation: {e}", exc_info=True)
             discovery_state["status"] = "error"
             discovery_state["error_message"] = str(e)
+            await _persist_discovery_state(db)
 
     logger.info(f"Evaluation complete. Processed {processed_count} wallets.")
     return processed_count
+

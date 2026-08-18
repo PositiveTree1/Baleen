@@ -135,10 +135,13 @@ async def handle_baleen_admin_system(args):
         db_dialect = engine.dialect.name
         is_postgres = "postgres" in db_dialect
         
-        return {
+        from app.database import _using_sqlite_fallback
+        
+        result = {
             "server_status": "HEALTHY",
             "database_type": "Supabase PostgreSQL" if is_postgres else "SQLite (Local Failover)",
             "database_connected": True,
+            "using_sqlite_fallback": _using_sqlite_fallback,
             "entities": {
                 "active_whales_in_basket": active_wallets,
                 "pending_discovery_queue": pending_wallets,
@@ -154,6 +157,14 @@ async def handle_baleen_admin_system(args):
                 "cron_keepalive": "Active (5m cadence)"
             }
         }
+        
+        if _using_sqlite_fallback:
+            result["warning"] = (
+                "Backend is using local SQLite fallback! All data is ephemeral and will be lost on restart/deploy. "
+                "Set DATABASE_URL to your Supabase PostgreSQL connection string."
+            )
+        
+        return result
 
 async def handle_baleen_admin_pipeline(args):
     await init_db()

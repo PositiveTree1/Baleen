@@ -143,3 +143,13 @@ class FeeCharge(Base):
     fee_pct = Column(Float)
     fee_amount_usd = Column(Float)
     charged_at = Column(DateTime, default=datetime.utcnow)
+
+class KeyValue(Base):
+    """Simple key-value store for persisting lightweight state across restarts.
+    Used for discovery progress, last scan timestamps, etc."""
+    __tablename__ = "kv_store"
+
+    key = Column(String, primary_key=True)
+    value = Column(String, nullable=True)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+

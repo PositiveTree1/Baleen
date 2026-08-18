@@ -20,10 +20,12 @@ class Settings(BaseSettings):
     @property
     def async_database_url(self) -> str:
         url = self.DATABASE_URL
+        # Convert standard Postgres URL prefixes to asyncpg driver
         if url.startswith("postgres://"):
             url = url.replace("postgres://", "postgresql+asyncpg://", 1)
-        elif url.startswith("postgresql://"):
+        elif url.startswith("postgresql://") and "+asyncpg" not in url:
             url = url.replace("postgresql://", "postgresql+asyncpg://", 1)
+        # asyncpg doesn't understand sslmode=require; convert to ssl=require
         if "sslmode=require" in url:
             url = url.replace("sslmode=require", "ssl=require")
         return url

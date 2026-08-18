@@ -25,17 +25,28 @@ async def trigger_discovery():
 
 @router.get("/status")
 async def get_admin_status(db: AsyncSession = Depends(get_db)):
-    """Returns real-time progress and server health metrics."""
+    """Returns real-time progress, server health, and database metrics in a unified response."""
     from app.discovery.scanner import discovery_state
     from app.main import server_start_time, last_cron_ping_time
+    from app.database import _using_sqlite_fallback, engine
     
     # DB stats
     total_wallets = (await db.execute(select(func.count()).select_from(Wallet))).scalar() or 0
     pending_wallets = (await db.execute(select(func.count()).select_from(Wallet).where(Wallet.status == 'pending'))).scalar() or 0
     active_wallets = (await db.execute(select(func.count()).select_from(Wallet).where(Wallet.status == 'active'))).scalar() or 0
     rejected_wallets = (await db.execute(select(func.count()).select_from(Wallet).where(Wallet.status == 'rejected'))).scalar() or 0
+    user_count = (await db.execute(select(func.count()).select_from(User))).scalar() or 0
+    trade_count = (await db.execute(select(func.count()).select_from(ExecutionLog))).scalar() or 0
+
+    # Listener is online if heartbeat in last 60s or if started recently
+    listener_online = (time.time() - last_listener_heartbeat) < 60 if last_listener_heartbeat > 0 else True
+
+    # Database type reporting
+    db_driver = engine.url.drivername
+    is_postgres = "postgres" in db_driver
     
     return {
+        "timestamp": datetime.utcnow().isoformat(),
         "uptime_seconds": time.time() - server_start_time,
         "last_cron_ping": last_cron_ping_time,
         "discovery_state": discovery_state,
@@ -44,6 +55,26 @@ async def get_admin_status(db: AsyncSession = Depends(get_db)):
             "pending": pending_wallets,
             "active": active_wallets,
             "rejected": rejected_wallets
+        },
+        "database": {
+            "type": "Supabase PostgreSQL" if is_postgres else "SQLite (Local Failover)",
+            "using_sqlite_fallback": _using_sqlite_fallback,
+            "totalWallets": total_wallets,
+            "activeWallets": active_wallets,
+            "pendingWallets": pending_wallets,
+            "rejectedWallets": rejected_wallets,
+            "totalUsers": user_count,
+            "totalTrades": trade_count,
+        },
+        "jobs": {
+            "discoveryInterval": "20m",
+            "scoringInterval": "24h",
+            "analysisInterval": "24h",
+        },
+        "services": {
+            "backend": "ONLINE",
+            "database": "ONLINE" if not _using_sqlite_fallback else "DEGRADED (SQLite fallback)",
+            "listener": "ONLINE" if listener_online else "OFFLINE",
         }
     }
 
@@ -96,48 +127,6 @@ async def purge_and_rescan(db: AsyncSession = Depends(get_db)):
     return {
         "status": "started",
         "message": "Database purge initiated. Background Polymarket scraping & audit started."
-    }
-
-@router.get("/status")
-async def get_status(db: AsyncSession = Depends(get_db)):
-    wallet_count = (await db.execute(select(func.count()).select_from(Wallet))).scalar() or 0
-    active_count = (await db.execute(select(func.count()).select_from(Wallet).where(Wallet.status == "active"))).scalar() or 0
-    pending_count = (await db.execute(select(func.count()).select_from(Wallet).where(Wallet.status == "pending"))).scalar() or 0
-    rejected_count = (await db.execute(select(func.count()).select_from(Wallet).where(Wallet.status == "rejected"))).scalar() or 0
-    user_count = (await db.execute(select(func.count()).select_from(User))).scalar() or 0
-    trade_count = (await db.execute(select(func.count()).select_from(ExecutionLog))).scalar() or 0
-    
-    # Listener is online if heartbeat in last 60s or if started recently
-    listener_online = (time.time() - last_listener_heartbeat) < 60 if last_listener_heartbeat > 0 else True
-    
-    return {
-        "timestamp": datetime.utcnow().isoformat(),
-        "db": {
-            "total_wallets": wallet_count,
-            "active_wallets": active_count,
-            "pending_wallets": pending_count,
-            "rejected_wallets": rejected_count,
-            "users": user_count,
-            "trades": trade_count,
-        },
-        "database": {
-            "totalWallets": wallet_count,
-            "activeWallets": active_count,
-            "pendingWallets": pending_count,
-            "rejectedWallets": rejected_count,
-            "totalUsers": user_count,
-            "totalTrades": trade_count,
-        },
-        "jobs": {
-            "discoveryInterval": "6h",
-            "scoringInterval": "24h",
-            "analysisInterval": "24h",
-        },
-        "services": {
-            "backend": "ONLINE",
-            "database": "ONLINE",
-            "listener": "ONLINE" if listener_online else "OFFLINE",
-        }
     }
 
 @router.get("/wallets")
