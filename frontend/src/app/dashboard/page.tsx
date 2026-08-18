@@ -7,17 +7,21 @@ import { WalletLeaderboard } from '@/components/dashboard/WalletLeaderboard';
 import { TradeLog } from '@/components/dashboard/TradeLog';
 import { WalletDrawer } from '@/components/dashboard/WalletDrawer';
 import { TradeDrawer } from '@/components/dashboard/TradeDrawer';
+import { ConsensusRadar } from '@/components/dashboard/ConsensusRadar';
+import { CommandPalette } from '@/components/ui/CommandPalette';
 import { fetchUserSettings, fetchPortfolioSummary } from '@/lib/api-client';
 import { User, ExecutionLog } from '@/types';
 import Link from 'next/link';
-import { Settings, LogOut } from 'lucide-react';
+import { Settings, LogOut, Volume2, VolumeX, ShieldCheck, Sparkles, Command } from 'lucide-react';
 import { signOut } from 'next-auth/react';
 import { BrandLogo } from '@/components/ui/BrandLogo';
+import { soundFx } from '@/lib/sound';
 
 export default function DashboardPage() {
   const { data: session, status } = useSession();
   const [selectedWallet, setSelectedWallet] = useState<string | null>(null);
   const [selectedTrade, setSelectedTrade] = useState<ExecutionLog | null>(null);
+  const [soundActive, setSoundActive] = useState(false);
   const [user, setUser] = useState<User | null>(null);
   const [portfolio, setPortfolio] = useState<{
     startingBalance: number;
@@ -47,6 +51,11 @@ export default function DashboardPage() {
     return () => clearInterval(interval);
   }, [session]);
 
+  const toggleSound = () => {
+    const next = soundFx.toggleSound();
+    setSoundActive(next);
+  };
+
   if (status === 'loading') {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#F8F9FB] text-slate-500 text-sm">
@@ -70,8 +79,21 @@ export default function DashboardPage() {
         <div className="flex items-center gap-3">
           <div className="hidden sm:flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold text-emerald-800 bg-emerald-50 border border-emerald-200 shadow-[inset_0_1px_0_rgba(255,255,255,0.8)]">
             <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-            <span>Engine Active</span>
+            <span>HyperSync Live</span>
           </div>
+
+          <button
+            onClick={toggleSound}
+            className={`p-2 rounded-xl border transition-colors cursor-pointer ${
+              soundActive 
+                ? 'bg-indigo-50 text-indigo-700 border-indigo-200 shadow-sm' 
+                : 'text-slate-500 hover:text-slate-900 border-black/[0.06] bg-white hover:bg-slate-50'
+            }`}
+            title={soundActive ? 'Mute Trade Signal Chimes' : 'Enable Real-time Sound Chimes'}
+          >
+            {soundActive ? <Volume2 size={16} /> : <VolumeX size={16} />}
+          </button>
+
           <Link href="/admin" className="text-xs font-semibold text-slate-600 hover:text-slate-900 transition-colors px-3 py-1.5 rounded-xl hover:bg-black/5">
             Admin
           </Link>
@@ -85,7 +107,7 @@ export default function DashboardPage() {
       </nav>
 
       <main className="flex-1 p-6 lg:p-12 max-w-7xl mx-auto w-full flex flex-col gap-8">
-        {/* Header Section */}
+        {/* Header Section with Balance & Regime */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-6 pb-2">
           <BalanceCounter balance={liveBalance} pnl={livePnl} pnlPct={livePnlPct} />
           
@@ -99,7 +121,10 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* Main Grid */}
+        {/* Smart Money Consensus Radar */}
+        <ConsensusRadar />
+
+        {/* Main Grid: Live Tape & Active Whale Basket */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2">
             <LiveTape onSelectTrade={setSelectedTrade} />
@@ -112,6 +137,9 @@ export default function DashboardPage() {
         {/* Trade Log */}
         <TradeLog userId={session?.user?.id} onSelectTrade={setSelectedTrade} />
       </main>
+
+      {/* Quick Command Palette (CMD+K) */}
+      <CommandPalette onSelectWallet={setSelectedWallet} />
 
       {/* Wallet Drawer */}
       <WalletDrawer 

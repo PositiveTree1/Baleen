@@ -1,13 +1,19 @@
+'use client';
+import { useState } from 'react';
 import { Hero } from '@/components/landing/Hero';
 import { LiveTicker } from '@/components/landing/LiveTicker';
 import { ProfitSimulator } from '@/components/landing/ProfitSimulator';
 import { FeaturesGrid } from '@/components/landing/FeaturesGrid';
 import { Leaderboard } from '@/components/landing/Leaderboard';
+import { CommandPalette } from '@/components/ui/CommandPalette';
+import { WalletDrawer } from '@/components/dashboard/WalletDrawer';
 import { BrandLogo } from '@/components/ui/BrandLogo';
 import Image from 'next/image';
 import Link from 'next/link';
 
 export default function LandingPage() {
+  const [selectedWallet, setSelectedWallet] = useState<string | null>(null);
+
   return (
     <main className="flex-1 flex flex-col bg-[#F8F9FB] text-slate-900 selection:bg-slate-900 selection:text-white min-h-screen">
       {/* Apple Frosted Glass Header */}
@@ -28,6 +34,15 @@ export default function LandingPage() {
       <ProfitSimulator />
       <Leaderboard />
       <FeaturesGrid />
+
+      {/* Global Command Palette (CMD+K) */}
+      <CommandPalette onSelectWallet={setSelectedWallet} />
+
+      {/* Wallet Drawer for Deep Audits */}
+      <WalletDrawer 
+        address={selectedWallet} 
+        onClose={() => setSelectedWallet(null)} 
+      />
       
       <footer className="py-16 text-center border-t border-black/[0.06] bg-white text-slate-500 text-xs">
         <div className="max-w-6xl mx-auto px-6 flex flex-col sm:flex-row items-center justify-between gap-4">
