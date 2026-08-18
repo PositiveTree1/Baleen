@@ -7,7 +7,6 @@ import { WalletLeaderboard } from '@/components/dashboard/WalletLeaderboard';
 import { TradeLog } from '@/components/dashboard/TradeLog';
 import { WalletDrawer } from '@/components/dashboard/WalletDrawer';
 import { TradeDrawer } from '@/components/dashboard/TradeDrawer';
-import { ConsensusRadar } from '@/components/dashboard/ConsensusRadar';
 import { CommandPalette } from '@/components/ui/CommandPalette';
 import { fetchUserSettings, fetchPortfolioSummary } from '@/lib/api-client';
 import { User, ExecutionLog } from '@/types';
@@ -120,9 +119,6 @@ export default function DashboardPage() {
             </div>
           </div>
         </div>
-
-        {/* Smart Money Consensus Radar */}
-        <ConsensusRadar />
 
         {/* Main Grid: Live Tape & Active Whale Basket */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

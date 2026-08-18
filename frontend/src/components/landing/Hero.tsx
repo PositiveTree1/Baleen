@@ -56,7 +56,7 @@ export function Hero() {
         <div className="absolute inset-0 bg-gradient-to-r from-[#F8F9FB] via-[#F8F9FB]/40 to-transparent z-10" />
         <div className="absolute inset-0 bg-gradient-to-t from-[#F8F9FB] via-transparent to-[#F8F9FB]/40 z-10" />
         <Image 
-          src="/images/hero-icescape.jpg" 
+          src="/images/hero-icescape.jpeg" 
           alt="Nordic Glacial Landscape" 
           fill
           priority
