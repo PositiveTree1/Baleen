@@ -20,7 +20,9 @@ class Settings(BaseSettings):
     @property
     def async_database_url(self) -> str:
         url = self.DATABASE_URL
-        if url.startswith("postgresql://"):
+        if url.startswith("postgres://"):
+            url = url.replace("postgres://", "postgresql+asyncpg://", 1)
+        elif url.startswith("postgresql://"):
             url = url.replace("postgresql://", "postgresql+asyncpg://", 1)
         if "sslmode=require" in url:
             url = url.replace("sslmode=require", "ssl=require")

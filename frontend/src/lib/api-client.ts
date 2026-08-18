@@ -109,6 +109,26 @@ export async function fetchExecutionLogs(userId?: string, params?: Record<string
   }
 }
 
+export async function fetchPortfolioSummary(userId?: string): Promise<{
+  startingBalance: number;
+  currentBalance: number;
+  totalPnlUsd: number;
+  totalPnlPct: number;
+  filledTradesCount: number;
+  totalNotionalInvested: number;
+} | null> {
+  try {
+    const url = userId 
+      ? `${API_BASE_URL}/api/executions/summary?userId=${encodeURIComponent(userId)}`
+      : `${API_BASE_URL}/api/executions/summary`;
+    const res = await fetch(url);
+    if (!res.ok) return null;
+    return await res.json();
+  } catch (error) {
+    return null;
+  }
+}
+
 export async function fetchUserSettings(userId: string): Promise<User | null> {
   try {
     const res = await fetch(`${API_BASE_URL}/api/users/${userId}`);

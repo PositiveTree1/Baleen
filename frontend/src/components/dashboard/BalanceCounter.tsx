@@ -1,12 +1,15 @@
 'use client';
 import { motion, useSpring, useTransform } from 'framer-motion';
 import { useEffect, useState } from 'react';
+import { TrendingUp, TrendingDown } from 'lucide-react';
 
 interface BalanceCounterProps {
   balance: number | null;
+  pnl?: number | null;
+  pnlPct?: number | null;
 }
 
-export function BalanceCounter({ balance }: BalanceCounterProps) {
+export function BalanceCounter({ balance, pnl, pnlPct }: BalanceCounterProps) {
   const initial = balance ?? 10000;
   const springValue = useSpring(initial, { stiffness: 100, damping: 28, restDelta: 0.01 });
   const [isClient, setIsClient] = useState(false);
@@ -22,6 +25,9 @@ export function BalanceCounter({ balance }: BalanceCounterProps) {
     return `$${Math.max(0, latest).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   });
 
+  const hasPnl = pnl !== undefined && pnl !== null && pnl !== 0;
+  const isPositive = (pnl ?? 0) >= 0;
+
   return (
     <div className="flex flex-col gap-1.5">
       <div className="flex items-center gap-2">
@@ -29,6 +35,16 @@ export function BalanceCounter({ balance }: BalanceCounterProps) {
         <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold text-slate-700 bg-slate-100 border border-black/[0.06] shadow-[inset_0_1px_0_rgba(255,255,255,0.8)]">
           Paper
         </span>
+        {hasPnl && (
+          <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold border shadow-[inset_0_1px_0_rgba(255,255,255,0.8)] ${
+            isPositive 
+              ? 'text-emerald-800 bg-emerald-50 border-emerald-200' 
+              : 'text-rose-800 bg-rose-50 border-rose-200'
+          }`}>
+            {isPositive ? <TrendingUp size={11} /> : <TrendingDown size={11} />}
+            {isPositive ? '+' : ''}${Math.abs(pnl!).toFixed(2)} ({isPositive ? '+' : ''}{(pnlPct ?? 0).toFixed(2)}%)
+          </span>
+        )}
       </div>
       {isClient && balance !== null && balance !== undefined ? (
         <motion.span className="text-4xl sm:text-5xl font-bold text-slate-900 font-mono tracking-tight">
@@ -42,3 +58,4 @@ export function BalanceCounter({ balance }: BalanceCounterProps) {
     </div>
   );
 }
+

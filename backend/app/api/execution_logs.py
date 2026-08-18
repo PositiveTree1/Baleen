@@ -75,3 +75,51 @@ async def get_execution_logs(
     system_stmt = stmt.where(ExecutionLog.user_id.is_(None)).order_by(ExecutionLog.executed_at.desc()).limit(limit).offset(offset)
     result = await db.execute(system_stmt)
     return [execution_log_to_response(log) for log in result.scalars().all()]
+
+
+@router.get("/summary")
+async def get_portfolio_summary(
+    user_id: Optional[str] = Query(None, alias="userId"),
+    db: AsyncSession = Depends(get_db)
+):
+    stmt = select(ExecutionLog).where(ExecutionLog.status == "FILLED")
+    if user_id:
+        stmt = stmt.where(ExecutionLog.user_id == user_id)
+    else:
+        stmt = stmt.where(ExecutionLog.user_id.is_(None))
+    
+    logs = (await db.execute(stmt)).scalars().all()
+    
+    starting_balance = 10000.0
+    total_pnl = 0.0
+    total_notional = 0.0
+    
+    for log in logs:
+        cid = log.market_condition_id or ""
+        outc = log.resolution_outcome or "Yes"
+        fill_p = float(log.user_fill_price or log.whale_entry_price or 0.5)
+        cur_p = get_live_price(cid, outcome=outc, fallback=fill_p)
+        notional = float(log.notional_usd or 0.0)
+        total_notional += notional
+        
+        trade_pnl = log.realized_pnl_usd
+        if trade_pnl is None and fill_p > 0:
+            if log.side == "BUY":
+                trade_pnl = notional * ((cur_p - fill_p) / fill_p)
+            else:
+                trade_pnl = notional * ((fill_p - cur_p) / fill_p)
+        if trade_pnl is not None:
+            total_pnl += float(trade_pnl)
+            
+    current_balance = round(starting_balance + total_pnl, 2)
+    pnl_pct = round((total_pnl / starting_balance) * 100.0, 2) if starting_balance > 0 else 0.0
+    
+    return {
+        "startingBalance": starting_balance,
+        "currentBalance": current_balance,
+        "totalPnlUsd": round(total_pnl, 2),
+        "totalPnlPct": pnl_pct,
+        "filledTradesCount": len(logs),
+        "totalNotionalInvested": round(total_notional, 2)
+    }
+

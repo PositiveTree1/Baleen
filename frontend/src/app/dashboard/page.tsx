@@ -7,7 +7,7 @@ import { WalletLeaderboard } from '@/components/dashboard/WalletLeaderboard';
 import { TradeLog } from '@/components/dashboard/TradeLog';
 import { WalletDrawer } from '@/components/dashboard/WalletDrawer';
 import { TradeDrawer } from '@/components/dashboard/TradeDrawer';
-import { fetchUserSettings } from '@/lib/api-client';
+import { fetchUserSettings, fetchPortfolioSummary } from '@/lib/api-client';
 import { User, ExecutionLog } from '@/types';
 import Link from 'next/link';
 import { Settings, LogOut } from 'lucide-react';
@@ -19,13 +19,32 @@ export default function DashboardPage() {
   const [selectedWallet, setSelectedWallet] = useState<string | null>(null);
   const [selectedTrade, setSelectedTrade] = useState<ExecutionLog | null>(null);
   const [user, setUser] = useState<User | null>(null);
+  const [portfolio, setPortfolio] = useState<{
+    startingBalance: number;
+    currentBalance: number;
+    totalPnlUsd: number;
+    totalPnlPct: number;
+    filledTradesCount: number;
+    totalNotionalInvested: number;
+  } | null>(null);
+
+  const loadData = async () => {
+    try {
+      const [userData, portfolioData] = await Promise.all([
+        session?.user?.id ? fetchUserSettings(session.user.id) : null,
+        fetchPortfolioSummary(session?.user?.id)
+      ]);
+      if (userData) setUser(userData);
+      if (portfolioData) setPortfolio(portfolioData);
+    } catch (err) {
+      console.debug("Dashboard polling note:", err);
+    }
+  };
 
   useEffect(() => {
-    if (session?.user?.id) {
-      fetchUserSettings(session.user.id).then(data => {
-        if (data) setUser(data);
-      });
-    }
+    loadData();
+    const interval = setInterval(loadData, 4000);
+    return () => clearInterval(interval);
   }, [session]);
 
   if (status === 'loading') {
@@ -38,6 +57,10 @@ export default function DashboardPage() {
       </div>
     );
   }
+
+  const liveBalance = portfolio?.currentBalance ?? user?.currentBalance ?? 10000.0;
+  const livePnl = portfolio?.totalPnlUsd ?? 0.0;
+  const livePnlPct = portfolio?.totalPnlPct ?? 0.0;
 
   return (
     <div className="min-h-screen flex flex-col bg-[#F8F9FB] text-slate-900 selection:bg-slate-900 selection:text-white">
@@ -64,7 +87,7 @@ export default function DashboardPage() {
       <main className="flex-1 p-6 lg:p-12 max-w-7xl mx-auto w-full flex flex-col gap-8">
         {/* Header Section */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-6 pb-2">
-          <BalanceCounter balance={user?.currentBalance ?? null} />
+          <BalanceCounter balance={liveBalance} pnl={livePnl} pnlPct={livePnlPct} />
           
           <div className="flex items-center gap-3">
             <div className="bg-white px-4 py-2.5 rounded-2xl flex items-center gap-3 border border-black/[0.08] shadow-[inset_0_1px_0_rgba(255,255,255,1),0_1px_3px_rgba(0,0,0,0.04)]">

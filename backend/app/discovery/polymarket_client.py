@@ -291,7 +291,9 @@ class PolymarketClient:
         # ── Pre-Stage: Extract asset/slug hints from Data API if not provided (Titan MarketCache strategy) ──
         if not dec_asset and condition_id:
             try:
-                t_hints = await self._fetch_with_retry(f"{self.data_api_url}/trades", params={"conditionId": condition_id, "limit": 4})
+                t_hints = await self._fetch_with_retry(f"{self.data_api_url}/trades", params={"market": condition_id, "limit": 4})
+                if not t_hints or not isinstance(t_hints, list):
+                    t_hints = await self._fetch_with_retry(f"{self.data_api_url}/trades", params={"conditionId": condition_id, "limit": 4})
                 if isinstance(t_hints, list) and t_hints:
                     for th in t_hints:
                         if isinstance(th, dict):
@@ -322,7 +324,7 @@ class PolymarketClient:
 
         if condition_id:
             try:
-                t_recent = await self._fetch_with_retry(f"{self.data_api_url}/trades", params={"conditionId": condition_id, "limit": 2})
+                t_recent = await self._fetch_with_retry(f"{self.data_api_url}/trades", params={"market": condition_id, "limit": 4})
                 if isinstance(t_recent, list) and t_recent:
                     for tr in t_recent:
                         tr_outc = str(tr.get("outcome") or "")
@@ -396,6 +398,8 @@ class PolymarketClient:
             data = await self._fetch_with_retry(f"{self.gamma_api_url}/markets", params={"condition_id": condition_id, "limit": 1})
             if isinstance(data, list) and data:
                 market_payload = data[0]
+            elif isinstance(data, dict) and "outcomePrices" in data:
+                market_payload = data
 
         # Process Gamma market payload
         if market_payload and isinstance(market_payload, dict):
@@ -436,7 +440,7 @@ class PolymarketClient:
         # ── Stage 4: Data API /trades fallback (DIRECT MATCH ONLY) ──
         if condition_id:
             try:
-                trades_data = await self._fetch_with_retry(f"{self.data_api_url}/trades", params={"conditionId": condition_id, "limit": 20})
+                trades_data = await self._fetch_with_retry(f"{self.data_api_url}/trades", params={"market": condition_id, "limit": 20})
                 if isinstance(trades_data, list):
                     our_lower = outcome.lower().strip()
                     for t in trades_data:
