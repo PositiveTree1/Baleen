@@ -23,7 +23,7 @@ async def get_execution_logs(
         cid = log.market_condition_id or ""
         outc = log.resolution_outcome or "Yes"
         fill_p = float(log.user_fill_price or log.whale_entry_price or 0.5)
-        cur_p = get_live_price(cid, outcome=outc, fallback=fill_p)
+        cur_p = get_live_price(cid, outcome=outc, asset=log.onchain_tx_hash or "", fallback=fill_p)
         consensus = get_consensus(cid)
         
         # Calculate dynamic PnL
@@ -98,7 +98,7 @@ async def get_portfolio_summary(
         cid = log.market_condition_id or ""
         outc = log.resolution_outcome or "Yes"
         fill_p = float(log.user_fill_price or log.whale_entry_price or 0.5)
-        cur_p = get_live_price(cid, outcome=outc, fallback=fill_p)
+        cur_p = get_live_price(cid, outcome=outc, asset=log.onchain_tx_hash or "", fallback=fill_p)
         notional = float(log.notional_usd or 0.0)
         total_notional += notional
         

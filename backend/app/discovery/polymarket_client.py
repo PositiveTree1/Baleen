@@ -6,6 +6,17 @@ from app.config import settings
 
 logger = logging.getLogger(__name__)
 
+def _to_decimal_token(asset: str) -> str:
+    if not asset:
+        return ""
+    a = str(asset).strip()
+    try:
+        if a.startswith("0x") or a.startswith("0X"):
+            return str(int(a, 16))
+        return str(int(a))
+    except Exception:
+        return a
+
 class PolymarketClient:
     def __init__(self):
         self.data_api_url = settings.POLYMARKET_DATA_API_URL

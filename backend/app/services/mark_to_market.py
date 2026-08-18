@@ -68,24 +68,28 @@ class MarkToMarketService:
                     cache_key = f"{cid}:{outc.lower().strip()}"
                     try:
                         live_p = await client.fetch_live_token_price(condition_id=cid, asset=asset_id, outcome=outc)
-                        if live_p is not None and 0.01 <= live_p <= 0.99:
-                            _live_price_cache[cache_key] = {"price": live_p, "ts": time.time()}
-                    except Exception:
-                        pass
+                        if live_p is not None and 0.005 <= live_p <= 0.995:
+                            entry = {"price": live_p, "ts": time.time()}
+                            _live_price_cache[cache_key] = entry
+                            _live_price_cache[cid] = entry
+                            if asset_id:
+                                _live_price_cache[asset_id] = entry
+                    except Exception as e:
+                        logger.debug(f"Live price fetch note for {cid}: {e}")
                     await asyncio.sleep(0.04)
 
                 # 3. Update PnL on all execution logs (system feed + user copy trades)
                 stmt_all_logs = select(ExecutionLog).where(ExecutionLog.status == "FILLED")
                 all_logs = (await db.execute(stmt_all_logs)).scalars().all()
                 for elog in all_logs:
-                    cid = elog.market_condition_id
+                    cid = elog.market_condition_id or ""
                     outc = elog.resolution_outcome or "Yes"
-                    cache_key = f"{cid}:{outc.lower().strip()}"
-                    cached = _live_price_cache.get(cache_key)
+                    asset_id = elog.onchain_tx_hash or ""
                     fill_p = float(elog.user_fill_price or elog.whale_entry_price or 0.5)
                     notional = float(elog.notional_usd or 0.0)
-                    if cached and fill_p > 0:
-                        cur_p = cached["price"]
+
+                    cur_p = get_live_price(cid, outcome=outc, asset=asset_id, fallback=fill_p)
+                    if cur_p > 0 and fill_p > 0:
                         if elog.side == "BUY":
                             trade_pnl = notional * ((cur_p - fill_p) / fill_p)
                         else:
@@ -115,10 +119,16 @@ class MarkToMarketService:
 
 mark_to_market_service = MarkToMarketService()
 
-def get_live_price(cid: str, outcome: str = "Yes", fallback: float = 0.5) -> float:
-    cache_key = f"{cid}:{outcome.lower().strip()}"
-    entry = _live_price_cache.get(cache_key)
-    return entry["price"] if entry else fallback
+def get_live_price(cid: str = "", outcome: str = "Yes", asset: str = "", fallback: float = 0.5) -> float:
+    if asset and asset in _live_price_cache:
+        return _live_price_cache[asset]["price"]
+    if cid:
+        cache_key = f"{cid}:{outcome.lower().strip()}"
+        if cache_key in _live_price_cache:
+            return _live_price_cache[cache_key]["price"]
+        if cid in _live_price_cache:
+            return _live_price_cache[cid]["price"]
+    return fallback
 
 def get_consensus(cid: str) -> dict:
     return _consensus_cache.get(cid, {"whale_count": 1, "total_cash": 0.0, "is_consensus": False})
