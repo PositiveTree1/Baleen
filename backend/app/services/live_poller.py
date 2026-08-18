@@ -60,7 +60,7 @@ class LiveTradeMirrorService:
                 try:
                     res = await self.client.get(
                         f"{self.data_api_url}/trades",
-                        params={"user": addr, "limit": 6}
+                        params={"user": addr, "limit": 20}
                     )
                     if res.status_code != 200:
                         continue
@@ -87,24 +87,17 @@ class LiveTradeMirrorService:
                         cash = float(t.get("usdcSize") or 0.0) or (size * price)
                         outcome = str(t.get("outcome") or "Yes")
                         asset = str(t.get("asset") or "")
+                        tx_hash = str(t.get("transactionHash") or t.get("id") or "")
 
-                        trade_key = f"{addr}:{cid}:{side}:{ts_sec}:{price}:{size}"
+                        trade_key = f"{addr}:{cid}:{side}:{ts_sec}:{price:.4f}:{size:.2f}:{tx_hash}"
 
-                        # 1. Real-time Live Guard: Never copy historical trades
+                        # 1. Real-time Live Guard: Skip trades that occurred before server start on initial boot
                         if ts_sec < self.started_at:
                             self.seen_trade_keys.add(trade_key)
                             continue
 
-                        # 2. Strict Price Boundary Guard (0.10 <= price <= 0.90) - blocks resolving markets and 0.999
-                        if price < 0.10 or price > 0.90:
-                            self.seen_trade_keys.add(trade_key)
-                            continue
-
-                        # 3. Market Cooldown & Sub-fill Aggregation Guard (5 minutes per wallet/market/outcome)
-                        cooldown_key = f"{addr}:{cid}:{outcome.lower().strip()}"
-                        now_ts = datetime.utcnow().timestamp()
-                        last_copied = self.market_cooldowns.get(cooldown_key, 0.0)
-                        if now_ts - last_copied < 300.0:
+                        # 2. Strict Price Boundary Guard (0.05 <= price <= 0.95) - avoids already resolved extremes
+                        if price < 0.05 or price > 0.95:
                             self.seen_trade_keys.add(trade_key)
                             continue
 
@@ -112,24 +105,24 @@ class LiveTradeMirrorService:
                             continue
 
                         self.seen_trade_keys.add(trade_key)
-                        self.market_cooldowns[cooldown_key] = now_ts
                         trade_dt = datetime.fromtimestamp(ts_sec, timezone.utc).replace(tzinfo=None)
 
-                        # If trade is new (occurred recently or after wallet's last recorded trade)
+                        # Update last trade timestamp on wallet
                         if not w.last_trade_at or trade_dt > w.last_trade_at:
                             w.last_trade_at = trade_dt
                             w.dormant = False
-                            new_trades.append({
-                                "cid": cid,
-                                "title": str(t.get("title") or t.get("slug") or "Polymarket Prediction"),
-                                "side": side,
-                                "price": price,
-                                "size": size,
-                                "cash": cash,
-                                "dt": trade_dt,
-                                "outcome": outcome,
-                                "asset": asset
-                            })
+
+                        new_trades.append({
+                            "cid": cid,
+                            "title": str(t.get("title") or t.get("slug") or "Polymarket Prediction"),
+                            "side": side,
+                            "price": price,
+                            "size": size,
+                            "cash": cash,
+                            "dt": trade_dt,
+                            "outcome": outcome,
+                            "asset": asset
+                        })
 
                     # Mirror new trades into ExecutionLogs
                     if new_trades:

@@ -149,3 +149,85 @@ async def get_portfolio_summary(
         "totalNotionalInvested": round(total_notional, 2)
     }
 
+
+@router.get("/{trade_id}/chart")
+async def get_trade_price_chart(
+    trade_id: str,
+    db: AsyncSession = Depends(get_db)
+):
+    import httpx, time
+    from app.discovery.polymarket_client import _to_decimal_token
+    from uuid import UUID
+
+    try:
+        trade_uuid = UUID(trade_id)
+        stmt = select(ExecutionLog).where(ExecutionLog.id == trade_uuid)
+    except Exception:
+        stmt = select(ExecutionLog).where(ExecutionLog.market_condition_id == trade_id)
+        
+    log = (await db.execute(stmt)).scalars().first()
+    if not log:
+        return {"error": "Trade not found", "history": []}
+
+    asset_id = _to_decimal_token(log.onchain_tx_hash or "")
+    fill_p = float(log.user_fill_price or log.whale_entry_price or 0.5)
+    cur_p = get_live_price(log.market_condition_id or "", outcome=log.resolution_outcome or "Yes", asset=asset_id, fallback=fill_p)
+    
+    history_points = []
+    
+    # 1. Fetch from Polymarket CLOB prices-history endpoint (like Titan)
+    if asset_id:
+        try:
+            async with httpx.AsyncClient(timeout=6.0) as client:
+                res = await client.get(
+                    "https://clob.polymarket.com/prices-history",
+                    params={"market": asset_id, "interval": "max", "fidelity": 30}
+                )
+                if res.status_code == 200:
+                    data = res.json()
+                    raw_points = data.get("history") or data.get("data") or []
+                    for pt in raw_points:
+                        t_val = pt.get("t") or pt.get("timestamp")
+                        p_val = pt.get("p") or pt.get("price")
+                        if t_val and p_val is not None:
+                            ts = float(t_val)
+                            if ts > 1e11:
+                                ts /= 1000.0
+                            dt_str = datetime.fromtimestamp(ts).strftime("%d %b %H:%M")
+                            history_points.append({
+                                "timestamp": ts,
+                                "date": dt_str,
+                                "price": round(float(p_val), 4)
+                            })
+        except Exception:
+            pass
+
+    # 2. Fallback / Enrichment: If empty, build a clean trajectory from entry to current price
+    if not history_points:
+        exec_ts = log.executed_at.timestamp() if log.executed_at else (time.time() - 3600)
+        now_ts = time.time()
+        step = max(60, (now_ts - exec_ts) / 8.0)
+        for i in range(9):
+            t_curr = exec_ts + (i * step)
+            pct = i / 8.0
+            interp_price = fill_p + (cur_p - fill_p) * pct
+            dt_str = datetime.fromtimestamp(t_curr).strftime("%d %b %H:%M")
+            history_points.append({
+                "timestamp": t_curr,
+                "date": dt_str,
+                "price": round(interp_price, 4)
+            })
+
+    prices = [p["price"] for p in history_points]
+    return {
+        "tradeId": str(log.id),
+        "marketQuestion": log.market_question,
+        "side": log.side,
+        "fillPrice": fill_p,
+        "currentPrice": cur_p,
+        "minPrice": min(prices) if prices else fill_p,
+        "maxPrice": max(prices) if prices else cur_p,
+        "history": history_points
+    }
+
+

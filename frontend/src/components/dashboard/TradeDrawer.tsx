@@ -3,6 +3,7 @@ import { ExecutionLog } from '@/types';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, ExternalLink, Activity, ArrowUpRight, ArrowDownRight, Users, ShieldCheck, Clock, DollarSign, Wallet } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
+import { TradePriceChart } from './TradePriceChart';
 
 interface TradeDrawerProps {
   trade: ExecutionLog | null;
@@ -121,6 +122,14 @@ export function TradeDrawer({ trade, onClose, onSelectWallet }: TradeDrawerProps
                   </div>
                 </div>
               </div>
+
+              {/* Interactive Polymarket CLOB Price Trajectory */}
+              <TradePriceChart 
+                tradeId={trade.id} 
+                fillPrice={fillP} 
+                currentPrice={curP} 
+                side={trade.side} 
+              />
 
               {/* Live PnL Box */}
               <div className={`p-4 rounded-2xl border ${isProfit ? 'bg-emerald-50/50 border-emerald-200' : 'bg-rose-50/50 border-rose-200'} space-y-1`}>

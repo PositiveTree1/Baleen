@@ -5,10 +5,11 @@ import { BalanceCounter } from '@/components/dashboard/BalanceCounter';
 import { LiveTape } from '@/components/dashboard/LiveTape';
 import { WalletLeaderboard } from '@/components/dashboard/WalletLeaderboard';
 import { TradeLog } from '@/components/dashboard/TradeLog';
+import { PortfolioAnalytics } from '@/components/dashboard/PortfolioAnalytics';
 import { WalletDrawer } from '@/components/dashboard/WalletDrawer';
 import { TradeDrawer } from '@/components/dashboard/TradeDrawer';
 import { CommandPalette } from '@/components/ui/CommandPalette';
-import { fetchUserSettings, fetchPortfolioSummary } from '@/lib/api-client';
+import { fetchUserSettings, fetchPortfolioSummary, fetchExecutionLogs } from '@/lib/api-client';
 import { User, ExecutionLog } from '@/types';
 import Link from 'next/link';
 import { Settings, LogOut, Volume2, VolumeX, ShieldCheck, Sparkles, Command } from 'lucide-react';
@@ -21,24 +22,28 @@ export default function DashboardPage() {
   const [selectedWallet, setSelectedWallet] = useState<string | null>(null);
   const [selectedTrade, setSelectedTrade] = useState<ExecutionLog | null>(null);
   const [soundActive, setSoundActive] = useState(false);
+  const [logs, setLogs] = useState<ExecutionLog[]>([]);
   const [user, setUser] = useState<User | null>(null);
   const [portfolio, setPortfolio] = useState<{
     startingBalance: number;
     currentBalance: number;
     totalPnlUsd: number;
     totalPnlPct: number;
+    totalFeesPaidUsd?: number;
     filledTradesCount: number;
     totalNotionalInvested: number;
   } | null>(null);
 
   const loadData = async () => {
     try {
-      const [userData, portfolioData] = await Promise.all([
+      const [userData, portfolioData, logsData] = await Promise.all([
         session?.user?.id ? fetchUserSettings(session.user.id) : null,
-        fetchPortfolioSummary(session?.user?.id)
+        fetchPortfolioSummary(session?.user?.id),
+        fetchExecutionLogs(session?.user?.id, { limit: '50' })
       ]);
       if (userData) setUser(userData);
       if (portfolioData) setPortfolio(portfolioData);
+      if (logsData) setLogs(logsData);
     } catch (err) {
       console.debug("Dashboard polling note:", err);
     }
@@ -119,6 +124,14 @@ export default function DashboardPage() {
             </div>
           </div>
         </div>
+
+        {/* Portfolio Net Worth Curve & Alpha Performance Analytics */}
+        <PortfolioAnalytics
+          logs={logs}
+          startingBalance={portfolio?.startingBalance ?? user?.startingBalance ?? 10000.0}
+          currentBalance={liveBalance}
+          onSelectTrade={setSelectedTrade}
+        />
 
         {/* Main Grid: Live Tape & Active Whale Basket */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

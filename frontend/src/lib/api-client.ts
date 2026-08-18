@@ -100,7 +100,11 @@ export async function fetchExecutionLogs(userId?: string, params?: Record<string
       size: log.size ?? log.notional_usd ?? 0,
       status: log.status,
       pnl: log.pnl ?? log.realized_pnl_usd ?? 0,
+      grossPnl: log.grossPnl ?? 0,
       pnlPct: log.pnlPct ?? 0,
+      feeUsd: log.feeUsd ?? 0,
+      marketCategory: log.marketCategory ?? 'General',
+      categoryRate: log.categoryRate ?? 0.05,
       consensus: log.consensus ?? { whale_count: 1, total_cash: 0, is_consensus: false },
       polymarketUrl: log.polymarketUrl ?? (log.marketConditionId ? `https://polymarket.com/event/${log.marketConditionId}` : 'https://polymarket.com'),
     }));
@@ -109,11 +113,31 @@ export async function fetchExecutionLogs(userId?: string, params?: Record<string
   }
 }
 
+export async function fetchTradePriceChart(tradeId: string): Promise<{
+  tradeId: string;
+  marketQuestion: string;
+  side: string;
+  fillPrice: number;
+  currentPrice: number;
+  minPrice: number;
+  maxPrice: number;
+  history: { timestamp: number; date: string; price: number }[];
+} | null> {
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/executions/${tradeId}/chart`);
+    if (!res.ok) return null;
+    return await res.json();
+  } catch (error) {
+    return null;
+  }
+}
+
 export async function fetchPortfolioSummary(userId?: string): Promise<{
   startingBalance: number;
   currentBalance: number;
   totalPnlUsd: number;
   totalPnlPct: number;
+  totalFeesPaidUsd?: number;
   filledTradesCount: number;
   totalNotionalInvested: number;
 } | null> {
