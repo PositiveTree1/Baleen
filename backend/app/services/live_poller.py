@@ -15,6 +15,7 @@ class LiveTradeMirrorService:
         self.running = False
         self.data_api_url = settings.POLYMARKET_DATA_API_URL
         self.seen_trade_keys = set()
+        self.market_cooldowns = {}
         self.client = None
         self.started_at = datetime.utcnow().timestamp()
 
@@ -86,22 +87,32 @@ class LiveTradeMirrorService:
                         cash = float(t.get("usdcSize") or 0.0) or (size * price)
                         outcome = str(t.get("outcome") or "Yes")
                         asset = str(t.get("asset") or "")
-                        # 1. Real-time Live Guard: Never copy historical trades; only copy trades that occur while server is running
+
+                        trade_key = f"{addr}:{cid}:{side}:{ts_sec}:{price}:{size}"
+
+                        # 1. Real-time Live Guard: Never copy historical trades
                         if ts_sec < self.started_at:
                             self.seen_trade_keys.add(trade_key)
                             continue
 
-                        # 2. Price Boundary & Resolved Market Guard: Only trade active markets (0.10 <= price <= 0.90)
+                        # 2. Strict Price Boundary Guard (0.10 <= price <= 0.90) - blocks resolving markets and 0.999
                         if price < 0.10 or price > 0.90:
-                            logger.debug(f"Skipping trade with extreme price {price} (resolving/resolved market): {cid}")
+                            self.seen_trade_keys.add(trade_key)
                             continue
 
-                        trade_key = f"{addr}:{cid}:{side}:{ts_sec}:{price}:{size}"
+                        # 3. Market Cooldown & Sub-fill Aggregation Guard (5 minutes per wallet/market/outcome)
+                        cooldown_key = f"{addr}:{cid}:{outcome.lower().strip()}"
+                        now_ts = datetime.utcnow().timestamp()
+                        last_copied = self.market_cooldowns.get(cooldown_key, 0.0)
+                        if now_ts - last_copied < 300.0:
+                            self.seen_trade_keys.add(trade_key)
+                            continue
 
                         if trade_key in self.seen_trade_keys:
                             continue
 
                         self.seen_trade_keys.add(trade_key)
+                        self.market_cooldowns[cooldown_key] = now_ts
                         trade_dt = datetime.fromtimestamp(ts_sec, timezone.utc).replace(tzinfo=None)
 
                         # If trade is new (occurred recently or after wallet's last recorded trade)

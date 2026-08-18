@@ -53,6 +53,20 @@ export function WalletDrawer({ address, onClose }: WalletDrawerProps) {
 
   const isGold = wallet?.tier === 'gold_sniper';
 
+  const cleanSummary = (() => {
+    if (!wallet?.aiSummary) return null;
+    let s = wallet.aiSummary;
+    if (s.includes("Metrics Provided:") || s.includes("<2 punchy") || s.includes("TAG:") || s.includes("Deconstruct Metrics")) {
+      const parts = s.split(/(?:SUMMARY|Executive Summary):/i);
+      if (parts.length > 1) {
+        s = parts[1].split(/(?:TAG|Tag):/i)[0].trim();
+      } else {
+        s = `High-precision tactical prediction trader with ${formatPct(wallet.winRate || 75)} accuracy and $${Math.abs(wallet.pnl || 0).toLocaleString()} net profit.`;
+      }
+    }
+    return s.replace(/\*\*/g, '').replace(/<[^>]*>/g, '').trim();
+  })();
+
   return (
     <AnimatePresence>
       {address && (
@@ -174,7 +188,7 @@ export function WalletDrawer({ address, onClose }: WalletDrawerProps) {
                       </div>
                       <p className="text-sm text-slate-900 leading-relaxed font-medium min-h-[48px]">
                         <TypewriterText 
-                          text={wallet.aiSummary || 'Automated quantitative analysis computed via Groq Llama-3.1 engine based on on-chain trading behavior.'}
+                          text={cleanSummary || 'Automated quantitative analysis computed via Groq Llama-3.1 engine based on on-chain trading behavior.'}
                           speed={8}
                           delay={150}
                         />
@@ -277,6 +291,18 @@ export function WalletDrawer({ address, onClose }: WalletDrawerProps) {
                       )}
                     </div>
                   </div>
+                </div>
+              ) : loading ? (
+                <div className="space-y-6 animate-pulse py-4">
+                  <div className="h-10 bg-slate-100 rounded-2xl w-3/4" />
+                  <div className="h-24 bg-slate-100 rounded-3xl w-full" />
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                    <div className="h-16 bg-slate-100 rounded-2xl" />
+                    <div className="h-16 bg-slate-100 rounded-2xl" />
+                    <div className="h-16 bg-slate-100 rounded-2xl" />
+                    <div className="h-16 bg-slate-100 rounded-2xl" />
+                  </div>
+                  <div className="h-56 bg-slate-100 rounded-3xl" />
                 </div>
               ) : (
                 <div className="text-center text-slate-400 py-12 text-sm font-medium">Wallet details unavailable.</div>

@@ -65,12 +65,11 @@ class MarkToMarketService:
                 # 2. Fetch live prices for distinct (condition_id, outcome, asset) pairs
                 pairs_to_price = list(set((log.market_condition_id, log.resolution_outcome or "Yes", log.onchain_tx_hash or "") for log in recent_logs if log.market_condition_id))
                 for cid, outc, asset_id in pairs_to_price[:30]:
-                    cache_key = f"{cid}:{outc.lower()}"
+                    cache_key = f"{cid}:{outc.lower().strip()}"
                     try:
                         live_p = await client.fetch_live_token_price(condition_id=cid, asset=asset_id, outcome=outc)
-                        if live_p is not None and 0.005 <= live_p <= 0.995:
+                        if live_p is not None and 0.01 <= live_p <= 0.99:
                             _live_price_cache[cache_key] = {"price": live_p, "ts": time.time()}
-                            _live_price_cache[cid] = {"price": live_p, "ts": time.time()}
                     except Exception:
                         pass
                     await asyncio.sleep(0.04)
@@ -81,8 +80,8 @@ class MarkToMarketService:
                 for elog in all_logs:
                     cid = elog.market_condition_id
                     outc = elog.resolution_outcome or "Yes"
-                    cache_key = f"{cid}:{outc.lower()}"
-                    cached = _live_price_cache.get(cache_key) or _live_price_cache.get(cid)
+                    cache_key = f"{cid}:{outc.lower().strip()}"
+                    cached = _live_price_cache.get(cache_key)
                     fill_p = float(elog.user_fill_price or elog.whale_entry_price or 0.5)
                     notional = float(elog.notional_usd or 0.0)
                     if cached and fill_p > 0:
@@ -117,8 +116,8 @@ class MarkToMarketService:
 mark_to_market_service = MarkToMarketService()
 
 def get_live_price(cid: str, outcome: str = "Yes", fallback: float = 0.5) -> float:
-    cache_key = f"{cid}:{outcome.lower()}"
-    entry = _live_price_cache.get(cache_key) or _live_price_cache.get(cid)
+    cache_key = f"{cid}:{outcome.lower().strip()}"
+    entry = _live_price_cache.get(cache_key)
     return entry["price"] if entry else fallback
 
 def get_consensus(cid: str) -> dict:
