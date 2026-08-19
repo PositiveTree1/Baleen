@@ -159,3 +159,165 @@ async def get_all_wallets(
         "firstSeenAt": w.first_seen_at.isoformat() if w.first_seen_at else None,
         "lastScoredAt": w.last_scored_at.isoformat() if w.last_scored_at else None,
     } for w in wallets]
+
+@router.get("/export-trades-csv")
+async def export_trades_csv(db: AsyncSession = Depends(get_db)):
+    """Exports all trade execution logs as RFC-compliant CSV string."""
+    import io, csv
+    from app.models import ExecutionLog, Wallet
+    from app.services.mark_to_market import get_live_price
+    from fastapi.responses import PlainTextResponse
+
+    stmt = select(ExecutionLog).order_by(ExecutionLog.executed_at.desc())
+    logs = (await db.execute(stmt)).scalars().all()
+
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow([
+        "Execution ID", "Timestamp UTC", "Source Whale Address", "Market Title", 
+        "Condition ID", "Side", "Outcome", "Fill Price USD", "Live MTM Price USD", 
+        "Notional USD", "Polymarket Fee USD", "Net PnL USD", "PnL %", "Status", "Tx Hash"
+    ])
+
+    for l in logs:
+        fill_p = float(l.user_fill_price or l.whale_entry_price or 0.5)
+        cur_p = get_live_price(l.market_condition_id or "", outcome=l.resolution_outcome or "Yes", asset=l.onchain_tx_hash or "", fallback=fill_p)
+        fee = float(l.fee_usd or 0.0)
+        notional = float(l.notional_usd or 0.0)
+        
+        if l.realized_pnl_usd is not None:
+            net_p = float(l.realized_pnl_usd)
+        elif fill_p > 0:
+            gross = notional * ((cur_p - fill_p) / fill_p) if l.side == "BUY" else notional * ((fill_p - cur_p) / fill_p)
+            net_p = gross - fee
+        else:
+            net_p = 0.0
+            
+        pnl_pct = (net_p / notional * 100.0) if notional > 0 else 0.0
+        
+        writer.writerow([
+            str(l.id),
+            l.executed_at.isoformat() if l.executed_at else "",
+            l.source_wallet_address,
+            l.market_question,
+            l.market_condition_id,
+            l.side,
+            l.resolution_outcome or "Yes",
+            f"{fill_p:.4f}",
+            f"{cur_p:.4f}",
+            f"{notional:.2f}",
+            f"{fee:.4f}",
+            f"{net_p:.2f}",
+            f"{pnl_pct:.2f}%",
+            l.status,
+            l.onchain_tx_hash or ""
+        ])
+
+    csv_content = output.getvalue()
+    return PlainTextResponse(content=csv_content, media_type="text/csv", headers={
+        "Content-Disposition": f"attachment; filename=baleen_all_trades_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}.csv"
+    })
+
+@router.post("/analyze-portfolio-ai")
+async def analyze_portfolio_ai(db: AsyncSession = Depends(get_db)):
+    """Runs a full quantitative AI attribution analysis across all historical and active copy trades."""
+    from app.models import ExecutionLog, Wallet
+    from app.services.mark_to_market import get_live_price
+    from app.analysis.ai_summary import get_groq_client
+
+    stmt = select(ExecutionLog).where(ExecutionLog.status == "FILLED").order_by(ExecutionLog.executed_at.desc())
+    logs = (await db.execute(stmt)).scalars().all()
+
+    if not logs:
+        return {
+            "status": "empty",
+            "summary": "No active or historical fills recorded to evaluate.",
+            "metrics": {},
+            "recommendations": []
+        }
+
+    total_trades = len(logs)
+    whale_stats: dict[str, dict] = {}
+    total_volume = 0.0
+    total_net_pnl = 0.0
+    total_fees = 0.0
+    wins = 0
+    losses = 0
+
+    for l in logs:
+        addr = l.source_wallet_address.lower()
+        if addr not in whale_stats:
+            whale_stats[addr] = {"trades": 0, "volume": 0.0, "net_pnl": 0.0, "wins": 0, "losses": 0}
+            
+        fill_p = float(l.user_fill_price or l.whale_entry_price or 0.5)
+        cur_p = get_live_price(l.market_condition_id or "", outcome=l.resolution_outcome or "Yes", asset=l.onchain_tx_hash or "", fallback=fill_p)
+        notional = float(l.notional_usd or 0.0)
+        fee = float(l.fee_usd or 0.0)
+        
+        gross = (notional * ((cur_p - fill_p) / fill_p)) if l.side == "BUY" else (notional * ((fill_p - cur_p) / fill_p))
+        net_p = l.realized_pnl_usd if l.realized_pnl_usd is not None else (gross - fee)
+        
+        total_volume += notional
+        total_net_pnl += net_p
+        total_fees += fee
+        
+        whale_stats[addr]["trades"] += 1
+        whale_stats[addr]["volume"] += notional
+        whale_stats[addr]["net_pnl"] += net_p
+        
+        if net_p >= 0:
+            wins += 1
+            whale_stats[addr]["wins"] += 1
+        else:
+            losses += 1
+            whale_stats[addr]["losses"] += 1
+
+    win_rate = (wins / total_trades * 100.0) if total_trades > 0 else 0.0
+    
+    # Sort top alpha vs drag whales
+    sorted_whales = sorted(whale_stats.items(), key=lambda x: x[1]["net_pnl"], reverse=True)
+    top_alpha_whales = [{"address": w[0], "pnl": round(w[1]["net_pnl"], 2), "win_rate": round(w[1]["wins"]/w[1]["trades"]*100, 1)} for w in sorted_whales[:3]]
+    drag_whales = [{"address": w[0], "pnl": round(w[1]["net_pnl"], 2), "win_rate": round(w[1]["wins"]/w[1]["trades"]*100, 1)} for w in sorted_whales[-3:] if w[1]["net_pnl"] < 0]
+
+    # Generate AI executive synthesis
+    client = get_groq_client()
+    ai_synthesis = f"Audited {total_trades} trade fills across {len(whale_stats)} active whales. Aggregate portfolio generated ${total_net_pnl:+,.2f} net PnL ({win_rate:.1f}% win rate) on ${total_volume:,.2f} gross volume with ${total_fees:,.2f} quadratic fees."
+    
+    if client:
+        try:
+            prompt = f"""
+            You are a senior quantitative risk manager at a prediction market copy-trading fund.
+            Audit these live portfolio execution stats:
+            - Total Fills: {total_trades}
+            - Net P&L: ${total_net_pnl:,.2f}
+            - Win Rate: {win_rate:.1f}%
+            - Total Volume: ${total_volume:,.2f}
+            - Total Fees: ${total_fees:,.2f}
+            - Top Alpha Generating Wallets: {top_alpha_whales}
+            - Drag / Underperforming Wallets: {drag_whales}
+            
+            Provide:
+            1. A 2-sentence executive summary of portfolio health, slippage drag, and alpha sources.
+            2. Three specific, actionable suggestions (e.g. adjust sizing on top snipers, demote drag wallets).
+            """
+            resp = await client.chat.completions.create(
+                model="groq/compound-mini",
+                messages=[{"role": "user", "content": prompt}],
+                max_tokens=300,
+                temperature=0.2
+            )
+            ai_synthesis = resp.choices[0].message.content or ai_synthesis
+        except Exception:
+            pass
+
+    return {
+        "status": "success",
+        "total_trades": total_trades,
+        "total_volume": round(total_volume, 2),
+        "net_pnl": round(total_net_pnl, 2),
+        "win_rate": round(win_rate, 1),
+        "total_fees": round(total_fees, 2),
+        "top_alpha_whales": top_alpha_whales,
+        "drag_whales": drag_whales,
+        "ai_report": ai_synthesis
+    }

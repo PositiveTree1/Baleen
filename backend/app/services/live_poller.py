@@ -140,15 +140,27 @@ class LiveTradeMirrorService:
             sniper_multiplier = 1.35 if is_sniper else 1.0
 
             # Check for multi-whale consensus on this condition
-            from app.services.mark_to_market import get_consensus
+            from app.services.mark_to_market import get_consensus, get_live_price
             consensus = get_consensus(condition_id)
             consensus_multiplier = 1.5 if consensus.get("is_consensus") else 1.0
             sizing_multiplier = consensus_multiplier * sniper_multiplier
 
+            # Slippage & Latency Guard: Check live market price vs whale entry
+            live_p = get_live_price(condition_id, outcome=outcome, asset=asset or tx_hash or "", fallback=price)
+            max_slippage = 0.045
+            if side == "BUY" and (live_p - price) > max_slippage:
+                logger.info(f"⚠️ Slippage guard triggered for BUY on '{title[:25]}': entry={price:.3f}, live={live_p:.3f}. Skipping adverse fill.")
+                return
+            elif side == "SELL" and (price - live_p) > max_slippage:
+                logger.info(f"⚠️ Slippage guard triggered for SELL on '{title[:25]}': entry={price:.3f}, live={live_p:.3f}. Skipping adverse fill.")
+                return
+
+            effective_fill_price = live_p if (0.01 <= live_p <= 0.99) else price
+
             sys_notional = round(min(max(10.0, cash_usd * 0.1 * sizing_multiplier), 350.0), 2)
             fee_calc = calculate_polymarket_fee(
                 notional_usd=sys_notional,
-                price=price,
+                price=effective_fill_price,
                 market_title=title,
                 is_maker=False
             )
@@ -162,7 +174,7 @@ class LiveTradeMirrorService:
                 icon=icon,
                 side=side,
                 whale_entry_price=price,
-                user_fill_price=price,
+                user_fill_price=effective_fill_price,
                 resolution_outcome=outcome,
                 onchain_tx_hash=asset or tx_hash,
                 notional_usd=sys_notional,
@@ -180,7 +192,7 @@ class LiveTradeMirrorService:
                 u_notional = round(min(max(5.0, cash_usd * 0.05 * sizing_multiplier), 150.0), 2)
                 u_fee = calculate_polymarket_fee(
                     notional_usd=u_notional,
-                    price=price,
+                    price=effective_fill_price,
                     market_title=title,
                     is_maker=False
                 )
@@ -193,7 +205,7 @@ class LiveTradeMirrorService:
                     icon=icon,
                     side=side,
                     whale_entry_price=price,
-                    user_fill_price=price,
+                    user_fill_price=effective_fill_price,
                     resolution_outcome=outcome,
                     onchain_tx_hash=asset or tx_hash,
                     notional_usd=u_notional,
@@ -207,7 +219,7 @@ class LiveTradeMirrorService:
                 db.add(user_log)
 
             await db.commit()
-            logger.info(f"🎯 COPIED WHALE TRADE: {addr[:10]}... {side} ${cash_usd:,.2f} on '{title[:30]}' @ {price} (Consensus: {consensus.get('is_consensus')})")
+            logger.info(f"🎯 COPIED WHALE TRADE: {addr[:10]}... {side} ${cash_usd:,.2f} on '{title[:30]}' @ {effective_fill_price:.3f} (Consensus: {consensus.get('is_consensus')})")
 
     async def process_onchain_signal(
         self,
@@ -260,7 +272,7 @@ class LiveTradeMirrorService:
                 await self._poll_active_whales()
             except Exception as e:
                 logger.error(f"Error in live whale polling loop: {e}", exc_info=True)
-            await asyncio.sleep(6.0)
+            await asyncio.sleep(2.5)
 
     async def _poll_active_whales(self):
         async with SessionLocal() as db:
@@ -279,7 +291,7 @@ class LiveTradeMirrorService:
                 try:
                     res = await self.client.get(
                         f"{self.data_api_url}/trades",
-                        params={"user": addr, "limit": 15}
+                        params={"user": addr, "limit": 50}
                     )
                     if res.status_code != 200:
                         continue

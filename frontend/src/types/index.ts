@@ -62,6 +62,8 @@ export interface ExecutionLog {
   whalePseudonym?: string | null;
   whaleAvatar?: string | null;
   whaleTier?: string | null;
+  whaleStakeUsd?: number;
+  whaleBankrollPct?: number;
   marketQuestion: string;
   marketConditionId?: string;
   eventSlug?: string;
@@ -85,6 +87,13 @@ export interface ExecutionLog {
     is_consensus: boolean;
     multiplier?: number;
     whales?: string[];
+    whale_details?: {
+      address: string;
+      name?: string | null;
+      pseudonym?: string | null;
+      profileImage?: string | null;
+      tier?: string | null;
+    }[];
     detail?: string;
   };
   polymarketUrl?: string;

@@ -31,7 +31,7 @@ class MarkToMarketService:
                 await self.update_valuations_and_consensus()
             except Exception as e:
                 logger.error(f"Error in Mark-to-Market loop: {e}", exc_info=True)
-            await asyncio.sleep(25.0)
+            await asyncio.sleep(3.5)
 
     async def update_valuations_and_consensus(self):
         client = PolymarketClient()

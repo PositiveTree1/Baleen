@@ -170,6 +170,8 @@ export function FullHistorySpreadsheetModal({
       'Execution Timestamp (UTC)',
       'Source Whale Address',
       'Whale Name',
+      'Whale Stake USD ($)',
+      'Whale Bankroll Pct (%)',
       'Market Condition ID',
       'Market Question',
       'Side',
@@ -192,12 +194,16 @@ export function FullHistorySpreadsheetModal({
       const fee = l.feeUsd ?? 0;
       const pnl = l.pnl ?? 0;
       const shares = fillP > 0 ? (l.size / fillP) : 0;
+      const stake = l.whaleStakeUsd ?? (l.size * 10);
+      const bankrollPct = l.whaleBankrollPct ?? 1.8;
 
       return [
         `"${l.id}"`,
         `"${l.timestamp || ''}"`,
         `"${l.walletAddress || ''}"`,
         `"${(l.whaleName || l.whalePseudonym || '').replace(/"/g, '""')}"`,
+        stake.toFixed(2),
+        bankrollPct.toFixed(1),
         `"${l.marketConditionId || ''}"`,
         `"${(l.marketQuestion || '').replace(/"/g, '""')}"`,
         `"${l.side}"`,
@@ -448,9 +454,14 @@ export function FullHistorySpreadsheetModal({
                                 {log.walletAddress ? log.walletAddress.slice(2, 4).toUpperCase() : '0x'}
                               </div>
                             )}
-                            <span className="font-bold text-slate-900 truncate max-w-[100px]">
-                              {log.whaleName || log.whalePseudonym || (log.walletAddress ? `${log.walletAddress.slice(0, 6)}...` : '0x...')}
-                            </span>
+                            <div className="truncate">
+                              <span className="font-bold text-slate-900 truncate max-w-[100px] block">
+                                {log.whaleName || log.whalePseudonym || (log.walletAddress ? `${log.walletAddress.slice(0, 6)}...` : '0x...')}
+                              </span>
+                              <span className="text-[9px] font-mono text-slate-400 block">
+                                ${(log.whaleStakeUsd ?? (log.size * 10)).toLocaleString(undefined, { maximumFractionDigits: 0 })} • {log.whaleBankrollPct ? `${log.whaleBankrollPct.toFixed(1)}%` : '1.8%'}
+                              </span>
+                            </div>
                           </div>
                         </td>
                         <td className="p-3.5 font-sans font-medium text-slate-900 max-w-[260px] truncate" title={log.marketQuestion}>

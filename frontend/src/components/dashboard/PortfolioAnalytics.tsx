@@ -2,8 +2,9 @@
 import { useEffect, useState, useMemo } from 'react';
 import { ExecutionLog } from '@/types';
 import { fetchPortfolioSnapshots } from '@/lib/api-client';
-import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip } from 'recharts';
-import { TrendingUp, TrendingDown, Award, AlertTriangle, ShieldCheck, DollarSign, PieChart, Zap, Calendar } from 'lucide-react';
+import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, Dot } from 'recharts';
+import { TrendingUp, TrendingDown, Award, AlertTriangle, ShieldCheck, DollarSign, PieChart, Zap, Calendar, HelpCircle, Layers, Flame, ArrowUpRight, ArrowDownRight, Compass } from 'lucide-react';
+import { formatCompactPnL, formatExactPnL } from '@/lib/formatters';
 
 interface PortfolioAnalyticsProps {
   logs: ExecutionLog[];
@@ -21,6 +22,7 @@ export function PortfolioAnalytics({
   onSelectTrade
 }: PortfolioAnalyticsProps) {
   const [timeframe, setTimeframe] = useState<'1D' | '1W' | '1M' | 'YTD' | 'ALL'>('ALL');
+  const [viewMode, setViewMode] = useState<'curve' | 'attribution'>('curve');
   const [snapshots, setSnapshots] = useState<{
     id: string;
     timestamp: string;
@@ -41,7 +43,7 @@ export function PortfolioAnalytics({
       }
     }
     loadSnapshots();
-    const interval = setInterval(loadSnapshots, 8000);
+    const interval = setInterval(loadSnapshots, 6000);
     return () => clearInterval(interval);
   }, [userId, timeframe]);
 
@@ -62,13 +64,26 @@ export function PortfolioAnalytics({
     });
   }, [logs, timeframe]);
 
-  // 1. Calculate Winners and Losers and timeline
-  const { topWinner, topLoser, winCount, lossCount, winRate, totalResolved, pnlTimeline, periodNetPnL } = useMemo(() => {
+  // Active net positions held
+  const activePositionsCount = useMemo(() => {
+    const activeCids = new Set<string>();
+    for (const l of logs) {
+      if (l.side === 'BUY' && l.status === 'FILLED') {
+        activeCids.add(l.marketConditionId || l.id);
+      }
+    }
+    return activeCids.size;
+  }, [logs]);
+
+  // Calculate Winners, Losers, and timeline
+  const { topWinner, topLoser, winCount, lossCount, winRate, totalResolved, pnlTimeline, periodNetPnL, drawdownCulprits } = useMemo(() => {
     let bestWin: ExecutionLog | null = null;
     let worstLoss: ExecutionLog | null = null;
     let wins = 0;
     let losses = 0;
     let pnlSum = 0;
+
+    const lossLogs: ExecutionLog[] = [];
 
     for (const log of filteredLogs) {
       const pnl = log.pnl ?? 0;
@@ -80,31 +95,47 @@ export function PortfolioAnalytics({
         }
       } else if (pnl < 0) {
         losses++;
+        lossLogs.push(log);
         if (!worstLoss || pnl < (worstLoss.pnl ?? 0)) {
           worstLoss = log;
         }
       }
     }
 
+    // Top 3 drawdown contributors
+    const drawdownCulprits = lossLogs
+      .sort((a, b) => (a.pnl ?? 0) - (b.pnl ?? 0))
+      .slice(0, 3);
+
     const totalResolved = wins + losses;
     const wr = totalResolved > 0 ? (wins / totalResolved) * 100 : 0.0;
 
-    let timeline = [];
+    interface TimelinePoint {
+      time: string;
+      balance: number;
+      pnl: number;
+      date: string;
+      eventTrade?: ExecutionLog;
+    }
+
+    let timeline: TimelinePoint[] = [];
     if (snapshots.length >= 2) {
-      timeline = snapshots.map(s => ({
+      timeline = snapshots.map((s, idx) => ({
         time: s.time || '00:00',
         balance: s.balance,
         pnl: s.pnl,
-        date: s.date || 'Today'
+        date: s.date || 'Today',
+        eventTrade: filteredLogs[idx % Math.max(1, filteredLogs.length)]
       }));
-      // Lock the final timeline point to live currentBalance
+      // Lock final timeline point to live currentBalance
       const lastSnap = timeline[timeline.length - 1];
       if (Math.abs(lastSnap.balance - currentBalance) > 0.01) {
         timeline.push({
           time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
           balance: Math.round(currentBalance * 100) / 100,
           pnl: Math.round((currentBalance - startingBalance) * 100) / 100,
-          date: 'Now'
+          date: 'Now',
+          eventTrade: undefined
         });
       }
     } else {
@@ -120,7 +151,8 @@ export function PortfolioAnalytics({
         time: 'Start',
         balance: startingBalance,
         pnl: 0,
-        date: 'Base'
+        date: 'Base',
+        eventTrade: undefined
       });
 
       for (const log of sortedLogs) {
@@ -131,7 +163,8 @@ export function PortfolioAnalytics({
           time: dateStr || `T-${timeline.length}`,
           balance: Math.round(running * 100) / 100,
           pnl: Math.round(pnl * 100) / 100,
-          date: log.timestamp ? new Date(log.timestamp).toLocaleDateString([], { month: 'short', day: 'numeric' }) : ''
+          date: log.timestamp ? new Date(log.timestamp).toLocaleDateString([], { month: 'short', day: 'numeric' }) : '',
+          eventTrade: log
         });
       }
 
@@ -140,7 +173,8 @@ export function PortfolioAnalytics({
           time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
           balance: Math.round(currentBalance * 100) / 100,
           pnl: Math.round((currentBalance - startingBalance) * 100) / 100,
-          date: 'Now'
+          date: 'Now',
+          eventTrade: undefined
         });
       }
     }
@@ -153,7 +187,8 @@ export function PortfolioAnalytics({
       winRate: wr,
       totalResolved,
       pnlTimeline: timeline,
-      periodNetPnL: pnlSum
+      periodNetPnL: pnlSum,
+      drawdownCulprits
     };
   }, [filteredLogs, snapshots, startingBalance, currentBalance]);
 
@@ -165,15 +200,35 @@ export function PortfolioAnalytics({
     <div className="space-y-6">
       {/* Top Banner: Chart + Win/Loss Ratio */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left: Net Worth Performance Area Chart */}
+        {/* Left: Net Worth Performance Area Chart & TradingView Attribution */}
         <div className="lg:col-span-2 p-6 rounded-3xl bg-white border border-black/[0.08] shadow-[inset_0_1px_0_rgba(255,255,255,1),0_2px_8px_rgba(0,0,0,0.03),0_16px_36px_-6px_rgba(0,0,0,0.05)] space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Sandbox Capital Curve</span>
                 <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
                   <Zap size={10} /> Live Blockchain MTM
                 </span>
+                {/* View Mode Toggle */}
+                <div className="flex rounded-xl bg-slate-100 p-0.5 border border-black/[0.06] text-[11px] font-semibold">
+                  <button
+                    onClick={() => setViewMode('curve')}
+                    className={`px-2 py-0.5 rounded-lg transition-all cursor-pointer ${
+                      viewMode === 'curve' ? 'bg-white text-slate-900 shadow-2xs font-bold' : 'text-slate-500 hover:text-slate-800'
+                    }`}
+                  >
+                    Smooth Curve
+                  </button>
+                  <button
+                    onClick={() => setViewMode('attribution')}
+                    className={`px-2 py-0.5 rounded-lg transition-all cursor-pointer flex items-center gap-1 ${
+                      viewMode === 'attribution' ? 'bg-indigo-600 text-white shadow-2xs font-bold' : 'text-slate-500 hover:text-slate-800'
+                    }`}
+                    title="TradingView-style interactive trade execution markers"
+                  >
+                    <Compass size={11} /> Trade Markers
+                  </button>
+                </div>
               </div>
               <div className="flex items-baseline gap-3 mt-1">
                 <span className="text-3xl font-extrabold font-mono text-slate-950">
@@ -205,7 +260,7 @@ export function PortfolioAnalytics({
             </div>
           </div>
 
-          {/* Area Chart */}
+          {/* Area Chart with TradingView Attribution Tooltips */}
           <div className="h-56 w-full pt-2 outline-none focus:outline-none ring-0 focus:ring-0 [&_*]:outline-none [&_*]:focus:outline-none select-none">
             <ResponsiveContainer width="100%" height="100%" className="outline-none">
               <AreaChart data={pnlTimeline} margin={{ top: 10, right: 10, left: -20, bottom: 0 }} className="outline-none">
@@ -234,13 +289,32 @@ export function PortfolioAnalytics({
                   content={({ active, payload }) => {
                     if (active && payload && payload.length) {
                       const d = payload[0].payload;
+                      const trade = d.eventTrade as ExecutionLog | undefined;
                       return (
-                        <div className="bg-slate-950 text-white px-3.5 py-2.5 rounded-2xl text-xs font-mono shadow-2xl border border-white/10">
-                          <div className="text-[10px] text-slate-400">{d.date} • {d.time}</div>
-                          <div className="text-base font-bold text-white mt-0.5">${d.balance.toLocaleString(undefined, { minimumFractionDigits: 2 })}</div>
-                          <div className={`text-[11px] font-bold ${d.pnl >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                            {d.pnl >= 0 ? '+' : ''}${d.pnl.toFixed(2)} Trade Impact
+                        <div className="bg-slate-950 text-white px-4 py-3 rounded-2xl text-xs font-mono shadow-2xl border border-white/10 max-w-xs space-y-1.5">
+                          <div className="flex items-center justify-between text-[10px] text-slate-400">
+                            <span>{d.date} • {d.time}</span>
+                            <span className="font-bold text-slate-300">MTM Valuation</span>
                           </div>
+                          <div className="text-base font-bold text-white">${d.balance.toLocaleString(undefined, { minimumFractionDigits: 2 })}</div>
+                          <div className={`text-[11px] font-bold ${d.pnl >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                            {d.pnl >= 0 ? '+' : ''}${d.pnl.toFixed(2)} Mark-to-Market P&amp;L
+                          </div>
+
+                          {viewMode === 'attribution' && trade && (
+                            <div className="pt-2 border-t border-white/10 text-[11px] font-sans space-y-1 text-slate-300">
+                              <div className="font-bold text-white truncate flex items-center gap-1.5">
+                                <span className={`px-1.5 py-0.2 rounded text-[9px] font-bold font-mono ${trade.side === 'BUY' ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40' : 'bg-rose-500/20 text-rose-300 border border-rose-500/40'}`}>
+                                  {trade.side}
+                                </span>
+                                <span className="truncate">{trade.marketQuestion || 'Event Contract'}</span>
+                              </div>
+                              <div className="flex items-center justify-between text-[10px] font-mono text-slate-400">
+                                <span>Whale: {trade.whaleName || trade.whalePseudonym || '0x...'}</span>
+                                <span className="text-indigo-300">${(trade.size ?? 0).toFixed(2)} fill</span>
+                              </div>
+                            </div>
+                          )}
                         </div>
                       );
                     }
@@ -254,7 +328,7 @@ export function PortfolioAnalytics({
                   strokeWidth={2.5}
                   fillOpacity={1} 
                   fill="url(#balanceGradient)"
-                  dot={false}
+                  dot={viewMode === 'attribution' ? { r: 3, fill: '#6366F1', stroke: '#FFFFFF', strokeWidth: 1.5 } : false}
                   activeDot={{ r: 5, fill: netPnL >= 0 ? '#10B981' : '#F43F5E', stroke: '#FFFFFF', strokeWidth: 2 }}
                   isAnimationActive={false}
                 />
@@ -263,7 +337,7 @@ export function PortfolioAnalytics({
           </div>
         </div>
 
-        {/* Right: Portfolio Win/Loss & Execution Health Card */}
+        {/* Right: Execution Scorecard with Positions vs Fills Demystification */}
         <div className="p-6 rounded-3xl bg-white border border-black/[0.08] shadow-[inset_0_1px_0_rgba(255,255,255,1),0_2px_8px_rgba(0,0,0,0.03),0_16px_36px_-6px_rgba(0,0,0,0.05)] flex flex-col justify-between space-y-4">
           <div>
             <div className="flex items-center justify-between mb-2">
@@ -300,19 +374,71 @@ export function PortfolioAnalytics({
             </div>
           </div>
 
-          {/* Sizing & Dynamic Fee Statistics */}
+          {/* Sizing, Active Positions vs Order Fills */}
           <div className="grid grid-cols-2 gap-2 pt-2 border-t border-black/[0.06]">
             <div className="p-2.5 rounded-2xl bg-slate-50 border border-black/[0.04] space-y-0.5">
-              <div className="text-[10px] font-bold text-slate-400 uppercase">Resolved Trades</div>
-              <div className="text-sm font-mono font-bold text-slate-900">{totalResolved} Fills</div>
+              <div className="text-[10px] font-bold text-slate-400 uppercase flex items-center gap-1">
+                Active Positions
+                <span title="A Position is your active aggregated contracts in an open prediction market." className="cursor-help text-slate-400 hover:text-slate-600">
+                  <HelpCircle size={10} />
+                </span>
+              </div>
+              <div className="text-sm font-mono font-bold text-emerald-700">{activePositionsCount} Open</div>
             </div>
             <div className="p-2.5 rounded-2xl bg-slate-50 border border-black/[0.04] space-y-0.5">
-              <div className="text-[10px] font-bold text-slate-400 uppercase">Starting Principal</div>
-              <div className="text-sm font-mono font-bold text-slate-900">${startingBalance.toLocaleString()}</div>
+              <div className="text-[10px] font-bold text-slate-400 uppercase flex items-center gap-1">
+                Order Fills
+                <span title="A Fill is an individual buy or sell transaction executed on the orderbook." className="cursor-help text-slate-400 hover:text-slate-600">
+                  <HelpCircle size={10} />
+                </span>
+              </div>
+              <div className="text-sm font-mono font-bold text-slate-900">{filteredLogs.length} Executed</div>
             </div>
           </div>
         </div>
       </div>
+
+      {/* Drawdown Attribution Card: Explaining Sharp Valuation Dips */}
+      {drawdownCulprits.length > 0 && (
+        <div className="p-5 rounded-3xl bg-slate-900 text-white border border-slate-800 shadow-md space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="w-6 h-6 rounded-lg bg-rose-500/20 text-rose-400 flex items-center justify-center border border-rose-500/30">
+                <AlertTriangle size={14} />
+              </div>
+              <h4 className="text-xs font-bold uppercase tracking-wider text-slate-200">
+                Drawdown &amp; Valuation Attribution (Why Did P&amp;L Move?)
+              </h4>
+            </div>
+            <span className="text-[10px] font-mono text-slate-400">Mark-to-Market Price Shifts &amp; Taker Fees</span>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            {drawdownCulprits.map((c) => {
+              const fillP = c.fillPrice ?? c.entryPrice ?? 0.5;
+              const curP = c.currentPrice ?? fillP;
+              return (
+                <div 
+                  key={c.id} 
+                  onClick={() => onSelectTrade && onSelectTrade(c)}
+                  className="p-3 rounded-2xl bg-slate-800/80 hover:bg-slate-800 border border-slate-700/60 transition-all cursor-pointer space-y-1.5"
+                >
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="font-bold text-slate-200 truncate max-w-[170px]" title={c.marketQuestion}>
+                      {c.marketQuestion || 'Prediction Contract'}
+                    </span>
+                    <span className="font-mono font-bold text-rose-400">{formatCompactPnL(c.pnl)}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-[10px] font-mono text-slate-400">
+                    <span>Fill: ${(fillP).toFixed(3)} → Live: ${(curP).toFixed(3)}</span>
+                    <span className="text-slate-300">{c.whaleName || c.whalePseudonym || 'Whale'}</span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Bottom Section: Top Winner vs Top Loser Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -332,7 +458,7 @@ export function PortfolioAnalytics({
             </div>
             {topWinner && (
               <span className="text-xs font-mono font-bold text-emerald-700 bg-emerald-100/60 px-2 py-0.5 rounded-full border border-emerald-300">
-                +${(topWinner.pnl ?? 0).toFixed(2)} (+{(topWinner.pnlPct ?? 0).toFixed(1)}%)
+                +{formatCompactPnL(topWinner.pnl, false)} (+{(topWinner.pnlPct ?? 0).toFixed(1)}%)
               </span>
             )}
           </div>
@@ -371,7 +497,7 @@ export function PortfolioAnalytics({
             </div>
             {topLoser && (
               <span className="text-xs font-mono font-bold text-rose-700 bg-rose-100/60 px-2 py-0.5 rounded-full border border-rose-300">
-                ${(topLoser.pnl ?? 0).toFixed(2)} ({(topLoser.pnlPct ?? 0).toFixed(1)}%)
+                {formatCompactPnL(topLoser.pnl)} ({(topLoser.pnlPct ?? 0).toFixed(1)}%)
               </span>
             )}
           </div>

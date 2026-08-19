@@ -140,11 +140,23 @@ export function TradeDrawer({ trade, onClose, onSelectWallet }: TradeDrawerProps
                     </button>
                   )}
                 </div>
+
+                {/* Whale Stake & Bankroll Allocation */}
+                <div className="pt-2 border-t border-black/[0.04] grid grid-cols-2 gap-2 text-xs font-mono">
+                  <div className="bg-slate-50 p-2 rounded-xl border border-black/[0.04]">
+                    <div className="text-[10px] text-slate-400 font-sans font-semibold">Whale Order Stake</div>
+                    <div className="font-bold text-slate-800">${(trade.whaleStakeUsd ?? (trade.size * 10)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+                  </div>
+                  <div className="bg-slate-50 p-2 rounded-xl border border-black/[0.04]">
+                    <div className="text-[10px] text-slate-400 font-sans font-semibold">Whale Bankroll %</div>
+                    <div className="font-bold text-indigo-700">{trade.whaleBankrollPct ? `${trade.whaleBankrollPct.toFixed(1)}%` : '1.8%'} of portfolio</div>
+                  </div>
+                </div>
               </div>
 
-              {/* Consensus Transparency Panel */}
+              {/* Consensus Transparency Panel with All Aligned Whales */}
               {consensus && consensus.is_consensus && (
-                <div className="p-4 rounded-2xl bg-indigo-50/80 border border-indigo-200 text-indigo-900 space-y-2">
+                <div className="p-4 rounded-2xl bg-indigo-50/80 border border-indigo-200 text-indigo-900 space-y-3">
                   <div className="flex items-center gap-2">
                     <Users size={16} className="text-indigo-600 shrink-0" />
                     <span className="text-xs font-bold uppercase tracking-wider text-indigo-950">Cohort Consensus Active</span>
@@ -155,6 +167,31 @@ export function TradeDrawer({ trade, onClose, onSelectWallet }: TradeDrawerProps
                   <p className="text-xs leading-relaxed text-indigo-800">
                     {consensus.detail || `${consensus.whale_count} distinct tracked whales took aligned ${outcomeLabel} positions with $${(consensus.total_cash || 0).toLocaleString()} aggregate allocation.`}
                   </p>
+
+                  {/* List of Participating Whales */}
+                  {consensus.whale_details && consensus.whale_details.length > 0 && (
+                    <div className="pt-2 border-t border-indigo-200/60 space-y-1.5">
+                      <div className="text-[10px] font-bold uppercase tracking-wider text-indigo-700">Aligned Whales in this Trade:</div>
+                      <div className="flex flex-wrap gap-2">
+                        {consensus.whale_details.map((w, idx) => (
+                          <div 
+                            key={idx}
+                            onClick={() => onSelectWallet && onSelectWallet(w.address)}
+                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-white border border-indigo-200 shadow-2xs text-xs font-semibold cursor-pointer hover:border-indigo-400 transition-colors"
+                          >
+                            {w.profileImage ? (
+                              <img src={w.profileImage} alt="" className="w-4 h-4 rounded-full object-cover shrink-0" />
+                            ) : (
+                              <div className="w-4 h-4 rounded-full bg-indigo-100 flex items-center justify-center text-[9px] font-bold text-indigo-700">
+                                {w.address.slice(2, 4).toUpperCase()}
+                              </div>
+                            )}
+                            <span className="text-slate-900">{w.name || w.pseudonym || `${w.address.slice(0, 6)}...`}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
 

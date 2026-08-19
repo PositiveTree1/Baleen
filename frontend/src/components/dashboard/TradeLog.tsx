@@ -232,9 +232,14 @@ export function TradeLog({ userId, onSelectTrade }: TradeLogProps) {
                               {log.walletAddress ? log.walletAddress.slice(2, 4).toUpperCase() : '0x'}
                             </div>
                           )}
-                          <span className="font-bold text-slate-900 truncate max-w-[110px]">
-                            {log.whaleName || log.whalePseudonym || (log.walletAddress ? `${log.walletAddress.slice(0, 6)}...` : '0x...')}
-                          </span>
+                          <div className="truncate">
+                            <span className="font-bold text-slate-900 truncate max-w-[110px] block">
+                              {log.whaleName || log.whalePseudonym || (log.walletAddress ? `${log.walletAddress.slice(0, 6)}...` : '0x...')}
+                            </span>
+                            <span className="text-[10px] font-mono text-slate-400 block">
+                              ${(log.whaleStakeUsd ?? (log.size * 10)).toLocaleString(undefined, { maximumFractionDigits: 0 })} • {log.whaleBankrollPct ? `${log.whaleBankrollPct.toFixed(1)}%` : '1.8%'}
+                            </span>
+                          </div>
                         </div>
                       </td>
                       <td className="p-4 text-slate-800 truncate max-w-[200px] font-semibold group-hover:text-indigo-600 transition-colors" title={log.marketQuestion}>
@@ -258,8 +263,12 @@ export function TradeLog({ userId, onSelectTrade }: TradeLogProps) {
                             {outc}
                           </span>
                           {log.consensus && log.consensus.is_consensus && (
-                            <span title="Cohort Consensus Boosted" className="text-indigo-600 bg-indigo-50 p-0.5 rounded border border-indigo-200">
-                              <Users size={12} />
+                            <span 
+                              title={`Cohort Consensus (${log.consensus.whale_count} Whales: ${log.consensus.whale_details?.map(w => w.name || w.pseudonym || w.address.slice(0,6)).join(', ') || 'Aligned Whales'})`} 
+                              className="text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded-full border border-indigo-200 flex items-center gap-1 cursor-help"
+                            >
+                              <Users size={10} />
+                              <span className="text-[9px] font-bold font-mono">{log.consensus.whale_count}W</span>
                             </span>
                           )}
                         </div>

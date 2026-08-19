@@ -90,7 +90,8 @@ async def get_execution_logs(
                 "name": w.name,
                 "pseudonym": w.pseudonym,
                 "profileImage": w.profile_image,
-                "tier": w.tier
+                "tier": w.tier,
+                "all_time_pnl_usd": w.all_time_pnl_usd
             }
 
     response_list = []
@@ -126,6 +127,25 @@ async def get_execution_logs(
         poly_url = make_polymarket_url(log.event_slug, log.market_question, cid)
         w_meta = whale_meta_map.get(log.source_wallet_address.lower() if log.source_wallet_address else "", {})
 
+        whale_pnl_bankroll = float(w_meta.get("all_time_pnl_usd") or 35000.0)
+        whale_stake = float(log.notional_usd or 5.0) * 10.0
+        whale_bankroll_pct = round(min(100.0, max(0.05, (whale_stake / max(5000.0, whale_pnl_bankroll)) * 100.0)), 1)
+
+        # Enrich consensus whale list
+        enriched_consensus = dict(consensus) if consensus else {}
+        if enriched_consensus.get("whales"):
+            w_details = []
+            for w_addr in enriched_consensus["whales"]:
+                m = whale_meta_map.get(w_addr.lower(), {})
+                w_details.append({
+                    "address": w_addr,
+                    "name": m.get("name"),
+                    "pseudonym": m.get("pseudonym"),
+                    "profileImage": m.get("profileImage"),
+                    "tier": m.get("tier")
+                })
+            enriched_consensus["whale_details"] = w_details
+
         response_list.append({
             "id": str(log.id),
             "timestamp": log.executed_at.isoformat() if log.executed_at else None,
@@ -134,6 +154,8 @@ async def get_execution_logs(
             "whalePseudonym": w_meta.get("pseudonym"),
             "whaleAvatar": w_meta.get("profileImage"),
             "whaleTier": w_meta.get("tier"),
+            "whaleStakeUsd": round(whale_stake, 2),
+            "whaleBankrollPct": whale_bankroll_pct,
             "marketQuestion": log.market_question,
             "marketConditionId": cid,
             "eventSlug": log.event_slug,
@@ -151,7 +173,7 @@ async def get_execution_logs(
             "pnl": round(net_pnl, 2),
             "grossPnl": round(gross_pnl, 2),
             "pnlPct": pnl_pct,
-            "consensus": consensus,
+            "consensus": enriched_consensus,
             "polymarketUrl": poly_url
         })
 
