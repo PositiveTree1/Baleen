@@ -99,7 +99,8 @@ export function PortfolioAnalytics({
     pnlTimeline, 
     periodPnL,
     periodPnLPct,
-    topSignificantTrades
+    topSignificantTrades,
+    isFlat
   } = useMemo(() => {
     let wins = 0;
     let losses = 0;
@@ -215,6 +216,9 @@ export function PortfolioAnalytics({
     const periodPnL = Math.round((endBal - startBal) * 100) / 100;
     const periodPnLPct = startBal > 0 ? Math.round((periodPnL / startBal) * 10000) / 100 : 0.0;
 
+    // Determine if trajectory is horizontal/flat to prevent bezier spline arcs
+    const isFlat = timeline.length > 0 && timeline.every(t => Math.abs(t.balance - timeline[0].balance) < 0.01);
+
     return {
       alphaDrivers,
       drawdownCulprits,
@@ -226,7 +230,8 @@ export function PortfolioAnalytics({
       pnlTimeline: timeline,
       periodPnL,
       periodPnLPct,
-      topSignificantTrades
+      topSignificantTrades,
+      isFlat
     };
   }, [filteredLogs, snapshots, startingBalance, currentBalance]);
 
@@ -363,13 +368,35 @@ export function PortfolioAnalytics({
                   }}
                 />
                 <Area 
-                  type="monotoneX" 
+                  type={isFlat ? 'linear' : 'monotoneX'} 
                   dataKey="balance" 
                   stroke={periodPnL >= 0 ? '#10B981' : '#F43F5E'} 
                   strokeWidth={2.5}
                   fillOpacity={1} 
                   fill="url(#balanceGradient)"
-                  dot={viewMode === 'attribution' ? { r: 3.5, fill: periodPnL >= 0 ? '#10B981' : '#F43F5E', stroke: '#FFFFFF', strokeWidth: 1.5 } : false}
+                  dot={(props: any) => {
+                    const { cx, cy, payload } = props;
+                    if (!payload || !payload.isTrade || viewMode !== 'attribution') return null;
+                    const isWin = (payload.tradePnl ?? 0) >= 0;
+                    return (
+                      <circle
+                        key={`trade-dot-${payload.tradeId || cx}`}
+                        cx={cx}
+                        cy={cy}
+                        r={5}
+                        fill={isWin ? '#10B981' : '#F43F5E'}
+                        stroke="#FFFFFF"
+                        strokeWidth={2}
+                        className="cursor-pointer transition-all hover:scale-125"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (payload.trade && onSelectTrade) {
+                            onSelectTrade(payload.trade);
+                          }
+                        }}
+                      />
+                    );
+                  }}
                   activeDot={{ r: 6, fill: periodPnL >= 0 ? '#10B981' : '#F43F5E', stroke: '#FFFFFF', strokeWidth: 2.5 }}
                   isAnimationActive={false}
                 />
