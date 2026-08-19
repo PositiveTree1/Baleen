@@ -275,21 +275,15 @@ async def get_portfolio_summary(
 async def get_portfolio_snapshots(
     user_id: Optional[str] = Query(None, alias="userId"),
     timeframe: Optional[str] = None,
-    limit: int = 200,
+    limit: int = 500,
     db: AsyncSession = Depends(get_db)
 ):
     from uuid import UUID
+    
+    # Filter by user if requested, else system platform curve
     stmt = select(PortfolioSnapshot)
-    if user_id:
-        try:
-            u_uuid = UUID(user_id)
-            stmt = stmt.where(PortfolioSnapshot.user_id == u_uuid)
-        except Exception:
-            stmt = stmt.where(PortfolioSnapshot.user_id.is_(None))
-    else:
-        stmt = stmt.where(PortfolioSnapshot.user_id.is_(None))
-
     now = datetime.utcnow()
+    
     if timeframe:
         tf = timeframe.lower()
         if tf == "1h":
@@ -305,9 +299,29 @@ async def get_portfolio_snapshots(
         elif tf == "ytd":
             stmt = stmt.where(PortfolioSnapshot.timestamp >= datetime(now.year, 1, 1))
 
-    stmt = stmt.order_by(PortfolioSnapshot.timestamp.desc()).limit(limit)
-    rows = (await db.execute(stmt)).scalars().all()
+    rows = []
+    if user_id:
+        try:
+            u_uuid = UUID(user_id)
+            user_stmt = stmt.where(PortfolioSnapshot.user_id == u_uuid).order_by(PortfolioSnapshot.timestamp.desc()).limit(limit)
+            rows = (await db.execute(user_stmt)).scalars().all()
+        except Exception:
+            rows = []
+
+    # If no user-specific snapshots found, use global platform sandbox curve
+    if not rows:
+        sys_stmt = stmt.where(PortfolioSnapshot.user_id.is_(None)).order_by(PortfolioSnapshot.timestamp.desc()).limit(limit)
+        rows = (await db.execute(sys_stmt)).scalars().all()
+
     rows = list(reversed(rows))
+
+    # Downsample if more than 120 points to keep UI silky smooth
+    if len(rows) > 120:
+        step = max(1, len(rows) // 100)
+        downsampled = [rows[i] for i in range(0, len(rows) - 1, step)]
+        if rows[-1] not in downsampled:
+            downsampled.append(rows[-1])
+        rows = downsampled
 
     return [
         {

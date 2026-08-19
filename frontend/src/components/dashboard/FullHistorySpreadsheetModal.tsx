@@ -162,8 +162,9 @@ export function FullHistorySpreadsheetModal({
   };
 
   // Export to authentic CSV format
-  const exportToCSV = () => {
-    if (filteredLogs.length === 0) return;
+  const exportToCSV = (customLogs?: ExecutionLog[]) => {
+    const listToExport = customLogs || (filteredLogs.length > 0 ? filteredLogs : logs);
+    if (listToExport.length === 0) return;
 
     const headers = [
       'Trade ID',
@@ -188,7 +189,7 @@ export function FullHistorySpreadsheetModal({
       'Polymarket URL'
     ];
 
-    const rows = filteredLogs.map(l => {
+    const rows = listToExport.map(l => {
       const fillP = l.fillPrice ?? l.entryPrice ?? 0.5;
       const curP = l.currentPrice ?? fillP;
       const fee = l.feeUsd ?? 0;
@@ -225,10 +226,28 @@ export function FullHistorySpreadsheetModal({
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement('a');
     link.setAttribute('href', encodedUri);
-    link.setAttribute('download', `baleen_trade_executions_${new Date().toISOString().slice(0, 10)}.csv`);
+    link.setAttribute('download', `baleen_all_trades_${new Date().toISOString().slice(0, 19).replace(/[:T]/g, '_')}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+  };
+
+  const [isExportingAll, setIsExportingAll] = useState(false);
+  const handleExportAllFromDB = async () => {
+    setIsExportingAll(true);
+    try {
+      const { fetchExecutionLogs } = await import('@/lib/api-client');
+      const allTrades = await fetchExecutionLogs(undefined, { limit: '10000' });
+      if (allTrades && allTrades.length > 0) {
+        exportToCSV(allTrades);
+      } else {
+        exportToCSV(logs);
+      }
+    } catch {
+      exportToCSV(logs);
+    } finally {
+      setIsExportingAll(false);
+    }
   };
 
   if (!isOpen) return null;
@@ -242,29 +261,26 @@ export function FullHistorySpreadsheetModal({
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           onClick={onClose}
-          className="fixed inset-0 bg-slate-950/40 backdrop-blur-md"
+          className="fixed inset-0 bg-slate-900/40 backdrop-blur-md"
         />
 
-        {/* Spreadsheet Modal Container */}
+        {/* Modal Window */}
         <motion.div
-          initial={{ opacity: 0, scale: 0.96, y: 12 }}
+          initial={{ opacity: 0, scale: 0.95, y: 15 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
-          exit={{ opacity: 0, scale: 0.96, y: 12 }}
-          transition={{ type: 'spring', damping: 28, stiffness: 300 }}
-          className="relative w-full max-w-7xl h-[90vh] bg-white rounded-3xl border border-black/[0.08] shadow-[0_25px_60px_-15px_rgba(0,0,0,0.3)] flex flex-col overflow-hidden z-10"
+          exit={{ opacity: 0, scale: 0.95, y: 15 }}
+          transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+          className="relative w-full max-w-7xl max-h-[92vh] bg-white rounded-3xl border border-black/[0.08] shadow-2xl flex flex-col overflow-hidden z-10"
         >
-          {/* Modal Header */}
-          <div className="p-5 px-6 border-b border-black/[0.06] bg-slate-50/80 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          {/* Header */}
+          <div className="flex items-center justify-between p-6 border-b border-black/[0.06] bg-slate-50/80">
             <div className="flex items-center gap-3">
-              <div className="p-2.5 rounded-2xl bg-emerald-50 text-emerald-700 border border-emerald-200 shadow-2xs">
+              <div className="p-2.5 rounded-2xl bg-indigo-50 text-indigo-700 border border-indigo-200 shadow-2xs">
                 <FileSpreadsheet size={20} />
               </div>
               <div>
-                <h3 className="text-base font-bold text-slate-900 tracking-tight flex items-center gap-2">
-                  Complete Execution Spreadsheet
-                  <span className="text-xs font-mono px-2 py-0.5 rounded-full bg-slate-200/80 text-slate-700 font-semibold">
-                    {filteredLogs.length} records
-                  </span>
+                <h3 className="text-base font-bold text-slate-900 tracking-tight">
+                  Master Execution Spreadsheet &amp; Trade Archive
                 </h3>
                 <p className="text-xs text-slate-500 font-medium">
                   Full institutional audit logs, order books fills, fee breakdowns, and mark-to-market positions
@@ -274,11 +290,13 @@ export function FullHistorySpreadsheetModal({
 
             <div className="flex items-center gap-2.5 flex-wrap">
               <button
-                onClick={exportToCSV}
-                className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold shadow-sm transition-all cursor-pointer"
+                onClick={handleExportAllFromDB}
+                disabled={isExportingAll}
+                className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white text-xs font-semibold shadow-sm transition-all cursor-pointer"
+                title="Exports all historical trades directly from database"
               >
                 <Download size={14} />
-                <span>Export CSV / Excel</span>
+                <span>{isExportingAll ? 'Exporting...' : 'Export Complete CSV'}</span>
               </button>
               <button
                 onClick={onClose}
