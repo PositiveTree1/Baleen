@@ -3,7 +3,7 @@ import { useEffect, useState, useMemo } from 'react';
 import { ExecutionLog } from '@/types';
 import { fetchPortfolioSnapshots } from '@/lib/api-client';
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip } from 'recharts';
-import { TrendingUp, TrendingDown, Award, AlertTriangle, ShieldCheck, DollarSign, PieChart, Zap } from 'lucide-react';
+import { TrendingUp, TrendingDown, Award, AlertTriangle, ShieldCheck, DollarSign, PieChart, Zap, Calendar } from 'lucide-react';
 
 interface PortfolioAnalyticsProps {
   logs: ExecutionLog[];
@@ -20,6 +20,7 @@ export function PortfolioAnalytics({
   currentBalance = 10000.0,
   onSelectTrade
 }: PortfolioAnalyticsProps) {
+  const [timeframe, setTimeframe] = useState<'1D' | '1W' | '1M' | 'YTD' | 'ALL'>('ALL');
   const [snapshots, setSnapshots] = useState<{
     id: string;
     timestamp: string;
@@ -32,25 +33,46 @@ export function PortfolioAnalytics({
 
   useEffect(() => {
     async function loadSnapshots() {
-      const data = await fetchPortfolioSnapshots(userId);
+      const data = await fetchPortfolioSnapshots(userId, timeframe === 'ALL' ? undefined : timeframe.toLowerCase());
       if (data && data.length > 0) {
         setSnapshots(data);
+      } else {
+        setSnapshots([]);
       }
     }
     loadSnapshots();
     const interval = setInterval(loadSnapshots, 8000);
     return () => clearInterval(interval);
-  }, [userId]);
+  }, [userId, timeframe]);
+
+  // Filter logs by selected timeframe
+  const filteredLogs = useMemo(() => {
+    if (timeframe === 'ALL') return logs;
+    const now = Date.now();
+    let cutoff = 0;
+    if (timeframe === '1D') cutoff = now - 24 * 60 * 60 * 1000;
+    else if (timeframe === '1W') cutoff = now - 7 * 24 * 60 * 60 * 1000;
+    else if (timeframe === '1M') cutoff = now - 30 * 24 * 60 * 60 * 1000;
+    else if (timeframe === 'YTD') cutoff = new Date(new Date().getFullYear(), 0, 1).getTime();
+
+    return logs.filter(l => {
+      if (!l.timestamp) return true;
+      const t = new Date(l.timestamp).getTime();
+      return t >= cutoff;
+    });
+  }, [logs, timeframe]);
 
   // 1. Calculate Winners and Losers and timeline
-  const { topWinner, topLoser, winCount, lossCount, winRate, totalResolved, pnlTimeline } = useMemo(() => {
+  const { topWinner, topLoser, winCount, lossCount, winRate, totalResolved, pnlTimeline, periodNetPnL } = useMemo(() => {
     let bestWin: ExecutionLog | null = null;
     let worstLoss: ExecutionLog | null = null;
     let wins = 0;
     let losses = 0;
+    let pnlSum = 0;
 
-    for (const log of logs) {
+    for (const log of filteredLogs) {
       const pnl = log.pnl ?? 0;
+      pnlSum += pnl;
       if (pnl > 0) {
         wins++;
         if (!bestWin || pnl > (bestWin.pnl ?? 0)) {
@@ -77,7 +99,7 @@ export function PortfolioAnalytics({
       }));
     } else {
       // Build chronological curve from trades
-      const sortedLogs = [...logs].sort((a, b) => {
+      const sortedLogs = [...filteredLogs].sort((a, b) => {
         const ta = a.timestamp ? new Date(a.timestamp).getTime() : 0;
         const tb = b.timestamp ? new Date(b.timestamp).getTime() : 0;
         return ta - tb;
@@ -88,7 +110,7 @@ export function PortfolioAnalytics({
         time: 'Start',
         balance: startingBalance,
         pnl: 0,
-        date: 'Inception'
+        date: 'Base'
       });
 
       for (const log of sortedLogs) {
@@ -111,12 +133,13 @@ export function PortfolioAnalytics({
       lossCount: losses,
       winRate: wr,
       totalResolved,
-      pnlTimeline: timeline
+      pnlTimeline: timeline,
+      periodNetPnL: pnlSum
     };
-  }, [logs, snapshots, startingBalance]);
+  }, [filteredLogs, snapshots, startingBalance]);
 
   const isNetPositive = currentBalance >= startingBalance;
-  const netPnL = currentBalance - startingBalance;
+  const netPnL = timeframe === 'ALL' ? (currentBalance - startingBalance) : periodNetPnL;
   const netPnLPct = startingBalance > 0 ? (netPnL / startingBalance) * 100 : 0;
 
   return (
@@ -137,16 +160,29 @@ export function PortfolioAnalytics({
                 <span className="text-3xl font-extrabold font-mono text-slate-950">
                   ${currentBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </span>
-                <span className={`text-sm font-mono font-bold ${isNetPositive ? 'text-emerald-600' : 'text-rose-600'}`}>
-                  {isNetPositive ? '+' : ''}${netPnL.toFixed(2)} ({isNetPositive ? '+' : ''}{netPnLPct.toFixed(2)}%)
+                <span className={`text-sm font-mono font-bold ${netPnL >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                  {netPnL >= 0 ? '+' : ''}${netPnL.toFixed(2)} ({netPnL >= 0 ? '+' : ''}{netPnLPct.toFixed(2)}%)
                 </span>
               </div>
             </div>
 
-            <div className="flex items-center gap-2 text-xs font-mono">
-              <span className="px-2.5 py-1 rounded-xl bg-slate-100 text-slate-600 font-semibold border border-black/[0.04]">
-                Base: ${startingBalance.toLocaleString()}
-              </span>
+            {/* Timeframe selector */}
+            <div className="flex items-center gap-2">
+              <div className="flex rounded-xl bg-slate-100 p-0.5 border border-black/[0.06] text-xs font-mono font-semibold">
+                {(['1D', '1W', '1M', 'YTD', 'ALL'] as const).map((tf) => (
+                  <button
+                    key={tf}
+                    onClick={() => setTimeframe(tf)}
+                    className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer ${
+                      timeframe === tf 
+                        ? 'bg-white text-slate-950 font-bold shadow-xs' 
+                        : 'text-slate-500 hover:text-slate-900'
+                    }`}
+                  >
+                    {tf}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
 
@@ -156,8 +192,8 @@ export function PortfolioAnalytics({
               <AreaChart data={pnlTimeline} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                 <defs>
                   <linearGradient id="balanceGradient" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor={isNetPositive ? '#10B981' : '#F43F5E'} stopOpacity={0.3} />
-                    <stop offset="95%" stopColor={isNetPositive ? '#10B981' : '#F43F5E'} stopOpacity={0.0} />
+                    <stop offset="5%" stopColor={netPnL >= 0 ? '#10B981' : '#F43F5E'} stopOpacity={0.3} />
+                    <stop offset="95%" stopColor={netPnL >= 0 ? '#10B981' : '#F43F5E'} stopOpacity={0.0} />
                   </linearGradient>
                 </defs>
                 <XAxis 
@@ -193,7 +229,7 @@ export function PortfolioAnalytics({
                 <Area 
                   type="monotone" 
                   dataKey="balance" 
-                  stroke={isNetPositive ? '#10B981' : '#F43F5E'} 
+                  stroke={netPnL >= 0 ? '#10B981' : '#F43F5E'} 
                   strokeWidth={2.5}
                   fillOpacity={1} 
                   fill="url(#balanceGradient)" 
@@ -203,148 +239,134 @@ export function PortfolioAnalytics({
           </div>
         </div>
 
-        {/* Right: Key Alpha Metrics & Win Ratio */}
-        <div className="lg:col-span-1 p-6 rounded-3xl bg-slate-950 text-white shadow-xl flex flex-col justify-between space-y-6">
+        {/* Right: Portfolio Win/Loss & Execution Health Card */}
+        <div className="p-6 rounded-3xl bg-white border border-black/[0.08] shadow-[inset_0_1px_0_rgba(255,255,255,1),0_2px_8px_rgba(0,0,0,0.03),0_16px_36px_-6px_rgba(0,0,0,0.05)] flex flex-col justify-between space-y-4">
           <div>
-            <div className="text-xs font-mono uppercase tracking-wider text-slate-400 mb-1">
-              Cohort Execution Performance
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Execution Scorecard</span>
+              <span className="text-[10px] font-mono font-bold bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full">
+                {timeframe} Window
+              </span>
             </div>
-            <div className="text-2xl font-bold font-mono text-white">
-              {totalResolved > 0 ? `${winRate.toFixed(1)}% Win Rate` : '0.0% Win Rate'}
-            </div>
-            <p className="text-xs text-slate-400 mt-1">
-              Across {logs.length} mirrored whale positions with Polymarket dynamic taker fees deducted.
-            </p>
-          </div>
-
-          <div className="space-y-3">
-            <div className="flex justify-between items-center text-xs font-mono">
-              <span className="text-slate-400">Profitable Positions:</span>
-              <span className="text-emerald-400 font-bold">{winCount} Won</span>
-            </div>
-            <div className="w-full h-2 bg-white/10 rounded-full overflow-hidden flex">
-              {totalResolved > 0 ? (
-                <>
-                  <div 
-                    className="h-full bg-emerald-500 rounded-full transition-all duration-500" 
-                    style={{ width: `${winRate}%` }} 
-                  />
-                  <div 
-                    className="h-full bg-rose-500 transition-all duration-500" 
-                    style={{ width: `${100 - winRate}%` }} 
-                  />
-                </>
-              ) : (
-                <div className="h-full w-full bg-slate-800" />
-              )}
-            </div>
-            <div className="flex justify-between items-center text-xs font-mono">
-              <span className="text-slate-400">Drawdown Positions:</span>
-              <span className="text-rose-400 font-bold">{lossCount} Losses</span>
+            <div className="flex items-baseline gap-2">
+              <span className="text-3xl font-extrabold font-mono text-slate-900">
+                {winRate.toFixed(1)}%
+              </span>
+              <span className="text-xs font-mono font-semibold text-slate-500">
+                Win Rate ({winCount}W / {lossCount}L)
+              </span>
             </div>
           </div>
 
-          <div className="p-4 rounded-2xl bg-white/5 border border-white/10 space-y-1 text-xs">
-            <div className="text-[10px] text-slate-400 font-bold uppercase">Dynamic Category Alpha</div>
-            <div className="flex items-center justify-between text-slate-300 font-mono">
-              <span>Active Whales:</span>
-              <span className="font-bold text-white">17 Gold Snipers</span>
+          {/* Win/Loss Bar Visualizer */}
+          <div className="space-y-1.5">
+            <div className="h-3 w-full bg-slate-100 rounded-full overflow-hidden flex p-0.5 border border-black/[0.04]">
+              <div 
+                className="h-full bg-emerald-500 rounded-full transition-all duration-500" 
+                style={{ width: `${Math.max(4, winRate)}%` }} 
+              />
+              <div 
+                className="h-full bg-rose-500 rounded-full transition-all duration-500" 
+                style={{ width: `${Math.max(4, 100 - winRate)}%` }} 
+              />
             </div>
-            <div className="flex items-center justify-between text-slate-300 font-mono">
-              <span>Fee Model:</span>
-              <span className="font-bold text-indigo-300">Quadratic (0%-7%)</span>
+            <div className="flex justify-between text-[10px] font-mono font-semibold text-slate-400">
+              <span className="text-emerald-700">{winCount} Profitable Fills</span>
+              <span className="text-rose-700">{lossCount} Unprofitable Fills</span>
+            </div>
+          </div>
+
+          {/* Sizing & Dynamic Fee Statistics */}
+          <div className="grid grid-cols-2 gap-2 pt-2 border-t border-black/[0.06]">
+            <div className="p-2.5 rounded-2xl bg-slate-50 border border-black/[0.04] space-y-0.5">
+              <div className="text-[10px] font-bold text-slate-400 uppercase">Resolved Trades</div>
+              <div className="text-sm font-mono font-bold text-slate-900">{totalResolved} Fills</div>
+            </div>
+            <div className="p-2.5 rounded-2xl bg-slate-50 border border-black/[0.04] space-y-0.5">
+              <div className="text-[10px] font-bold text-slate-400 uppercase">Starting Principal</div>
+              <div className="text-sm font-mono font-bold text-slate-900">${startingBalance.toLocaleString()}</div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Alpha Transparency Breakdown: Biggest Winner & Biggest Drawdown */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      {/* Bottom Section: Top Winner vs Top Loser Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {/* Top Winner Card */}
         <div 
           onClick={() => topWinner && onSelectTrade && onSelectTrade(topWinner)}
-          className="p-6 rounded-3xl bg-white border border-emerald-200/80 shadow-[inset_0_1px_0_rgba(255,255,255,1),0_2px_8px_rgba(0,0,0,0.03)] cursor-pointer hover:border-emerald-400 transition-all group"
+          className={`p-5 rounded-3xl bg-emerald-50/40 border border-emerald-200/80 transition-all ${
+            topWinner ? 'hover:shadow-md cursor-pointer hover:border-emerald-300' : 'opacity-60'
+          }`}
         >
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center border border-emerald-200">
-                <Award size={18} />
+              <div className="w-7 h-7 rounded-xl bg-emerald-100 flex items-center justify-center text-emerald-800 border border-emerald-200">
+                <Award size={16} />
               </div>
-              <span className="text-xs font-bold uppercase tracking-wider text-emerald-800">
-                Top Alpha Gainer (Winning Trade)
-              </span>
+              <span className="text-xs font-bold uppercase tracking-wider text-emerald-900">Highest Alpha Trade ({timeframe})</span>
             </div>
-            <span className="text-xs font-mono font-bold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200">
-              +{topWinner?.pnlPct?.toFixed(1) ?? '0.0'}%
-            </span>
+            {topWinner && (
+              <span className="text-xs font-mono font-bold text-emerald-700 bg-emerald-100/60 px-2 py-0.5 rounded-full border border-emerald-300">
+                +${(topWinner.pnl ?? 0).toFixed(2)} (+{(topWinner.pnlPct ?? 0).toFixed(1)}%)
+              </span>
+            )}
           </div>
 
           {topWinner ? (
-            <div className="space-y-3">
-              <h4 className="text-sm font-bold text-slate-900 leading-snug group-hover:text-emerald-700 transition-colors line-clamp-2">
+            <div className="space-y-2">
+              <div className="text-sm font-bold text-slate-900 leading-snug truncate" title={topWinner.marketQuestion}>
                 {topWinner.marketQuestion}
-              </h4>
-              <div className="grid grid-cols-3 gap-2 text-xs font-mono pt-1">
-                <div>
-                  <span className="text-[10px] text-slate-400 block">Fill Price</span>
-                  <span className="font-bold text-slate-800">${(topWinner.fillPrice ?? 0.5).toFixed(3)}</span>
-                </div>
-                <div>
-                  <span className="text-[10px] text-slate-400 block">Live Price</span>
-                  <span className="font-bold text-indigo-600">${(topWinner.currentPrice ?? topWinner.fillPrice ?? 0.5).toFixed(3)}</span>
-                </div>
-                <div>
-                  <span className="text-[10px] text-slate-400 block">Net Gain</span>
-                  <span className="font-bold text-emerald-600">+${(topWinner.pnl ?? 0).toFixed(2)}</span>
-                </div>
+              </div>
+              <div className="flex items-center gap-3 text-xs font-mono text-slate-600">
+                <span>Filled @ ${(topWinner.fillPrice ?? 0.5).toFixed(3)}</span>
+                <span>•</span>
+                <span>Live MTM @ ${(topWinner.currentPrice ?? 0.5).toFixed(3)}</span>
+                <span>•</span>
+                <span>Size ${topWinner.size?.toLocaleString()}</span>
               </div>
             </div>
           ) : (
-            <p className="text-xs text-slate-400 font-mono">No filled winning positions recorded yet.</p>
+            <p className="text-xs text-slate-400 font-medium">No profitable trade in selected timeframe.</p>
           )}
         </div>
 
-        {/* Top Drawdown Card */}
+        {/* Top Loser Card */}
         <div 
           onClick={() => topLoser && onSelectTrade && onSelectTrade(topLoser)}
-          className="p-6 rounded-3xl bg-white border border-rose-200/80 shadow-[inset_0_1px_0_rgba(255,255,255,1),0_2px_8px_rgba(0,0,0,0.03)] cursor-pointer hover:border-rose-400 transition-all group"
+          className={`p-5 rounded-3xl bg-rose-50/40 border border-rose-200/80 transition-all ${
+            topLoser ? 'hover:shadow-md cursor-pointer hover:border-rose-300' : 'opacity-60'
+          }`}
         >
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-xl bg-rose-50 text-rose-700 flex items-center justify-center border border-rose-200">
-                <AlertTriangle size={18} />
+              <div className="w-7 h-7 rounded-xl bg-rose-100 flex items-center justify-center text-rose-800 border border-rose-200">
+                <AlertTriangle size={16} />
               </div>
-              <span className="text-xs font-bold uppercase tracking-wider text-rose-800">
-                Top Drawdown (Losing Trade)
-              </span>
+              <span className="text-xs font-bold uppercase tracking-wider text-rose-900">Largest Drawdown Trade ({timeframe})</span>
             </div>
-            <span className="text-xs font-mono font-bold text-rose-700 bg-rose-50 px-2.5 py-0.5 rounded-full border border-rose-200">
-              {topLoser?.pnlPct?.toFixed(1) ?? '0.0'}%
-            </span>
+            {topLoser && (
+              <span className="text-xs font-mono font-bold text-rose-700 bg-rose-100/60 px-2 py-0.5 rounded-full border border-rose-300">
+                ${(topLoser.pnl ?? 0).toFixed(2)} ({(topLoser.pnlPct ?? 0).toFixed(1)}%)
+              </span>
+            )}
           </div>
 
           {topLoser ? (
-            <div className="space-y-3">
-              <h4 className="text-sm font-bold text-slate-900 leading-snug group-hover:text-rose-700 transition-colors line-clamp-2">
+            <div className="space-y-2">
+              <div className="text-sm font-bold text-slate-900 leading-snug truncate" title={topLoser.marketQuestion}>
                 {topLoser.marketQuestion}
-              </h4>
-              <div className="grid grid-cols-3 gap-2 text-xs font-mono pt-1">
-                <div>
-                  <span className="text-[10px] text-slate-400 block">Fill Price</span>
-                  <span className="font-bold text-slate-800">${(topLoser.fillPrice ?? 0.5).toFixed(3)}</span>
-                </div>
-                <div>
-                  <span className="text-[10px] text-slate-400 block">Live Price</span>
-                  <span className="font-bold text-indigo-600">${(topLoser.currentPrice ?? topLoser.fillPrice ?? 0.5).toFixed(3)}</span>
-                </div>
-                <div>
-                  <span className="text-[10px] text-slate-400 block">Net Drawdown</span>
-                  <span className="font-bold text-rose-600">-${Math.abs(topLoser.pnl ?? 0).toFixed(2)}</span>
-                </div>
+              </div>
+              <div className="flex items-center gap-3 text-xs font-mono text-slate-600">
+                <span>Filled @ ${(topLoser.fillPrice ?? 0.5).toFixed(3)}</span>
+                <span>•</span>
+                <span>Live MTM @ ${(topLoser.currentPrice ?? 0.5).toFixed(3)}</span>
+                <span>•</span>
+                <span>Size ${topLoser.size?.toLocaleString()}</span>
               </div>
             </div>
           ) : (
-            <p className="text-xs text-slate-400 font-mono">No drawdown positions recorded yet.</p>
+            <p className="text-xs text-slate-400 font-medium">No negative trade in selected timeframe.</p>
           )}
         </div>
       </div>

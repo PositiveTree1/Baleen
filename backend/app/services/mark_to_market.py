@@ -45,6 +45,7 @@ class MarkToMarketService:
 
                 mkt_wallets: dict[str, set[str]] = {}
                 mkt_cash: dict[str, float] = {}
+                mkt_outcomes: dict[str, str] = {}
                 for log in recent_logs:
                     cid = log.market_condition_id
                     if not cid:
@@ -54,12 +55,18 @@ class MarkToMarketService:
                         mkt_cash[cid] = 0.0
                     mkt_wallets[cid].add(log.source_wallet_address.lower())
                     mkt_cash[cid] += float(log.notional_usd or 0.0)
+                    mkt_outcomes[cid] = log.resolution_outcome or "Yes"
 
                 for cid, w_set in mkt_wallets.items():
+                    cnt = len(w_set)
+                    is_con = cnt >= 2
                     _consensus_cache[cid] = {
-                        "whale_count": len(w_set),
-                        "total_cash": mkt_cash.get(cid, 0.0),
-                        "is_consensus": len(w_set) >= 2
+                        "whale_count": cnt,
+                        "total_cash": round(mkt_cash.get(cid, 0.0), 2),
+                        "is_consensus": is_con,
+                        "multiplier": 1.5 if is_con else 1.0,
+                        "whales": list(w_set)[:4],
+                        "detail": f"{cnt} distinct whales took aligned {mkt_outcomes.get(cid, 'Yes')} positions with ${mkt_cash.get(cid, 0.0):,.0f} aggregate capital." if is_con else ""
                     }
 
                 # 2. Fetch live prices for distinct (condition_id, outcome, asset) pairs
@@ -172,4 +179,11 @@ def get_live_price(cid: str = "", outcome: str = "Yes", asset: str = "", fallbac
     return fallback
 
 def get_consensus(cid: str) -> dict:
-    return _consensus_cache.get(cid, {"whale_count": 1, "total_cash": 0.0, "is_consensus": False})
+    return _consensus_cache.get(cid, {
+        "whale_count": 1,
+        "total_cash": 0.0,
+        "is_consensus": False,
+        "multiplier": 1.0,
+        "whales": [],
+        "detail": ""
+    })

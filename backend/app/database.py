@@ -71,6 +71,17 @@ NEW_COLS = [
     ("wallets", "first_trade_at", "TIMESTAMP"),
     ("wallets", "last_trade_at", "TIMESTAMP"),
     ("wallets", "cached_daily_pnl", "TEXT"),
+    ("wallets", "name", "VARCHAR(255)"),
+    ("wallets", "pseudonym", "VARCHAR(255)"),
+    ("wallets", "profile_image", "TEXT"),
+    ("execution_logs", "event_slug", "VARCHAR(255)"),
+    ("execution_logs", "icon", "TEXT"),
+    ("execution_logs", "fee_usd", "FLOAT"),
+    ("execution_logs", "market_category", "VARCHAR(100)"),
+    ("execution_logs", "resolution_outcome", "VARCHAR(255)"),
+    ("execution_logs", "realized_pnl_usd", "FLOAT"),
+    ("execution_logs", "onchain_tx_hash", "VARCHAR(255)"),
+    ("execution_logs", "onchain_log_index", "INTEGER"),
 ]
 
 async def init_db():

@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { fetchExecutionLogs } from '@/lib/api-client';
 import { ExecutionLog } from '@/types';
 import { Skeleton } from '../ui/Skeleton';
-import { Tag, HelpCircle } from 'lucide-react';
+import { Tag, HelpCircle, Users } from 'lucide-react';
 
 interface TradeLogProps {
   userId?: string;
@@ -41,9 +41,9 @@ export function TradeLog({ userId, onSelectTrade }: TradeLogProps) {
           <thead>
             <tr className="border-b border-black/[0.06] text-[10px] uppercase tracking-wider text-slate-500 bg-slate-50/90 font-semibold">
               <th className="p-4 sm:px-6 font-semibold">Timestamp</th>
+              <th className="p-4 font-semibold">Source Whale</th>
               <th className="p-4 font-semibold">Prediction Market</th>
-              <th className="p-4 font-semibold">Category</th>
-              <th className="p-4 font-semibold">Side</th>
+              <th className="p-4 font-semibold">Action & Outcome</th>
               <th className="p-4 font-semibold text-right">Fill Price</th>
               <th className="p-4 font-semibold text-right">Live Price</th>
               <th className="p-4 font-semibold text-right">Notional</th>
@@ -56,9 +56,9 @@ export function TradeLog({ userId, onSelectTrade }: TradeLogProps) {
               Array.from({ length: 4 }).map((_, i) => (
                 <tr key={i}>
                   <td className="p-4 sm:px-6"><Skeleton className="h-3.5 w-20" /></td>
+                  <td className="p-4"><Skeleton className="h-3.5 w-28" /></td>
                   <td className="p-4"><Skeleton className="h-3.5 w-44" /></td>
                   <td className="p-4"><Skeleton className="h-3.5 w-16" /></td>
-                  <td className="p-4"><Skeleton className="h-3.5 w-10" /></td>
                   <td className="p-4"><Skeleton className="h-3.5 w-14 ml-auto" /></td>
                   <td className="p-4"><Skeleton className="h-3.5 w-14 ml-auto" /></td>
                   <td className="p-4"><Skeleton className="h-3.5 w-14 ml-auto" /></td>
@@ -74,6 +74,8 @@ export function TradeLog({ userId, onSelectTrade }: TradeLogProps) {
                 const pnl = log.pnl ?? (log.side === 'BUY' ? (log.size * ((curP - fillP) / fillP) - fee) : (log.size * ((fillP - curP) / fillP) - fee));
                 const isProfit = pnl >= 0;
                 const category = log.marketCategory || 'General';
+                const outc = log.outcome || 'Yes';
+                const isYes = outc.toLowerCase() === 'yes' || outc.toLowerCase() === 'true';
 
                 return (
                   <tr 
@@ -84,31 +86,46 @@ export function TradeLog({ userId, onSelectTrade }: TradeLogProps) {
                     <td className="p-4 sm:px-6 text-slate-500 font-mono whitespace-nowrap">
                       {log.timestamp ? new Date(log.timestamp).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' }) : '--'}
                     </td>
+                    <td className="p-4 whitespace-nowrap">
+                      <div className="flex items-center gap-2">
+                        {log.whaleAvatar ? (
+                          <img src={log.whaleAvatar} alt="" className="w-5 h-5 rounded-full object-cover shrink-0 border border-black/10 shadow-2xs" />
+                        ) : (
+                          <div className="w-5 h-5 rounded-full bg-slate-100 border border-black/10 flex items-center justify-center text-[10px] font-bold text-slate-600 shrink-0">
+                            {log.walletAddress ? log.walletAddress.slice(2, 4).toUpperCase() : '0x'}
+                          </div>
+                        )}
+                        <span className="font-bold text-slate-900 truncate max-w-[110px]">
+                          {log.whaleName || log.whalePseudonym || (log.walletAddress ? `${log.walletAddress.slice(0, 6)}...` : '0x...')}
+                        </span>
+                      </div>
+                    </td>
                     <td className="p-4 text-slate-800 truncate max-w-[200px] font-semibold group-hover:text-indigo-600 transition-colors" title={log.marketQuestion}>
                       <div className="flex items-center gap-2">
                         {log.icon ? (
-                          <img src={log.icon} alt="" className="w-5 h-5 rounded-full object-cover shrink-0 border border-black/10" />
+                          <img src={log.icon} alt="" className="w-5 h-5 rounded-md object-cover shrink-0 border border-black/10 shadow-2xs" />
                         ) : null}
                         <span className="truncate max-w-[200px]">{log.marketQuestion || 'Polymarket Condition'}</span>
                       </div>
                     </td>
                     <td className="p-4 whitespace-nowrap">
-                      <span className={`px-2 py-0.5 rounded-md text-[10px] font-semibold border ${
-                        category === 'Crypto' ? 'bg-amber-50 text-amber-800 border-amber-200' :
-                        category === 'Sports' ? 'bg-blue-50 text-blue-800 border-blue-200' :
-                        category === 'Politics & Finance' ? 'bg-purple-50 text-purple-800 border-purple-200' :
-                        category === 'Geopolitics' ? 'bg-emerald-50 text-emerald-800 border-emerald-200' :
-                        'bg-slate-50 text-slate-700 border-slate-200'
-                      }`}>
-                        {category}
-                      </span>
-                    </td>
-                    <td className="p-4">
-                      <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold border shadow-[inset_0_1px_0_rgba(255,255,255,0.8)] ${
-                        log.side === 'BUY' ? 'text-emerald-800 bg-emerald-50 border-emerald-200' : 'text-rose-800 bg-rose-50 border-rose-200'
-                      }`}>
-                        {log.side}
-                      </span>
+                      <div className="flex items-center gap-1.5">
+                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border shadow-[inset_0_1px_0_rgba(255,255,255,0.8)] ${
+                          log.side === 'BUY' ? 'text-emerald-800 bg-emerald-50 border-emerald-200' : 'text-rose-800 bg-rose-50 border-rose-200'
+                        }`}>
+                          {log.side}
+                        </span>
+                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${
+                          isYes ? 'text-emerald-700 bg-emerald-100/50 border-emerald-300' : 'text-rose-700 bg-rose-100/50 border-rose-300'
+                        }`}>
+                          {outc}
+                        </span>
+                        {log.consensus && log.consensus.is_consensus && (
+                          <span title="Cohort Consensus Boosted" className="text-indigo-600 bg-indigo-50 p-0.5 rounded border border-indigo-200">
+                            <Users size={12} />
+                          </span>
+                        )}
+                      </div>
                     </td>
                     <td className="p-4 text-right font-mono text-slate-800 font-semibold">
                       ${fillP.toFixed(3)}

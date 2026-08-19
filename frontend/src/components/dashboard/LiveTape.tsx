@@ -92,29 +92,34 @@ export function LiveTape({ userId, onSelectTrade }: LiveTapeProps) {
                     <span className="text-slate-500 text-[11px]">
                       {log.timestamp ? new Date(log.timestamp).toLocaleTimeString([], { hour12: false }) : '--:--'}
                     </span>
-                    <span className="text-slate-800 font-bold truncate group-hover:text-indigo-600 transition-colors">
-                      {(log.walletAddress || '0x0000').slice(0, 6)}...
-                    </span>
+                    <div className="flex items-center gap-1.5 truncate">
+                      {log.whaleAvatar ? (
+                        <img src={log.whaleAvatar} alt="" className="w-4 h-4 rounded-full object-cover shrink-0 border border-black/10 shadow-2xs" />
+                      ) : null}
+                      <span className="text-slate-800 font-bold truncate group-hover:text-indigo-600 transition-colors">
+                        {log.whaleName || log.whalePseudonym || (log.walletAddress ? `${log.walletAddress.slice(0, 6)}...` : '0x...')}
+                      </span>
+                    </div>
                   </div>
                   <div className="w-1/3 truncate px-2 flex items-center gap-1.5 text-slate-600 font-sans text-xs font-medium" title={log.marketQuestion}>
                     {log.icon ? (
-                      <img src={log.icon} alt="" className="w-4 h-4 rounded-full object-cover shrink-0 border border-black/10" />
+                      <img src={log.icon} alt="" className="w-4 h-4 rounded-md object-cover shrink-0 border border-black/10 shadow-2xs" />
                     ) : null}
                     <span className="truncate">{log.marketQuestion || 'Market Order'}</span>
                   </div>
-                  <div className="w-1/3 flex justify-end items-center gap-3">
+                  <div className="w-1/3 flex justify-end items-center gap-2">
                     {log.consensus?.is_consensus && (
                       <span className="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold bg-indigo-100 text-indigo-800 border border-indigo-200">
                         <Flame size={10} className="text-indigo-600" />
                         {log.consensus.whale_count} Whales
                       </span>
                     )}
-                    <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold border shadow-[inset_0_1px_0_rgba(255,255,255,0.8)] ${
+                    <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold border shadow-[inset_0_1px_0_rgba(255,255,255,0.8)] ${
                       log.side === 'BUY' ? 'text-emerald-800 bg-emerald-50 border-emerald-200' : 'text-rose-800 bg-rose-50 border-rose-200'
                     }`}>
-                      {log.side}
+                      {log.side} {log.outcome ? log.outcome.slice(0, 3).toUpperCase() : 'YES'}
                     </span>
-                    <span className="text-slate-900 font-bold w-16 text-right font-mono">
+                    <span className="text-slate-900 font-bold w-14 text-right font-mono">
                       ${(log.fillPrice ?? log.entryPrice ?? 0).toFixed(3)}
                     </span>
                   </div>

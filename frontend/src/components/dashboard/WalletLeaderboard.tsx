@@ -180,6 +180,8 @@ export function WalletLeaderboard({ userId, onSelectWallet }: WalletLeaderboardP
               ) : filteredCopied.length > 0 ? (
                 filteredCopied.map((item) => {
                   const isProfit = (item.netPnl || 0) >= 0;
+                  const wObj = wallets.find(w => w.address.toLowerCase() === item.address.toLowerCase());
+                  const displayName = wObj?.name || wObj?.pseudonym;
                   return (
                     <tr 
                       key={item.address} 
@@ -187,7 +189,29 @@ export function WalletLeaderboard({ userId, onSelectWallet }: WalletLeaderboardP
                       className="transition-colors cursor-pointer hover:bg-indigo-50/60 group text-xs"
                     >
                       <td className="p-3.5 px-4 font-mono text-slate-800 font-bold group-hover:text-indigo-600 transition-colors truncate">
-                        {item.address.slice(0, 6)}...{item.address.slice(-4)}
+                        <div className="flex items-center gap-2">
+                          {wObj?.profileImage ? (
+                            <img 
+                              src={wObj.profileImage} 
+                              alt="" 
+                              className="w-5 h-5 rounded-full object-cover border border-black/10 shrink-0 shadow-2xs" 
+                            />
+                          ) : (
+                            <div className="w-5 h-5 rounded-full bg-slate-100 border border-black/10 flex items-center justify-center text-[9px] font-bold text-slate-600 shrink-0">
+                              {item.address.slice(2, 4).toUpperCase()}
+                            </div>
+                          )}
+                          <div className="truncate">
+                            {displayName ? (
+                              <div className="font-sans font-bold text-slate-900 text-xs truncate">
+                                {displayName}
+                              </div>
+                            ) : null}
+                            <div className="text-[10px] text-slate-500 font-mono">
+                              {item.address.slice(0, 6)}...{item.address.slice(-4)}
+                            </div>
+                          </div>
+                        </div>
                       </td>
                       <td className="p-3.5 text-center font-mono text-slate-600 font-semibold">
                         <span className="px-2 py-0.5 rounded-full bg-slate-100 text-[11px] font-bold">

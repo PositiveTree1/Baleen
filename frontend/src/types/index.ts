@@ -58,11 +58,16 @@ export interface ExecutionLog {
   id: string;
   timestamp: string;
   walletAddress: string;
+  whaleName?: string | null;
+  whalePseudonym?: string | null;
+  whaleAvatar?: string | null;
+  whaleTier?: string | null;
   marketQuestion: string;
   marketConditionId?: string;
   eventSlug?: string;
   icon?: string;
   side: 'BUY' | 'SELL';
+  outcome?: string;
   entryPrice: number;
   fillPrice: number;
   currentPrice?: number;
@@ -78,6 +83,9 @@ export interface ExecutionLog {
     whale_count: number;
     total_cash: number;
     is_consensus: boolean;
+    multiplier?: number;
+    whales?: string[];
+    detail?: string;
   };
   polymarketUrl?: string;
 }

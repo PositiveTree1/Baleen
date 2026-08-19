@@ -112,11 +112,16 @@ export async function fetchExecutionLogs(userId?: string, params?: Record<string
       id: log.id,
       timestamp: log.timestamp || log.executed_at,
       walletAddress: log.walletAddress || log.source_wallet_address,
+      whaleName: log.whaleName || null,
+      whalePseudonym: log.whalePseudonym || null,
+      whaleAvatar: log.whaleAvatar || null,
+      whaleTier: log.whaleTier || null,
       marketQuestion: log.marketQuestion || log.market_question,
       marketConditionId: log.marketConditionId || log.market_condition_id,
       eventSlug: log.eventSlug,
       icon: log.icon,
       side: log.side,
+      outcome: log.outcome || 'Yes',
       entryPrice: log.entryPrice ?? log.whale_entry_price ?? 0,
       fillPrice: log.fillPrice ?? log.user_fill_price ?? 0,
       currentPrice: log.currentPrice ?? log.fillPrice ?? log.user_fill_price ?? 0,
@@ -140,6 +145,7 @@ export async function fetchTradePriceChart(tradeId: string): Promise<{
   tradeId: string;
   marketQuestion: string;
   side: string;
+  outcome?: string;
   fillPrice: number;
   currentPrice: number;
   minPrice: number;
@@ -155,7 +161,7 @@ export async function fetchTradePriceChart(tradeId: string): Promise<{
   }
 }
 
-export async function fetchPortfolioSummary(userId?: string): Promise<{
+export async function fetchPortfolioSummary(userId?: string, timeframe?: string): Promise<{
   startingBalance: number;
   currentBalance: number;
   totalPnlUsd: number;
@@ -165,10 +171,10 @@ export async function fetchPortfolioSummary(userId?: string): Promise<{
   totalNotionalInvested: number;
 } | null> {
   try {
-    const url = userId 
-      ? `${API_BASE_URL}/api/executions/summary?userId=${encodeURIComponent(userId)}`
-      : `${API_BASE_URL}/api/executions/summary`;
-    const res = await fetch(url);
+    const url = new URL(`${API_BASE_URL}/api/executions/summary`);
+    if (userId) url.searchParams.append('userId', userId);
+    if (timeframe) url.searchParams.append('timeframe', timeframe);
+    const res = await fetch(url.toString());
     if (!res.ok) return null;
     return await res.json();
   } catch (error) {
@@ -176,7 +182,7 @@ export async function fetchPortfolioSummary(userId?: string): Promise<{
   }
 }
 
-export async function fetchPortfolioSnapshots(userId?: string): Promise<{
+export async function fetchPortfolioSnapshots(userId?: string, timeframe?: string): Promise<{
   id: string;
   timestamp: string;
   time: string;
@@ -186,10 +192,11 @@ export async function fetchPortfolioSnapshots(userId?: string): Promise<{
   activeTrades: number;
 }[]> {
   try {
-    const url = userId 
-      ? `${API_BASE_URL}/api/executions/snapshots?userId=${encodeURIComponent(userId)}`
-      : `${API_BASE_URL}/api/executions/snapshots`;
-    const res = await fetch(url);
+    const url = new URL(`${API_BASE_URL}/api/executions/snapshots`);
+    if (userId) url.searchParams.append('userId', userId);
+    if (timeframe) url.searchParams.append('timeframe', timeframe);
+    url.searchParams.append('limit', '200');
+    const res = await fetch(url.toString());
     if (!res.ok) return [];
     return await res.json();
   } catch (error) {

@@ -36,7 +36,7 @@
 ## 2. System Stability & Test Verification Matrix
 
 ### 2.1 Backend Test Suite (Pytest)
-- **Status:** **32 / 32 Passed** (100% Pass Rate in 12.76s)
+- **Status:** **33 / 33 Passed** (100% Pass Rate in 12.8s)
 - **Covered Subsystems:**
   - AI Summary generation (`test_ai_summary.py`)
   - Checkpoint and resume mechanics (`test_checkpoint.py`)
@@ -48,6 +48,7 @@
   - On-chain trade idempotency and deduplication (`test_idempotency.py`)
   - Quantitative scoring filters & Wilson lower bounds (`test_scoring_filters.py`)
   - REST API endpoints & wallet snapshots (`test_wallet_api.py`)
+  - Dual Ingestion HyperSync Signal Endpoint & Drawer Details (`test_signals_and_drawer.py`)
 
 ### 2.2 Listener Service (Envio HyperSync / Jest)
 - **Status:** **3 / 3 Passed** (100% Pass Rate with `tsc` clean compilation)
@@ -55,9 +56,16 @@
   - Native + HTTP REST cross-platform HyperSync stream client
   - Polygon CTF Exchange event query builder (`fromBlock`, `OrderFilled` topics)
   - Persistent block checkpointing (`checkpoint.json`)
+  - Dual Ingestion Forwarder to `/api/signals`
 
 ### 2.3 Frontend Application (Next.js 14 / Turbopack)
 - **Status:** **Build Successful** (0 TypeScript Errors, 0 Lint Errors, 9/9 Static Pages Prerendered)
+- **Features Implemented & Verified:**
+  - Whale Avatars, Nicknames & Outcome Badges in Live Tape & Execution Audit Log
+  - Rich Trade Details Drawer (Action, Direction, Outcome, Exact Fills, Verified Cohort Links)
+  - Interactive CLOB Price Trajectory (Smoothed, calibrated to traded asset)
+  - Cohort Consensus Transparency with whale breakdown and sizing multiplier
+  - Timeframe Filters (1D, 1W, 1M, YTD, ALL) in Portfolio Analytics
 
 ### 2.4 Database Health (Supabase PostgreSQL Pooler)
 - **Tables Verified:**
