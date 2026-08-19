@@ -129,6 +129,76 @@ async def purge_and_rescan(db: AsyncSession = Depends(get_db)):
         "message": "Database purge initiated. Background Polymarket scraping & audit started."
     }
 
+@router.post("/hard-wipe-all")
+async def hard_wipe_all_database(db: AsyncSession = Depends(get_db)):
+    """
+    Completely wipes ALL database tables:
+    - Execution logs
+    - Portfolio snapshots
+    - Wallet snapshots
+    - Wallets (all whale records)
+    - Fee charges
+    - KV store
+    - Resets all users to $10,000.00
+    - Resets discovery state to idle
+    """
+    from app.models import ExecutionLog, PortfolioSnapshot, WalletSnapshot, Wallet, FeeCharge, KeyValue, User
+    from sqlalchemy import delete
+    from app.discovery.scanner import discovery_state
+    from datetime import datetime
+
+    # 1. Delete all transactional, historical & whale tables
+    await db.execute(delete(ExecutionLog))
+    await db.execute(delete(PortfolioSnapshot))
+    await db.execute(delete(WalletSnapshot))
+    await db.execute(delete(Wallet))
+    await db.execute(delete(FeeCharge))
+    await db.execute(delete(KeyValue))
+
+    # 2. Reset user balances to clean $10k
+    now_dt = datetime.utcnow()
+    stmt_users = select(User)
+    users = (await db.execute(stmt_users)).scalars().all()
+    for u in users:
+        u.sandbox_balance_usd = 10000.0
+        u.sandbox_starting_balance_usd = 10000.0
+        u.sandbox_high_water_mark_usd = 10000.0
+        db.add(PortfolioSnapshot(
+            user_id=u.id,
+            timestamp=now_dt,
+            balance=10000.0,
+            total_pnl=0.0,
+            active_trades_count=0
+        ))
+
+    # 3. Add global baseline snapshot
+    db.add(PortfolioSnapshot(
+        user_id=None,
+        timestamp=now_dt,
+        balance=10000.0,
+        total_pnl=0.0,
+        active_trades_count=0
+    ))
+
+    await db.commit()
+
+    # 4. Reset discovery in-memory state
+    discovery_state.update({
+        "status": "idle",
+        "progress_pct": 0,
+        "step_description": "Database completely wiped. Clean state initialized.",
+        "wallets_scanned": 0,
+        "active_whales_in_basket": 0,
+        "gold_snipers": 0,
+        "started_at": None,
+        "error_message": None
+    })
+
+    return {
+        "status": "success",
+        "message": "Complete factory reset successful. All database tables and state wiped."
+    }
+
 @router.get("/wallets")
 async def get_all_wallets(
     status: str = None,

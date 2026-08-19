@@ -402,3 +402,16 @@ export async function fetchDiscoveryProgress(): Promise<any> {
   }
 }
 
+export async function hardWipeAllDatabase(): Promise<{ status: string; message: string } | null> {
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/admin/hard-wipe-all`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+    });
+    if (!res.ok) return null;
+    return await res.json();
+  } catch {
+    return null;
+  }
+}
+

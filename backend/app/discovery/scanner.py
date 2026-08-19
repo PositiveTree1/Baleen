@@ -449,12 +449,11 @@ async def scan_for_wallets(db: AsyncSession, full_refresh: bool = False):
     
     try:
         if full_refresh:
-            discovery_state["step_description"] = "Resetting candidate wallets for fresh deep audit..."
+            discovery_state["step_description"] = "Hard wiping previous wallets for fresh discovery from Polymarket..."
             await db.execute(delete(WalletSnapshot))
-            from sqlalchemy import update
-            await db.execute(update(Wallet).values(status="pending"))
+            await db.execute(delete(Wallet))
             await db.commit()
-            logger.info("All wallets marked pending for fresh discovery scan.")
+            logger.info("All existing wallets completely deleted for fresh discovery scan.")
 
         discovery_state["progress_pct"] = 15
         discovery_state["step_description"] = "Stage 1: Multi-Period Leaderboard & Trade Scraping..."

@@ -92,6 +92,26 @@ export default function AdminPage() {
     }
   };
 
+  const [wipingAll, setWipingAll] = useState(false);
+  const handleHardWipeAll = async () => {
+    const confirmation = prompt("⚠️ FACTORY RESET: Type 'RESET' to permanently delete all wallets, execution logs, snapshots, and restore clean $10k sandbox balances:");
+    if (confirmation !== 'RESET') {
+      if (confirmation !== null) alert("Reset cancelled. You must type 'RESET' exactly.");
+      return;
+    }
+    setWipingAll(true);
+    try {
+      const { hardWipeAllDatabase } = await import('@/lib/api-client');
+      await hardWipeAllDatabase();
+      alert("✅ Complete factory reset successful! All database tables wiped.");
+      window.location.reload();
+    } catch (e) {
+      alert("Error executing wipeout: " + String(e));
+    } finally {
+      setWipingAll(false);
+    }
+  };
+
   const handleTriggerDiscovery = async () => {
     setTriggering(true);
     try {
@@ -150,7 +170,7 @@ export default function AdminPage() {
             <Button 
               variant="secondary" 
               onClick={() => loadData(true)} 
-              disabled={initialLoading || justRefreshed}
+              disabled={initialLoading || justRefreshed || wipingAll}
               className="text-xs py-2 px-3 shadow-sm"
             >
               <RefreshCw size={14} className={justRefreshed ? 'animate-spin text-indigo-600' : ''} /> Refresh
@@ -158,7 +178,7 @@ export default function AdminPage() {
             <Button 
               variant="secondary" 
               onClick={handleReevaluate} 
-              disabled={evaluating}
+              disabled={evaluating || wipingAll}
               className="text-xs py-2 px-3.5 shadow-sm border-indigo-200 text-indigo-900 bg-indigo-50/50 hover:bg-indigo-100/60 font-semibold"
             >
               <RotateCw size={14} className={evaluating ? 'animate-spin text-indigo-600' : 'text-indigo-600'} /> 
@@ -167,15 +187,24 @@ export default function AdminPage() {
             <Button 
               variant="danger" 
               onClick={handlePurgeAndRescan} 
-              disabled={evaluating}
+              disabled={evaluating || wipingAll}
               className="text-xs py-2 px-3.5 shadow-sm border border-rose-200 text-rose-700 bg-rose-50 hover:bg-rose-100 font-semibold"
             >
               <Trash2 size={14} /> Purge &amp; Rescan
             </Button>
             <Button 
+              variant="danger" 
+              onClick={handleHardWipeAll} 
+              disabled={wipingAll || evaluating}
+              className="text-xs py-2 px-3.5 shadow-sm bg-rose-600 hover:bg-rose-700 text-white font-bold"
+              title="Completely wipe all database tables and reset system"
+            >
+              <Trash2 size={14} /> {wipingAll ? 'Wiping...' : 'Factory Reset DB'}
+            </Button>
+            <Button 
               variant="primary" 
               onClick={handleTriggerDiscovery} 
-              disabled={triggering || evaluating}
+              disabled={triggering || evaluating || wipingAll}
               className="text-xs py-2 px-4 font-semibold"
             >
               <Sparkles size={14} /> {triggering ? 'Scanning...' : 'Discovery Scan'}
