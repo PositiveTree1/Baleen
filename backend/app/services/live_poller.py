@@ -131,10 +131,19 @@ class LiveTradeMirrorService:
             stmt_users = select(User)
             users = (await db.execute(stmt_users)).scalars().all()
 
+            # Check for sniper conviction weighting (e.g. Mr. Ozi / Gold snipers)
+            source_whale = next((w for w in active_wallets if w.address.lower() == wallet_address.lower()), None)
+            is_sniper = bool(source_whale and (
+                source_whale.tier == "gold_sniper" or 
+                ((source_whale.win_rate_pct or 0) >= 85.0 and (source_whale.avg_trades_per_day or 5.0) <= 5.0)
+            ))
+            sniper_multiplier = 1.35 if is_sniper else 1.0
+
             # Check for multi-whale consensus on this condition
             from app.services.mark_to_market import get_consensus
             consensus = get_consensus(condition_id)
-            sizing_multiplier = 1.5 if consensus.get("is_consensus") else 1.0
+            consensus_multiplier = 1.5 if consensus.get("is_consensus") else 1.0
+            sizing_multiplier = consensus_multiplier * sniper_multiplier
 
             sys_notional = round(min(max(10.0, cash_usd * 0.1 * sizing_multiplier), 350.0), 2)
             fee_calc = calculate_polymarket_fee(

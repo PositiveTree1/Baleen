@@ -32,12 +32,14 @@ export function TradeLog({ userId, onSelectTrade }: TradeLogProps) {
   }, [userId]);
 
   // Holding vs Closed classification
+  // - Holding = Open Long Positions (side === 'BUY' and status === 'FILLED' and not resolved)
+  // - Closed / Sold = Exited or Sold Positions (side === 'SELL' or status in ['RESOLVED', 'CLOSED'])
   const holdingLogs = useMemo(() => {
-    return logs.filter(l => l.status === 'FILLED' && !l.marketQuestion?.toLowerCase().includes('resolved'));
+    return logs.filter(l => l.side === 'BUY' && l.status === 'FILLED' && !l.marketQuestion?.toLowerCase().includes('resolved'));
   }, [logs]);
 
   const closedLogs = useMemo(() => {
-    return logs.filter(l => l.status === 'RESOLVED' || l.status === 'CLOSED' || (l.pnl !== undefined && l.pnl !== 0));
+    return logs.filter(l => l.side === 'SELL' || l.status === 'RESOLVED' || l.status === 'CLOSED');
   }, [logs]);
 
   const filteredLogs = useMemo(() => {

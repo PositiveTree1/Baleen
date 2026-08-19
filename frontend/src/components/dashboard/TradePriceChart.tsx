@@ -78,10 +78,10 @@ export function TradePriceChart({ tradeId, fillPrice, currentPrice, side }: Trad
       </div>
 
       {/* Chart Area */}
-      <div className="h-44 w-full">
+      <div className="h-44 w-full outline-none focus:outline-none ring-0 focus:ring-0 [&_*]:outline-none select-none">
         {history.length > 0 ? (
-          <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={history} margin={{ top: 10, right: 10, left: -25, bottom: 0 }}>
+          <ResponsiveContainer width="100%" height="100%" className="outline-none">
+            <AreaChart data={history} margin={{ top: 10, right: 10, left: -25, bottom: 0 }} className="outline-none">
               <defs>
                 <linearGradient id={`gradient-${tradeId}`} x1="0" y1="0" x2="0" y2="1">
                   <stop offset="5%" stopColor={fillColor} stopOpacity={0.35} />

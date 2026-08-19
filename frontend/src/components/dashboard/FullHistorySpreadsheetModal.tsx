@@ -48,9 +48,9 @@ export function FullHistorySpreadsheetModal({
     let list = [...logs];
 
     if (statusFilter === 'HOLDING') {
-      list = list.filter(l => l.status === 'FILLED' && !l.marketQuestion?.toLowerCase().includes('resolved'));
+      list = list.filter(l => l.side === 'BUY' && l.status === 'FILLED' && !l.marketQuestion?.toLowerCase().includes('resolved'));
     } else if (statusFilter === 'CLOSED') {
-      list = list.filter(l => l.status === 'RESOLVED' || l.status === 'CLOSED' || (l.pnl !== undefined && l.pnl !== 0));
+      list = list.filter(l => l.side === 'SELL' || l.status === 'RESOLVED' || l.status === 'CLOSED');
     }
 
     if (search.trim()) {

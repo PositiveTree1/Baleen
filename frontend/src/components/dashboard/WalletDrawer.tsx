@@ -278,63 +278,61 @@ export function WalletDrawer({ address, onClose }: WalletDrawerProps) {
                     </div>
                   </div>
 
-                  {/* Chart Tabs: Daily Win/Loss vs Cumulative PnL vs Baleen Score + Timeframe Filters */}
+                  {/* Chart Tabs: Daily Win/Loss vs Cumulative PnL vs Baleen Score + In-Chart Timeframe */}
                   <div>
-                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 mb-3">
+                    <div className="flex items-center justify-between gap-2 mb-3">
                       <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
                         <BarChart3 size={14} className="text-slate-600" />
                         Performance Visualizer
                       </h4>
 
-                      <div className="flex items-center gap-2 flex-wrap">
-                        {/* Timeframe selector (1W, 1M, YTD, ALL) */}
-                        <div className="flex rounded-xl bg-slate-100 p-0.5 border border-black/[0.06] text-[11px] font-mono font-semibold">
-                          {(['1W', '1M', 'YTD', 'ALL'] as const).map((tf) => (
-                            <button
-                              key={tf}
-                              onClick={() => setTimeframe(tf)}
-                              className={`px-2.5 py-0.5 rounded-lg transition-all cursor-pointer ${
-                                timeframe === tf 
-                                  ? 'bg-white text-slate-950 font-bold shadow-xs' 
-                                  : 'text-slate-500 hover:text-slate-900'
-                              }`}
-                            >
-                              {tf}
-                            </button>
-                          ))}
-                        </div>
-
-                        {/* Chart view tabs */}
-                        <div className="flex rounded-xl bg-slate-100 p-0.5 border border-black/[0.06]">
-                          <button
-                            onClick={() => setActiveChartTab('winloss')}
-                            className={`text-xs px-2.5 py-1 rounded-lg font-semibold transition-all cursor-pointer ${
-                              activeChartTab === 'winloss' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-900'
-                            }`}
-                          >
-                            Daily Win / Loss
-                          </button>
-                          <button
-                            onClick={() => setActiveChartTab('pnl')}
-                            className={`text-xs px-2.5 py-1 rounded-lg font-semibold transition-all cursor-pointer ${
-                              activeChartTab === 'pnl' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-900'
-                            }`}
-                          >
-                            Cumulative P&amp;L
-                          </button>
-                          <button
-                            onClick={() => setActiveChartTab('score')}
-                            className={`text-xs px-2.5 py-1 rounded-lg font-semibold transition-all cursor-pointer ${
-                              activeChartTab === 'score' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-900'
-                            }`}
-                          >
-                            Score Decay
-                          </button>
-                        </div>
+                      {/* Chart view tabs */}
+                      <div className="flex rounded-xl bg-slate-100 p-0.5 border border-black/[0.06]">
+                        <button
+                          onClick={() => setActiveChartTab('winloss')}
+                          className={`text-xs px-2.5 py-1 rounded-lg font-semibold transition-all cursor-pointer ${
+                            activeChartTab === 'winloss' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-900'
+                          }`}
+                        >
+                          Daily Win / Loss
+                        </button>
+                        <button
+                          onClick={() => setActiveChartTab('pnl')}
+                          className={`text-xs px-2.5 py-1 rounded-lg font-semibold transition-all cursor-pointer ${
+                            activeChartTab === 'pnl' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-900'
+                          }`}
+                        >
+                          Cumulative P&amp;L
+                        </button>
+                        <button
+                          onClick={() => setActiveChartTab('score')}
+                          className={`text-xs px-2.5 py-1 rounded-lg font-semibold transition-all cursor-pointer ${
+                            activeChartTab === 'score' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-900'
+                          }`}
+                        >
+                          Score Decay
+                        </button>
                       </div>
                     </div>
 
-                    <div className="h-56 p-4 rounded-3xl bg-slate-50 border border-black/[0.06] shadow-[inset_0_1px_2px_rgba(0,0,0,0.02)]">
+                    <div className="relative h-60 p-4 pt-8 rounded-3xl bg-slate-50 border border-black/[0.06] shadow-[inset_0_1px_2px_rgba(0,0,0,0.02)] outline-none focus:outline-none ring-0 focus:ring-0 [&_*]:outline-none select-none">
+                      {/* Floating In-Chart Timeframe Controls */}
+                      <div className="absolute top-2.5 right-3 z-10 flex rounded-xl bg-white/90 backdrop-blur-md p-0.5 border border-black/[0.08] shadow-2xs text-[10px] font-mono font-semibold">
+                        {(['1W', '1M', 'YTD', 'ALL'] as const).map((tf) => (
+                          <button
+                            key={tf}
+                            onClick={() => setTimeframe(tf)}
+                            className={`px-2 py-0.5 rounded-lg transition-all cursor-pointer ${
+                              timeframe === tf 
+                                ? 'bg-slate-900 text-white font-bold shadow-2xs' 
+                                : 'text-slate-500 hover:text-slate-900'
+                            }`}
+                          >
+                            {tf}
+                          </button>
+                        ))}
+                      </div>
+
                       {activeChartTab === 'winloss' ? (
                         <DailyWinLossBarChart data={filteredDailyPnLHistory} />
                       ) : activeChartTab === 'pnl' ? (

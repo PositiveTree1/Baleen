@@ -23,9 +23,9 @@ export function DailyWinLossBarChart({ data }: DailyWinLossBarChartProps) {
   };
 
   return (
-    <div className="w-full h-full text-xs select-none">
-      <ResponsiveContainer width="100%" height="100%">
-        <BarChart data={data} margin={{ top: 10, right: 10, left: -10, bottom: 0 }} stackOffset="sign">
+    <div className="w-full h-full text-xs select-none outline-none focus:outline-none ring-0 focus:ring-0 [&_*]:outline-none">
+      <ResponsiveContainer width="100%" height="100%" className="outline-none">
+        <BarChart data={data} margin={{ top: 10, right: 10, left: -10, bottom: 0 }} stackOffset="sign" className="outline-none">
           <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.05)" vertical={false} />
           <XAxis 
             dataKey="date" 

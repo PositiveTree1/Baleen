@@ -15,9 +15,9 @@ export function ScoreHistoryChart({ data }: ScoreHistoryChartProps) {
   }
 
   return (
-    <div className="w-full h-full text-xs">
-      <ResponsiveContainer width="100%" height="100%">
-        <LineChart data={data} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
+    <div className="w-full h-full text-xs outline-none focus:outline-none ring-0 focus:ring-0 [&_*]:outline-none select-none">
+      <ResponsiveContainer width="100%" height="100%" className="outline-none">
+        <LineChart data={data} margin={{ top: 5, right: 10, left: -20, bottom: 0 }} className="outline-none">
           <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.06)" vertical={false} />
           <XAxis 
             dataKey="date" 
