@@ -130,6 +130,11 @@ async def startup_event():
     asyncio.create_task(mark_to_market_service.start())
     logger.info("Mark-to-Market Valuation & Consensus Service initialized.")
 
+    # Start automated periodic disk backup service
+    from app.services.disk_backup import disk_backup_service
+    asyncio.create_task(disk_backup_service.start())
+    logger.info("Disk Backup Service initialized.")
+
     # Auto-trigger discovery if the database is empty (e.g. fresh deploy)
     asyncio.create_task(_auto_discovery_if_empty())
 
@@ -137,8 +142,10 @@ async def startup_event():
 async def shutdown_event():
     from app.services.live_poller import live_trade_mirror
     from app.services.mark_to_market import mark_to_market_service
+    from app.services.disk_backup import disk_backup_service
     await live_trade_mirror.stop()
     await mark_to_market_service.stop()
+    await disk_backup_service.stop()
     scheduler.shutdown()
 
 @app.get("/health")

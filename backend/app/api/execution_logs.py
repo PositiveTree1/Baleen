@@ -39,7 +39,7 @@ async def get_execution_logs(
     start_date: Optional[datetime] = None,
     end_date: Optional[datetime] = None,
     timeframe: Optional[str] = None, # 1d, 1w, 1m, ytd, all
-    limit: int = 500,
+    limit: int = Query(1500, le=10000),
     offset: int = 0,
     db: AsyncSession = Depends(get_db)
 ):

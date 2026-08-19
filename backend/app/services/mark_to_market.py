@@ -69,20 +69,41 @@ class MarkToMarketService:
                         "detail": f"{cnt} distinct whales took aligned {mkt_outcomes.get(cid, 'Yes')} positions with ${mkt_cash.get(cid, 0.0):,.0f} aggregate capital." if is_con else ""
                     }
 
-                # 2. Fetch live prices for distinct (condition_id, outcome, asset) pairs
-                pairs_to_price = list(set((log.market_condition_id, log.resolution_outcome or "Yes", log.onchain_tx_hash or "") for log in recent_logs if log.market_condition_id))
-                for cid, outc, asset_id in pairs_to_price[:30]:
-                    cache_key = f"{cid.lower().strip()}:{outc.lower().strip()}"
-                    try:
-                        live_p = await client.fetch_live_token_price(condition_id=cid, asset=asset_id, outcome=outc)
-                        if live_p is not None and 0.005 <= live_p <= 0.995:
-                            entry = {"price": live_p, "ts": time.time()}
-                            _live_price_cache[cache_key] = entry
-                            if asset_id:
-                                _live_price_cache[asset_id] = entry
-                    except Exception as e:
-                        logger.debug(f"Live price fetch note for {cid}: {e}")
-                    await asyncio.sleep(0.04)
+                # 2. Fetch live prices for ALL distinct open market positions (no 30 limit)
+                stmt_active_pairs = select(
+                    ExecutionLog.market_condition_id,
+                    ExecutionLog.resolution_outcome,
+                    ExecutionLog.onchain_tx_hash
+                ).where(
+                    ExecutionLog.status == "FILLED",
+                    ExecutionLog.market_condition_id.is_not(None)
+                ).distinct()
+                all_active_rows = (await db.execute(stmt_active_pairs)).all()
+                pairs_to_price = list(set(
+                    (row[0], row[1] or "Yes", row[2] or "")
+                    for row in all_active_rows if row[0]
+                ))
+
+                # Concurrently price in bounded chunks with rate-limit protection
+                sem = asyncio.Semaphore(10)
+
+                async def _price_pair(cid: str, outc: str, asset_id: str):
+                    async with sem:
+                        cache_key = f"{cid.lower().strip()}:{outc.lower().strip()}"
+                        try:
+                            live_p = await client.fetch_live_token_price(condition_id=cid, asset=asset_id, outcome=outc)
+                            if live_p is not None and 0.005 <= live_p <= 0.995:
+                                entry = {"price": live_p, "ts": time.time()}
+                                _live_price_cache[cache_key] = entry
+                                if asset_id:
+                                    _live_price_cache[asset_id] = entry
+                        except Exception as e:
+                            logger.debug(f"Live price fetch note for {cid}: {e}")
+
+                # Refresh up to 150 distinct active positions per 3.5s cycle
+                tasks = [_price_pair(c, o, a) for c, o, a in pairs_to_price[:150]]
+                if tasks:
+                    await asyncio.gather(*tasks, return_exceptions=True)
 
                 # 3. Update PnL on all execution logs (system feed + user copy trades)
                 stmt_all_logs = select(ExecutionLog).where(ExecutionLog.status == "FILLED")
