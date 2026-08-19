@@ -1,5 +1,6 @@
 import httpx
 import asyncio
+import json
 import logging
 from typing import List, Dict, Any, Optional, Set
 from app.config import settings
@@ -293,7 +294,7 @@ class PolymarketClient:
 
     async def fetch_market_info(self, condition_id: str) -> Optional[Dict]:
         url = f"{self.gamma_api_url}/markets"
-        data = await self._fetch_with_retry(url, params={"condition_id": condition_id})
+        data = await self._fetch_with_retry(url, params={"condition_ids": condition_id})
         if isinstance(data, list) and len(data) > 0:
             return data[0]
         elif isinstance(data, dict):
@@ -307,7 +308,7 @@ class PolymarketClient:
         try:
             data = await self._fetch_with_retry(
                 f"{self.gamma_api_url}/markets",
-                params={"condition_id": condition_id, "limit": 1}
+                params={"condition_ids": condition_id, "limit": 1}
             )
             m = data[0] if (isinstance(data, list) and data) else (data if isinstance(data, dict) else None)
             if m:
@@ -369,7 +370,7 @@ class PolymarketClient:
                 mid_data = await self._fetch_with_retry(f"{self.clob_api_url}/midpoint", params={"token_id": dec_asset})
                 if isinstance(mid_data, dict) and "mid" in mid_data:
                     mid = float(mid_data["mid"])
-                    if 0.005 <= mid <= 0.995:
+                    if 0.001 <= mid <= 0.999:
                         return round(mid, 4)
             except Exception:
                 pass
@@ -378,12 +379,12 @@ class PolymarketClient:
                 price_data = await self._fetch_with_retry(f"{self.clob_api_url}/price", params={"token_id": dec_asset, "side": "BUY"})
                 if isinstance(price_data, dict) and "price" in price_data:
                     p = float(price_data["price"])
-                    if 0.005 <= p <= 0.995:
+                    if 0.001 <= p <= 0.999:
                         return round(p, 4)
             except Exception:
                 pass
 
-        # ── Stage 1: Gamma Market lookup (by clob_token_ids, condition_id, or slug) ──
+        # ── Stage 1: Gamma Market lookup (by clob_token_ids, condition_ids, or slug) ──
         market_payload = None
 
         if dec_asset:
@@ -392,7 +393,7 @@ class PolymarketClient:
                 market_payload = data[0]
 
         if not market_payload and condition_id:
-            data = await self._fetch_with_retry(f"{self.gamma_api_url}/markets", params={"condition_id": condition_id, "limit": 1})
+            data = await self._fetch_with_retry(f"{self.gamma_api_url}/markets", params={"condition_ids": condition_id, "limit": 1})
             if isinstance(data, list) and data:
                 market_payload = data[0]
             elif isinstance(data, dict) and "outcomePrices" in data:

@@ -71,13 +71,10 @@ class WalletSnapshot(Base):
 
     id = Column(GUID(), primary_key=True, default=uuid.uuid4)
     wallet_address = Column(String, ForeignKey("wallets.address"))
+    baleen_score = Column(Float, nullable=True)
+    win_rate_pct = Column(Float, nullable=True)
+    pnl_usd = Column(Float, nullable=True)
     snapshot_at = Column(DateTime, default=datetime.utcnow)
-    score = Column(Float)
-    win_rate = Column(Float)
-    trades_analyzed = Column(Integer)
-    status = Column(String)
-    tier = Column(String, nullable=True)
-    metrics_json = Column(String)
 
 class User(Base):
     __tablename__ = "users"

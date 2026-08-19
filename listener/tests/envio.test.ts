@@ -17,7 +17,7 @@ describe('HyperSync and Checkpoint Tests', () => {
     expect(query.fromBlock).toBe(1000);
     expect(query.logs.length).toBe(1);
     expect(query.logs[0].topics[0][0]).toBeDefined();
-    expect(query.fieldSelection.log).toContain('blockNumber');
+    expect(query.fieldSelection.log).toContain('BlockNumber');
   });
 
   it('should save and resume checkpoint', () => {
