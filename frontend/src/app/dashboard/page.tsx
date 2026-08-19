@@ -139,6 +139,7 @@ export default function DashboardPage() {
           startingBalance={portfolio?.startingBalance ?? user?.startingBalance ?? 10000.0}
           currentBalance={liveBalance}
           onSelectTrade={setSelectedTrade}
+          onResetComplete={loadData}
         />
 
         {/* Main Grid: Live Tape & Active Whale Basket */}

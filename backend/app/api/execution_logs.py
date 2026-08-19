@@ -280,25 +280,24 @@ async def get_portfolio_snapshots(
 ):
     from uuid import UUID
     
-    # Filter by user if requested, else system platform curve
     stmt = select(PortfolioSnapshot)
     now = datetime.utcnow()
+    tf = (timeframe or "all").lower()
     
-    if timeframe:
-        tf = timeframe.lower()
-        if tf == "1h":
-            stmt = stmt.where(PortfolioSnapshot.timestamp >= now - timedelta(hours=1))
-        elif tf == "6h":
-            stmt = stmt.where(PortfolioSnapshot.timestamp >= now - timedelta(hours=6))
-        elif tf == "1d":
-            stmt = stmt.where(PortfolioSnapshot.timestamp >= now - timedelta(days=1))
-        elif tf == "1w":
-            stmt = stmt.where(PortfolioSnapshot.timestamp >= now - timedelta(days=7))
-        elif tf == "1m":
-            stmt = stmt.where(PortfolioSnapshot.timestamp >= now - timedelta(days=30))
-        elif tf == "ytd":
-            stmt = stmt.where(PortfolioSnapshot.timestamp >= datetime(now.year, 1, 1))
+    if tf == "1h":
+        stmt = stmt.where(PortfolioSnapshot.timestamp >= now - timedelta(hours=1))
+    elif tf == "6h":
+        stmt = stmt.where(PortfolioSnapshot.timestamp >= now - timedelta(hours=6))
+    elif tf == "1d":
+        stmt = stmt.where(PortfolioSnapshot.timestamp >= now - timedelta(days=1))
+    elif tf == "1w":
+        stmt = stmt.where(PortfolioSnapshot.timestamp >= now - timedelta(days=7))
+    elif tf == "1m":
+        stmt = stmt.where(PortfolioSnapshot.timestamp >= now - timedelta(days=30))
+    elif tf == "ytd":
+        stmt = stmt.where(PortfolioSnapshot.timestamp >= datetime(now.year, 1, 1))
 
+    # Query snapshots (fallback gracefully to system snapshots)
     rows = []
     if user_id:
         try:
@@ -308,10 +307,14 @@ async def get_portfolio_snapshots(
         except Exception:
             rows = []
 
-    # If no user-specific snapshots found, use global platform sandbox curve
     if not rows:
         sys_stmt = stmt.where(PortfolioSnapshot.user_id.is_(None)).order_by(PortfolioSnapshot.timestamp.desc()).limit(limit)
         rows = (await db.execute(sys_stmt)).scalars().all()
+
+    # If window has < 2 snapshots, fetch the latest global snapshot and previous
+    if len(rows) < 2 and tf != "all":
+        fallback_stmt = select(PortfolioSnapshot).order_by(PortfolioSnapshot.timestamp.desc()).limit(2)
+        rows = (await db.execute(fallback_stmt)).scalars().all()
 
     rows = list(reversed(rows))
 
@@ -323,7 +326,7 @@ async def get_portfolio_snapshots(
             downsampled.append(rows[-1])
         rows = downsampled
 
-    return [
+    result = [
         {
             "id": str(r.id),
             "timestamp": r.timestamp.isoformat() if r.timestamp else None,
@@ -335,6 +338,66 @@ async def get_portfolio_snapshots(
         }
         for r in rows
     ]
+
+    # Prepend Genesis $10,000.00 baseline for ALL timeframe
+    if tf == "all" and result:
+        first_date = result[0]["date"]
+        genesis_point = {
+            "id": "genesis-baseline",
+            "timestamp": None,
+            "time": "00:00",
+            "date": first_date,
+            "balance": 10000.0,
+            "pnl": 0.0,
+            "activeTrades": 0
+        }
+        if abs(result[0]["balance"] - 10000.0) > 0.01:
+            result.insert(0, genesis_point)
+
+    return result
+
+@router.post("/reset-sandbox")
+async def reset_sandbox(
+    user_id: Optional[str] = Query(None, alias="userId"),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Resets sandbox balance to pristine $10,000.00 and clears historical simulation logs.
+    """
+    from app.models import ExecutionLog, PortfolioSnapshot, User
+    from sqlalchemy import delete
+    
+    # Delete historical snapshots & execution logs
+    await db.execute(delete(PortfolioSnapshot))
+    await db.execute(delete(ExecutionLog))
+    
+    # Reset all users to $10,000
+    stmt_users = select(User)
+    users = (await db.execute(stmt_users)).scalars().all()
+    now_dt = datetime.utcnow()
+    for u in users:
+        u.sandbox_balance_usd = 10000.0
+        u.sandbox_starting_balance_usd = 10000.0
+        u.sandbox_high_water_mark_usd = 10000.0
+        
+        db.add(PortfolioSnapshot(
+            user_id=u.id,
+            timestamp=now_dt,
+            balance=10000.0,
+            total_pnl=0.0,
+            active_trades_count=0
+        ))
+        
+    db.add(PortfolioSnapshot(
+        user_id=None,
+        timestamp=now_dt,
+        balance=10000.0,
+        total_pnl=0.0,
+        active_trades_count=0
+    ))
+    
+    await db.commit()
+    return {"status": "success", "message": "Sandbox balance reset to $10,000.00 successfully"}
 
 @router.get("/{trade_id}/chart")
 async def get_trade_price_chart(

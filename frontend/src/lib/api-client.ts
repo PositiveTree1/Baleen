@@ -289,6 +289,20 @@ export async function resetSandboxAmount(userId?: string, newBalance: number = 1
   }
 }
 
+export async function resetSandboxLedger(userId?: string): Promise<boolean> {
+  try {
+    const url = new URL(`${API_BASE_URL}/api/executions/reset-sandbox`);
+    if (userId) url.searchParams.append('userId', userId);
+    const res = await fetch(url.toString(), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' }
+    });
+    return res.ok;
+  } catch (error) {
+    return false;
+  }
+}
+
 export async function signUp(email: string, password: string, startingBalance: number): Promise<User | null> {
   try {
     const res = await fetch(`${API_BASE_URL}/api/auth/signup`, {

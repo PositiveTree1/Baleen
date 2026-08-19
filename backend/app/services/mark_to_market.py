@@ -142,51 +142,40 @@ class MarkToMarketService:
                         net_pnl = gross_pnl - fee
                         elog.realized_pnl_usd = round(net_pnl, 2)
 
-                # 4. Update user sandbox balances based on their active filled trades
+                # 4. Synchronize authoritative sandbox balance & snapshots
                 from app.models import PortfolioSnapshot
                 from datetime import datetime
 
                 now_dt = datetime.utcnow()
+                stmt_all_filled = select(ExecutionLog).where(ExecutionLog.status == "FILLED")
+                all_filled = (await db.execute(stmt_all_filled)).scalars().all()
+                total_portfolio_pnl = sum(float(l.realized_pnl_usd or 0.0) for l in all_filled)
+                canonical_balance = round(10000.0 + total_portfolio_pnl, 2)
+                trades_count = len(all_filled)
+
+                # Update all users to authoritative canonical balance
                 stmt_users = select(User)
                 users = (await db.execute(stmt_users)).scalars().all()
-
                 for u in users:
-                    stmt_user_logs = select(ExecutionLog).where(
-                        ExecutionLog.user_id == u.id,
-                        ExecutionLog.status == "FILLED"
-                    )
-                    user_logs = (await db.execute(stmt_user_logs)).scalars().all()
-
-                    total_pnl = sum(float(ulog.realized_pnl_usd or 0.0) for ulog in user_logs)
-                    base_balance = float(u.sandbox_starting_balance_usd or 10000.0)
-                    u.sandbox_balance_usd = round(base_balance + total_pnl, 2)
-                    if u.sandbox_balance_usd > (u.sandbox_high_water_mark_usd or base_balance):
-                        u.sandbox_high_water_mark_usd = u.sandbox_balance_usd
-
-                    # Record user snapshot
+                    u.sandbox_balance_usd = canonical_balance
+                    if canonical_balance > float(u.sandbox_high_water_mark_usd or 10000.0):
+                        u.sandbox_high_water_mark_usd = canonical_balance
+                    
                     db.add(PortfolioSnapshot(
                         user_id=u.id,
                         timestamp=now_dt,
-                        balance=u.sandbox_balance_usd,
-                        total_pnl=round(total_pnl, 2),
-                        active_trades_count=len(user_logs)
+                        balance=canonical_balance,
+                        total_pnl=round(total_portfolio_pnl, 2),
+                        active_trades_count=trades_count
                     ))
 
-                # Record global platform sandbox snapshot
-                stmt_sys_logs = select(ExecutionLog).where(
-                    ExecutionLog.user_id.is_(None),
-                    ExecutionLog.status == "FILLED"
-                )
-                sys_logs = (await db.execute(stmt_sys_logs)).scalars().all()
-                sys_pnl = sum(float(l.realized_pnl_usd or 0.0) for l in sys_logs)
-                sys_balance = round(10000.0 + sys_pnl, 2)
-
+                # Global platform sandbox snapshot
                 db.add(PortfolioSnapshot(
                     user_id=None,
                     timestamp=now_dt,
-                    balance=sys_balance,
-                    total_pnl=round(sys_pnl, 2),
-                    active_trades_count=len(sys_logs)
+                    balance=canonical_balance,
+                    total_pnl=round(total_portfolio_pnl, 2),
+                    active_trades_count=trades_count
                 ))
 
                 await db.commit()
