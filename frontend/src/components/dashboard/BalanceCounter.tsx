@@ -1,6 +1,6 @@
 'use client';
-import { motion, useSpring, useTransform } from 'framer-motion';
-import { useEffect, useState } from 'react';
+import { motion, useMotionValue, animate, useTransform } from 'framer-motion';
+import { useEffect, useState, useRef } from 'react';
 import { TrendingUp, TrendingDown } from 'lucide-react';
 
 interface BalanceCounterProps {
@@ -11,18 +11,25 @@ interface BalanceCounterProps {
 }
 
 export function BalanceCounter({ balance, pnl, pnlPct, onResetClick }: BalanceCounterProps) {
-  const initial = balance ?? 10000;
-  const springValue = useSpring(initial, { stiffness: 100, damping: 28, restDelta: 0.01 });
+  const motionVal = useMotionValue(10000.0);
   const [isClient, setIsClient] = useState(false);
+  const prevBalanceRef = useRef<number>(10000.0);
 
   useEffect(() => {
     setIsClient(true);
     if (balance !== null && balance !== undefined) {
-      springValue.set(balance);
+      const target = balance;
+      prevBalanceRef.current = target;
+      
+      const controls = animate(motionVal, target, {
+        duration: 0.65,
+        ease: [0.16, 1, 0.3, 1] // Clean easeOutExpo — glides directly to target with zero overshoot
+      });
+      return () => controls.stop();
     }
-  }, [balance, springValue]);
+  }, [balance, motionVal]);
 
-  const displayValue = useTransform(springValue, (latest) => {
+  const displayValue = useTransform(motionVal, (latest) => {
     return `$${Math.max(0, latest).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   });
 
@@ -30,7 +37,7 @@ export function BalanceCounter({ balance, pnl, pnlPct, onResetClick }: BalanceCo
   const isPositive = (pnl ?? 0) >= 0;
 
   return (
-    <div className="flex flex-col gap-1.5">
+    <div className="flex flex-col gap-1.5 select-none">
       <div className="flex items-center gap-2 flex-wrap">
         <span className="text-xs text-slate-500 font-semibold tracking-wide">Available Sandbox Capital</span>
         <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold text-slate-700 bg-slate-100 border border-black/[0.06] shadow-[inset_0_1px_0_rgba(255,255,255,0.8)]">
@@ -68,4 +75,3 @@ export function BalanceCounter({ balance, pnl, pnlPct, onResetClick }: BalanceCo
     </div>
   );
 }
-

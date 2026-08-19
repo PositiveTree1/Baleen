@@ -97,6 +97,16 @@ export function PortfolioAnalytics({
         pnl: s.pnl,
         date: s.date || 'Today'
       }));
+      // Lock the final timeline point to live currentBalance
+      const lastSnap = timeline[timeline.length - 1];
+      if (Math.abs(lastSnap.balance - currentBalance) > 0.01) {
+        timeline.push({
+          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          balance: Math.round(currentBalance * 100) / 100,
+          pnl: Math.round((currentBalance - startingBalance) * 100) / 100,
+          date: 'Now'
+        });
+      }
     } else {
       // Build chronological curve from trades
       const sortedLogs = [...filteredLogs].sort((a, b) => {
@@ -124,6 +134,15 @@ export function PortfolioAnalytics({
           date: log.timestamp ? new Date(log.timestamp).toLocaleDateString([], { month: 'short', day: 'numeric' }) : ''
         });
       }
+
+      if (Math.abs(running - currentBalance) > 0.01) {
+        timeline.push({
+          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          balance: Math.round(currentBalance * 100) / 100,
+          pnl: Math.round((currentBalance - startingBalance) * 100) / 100,
+          date: 'Now'
+        });
+      }
     }
 
     return {
@@ -136,7 +155,7 @@ export function PortfolioAnalytics({
       pnlTimeline: timeline,
       periodNetPnL: pnlSum
     };
-  }, [filteredLogs, snapshots, startingBalance]);
+  }, [filteredLogs, snapshots, startingBalance, currentBalance]);
 
   const isNetPositive = currentBalance >= startingBalance;
   const netPnL = timeframe === 'ALL' ? (currentBalance - startingBalance) : periodNetPnL;

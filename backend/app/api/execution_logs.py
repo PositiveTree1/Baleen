@@ -271,8 +271,9 @@ async def get_portfolio_snapshots(
         elif tf == "ytd":
             stmt = stmt.where(PortfolioSnapshot.timestamp >= datetime(now.year, 1, 1))
 
-    stmt = stmt.order_by(PortfolioSnapshot.timestamp.asc()).limit(limit)
+    stmt = stmt.order_by(PortfolioSnapshot.timestamp.desc()).limit(limit)
     rows = (await db.execute(stmt)).scalars().all()
+    rows = list(reversed(rows))
 
     return [
         {
