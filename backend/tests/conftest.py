@@ -1,4 +1,21 @@
+import os
+from pathlib import Path
+
+# Ensure tests run against an isolated test SQLite DB
+test_db_path = Path(__file__).resolve().parent.parent / "test_baleen.db"
+os.environ["TESTING"] = "1"
+os.environ["DATABASE_URL"] = f"sqlite+aiosqlite:///{test_db_path.as_posix()}"
+
 import pytest
+
+@pytest.fixture(scope="session", autouse=True)
+def cleanup_test_db():
+    yield
+    if test_db_path.exists():
+        try:
+            os.remove(test_db_path)
+        except Exception:
+            pass
 
 @pytest.fixture
 def make_wallet_stats():

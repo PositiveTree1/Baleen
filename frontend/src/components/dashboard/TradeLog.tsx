@@ -23,7 +23,9 @@ export function TradeLog({ userId, onSelectTrade }: TradeLogProps) {
   useEffect(() => {
     async function load() {
       const data = await fetchExecutionLogs(userId, { limit: '500' });
-      setLogs(data);
+      if (data && data.length > 0) {
+        setLogs(data);
+      }
       setLoading(false);
     }
     load();

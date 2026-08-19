@@ -41,11 +41,11 @@ export default function DashboardPage() {
       const [userData, portfolioData, logsData] = await Promise.all([
         session?.user?.id ? fetchUserSettings(session.user.id) : null,
         fetchPortfolioSummary(session?.user?.id),
-        fetchExecutionLogs(session?.user?.id, { limit: '50' })
+        fetchExecutionLogs(session?.user?.id, { limit: '500' })
       ]);
       if (userData) setUser(userData);
       if (portfolioData) setPortfolio(portfolioData);
-      if (logsData) setLogs(logsData);
+      if (logsData && logsData.length > 0) setLogs(logsData);
     } catch (err) {
       console.debug("Dashboard polling note:", err);
     }

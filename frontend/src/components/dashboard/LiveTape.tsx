@@ -19,7 +19,9 @@ export function LiveTape({ userId, onSelectTrade }: LiveTapeProps) {
   useEffect(() => {
     async function load() {
       const data = await fetchExecutionLogs(userId, { limit: '30' });
-      setLogs(data);
+      if (data && data.length > 0) {
+        setLogs(data);
+      }
       setLoading(false);
     }
     load();

@@ -91,6 +91,10 @@ async def startup_event():
     # Init DB
     await init_db()
     
+    if os.environ.get("TESTING") == "1":
+        logger.info("🧪 Test mode active: skipping background scheduler and poller initialization.")
+        return
+
     # Restore last discovery state from DB (survives restarts)
     from app.discovery.scanner import load_discovery_state_from_db
     await load_discovery_state_from_db()

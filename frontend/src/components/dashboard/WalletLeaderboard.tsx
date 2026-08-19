@@ -27,8 +27,8 @@ export function WalletLeaderboard({ userId, onSelectWallet }: WalletLeaderboardP
       fetchWallets(),
       fetchCopiedWalletStats(userId)
     ]);
-    setWallets(walletsData);
-    setCopiedStats(copiedData);
+    if (walletsData && walletsData.length > 0) setWallets(walletsData);
+    if (copiedData && copiedData.length > 0) setCopiedStats(copiedData);
     setLoading(false);
   };
 
