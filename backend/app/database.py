@@ -21,11 +21,17 @@ if "sqlite" in db_url:
         db_url = "sqlite+aiosqlite:////data/baleen.db"
     engine_kwargs["connect_args"] = {"check_same_thread": False}
 else:
-    # PostgreSQL settings: pre-ping to detect stale connections and keep pools lean
+    # PostgreSQL settings: pre-ping to detect stale connections and keep pools lean for Supabase pooler
     engine_kwargs["pool_pre_ping"] = True
-    engine_kwargs["pool_size"] = 5
-    engine_kwargs["max_overflow"] = 10
-    engine_kwargs["pool_recycle"] = 300
+    engine_kwargs["pool_size"] = 2
+    engine_kwargs["max_overflow"] = 3
+    engine_kwargs["pool_recycle"] = 60
+    engine_kwargs["pool_timeout"] = 15
+    if not _using_sqlite_fallback:
+        engine_kwargs["connect_args"] = {
+            "statement_cache_size": 0,
+            "prepared_statement_cache_size": 0
+        }
 
 try:
     engine = create_async_engine(db_url, **engine_kwargs)
@@ -63,15 +69,6 @@ async def get_db():
         yield session
 
 NEW_COLS = [
-    ("wallets", "is_hft", "BOOLEAN DEFAULT FALSE"),
-    ("wallets", "trades_per_hour", "FLOAT"),
-    ("wallets", "wilson_lb", "FLOAT"),
-    ("wallets", "alpha_per_trade", "FLOAT"),
-    ("wallets", "profit_factor", "FLOAT"),
-    ("wallets", "first_trade_at", "TIMESTAMP"),
-    ("wallets", "last_trade_at", "TIMESTAMP"),
-    ("wallets", "cached_daily_pnl", "TEXT"),
-    ("wallets", "name", "VARCHAR(255)"),
     ("wallets", "pseudonym", "VARCHAR(255)"),
     ("wallets", "profile_image", "TEXT"),
     ("execution_logs", "event_slug", "VARCHAR(255)"),
@@ -86,63 +83,72 @@ NEW_COLS = [
 
 async def init_db():
     global engine, SessionLocal, AsyncSessionLocal, _using_sqlite_fallback
-    try:
-        async with engine.begin() as conn:
-            # Enable WAL mode if SQLite
-            if "sqlite" in str(engine.url):
-                await conn.execute(text("PRAGMA journal_mode=WAL;"))
-                await conn.execute(text("PRAGMA synchronous=NORMAL;"))
-            await conn.run_sync(Base.metadata.create_all)
-            
-            # Safe idempotent migrations for Postgres/SQLite
-            for table, col, col_type in NEW_COLS:
-                try:
-                    if "sqlite" in str(conn.engine.url):
-                        await conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {col} {col_type};"))
-                    else:
-                        await conn.execute(text(f"ALTER TABLE {table} ADD COLUMN IF NOT EXISTS {col} {col_type};"))
-                except Exception:
-                    pass
+    
+    # Retry loop to handle Render rolling container deployments where PgBouncer slots drain
+    max_retries = 5
+    last_exception = None
+    
+    for attempt in range(1, max_retries + 1):
+        try:
+            async with engine.begin() as conn:
+                if "sqlite" in str(engine.url):
+                    await conn.execute(text("PRAGMA journal_mode=WAL;"))
+                    await conn.execute(text("PRAGMA synchronous=NORMAL;"))
+                await conn.run_sync(Base.metadata.create_all)
+                
+                # Safe idempotent migrations for Postgres/SQLite
+                for table, col, col_type in NEW_COLS:
+                    try:
+                        if "sqlite" in str(conn.engine.url):
+                            await conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {col} {col_type};"))
+                        else:
+                            await conn.execute(text(f"ALTER TABLE {table} ADD COLUMN IF NOT EXISTS {col} {col_type};"))
+                    except Exception:
+                        pass
 
-        db_driver = engine.url.drivername
-        is_postgres = "postgres" in db_driver
-        if is_postgres:
-            logger.info(f"✅ Database initialized successfully — connected to Supabase PostgreSQL ({db_driver}).")
-        else:
-            logger.warning(
-                f"⚠️  Database initialized with LOCAL SQLite ({db_driver}). "
-                f"Data will NOT persist across deploys/restarts! "
-                f"Set DATABASE_URL to your Supabase PostgreSQL connection string."
-            )
-    except Exception as exc:
-        # On Render/production, crash loud instead of silently degrading
-        if os.environ.get("RENDER") or os.environ.get("RENDER_EXTERNAL_URL"):
-            logger.critical(
-                f"FATAL: PostgreSQL initialization failed: {exc}. "
-                f"Check your DATABASE_URL environment variable in Render settings."
-            )
-            raise RuntimeError(
-                f"PostgreSQL initialization failed in production. "
-                f"Fix DATABASE_URL in Render environment variables. Error: {exc}"
-            ) from exc
+            db_driver = engine.url.drivername
+            is_postgres = "postgres" in db_driver
+            if is_postgres:
+                logger.info(f"✅ Database initialized successfully — connected to Supabase PostgreSQL ({db_driver}).")
+            else:
+                logger.warning(
+                    f"⚠️  Database initialized with LOCAL SQLite ({db_driver}). "
+                    f"Data will NOT persist across deploys/restarts! "
+                    f"Set DATABASE_URL to your Supabase PostgreSQL connection string."
+                )
+            return
+        except Exception as exc:
+            last_exception = exc
+            logger.warning(f"Database connection attempt {attempt}/{max_retries} failed ({exc}). Retrying in 3s...")
+            await asyncio.sleep(3)
 
-        logger.error(f"Error initializing primary database ({engine.url.drivername}): {exc}. Activating SQLite fallback...")
-        _using_sqlite_fallback = True
-        fallback_url = "sqlite+aiosqlite:////data/baleen.db" if os.path.exists("/data") else "sqlite+aiosqlite:///./baleen.db"
-        engine = create_async_engine(fallback_url, echo=False, future=True, connect_args={"check_same_thread": False})
-        SessionLocal.configure(bind=engine)
-        async with engine.begin() as conn:
-            await conn.execute(text("PRAGMA journal_mode=WAL;"))
-            await conn.execute(text("PRAGMA synchronous=NORMAL;"))
-            await conn.run_sync(Base.metadata.create_all)
-            for table, col, col_type in NEW_COLS:
-                try:
-                    await conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {col} {col_type};"))
-                except Exception:
-                    pass
-        logger.warning(
-            f"⚠️  SQLite fallback database initialized at {fallback_url}. "
-            f"Data will NOT persist across deploys/restarts!"
+    # If all retries failed
+    exc = last_exception
+    if os.environ.get("RENDER") or os.environ.get("RENDER_EXTERNAL_URL"):
+        logger.critical(
+            f"FATAL: PostgreSQL initialization failed after {max_retries} retries: {exc}. "
+            f"Check your DATABASE_URL environment variable in Render settings."
         )
+        raise RuntimeError(
+            f"PostgreSQL initialization failed in production after {max_retries} retries. "
+            f"Fix DATABASE_URL in Render environment variables. Error: {exc}"
+        ) from exc
 
-
+    logger.error(f"Error initializing primary database ({engine.url.drivername}): {exc}. Activating SQLite fallback...")
+    _using_sqlite_fallback = True
+    fallback_url = "sqlite+aiosqlite:////data/baleen.db" if os.path.exists("/data") else "sqlite+aiosqlite:///./baleen.db"
+    engine = create_async_engine(fallback_url, echo=False, future=True, connect_args={"check_same_thread": False})
+    SessionLocal.configure(bind=engine)
+    async with engine.begin() as conn:
+        await conn.execute(text("PRAGMA journal_mode=WAL;"))
+        await conn.execute(text("PRAGMA synchronous=NORMAL;"))
+        await conn.run_sync(Base.metadata.create_all)
+        for table, col, col_type in NEW_COLS:
+            try:
+                await conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {col} {col_type};"))
+            except Exception:
+                pass
+    logger.warning(
+        f"⚠️  SQLite fallback database initialized at {fallback_url}. "
+        f"Data will NOT persist across deploys/restarts!"
+    )
