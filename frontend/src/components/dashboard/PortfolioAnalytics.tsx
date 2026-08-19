@@ -2,8 +2,8 @@
 import { useEffect, useState, useMemo } from 'react';
 import { ExecutionLog } from '@/types';
 import { fetchPortfolioSnapshots } from '@/lib/api-client';
-import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, Dot } from 'recharts';
-import { TrendingUp, TrendingDown, Award, AlertTriangle, ShieldCheck, DollarSign, PieChart, Zap, Calendar, HelpCircle, Layers, Flame, ArrowUpRight, ArrowDownRight, Compass } from 'lucide-react';
+import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip } from 'recharts';
+import { TrendingUp, TrendingDown, Award, AlertTriangle, Zap, HelpCircle, Flame, Compass, ArrowUpRight, ArrowDownRight, Sparkles, Filter } from 'lucide-react';
 import { formatCompactPnL, formatExactPnL } from '@/lib/formatters';
 
 interface PortfolioAnalyticsProps {
@@ -21,38 +21,18 @@ export function PortfolioAnalytics({
   currentBalance = 10000.0,
   onSelectTrade
 }: PortfolioAnalyticsProps) {
-  const [timeframe, setTimeframe] = useState<'1D' | '1W' | '1M' | 'YTD' | 'ALL'>('ALL');
+  const [timeframe, setTimeframe] = useState<'1H' | '6H' | '1D' | '1W' | '1M' | 'YTD' | 'ALL'>('ALL');
   const [viewMode, setViewMode] = useState<'curve' | 'attribution'>('curve');
-  const [snapshots, setSnapshots] = useState<{
-    id: string;
-    timestamp: string;
-    time: string;
-    date: string;
-    balance: number;
-    pnl: number;
-    activeTrades: number;
-  }[]>([]);
-
-  useEffect(() => {
-    async function loadSnapshots() {
-      const data = await fetchPortfolioSnapshots(userId, timeframe === 'ALL' ? undefined : timeframe.toLowerCase());
-      if (data && data.length > 0) {
-        setSnapshots(data);
-      } else {
-        setSnapshots([]);
-      }
-    }
-    loadSnapshots();
-    const interval = setInterval(loadSnapshots, 6000);
-    return () => clearInterval(interval);
-  }, [userId, timeframe]);
+  const [attributionTab, setAttributionTab] = useState<'both' | 'alpha' | 'drawdown'>('both');
 
   // Filter logs by selected timeframe
   const filteredLogs = useMemo(() => {
     if (timeframe === 'ALL') return logs;
     const now = Date.now();
     let cutoff = 0;
-    if (timeframe === '1D') cutoff = now - 24 * 60 * 60 * 1000;
+    if (timeframe === '1H') cutoff = now - 60 * 60 * 1000;
+    else if (timeframe === '6H') cutoff = now - 6 * 60 * 60 * 1000;
+    else if (timeframe === '1D') cutoff = now - 24 * 60 * 60 * 1000;
     else if (timeframe === '1W') cutoff = now - 7 * 24 * 60 * 60 * 1000;
     else if (timeframe === '1M') cutoff = now - 30 * 24 * 60 * 60 * 1000;
     else if (timeframe === 'YTD') cutoff = new Date(new Date().getFullYear(), 0, 1).getTime();
@@ -75,14 +55,27 @@ export function PortfolioAnalytics({
     return activeCids.size;
   }, [logs]);
 
-  // Calculate Winners, Losers, and timeline
-  const { topWinner, topLoser, winCount, lossCount, winRate, totalResolved, pnlTimeline, periodNetPnL, drawdownCulprits } = useMemo(() => {
+  // Calculate Winners, Losers, Top 50 significant trades, and aligned timeline
+  const { 
+    topWinner, 
+    topLoser, 
+    winCount, 
+    lossCount, 
+    winRate, 
+    totalResolved, 
+    pnlTimeline, 
+    periodNetPnL, 
+    drawdownCulprits,
+    alphaDrivers,
+    topSignificantTrades 
+  } = useMemo(() => {
     let bestWin: ExecutionLog | null = null;
     let worstLoss: ExecutionLog | null = null;
     let wins = 0;
     let losses = 0;
     let pnlSum = 0;
 
+    const winLogs: ExecutionLog[] = [];
     const lossLogs: ExecutionLog[] = [];
 
     for (const log of filteredLogs) {
@@ -90,6 +83,7 @@ export function PortfolioAnalytics({
       pnlSum += pnl;
       if (pnl > 0) {
         wins++;
+        winLogs.push(log);
         if (!bestWin || pnl > (bestWin.pnl ?? 0)) {
           bestWin = log;
         }
@@ -102,10 +96,22 @@ export function PortfolioAnalytics({
       }
     }
 
-    // Top 3 drawdown contributors
+    // Top 3 drawdown contributors (biggest losses)
     const drawdownCulprits = lossLogs
       .sort((a, b) => (a.pnl ?? 0) - (b.pnl ?? 0))
       .slice(0, 3);
+
+    // Top 3 alpha contributors (biggest wins)
+    const alphaDrivers = winLogs
+      .sort((a, b) => (b.pnl ?? 0) - (a.pnl ?? 0))
+      .slice(0, 3);
+
+    // Top 50 most significant trades for the heatpoint markers
+    const topSignificantTrades = [...filteredLogs]
+      .sort((a, b) => Math.abs(b.pnl ?? 0) - Math.abs(a.pnl ?? 0))
+      .slice(0, 50);
+
+    const significantIds = new Set(topSignificantTrades.map(t => t.id));
 
     const totalResolved = wins + losses;
     const wr = totalResolved > 0 ? (wins / totalResolved) * 100 : 0.0;
@@ -116,68 +122,65 @@ export function PortfolioAnalytics({
       pnl: number;
       date: string;
       eventTrade?: ExecutionLog;
+      isSignificant?: boolean;
     }
 
-    let timeline: TimelinePoint[] = [];
-    if (snapshots.length >= 2) {
-      timeline = snapshots.map((s, idx) => ({
-        time: s.time || '00:00',
-        balance: s.balance,
-        pnl: s.pnl,
-        date: s.date || 'Today',
-        eventTrade: filteredLogs[idx % Math.max(1, filteredLogs.length)]
-      }));
-      // Lock final timeline point to live currentBalance
-      const lastSnap = timeline[timeline.length - 1];
-      if (Math.abs(lastSnap.balance - currentBalance) > 0.01) {
-        timeline.push({
-          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-          balance: Math.round(currentBalance * 100) / 100,
-          pnl: Math.round((currentBalance - startingBalance) * 100) / 100,
-          date: 'Now',
-          eventTrade: undefined
-        });
-      }
-    } else {
-      // Build chronological curve from trades
-      const sortedLogs = [...filteredLogs].sort((a, b) => {
-        const ta = a.timestamp ? new Date(a.timestamp).getTime() : 0;
-        const tb = b.timestamp ? new Date(b.timestamp).getTime() : 0;
-        return ta - tb;
-      });
+    // Build strictly chronological timeline from trades sorted by timestamp
+    const sortedLogs = [...filteredLogs].sort((a, b) => {
+      const ta = a.timestamp ? new Date(a.timestamp).getTime() : 0;
+      const tb = b.timestamp ? new Date(b.timestamp).getTime() : 0;
+      return ta - tb;
+    });
 
-      let running = startingBalance;
-      timeline.push({
-        time: 'Start',
-        balance: startingBalance,
-        pnl: 0,
-        date: 'Base',
-        eventTrade: undefined
-      });
+    const timeline: TimelinePoint[] = [];
+    let running = startingBalance;
 
-      for (const log of sortedLogs) {
-        const pnl = log.pnl ?? 0;
-        running += pnl;
-        const dateStr = log.timestamp ? new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
+    timeline.push({
+      time: 'Start',
+      balance: Math.round(startingBalance * 100) / 100,
+      pnl: 0,
+      date: 'Baseline'
+    });
+
+    // Sample or bucket chronological trajectory
+    const totalPoints = sortedLogs.length;
+    const step = totalPoints > 80 ? Math.ceil(totalPoints / 80) : 1;
+
+    for (let i = 0; i < totalPoints; i++) {
+      const log = sortedLogs[i];
+      const pnl = log.pnl ?? 0;
+      running += pnl;
+
+      const isSig = significantIds.has(log.id);
+      const shouldInclude = isSig || (i % step === 0) || (i === totalPoints - 1);
+
+      if (shouldInclude) {
+        const dObj = log.timestamp ? new Date(log.timestamp) : null;
+        const timeLabel = dObj 
+          ? dObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) 
+          : `T-${timeline.length}`;
+        const dateLabel = dObj 
+          ? dObj.toLocaleDateString([], { month: 'short', day: 'numeric' }) 
+          : '';
+
         timeline.push({
-          time: dateStr || `T-${timeline.length}`,
+          time: timeLabel,
           balance: Math.round(running * 100) / 100,
-          pnl: Math.round(pnl * 100) / 100,
-          date: log.timestamp ? new Date(log.timestamp).toLocaleDateString([], { month: 'short', day: 'numeric' }) : '',
-          eventTrade: log
-        });
-      }
-
-      if (Math.abs(running - currentBalance) > 0.01) {
-        timeline.push({
-          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-          balance: Math.round(currentBalance * 100) / 100,
-          pnl: Math.round((currentBalance - startingBalance) * 100) / 100,
-          date: 'Now',
-          eventTrade: undefined
+          pnl: Math.round((running - startingBalance) * 100) / 100,
+          date: dateLabel,
+          eventTrade: isSig ? log : undefined,
+          isSignificant: isSig
         });
       }
     }
+
+    // Pin final point precisely to live currentBalance
+    timeline.push({
+      time: 'Now',
+      balance: Math.round(currentBalance * 100) / 100,
+      pnl: Math.round((currentBalance - startingBalance) * 100) / 100,
+      date: 'Live'
+    });
 
     return {
       topWinner: bestWin,
@@ -188,17 +191,18 @@ export function PortfolioAnalytics({
       totalResolved,
       pnlTimeline: timeline,
       periodNetPnL: pnlSum,
-      drawdownCulprits
+      drawdownCulprits,
+      alphaDrivers,
+      topSignificantTrades
     };
-  }, [filteredLogs, snapshots, startingBalance, currentBalance]);
+  }, [filteredLogs, startingBalance, currentBalance]);
 
-  const isNetPositive = currentBalance >= startingBalance;
   const netPnL = timeframe === 'ALL' ? (currentBalance - startingBalance) : periodNetPnL;
   const netPnLPct = startingBalance > 0 ? (netPnL / startingBalance) * 100 : 0;
 
   return (
     <div className="space-y-6">
-      {/* Top Banner: Chart + Win/Loss Ratio */}
+      {/* Top Banner: Capital Curve + Scorecard */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left: Net Worth Performance Area Chart & TradingView Attribution */}
         <div className="lg:col-span-2 p-6 rounded-3xl bg-white border border-black/[0.08] shadow-[inset_0_1px_0_rgba(255,255,255,1),0_2px_8px_rgba(0,0,0,0.03),0_16px_36px_-6px_rgba(0,0,0,0.05)] space-y-4">
@@ -213,7 +217,7 @@ export function PortfolioAnalytics({
                 <div className="flex rounded-xl bg-slate-100 p-0.5 border border-black/[0.06] text-[11px] font-semibold">
                   <button
                     onClick={() => setViewMode('curve')}
-                    className={`px-2 py-0.5 rounded-lg transition-all cursor-pointer ${
+                    className={`px-2.5 py-0.5 rounded-lg transition-all cursor-pointer ${
                       viewMode === 'curve' ? 'bg-white text-slate-900 shadow-2xs font-bold' : 'text-slate-500 hover:text-slate-800'
                     }`}
                   >
@@ -221,12 +225,12 @@ export function PortfolioAnalytics({
                   </button>
                   <button
                     onClick={() => setViewMode('attribution')}
-                    className={`px-2 py-0.5 rounded-lg transition-all cursor-pointer flex items-center gap-1 ${
+                    className={`px-2.5 py-0.5 rounded-lg transition-all cursor-pointer flex items-center gap-1.5 ${
                       viewMode === 'attribution' ? 'bg-indigo-600 text-white shadow-2xs font-bold' : 'text-slate-500 hover:text-slate-800'
                     }`}
-                    title="TradingView-style interactive trade execution markers"
+                    title="Top 50 significant trade markers & heatpoints"
                   >
-                    <Compass size={11} /> Trade Markers
+                    <Compass size={11} /> Top 50 Heatpoints
                   </button>
                 </div>
               </div>
@@ -240,14 +244,14 @@ export function PortfolioAnalytics({
               </div>
             </div>
 
-            {/* Timeframe selector */}
-            <div className="flex items-center gap-2">
+            {/* Timeframe selector: 1H, 6H, 1D, 1W, 1M, YTD, ALL */}
+            <div className="flex items-center gap-1.5">
               <div className="flex rounded-xl bg-slate-100 p-0.5 border border-black/[0.06] text-xs font-mono font-semibold">
-                {(['1D', '1W', '1M', 'YTD', 'ALL'] as const).map((tf) => (
+                {(['1H', '6H', '1D', '1W', '1M', 'YTD', 'ALL'] as const).map((tf) => (
                   <button
                     key={tf}
                     onClick={() => setTimeframe(tf)}
-                    className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer ${
+                    className={`px-2 py-1 rounded-lg transition-all cursor-pointer ${
                       timeframe === tf 
                         ? 'bg-white text-slate-950 font-bold shadow-xs' 
                         : 'text-slate-500 hover:text-slate-900'
@@ -260,13 +264,13 @@ export function PortfolioAnalytics({
             </div>
           </div>
 
-          {/* Area Chart with TradingView Attribution Tooltips */}
+          {/* Area Chart with MonotoneX / Linear Coordinates (100% Dot Synchronization) */}
           <div className="h-56 w-full pt-2 outline-none focus:outline-none ring-0 focus:ring-0 [&_*]:outline-none [&_*]:focus:outline-none select-none">
             <ResponsiveContainer width="100%" height="100%" className="outline-none">
               <AreaChart data={pnlTimeline} margin={{ top: 10, right: 10, left: -20, bottom: 0 }} className="outline-none">
                 <defs>
                   <linearGradient id="balanceGradient" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor={netPnL >= 0 ? '#10B981' : '#F43F5E'} stopOpacity={0.3} />
+                    <stop offset="5%" stopColor={netPnL >= 0 ? '#10B981' : '#F43F5E'} stopOpacity={0.25} />
                     <stop offset="95%" stopColor={netPnL >= 0 ? '#10B981' : '#F43F5E'} stopOpacity={0.0} />
                   </linearGradient>
                 </defs>
@@ -294,14 +298,14 @@ export function PortfolioAnalytics({
                         <div className="bg-slate-950 text-white px-4 py-3 rounded-2xl text-xs font-mono shadow-2xl border border-white/10 max-w-xs space-y-1.5">
                           <div className="flex items-center justify-between text-[10px] text-slate-400">
                             <span>{d.date} • {d.time}</span>
-                            <span className="font-bold text-slate-300">MTM Valuation</span>
+                            <span className="font-bold text-slate-300">Sandbox MTM</span>
                           </div>
                           <div className="text-base font-bold text-white">${d.balance.toLocaleString(undefined, { minimumFractionDigits: 2 })}</div>
                           <div className={`text-[11px] font-bold ${d.pnl >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
                             {d.pnl >= 0 ? '+' : ''}${d.pnl.toFixed(2)} Mark-to-Market P&amp;L
                           </div>
 
-                          {viewMode === 'attribution' && trade && (
+                          {trade && (
                             <div className="pt-2 border-t border-white/10 text-[11px] font-sans space-y-1 text-slate-300">
                               <div className="font-bold text-white truncate flex items-center gap-1.5">
                                 <span className={`px-1.5 py-0.2 rounded text-[9px] font-bold font-mono ${trade.side === 'BUY' ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40' : 'bg-rose-500/20 text-rose-300 border border-rose-500/40'}`}>
@@ -311,7 +315,9 @@ export function PortfolioAnalytics({
                               </div>
                               <div className="flex items-center justify-between text-[10px] font-mono text-slate-400">
                                 <span>Whale: {trade.whaleName || trade.whalePseudonym || '0x...'}</span>
-                                <span className="text-indigo-300">${(trade.size ?? 0).toFixed(2)} fill</span>
+                                <span className={trade.pnl && trade.pnl >= 0 ? 'text-emerald-400 font-bold' : 'text-rose-400 font-bold'}>
+                                  {formatCompactPnL(trade.pnl)}
+                                </span>
                               </div>
                             </div>
                           )}
@@ -322,22 +328,73 @@ export function PortfolioAnalytics({
                   }}
                 />
                 <Area 
-                  type="monotone" 
+                  type="monotoneX" 
                   dataKey="balance" 
                   stroke={netPnL >= 0 ? '#10B981' : '#F43F5E'} 
                   strokeWidth={2.5}
                   fillOpacity={1} 
                   fill="url(#balanceGradient)"
-                  dot={viewMode === 'attribution' ? { r: 3, fill: '#6366F1', stroke: '#FFFFFF', strokeWidth: 1.5 } : false}
-                  activeDot={{ r: 5, fill: netPnL >= 0 ? '#10B981' : '#F43F5E', stroke: '#FFFFFF', strokeWidth: 2 }}
+                  dot={viewMode === 'attribution' ? (props: any) => {
+                    const { cx, cy, payload } = props;
+                    if (!payload.isSignificant) return <></>;
+                    const pnl = payload.eventTrade?.pnl ?? 0;
+                    const fillCol = pnl >= 0 ? '#10B981' : '#F43F5E';
+                    return (
+                      <circle 
+                        key={`${cx}-${cy}`}
+                        cx={cx} 
+                        cy={cy} 
+                        r={4.5} 
+                        fill={fillCol} 
+                        stroke="#FFFFFF" 
+                        strokeWidth={2}
+                        className="cursor-pointer transition-transform hover:scale-125"
+                        onClick={() => payload.eventTrade && onSelectTrade && onSelectTrade(payload.eventTrade)}
+                      />
+                    );
+                  } : false}
+                  activeDot={{ r: 6, fill: netPnL >= 0 ? '#10B981' : '#F43F5E', stroke: '#FFFFFF', strokeWidth: 2.5 }}
                   isAnimationActive={false}
                 />
               </AreaChart>
             </ResponsiveContainer>
           </div>
+
+          {/* Quick-select Top 50 Heatpoint Markers Strip (when in attribution mode) */}
+          {viewMode === 'attribution' && topSignificantTrades.length > 0 && (
+            <div className="pt-2 border-t border-black/[0.06] space-y-2">
+              <div className="flex items-center justify-between text-[11px] font-semibold text-slate-500">
+                <span className="flex items-center gap-1.5">
+                  <Sparkles size={12} className="text-indigo-600" />
+                  Top Significant Alpha &amp; Drawdown Fills ({topSignificantTrades.length})
+                </span>
+                <span className="text-[10px] text-slate-400 font-mono">Click to inspect trade</span>
+              </div>
+              <div className="flex gap-2 overflow-x-auto pb-1.5 scroll-smooth">
+                {topSignificantTrades.slice(0, 16).map((t) => {
+                  const pnl = t.pnl ?? 0;
+                  const isWin = pnl >= 0;
+                  return (
+                    <button
+                      key={t.id}
+                      onClick={() => onSelectTrade && onSelectTrade(t)}
+                      className={`px-2.5 py-1 rounded-xl text-[10px] font-mono font-bold whitespace-nowrap flex items-center gap-1.5 border transition-all cursor-pointer shadow-2xs hover:scale-105 ${
+                        isWin 
+                          ? 'bg-emerald-50 text-emerald-800 border-emerald-200 hover:bg-emerald-100' 
+                          : 'bg-rose-50 text-rose-800 border-rose-200 hover:bg-rose-100'
+                      }`}
+                    >
+                      <span>{t.whaleName || t.whalePseudonym || 'Whale'}</span>
+                      <span>{formatCompactPnL(pnl)}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </div>
 
-        {/* Right: Execution Scorecard with Positions vs Fills Demystification */}
+        {/* Right: Execution Scorecard with Positions vs Fills */}
         <div className="p-6 rounded-3xl bg-white border border-black/[0.08] shadow-[inset_0_1px_0_rgba(255,255,255,1),0_2px_8px_rgba(0,0,0,0.03),0_16px_36px_-6px_rgba(0,0,0,0.05)] flex flex-col justify-between space-y-4">
           <div>
             <div className="flex items-center justify-between mb-2">
@@ -398,44 +455,108 @@ export function PortfolioAnalytics({
         </div>
       </div>
 
-      {/* Drawdown Attribution Card: Explaining Sharp Valuation Dips */}
-      {drawdownCulprits.length > 0 && (
-        <div className="p-5 rounded-3xl bg-slate-900 text-white border border-slate-800 shadow-md space-y-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <div className="w-6 h-6 rounded-lg bg-rose-500/20 text-rose-400 flex items-center justify-center border border-rose-500/30">
-                <AlertTriangle size={14} />
+      {/* Dual Attribution Card: White Theme with Top Alpha Drivers & Drawdown Attribution */}
+      {(alphaDrivers.length > 0 || drawdownCulprits.length > 0) && (
+        <div className="p-6 rounded-3xl bg-white border border-black/[0.08] shadow-[inset_0_1px_0_rgba(255,255,255,1),0_2px_8px_rgba(0,0,0,0.03),0_16px_36px_-6px_rgba(0,0,0,0.05)] space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-black/[0.06] pb-3">
+            <div className="flex items-center gap-2.5">
+              <div className="w-7 h-7 rounded-xl bg-indigo-50 text-indigo-700 flex items-center justify-center border border-indigo-200">
+                <Sparkles size={15} />
               </div>
-              <h4 className="text-xs font-bold uppercase tracking-wider text-slate-200">
-                Drawdown &amp; Valuation Attribution (Why Did P&amp;L Move?)
-              </h4>
+              <div>
+                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-900">
+                  Valuation &amp; Performance Attribution (Why Did P&amp;L Move?)
+                </h4>
+                <span className="text-[11px] text-slate-500 font-mono">Live Mark-to-Market Price Shifts &amp; Alpha Breakdown</span>
+              </div>
             </div>
-            <span className="text-[10px] font-mono text-slate-400">Mark-to-Market Price Shifts &amp; Taker Fees</span>
+
+            {/* Filter Tabs: Both, Alpha Gains, Drawdown */}
+            <div className="flex rounded-xl bg-slate-100 p-0.5 border border-black/[0.04] text-[11px] font-semibold">
+              {(['both', 'alpha', 'drawdown'] as const).map((t) => (
+                <button
+                  key={t}
+                  onClick={() => setAttributionTab(t)}
+                  className={`px-2.5 py-0.5 rounded-lg transition-all cursor-pointer ${
+                    attributionTab === t 
+                      ? 'bg-white text-slate-950 font-bold shadow-2xs border border-black/[0.04]' 
+                      : 'text-slate-500 hover:text-slate-900'
+                  }`}
+                >
+                  {t === 'both' ? 'All Attribution' : t === 'alpha' ? '🚀 Alpha Drivers' : '⚠️ Drawdown'}
+                </button>
+              ))}
+            </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-            {drawdownCulprits.map((c) => {
-              const fillP = c.fillPrice ?? c.entryPrice ?? 0.5;
-              const curP = c.currentPrice ?? fillP;
-              return (
-                <div 
-                  key={c.id} 
-                  onClick={() => onSelectTrade && onSelectTrade(c)}
-                  className="p-3 rounded-2xl bg-slate-800/80 hover:bg-slate-800 border border-slate-700/60 transition-all cursor-pointer space-y-1.5"
-                >
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="font-bold text-slate-200 truncate max-w-[170px]" title={c.marketQuestion}>
-                      {c.marketQuestion || 'Prediction Contract'}
-                    </span>
-                    <span className="font-mono font-bold text-rose-400">{formatCompactPnL(c.pnl)}</span>
-                  </div>
-                  <div className="flex items-center justify-between text-[10px] font-mono text-slate-400">
-                    <span>Fill: ${(fillP).toFixed(3)} → Live: ${(curP).toFixed(3)}</span>
-                    <span className="text-slate-300">{c.whaleName || c.whalePseudonym || 'Whale'}</span>
-                  </div>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            {/* Top Alpha Drivers (Winners) */}
+            {(attributionTab === 'both' || attributionTab === 'alpha') && alphaDrivers.length > 0 && (
+              <div className="space-y-2.5">
+                <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-800">
+                  <ArrowUpRight size={14} className="text-emerald-600" />
+                  <span>Top Alpha Drivers (Best Price Appreciation)</span>
                 </div>
-              );
-            })}
+                <div className="space-y-2">
+                  {alphaDrivers.map((c) => {
+                    const fillP = c.fillPrice ?? c.entryPrice ?? 0.5;
+                    const curP = c.currentPrice ?? fillP;
+                    return (
+                      <div 
+                        key={c.id} 
+                        onClick={() => onSelectTrade && onSelectTrade(c)}
+                        className="p-3.5 rounded-2xl bg-emerald-50/40 hover:bg-emerald-50/80 border border-emerald-200/80 transition-all cursor-pointer space-y-1.5 shadow-2xs"
+                      >
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="font-bold text-slate-900 truncate max-w-[200px]" title={c.marketQuestion}>
+                            {c.marketQuestion || 'Prediction Contract'}
+                          </span>
+                          <span className="font-mono font-bold text-emerald-700">+{formatCompactPnL(c.pnl, false)}</span>
+                        </div>
+                        <div className="flex items-center justify-between text-[10px] font-mono text-slate-500">
+                          <span>Fill: ${(fillP).toFixed(3)} → Live: ${(curP).toFixed(3)}</span>
+                          <span className="text-slate-700 font-bold">{c.whaleName || c.whalePseudonym || 'Whale'}</span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Top Drawdown Culprits (Losses) */}
+            {(attributionTab === 'both' || attributionTab === 'drawdown') && drawdownCulprits.length > 0 && (
+              <div className="space-y-2.5">
+                <div className="flex items-center gap-1.5 text-xs font-bold text-rose-800">
+                  <ArrowDownRight size={14} className="text-rose-600" />
+                  <span>Top Drawdown Culprits (Adverse Price Moves)</span>
+                </div>
+                <div className="space-y-2">
+                  {drawdownCulprits.map((c) => {
+                    const fillP = c.fillPrice ?? c.entryPrice ?? 0.5;
+                    const curP = c.currentPrice ?? fillP;
+                    return (
+                      <div 
+                        key={c.id} 
+                        onClick={() => onSelectTrade && onSelectTrade(c)}
+                        className="p-3.5 rounded-2xl bg-rose-50/40 hover:bg-rose-50/80 border border-rose-200/80 transition-all cursor-pointer space-y-1.5 shadow-2xs"
+                      >
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="font-bold text-slate-900 truncate max-w-[200px]" title={c.marketQuestion}>
+                            {c.marketQuestion || 'Prediction Contract'}
+                          </span>
+                          <span className="font-mono font-bold text-rose-700">{formatCompactPnL(c.pnl)}</span>
+                        </div>
+                        <div className="flex items-center justify-between text-[10px] font-mono text-slate-500">
+                          <span>Fill: ${(fillP).toFixed(3)} → Live: ${(curP).toFixed(3)}</span>
+                          <span className="text-slate-700 font-bold">{c.whaleName || c.whalePseudonym || 'Whale'}</span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}

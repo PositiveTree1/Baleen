@@ -84,12 +84,16 @@ class MarkToMarketService:
                     for row in all_active_rows if row[0]
                 ))
 
-                # Concurrently price in bounded chunks with rate-limit protection
-                sem = asyncio.Semaphore(10)
+                # Concurrently price in bounded chunks with strict rate-limit protection
+                sem = asyncio.Semaphore(4)
 
                 async def _price_pair(cid: str, outc: str, asset_id: str):
                     async with sem:
                         cache_key = f"{cid.lower().strip()}:{outc.lower().strip()}"
+                        # If cached less than 15s ago, reuse to save API quota
+                        existing = _live_price_cache.get(cache_key)
+                        if existing and (time.time() - existing.get("ts", 0)) < 15.0:
+                            return
                         try:
                             live_p = await client.fetch_live_token_price(condition_id=cid, asset=asset_id, outcome=outc)
                             if live_p is not None and 0.005 <= live_p <= 0.995:
@@ -99,9 +103,10 @@ class MarkToMarketService:
                                     _live_price_cache[asset_id] = entry
                         except Exception as e:
                             logger.debug(f"Live price fetch note for {cid}: {e}")
+                        await asyncio.sleep(0.05)
 
-                # Refresh up to 150 distinct active positions per 3.5s cycle
-                tasks = [_price_pair(c, o, a) for c, o, a in pairs_to_price[:150]]
+                # Rotating window: refresh up to 40 distinct active positions per 4s cycle
+                tasks = [_price_pair(c, o, a) for c, o, a in pairs_to_price[:40]]
                 if tasks:
                     await asyncio.gather(*tasks, return_exceptions=True)
 

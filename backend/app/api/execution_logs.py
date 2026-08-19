@@ -51,7 +51,11 @@ async def get_execution_logs(
     now = datetime.utcnow()
     if timeframe:
         tf = timeframe.lower()
-        if tf == "1d":
+        if tf == "1h":
+            stmt = stmt.where(ExecutionLog.executed_at >= now - timedelta(hours=1))
+        elif tf == "6h":
+            stmt = stmt.where(ExecutionLog.executed_at >= now - timedelta(hours=6))
+        elif tf == "1d":
             stmt = stmt.where(ExecutionLog.executed_at >= now - timedelta(days=1))
         elif tf == "1w":
             stmt = stmt.where(ExecutionLog.executed_at >= now - timedelta(days=7))
@@ -199,7 +203,11 @@ async def get_portfolio_summary(
     now = datetime.utcnow()
     if timeframe:
         tf = timeframe.lower()
-        if tf == "1d":
+        if tf == "1h":
+            stmt = stmt.where(ExecutionLog.executed_at >= now - timedelta(hours=1))
+        elif tf == "6h":
+            stmt = stmt.where(ExecutionLog.executed_at >= now - timedelta(hours=6))
+        elif tf == "1d":
             stmt = stmt.where(ExecutionLog.executed_at >= now - timedelta(days=1))
         elif tf == "1w":
             stmt = stmt.where(ExecutionLog.executed_at >= now - timedelta(days=7))
@@ -284,7 +292,11 @@ async def get_portfolio_snapshots(
     now = datetime.utcnow()
     if timeframe:
         tf = timeframe.lower()
-        if tf == "1d":
+        if tf == "1h":
+            stmt = stmt.where(PortfolioSnapshot.timestamp >= now - timedelta(hours=1))
+        elif tf == "6h":
+            stmt = stmt.where(PortfolioSnapshot.timestamp >= now - timedelta(hours=6))
+        elif tf == "1d":
             stmt = stmt.where(PortfolioSnapshot.timestamp >= now - timedelta(days=1))
         elif tf == "1w":
             stmt = stmt.where(PortfolioSnapshot.timestamp >= now - timedelta(days=7))
