@@ -1,30 +1,49 @@
 """
-Polymarket Official Fee Engine (2026 Dynamic Quadratic Taker-Fee Model)
+Polymarket Dynamic Fee Schedule & Architecture Engine (2026 Official Spec)
 
-Polymarket utilizes a dynamic taker-fee model where fees scale quadratically
-with market implied probability (price), reaching maximum at 50% ($0.50)
-and tapering to 0 as probability approaches 0% or 100%:
+Formula:
+    Fee (USD) = Theta * C * p * (1 - p)
+              = Theta * Notional * (1 - p)
 
-    Fee (USDC) = Shares * Category_Rate * Price * (1 - Price)
-               = (Notional / Price) * Category_Rate * Price * (1 - Price)
-               = Notional * Category_Rate * (1 - Price)
+Where:
+    - C = Number of contracts/shares = Notional / p
+    - p = Trade fill price (0.01 <= p <= 0.99)
+    - Theta = Category fee coefficient
+    - Effective Fee Rate (%) = Theta * (1 - p) * 100%
 
-Category Fee Rates:
-- Crypto (including 15m Up/Down & High-Velocity Markets): 0.07 (7%)
-- Sports (ATP, WTA, NBA, NFL, Soccer, MLB, Esports, etc.): 0.05 (5%)
-- Economics, Culture, Weather, General: 0.05 (5%)
-- Politics, Finance, Tech, Mentions: 0.04 (4%)
-- Geopolitics: 0.00 (0% Permanently Fee-Free)
+Theta Coefficients (2026 Schedule):
+    - Crypto: 0.072 (Max effective rate: 3.60%)
+    - Economics / Finance: 0.060 (Max effective rate: 3.00%)
+    - Culture, Weather & Tech: 0.050 (Max effective rate: 2.50%)
+    - Politics: 0.040 (Max effective rate: 2.00%)
+    - Sports: 0.030 (Max effective rate: 1.50%)
+    - Geopolitics & Macro World Events: 0.000 (0% Fee-Free)
 
-Maker Orders:
-- 0.00% fee (0% for limit orders resting on the book, eligible for daily maker rebates).
+Rounding Rule:
+    - Banker's Rounding (ROUND_HALF_EVEN) to nearest cent ($0.01).
 """
 
+import decimal
 from typing import Dict, Any, Tuple
 
 _CRYPTO_KEYWORDS = (
     "bitcoin", "btc", "ethereum", "eth", "solana", "sol", "xrp", "doge", "crypto",
     "up or down", "15m", "price of btc", "price of eth", "price of solana", "token", "airdrop"
+)
+
+_ECONOMICS_FINANCE_KEYWORDS = (
+    "fed ", "federal reserve", "interest rate", "cpi", "inflation", "gdp", "recession",
+    "unemployment", "treasury", "s&p", "nasdaq", "dow jones", "stock", "yield"
+)
+
+_CULTURE_TECH_KEYWORDS = (
+    "apple", "google", "nvidia", "microsoft", "tesla", "elon musk", "musk", "tweet", "spacex",
+    "openai", "anthropic", "weather", "temperature", "oscar", "grammy", "movie", "gta 6"
+)
+
+_POLITICS_KEYWORDS = (
+    "election", "president", "presidential", "senate", "house", "trump", "biden", "harris",
+    "democrat", "republican", "primary", "governor", "vote", "voter", "ballot"
 )
 
 _SPORTS_KEYWORDS = (
@@ -34,43 +53,44 @@ _SPORTS_KEYWORDS = (
     "formula 1", "grand prix", "lionel messi", "ronaldo", "alcaraz", "sinner", "djokovic"
 )
 
-_POLITICS_TECH_KEYWORDS = (
-    "election", "president", "presidential", "senate", "house", "trump", "biden", "harris",
-    "democrat", "republican", "fed ", "federal reserve", "interest rate", "cpi", "inflation",
-    "apple", "google", "nvidia", "microsoft", "tesla", "elon musk", "musk", "tweet", "spacex",
-    "openai", "anthropic", "gdp"
-)
-
 _GEOPOLITICS_KEYWORDS = (
     "war", "ceasefire", "treaty", "sanctions", "nato", "united nations", "un ", "taiwan",
-    "ukraine", "russia", "gaza", "israel", "middle east", "invade", "peace agreement"
+    "ukraine", "russia", "gaza", "israel", "middle east", "invade", "peace agreement", "military"
 )
 
 
 def classify_market_category(market_title: str) -> Tuple[str, float]:
     """
-    Classifies a Polymarket prediction question into its fee category and rate.
+    Classifies a prediction question into its 2026 Polymarket fee category and Theta coefficient.
     """
     title = (market_title or "").lower().strip()
 
-    # 1. Check Geopolitics (0% Fee-Free)
+    # 1. Geopolitics & World Events (0% Fee-Free)
     if any(k in title for k in _GEOPOLITICS_KEYWORDS):
-        return "Geopolitics", 0.00
+        return "Geopolitics", 0.000
 
-    # 2. Check Crypto (7% Dynamic Rate)
+    # 2. Crypto (Theta = 0.072)
     if any(k in title for k in _CRYPTO_KEYWORDS):
-        return "Crypto", 0.07
+        return "Crypto", 0.072
 
-    # 3. Check Sports (5% Dynamic Rate)
+    # 3. Economics / Finance (Theta = 0.060)
+    if any(k in title for k in _ECONOMICS_FINANCE_KEYWORDS):
+        return "Economics / Finance", 0.060
+
+    # 4. Politics (Theta = 0.040)
+    if any(k in title for k in _POLITICS_KEYWORDS):
+        return "Politics", 0.040
+
+    # 5. Sports (Theta = 0.030)
     if any(k in title for k in _SPORTS_KEYWORDS):
-        return "Sports", 0.05
+        return "Sports", 0.030
 
-    # 4. Check Politics / Finance / Tech (4% Dynamic Rate)
-    if any(k in title for k in _POLITICS_TECH_KEYWORDS):
-        return "Politics & Finance", 0.04
+    # 6. Culture, Weather & Tech (Theta = 0.050)
+    if any(k in title for k in _CULTURE_TECH_KEYWORDS):
+        return "Culture, Weather & Tech", 0.050
 
-    # 5. Default General / Culture / Economics (5% Dynamic Rate)
-    return "General", 0.05
+    # Default Culture / General (Theta = 0.050)
+    return "General", 0.050
 
 
 def calculate_polymarket_fee(
@@ -80,33 +100,54 @@ def calculate_polymarket_fee(
     is_maker: bool = False
 ) -> Dict[str, Any]:
     """
-    Calculates exact Polymarket taker/maker fee and effective rates for a trade.
+    Calculates exact Polymarket taker/maker fee using Banker's Rounding (ROUND_HALF_EVEN).
     """
-    if is_maker or notional_usd <= 0:
-        category, rate = classify_market_category(market_title)
+    category, theta = classify_market_category(market_title)
+
+    if is_maker or notional_usd <= 0 or theta == 0.0:
         return {
             "fee_usd": 0.0,
             "category": category,
-            "category_rate": rate,
+            "category_rate": theta,
             "effective_fee_pct": 0.0,
-            "is_maker": True,
+            "is_maker": is_maker,
             "maker_rebate_eligible": True
         }
 
-    # Constrain price to valid probability range (0.001 - 0.999)
     p = max(0.001, min(0.999, float(price or 0.5)))
-    category, rate = classify_market_category(market_title)
-
-    # Dynamic Taker Fee Formula: Notional * Rate * (1 - Price)
-    # Equivalent to: Shares * Rate * Price * (1 - Price)
-    fee_usd = round(notional_usd * rate * (1.0 - p), 4)
+    
+    # Dynamic Taker Fee: Fee = Theta * Notional * (1 - p)
+    raw_fee = notional_usd * theta * (1.0 - p)
+    
+    # Banker's Rounding (round half to even)
+    d_fee = decimal.Decimal(str(raw_fee)).quantize(decimal.Decimal('0.01'), rounding=decimal.ROUND_HALF_EVEN)
+    fee_usd = float(d_fee)
+    
     effective_pct = round((fee_usd / notional_usd) * 100.0, 3) if notional_usd > 0 else 0.0
 
     return {
         "fee_usd": fee_usd,
         "category": category,
-        "category_rate": rate,
+        "category_rate": theta,
         "effective_fee_pct": effective_pct,
         "is_maker": False,
         "maker_rebate_eligible": False
     }
+
+
+def calculate_fee_aware_ev_gate(price: float, market_title: str, expected_edge: float) -> Tuple[bool, float, float]:
+    """
+    EV_net Gate Rule:
+    Do not copy if Expected Edge does not clear 2.5x the taker fee rate:
+    Expected Edge > 2.5 * [Theta * (1 - p)]
+    
+    Returns: (should_pass: bool, fee_rate: float, min_required_edge: float)
+    """
+    _, theta = classify_market_category(market_title)
+    p = max(0.001, min(0.999, float(price or 0.5)))
+    
+    fee_rate = theta * (1.0 - p)
+    min_required_edge = 2.5 * fee_rate
+    
+    should_pass = (expected_edge >= min_required_edge)
+    return should_pass, round(fee_rate, 4), round(min_required_edge, 4)

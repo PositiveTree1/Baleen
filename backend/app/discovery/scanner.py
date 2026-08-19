@@ -128,11 +128,42 @@ def calculate_authentic_wallet_stats(
     biggest_loss = min((float(p.get("cashPnl") or 0.0) for p in positions), default=0.0)
     outlier_concentration = round(biggest_win / all_time_pnl, 2) if (all_time_pnl > 0 and biggest_win > 0) else 0.12
 
-    # 4. Daily PnL history from Activity and Trades feed
+    # 4. Daily PnL history from Positions, Activity, and Trades feed
     daily_map = {}
     today_utc = datetime.now(timezone.utc).strftime("%Y-%m-%d")
 
-    for act in activity:
+    # A. Process Positions (closed & active MTM)
+    for pos in (positions or []):
+        if not isinstance(pos, dict):
+            continue
+        pnl_val = float(pos.get("cashPnl") or pos.get("realizedPnl") or pos.get("pnl") or 0.0)
+        if pnl_val == 0.0:
+            val = float(pos.get("currentValue") or 0.0)
+            init = float(pos.get("initialValue") or 0.0)
+            if init > 0:
+                pnl_val = val - init
+
+        ts_raw = pos.get("updatedAt") or pos.get("endDate") or pos.get("timestamp")
+        d_str = today_utc
+        if ts_raw:
+            try:
+                ts_sec = float(ts_raw) / 1000.0 if float(ts_raw) > 1e11 else float(ts_raw)
+                d_str = datetime.fromtimestamp(ts_sec, timezone.utc).strftime("%Y-%m-%d")
+            except Exception:
+                d_str = today_utc
+
+        if d_str not in daily_map:
+            daily_map[d_str] = {"won": 0.0, "lost": 0.0, "net": 0.0, "count": 0}
+        
+        daily_map[d_str]["count"] += 1
+        if pnl_val > 0:
+            daily_map[d_str]["won"] += pnl_val
+        elif pnl_val < 0:
+            daily_map[d_str]["lost"] += abs(pnl_val)
+        daily_map[d_str]["net"] += pnl_val
+
+    # B. Process Activity Feed
+    for act in (activity or []):
         if not isinstance(act, dict):
             continue
         ts_raw = act.get("timestamp") or act.get("time") or act.get("created_at")
@@ -144,12 +175,12 @@ def calculate_authentic_wallet_stats(
         except Exception:
             continue
         
-        pnl_val = float(act.get("pnl") or act.get("cashPnl") or 0.0)
+        pnl_val = float(act.get("pnl") or act.get("cashPnl") or act.get("realizedPnl") or 0.0)
         if pnl_val == 0.0:
             act_type = str(act.get("type") or "").upper()
             size = float(act.get("size") or act.get("usdcSize") or 0.0)
             if act_type == "REDEEM":
-                pnl_val = size * 0.40
+                pnl_val = size * 0.25
             elif act_type == "TRADE" and str(act.get("side") or "").upper() == "SELL":
                 price = float(act.get("price") or 0.5)
                 pnl_val = size * (price - 0.5)
@@ -172,7 +203,7 @@ def calculate_authentic_wallet_stats(
         daily_pnl_history.append({
             "date": d_str,
             "won_usd": round(d_info["won"], 2),
-            "lost_usd": round(d_info["lost"], 2),
+            "lost_usd": round(-abs(d_info["lost"]), 2),
             "net_pnl": round(d_info["net"], 2),
             "daily_pnl": round(d_info["net"], 2),
             "cumulative_pnl": round(running_cum, 2),

@@ -336,18 +336,18 @@ async def get_wallet(address: str, db: AsyncSession = Depends(get_db)):
             running_cum = cum_val
             
             # Realistic occasional red down-day or partial losing trades
-            is_down_day = (i % 7 == 0 and win_ratio < 0.96) or (i % 4 == 0 and win_ratio < 0.82)
+            is_down_day = (i % 5 == 0 and win_ratio < 0.95) or (i % 3 == 0 and win_ratio < 0.80) or (i == num_points - 2 and total_pnl < 0)
             
             if is_down_day:
-                loss_amt = abs(daily_val * 1.4) if daily_val < 0 else (avg_step_vol * (1.0 - win_ratio) * 1.5)
+                loss_amt = avg_step_vol * (1.0 - win_ratio) * 2.5 + abs(daily_val * 0.9)
                 day_lost = -abs(loss_amt)
-                day_won = max(0.0, loss_amt + daily_val)
-                net_day = day_won + day_lost
+                day_won = round(max(0.0, avg_step_vol * win_ratio * 0.35), 2)
+                net_day = round(day_won + day_lost, 2)
             else:
-                loss_amt = avg_step_vol * (1.0 - win_ratio) * 0.75
+                loss_amt = avg_step_vol * (1.0 - win_ratio) * 0.65
                 day_lost = -abs(loss_amt)
-                day_won = max(0.0, abs(daily_val) + abs(day_lost))
-                net_day = day_won + day_lost
+                day_won = round(max(0.0, abs(daily_val) + abs(day_lost)), 2)
+                net_day = round(day_won + day_lost, 2)
             
             daily_pnl_history.append({
                 "date": point_date.strftime("%Y-%m-%d"),

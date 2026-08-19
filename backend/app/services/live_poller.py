@@ -145,17 +145,35 @@ class LiveTradeMirrorService:
             consensus_multiplier = 1.5 if consensus.get("is_consensus") else 1.0
             sizing_multiplier = consensus_multiplier * sniper_multiplier
 
-            # Slippage & Latency Guard: Check live market price vs whale entry
+            # Category & Fee Evaluation
+            from app.services.polymarket_fees import calculate_polymarket_fee, calculate_fee_aware_ev_gate, classify_market_category
+            category_name, _ = classify_market_category(title)
+
+            # Rule 3: Category Filter - Require verified >65% win rate for Sports/Esports
+            whale_win_rate = float(source_whale.win_rate_pct or 0.0) if source_whale else 0.0
+            if category_name == "Sports" and whale_win_rate < 65.0:
+                logger.info(f"🛑 Category Gate: Skipping Sports trade on '{title[:25]}' (whale win rate {whale_win_rate:.1f}% < 65% edge threshold).")
+                return
+
+            # Rule 2: Execution Delay / Anti-Frontrunning Guard (1.5 ticks / $0.015 max slippage)
+            from app.services.mark_to_market import get_consensus, get_live_price
             live_p = get_live_price(condition_id, outcome=outcome, asset=asset or tx_hash or "", fallback=price)
-            max_slippage = 0.045
+            max_slippage = 0.015  # 1.5 cents ($0.015) max slippage tolerance
             if side == "BUY" and (live_p - price) > max_slippage:
-                logger.info(f"⚠️ Slippage guard triggered for BUY on '{title[:25]}': entry={price:.3f}, live={live_p:.3f}. Skipping adverse fill.")
+                logger.info(f"⚠️ Anti-Frontrunning Guard: BUY on '{title[:25]}' live={live_p:.3f} > entry={price:.3f} + 0.015. Aborting slippage spike fill.")
                 return
             elif side == "SELL" and (price - live_p) > max_slippage:
-                logger.info(f"⚠️ Slippage guard triggered for SELL on '{title[:25]}': entry={price:.3f}, live={live_p:.3f}. Skipping adverse fill.")
+                logger.info(f"⚠️ Anti-Frontrunning Guard: SELL on '{title[:25]}' live={live_p:.3f} < entry={price:.3f} - 0.015. Aborting slippage spike fill.")
                 return
 
             effective_fill_price = live_p if (0.01 <= live_p <= 0.99) else price
+
+            # Rule 1: Fee-Aware Expected Value Gate (EV_net > 2.5 * Fee Rate)
+            expected_edge = abs(effective_fill_price - 0.5)
+            ev_pass, fee_rate, min_edge = calculate_fee_aware_ev_gate(effective_fill_price, title, expected_edge)
+            if not ev_pass and expected_edge > 0.02:
+                logger.info(f"🛑 Fee-Aware EV Gate: Skipping '{title[:25]}' - edge {expected_edge:.3f} < 2.5x fee rate ({min_edge:.3f}).")
+                return
 
             sys_notional = round(min(max(10.0, cash_usd * 0.1 * sizing_multiplier), 350.0), 2)
             fee_calc = calculate_polymarket_fee(
