@@ -16,7 +16,7 @@ export function CumulativePnLChart({ data }: CumulativePnLChartProps) {
   if (!data || data.length === 0) {
     return (
       <div className="w-full h-full flex items-center justify-center bg-slate-50 rounded-2xl border border-black/[0.06]">
-        <span className="text-xs text-slate-400 font-medium">No trade history recorded yet</span>
+        <span className="text-xs text-slate-400 font-medium">No trade history recorded in selected timeframe</span>
       </div>
     );
   }
@@ -68,6 +68,8 @@ export function CumulativePnLChart({ data }: CumulativePnLChartProps) {
           />
           <ReferenceLine y={0} stroke="rgba(0,0,0,0.12)" strokeDasharray="2 2" />
           <Tooltip 
+            isAnimationActive={false}
+            cursor={{ stroke: '#6366F1', strokeWidth: 1.5, strokeDasharray: '3 3' }}
             content={({ active, payload, label }) => {
               if (active && payload && payload.length) {
                 const pt = payload[0].payload as PnLPoint;
@@ -105,7 +107,7 @@ export function CumulativePnLChart({ data }: CumulativePnLChartProps) {
             fill={`url(#${gradientId})`}
             dot={false}
             activeDot={{ r: 5, fill: strokeColor, stroke: '#FFFFFF', strokeWidth: 2 }}
-            isAnimationActive={true}
+            isAnimationActive={false}
           />
         </AreaChart>
       </ResponsiveContainer>

@@ -290,7 +290,7 @@ async def get_wallet(address: str, db: AsyncSession = Depends(get_db)):
     if not daily_pnl_history:
         import hashlib
         addr_seed = int(hashlib.md5(clean_addr.encode()).hexdigest()[:8], 16)
-        num_points = 16
+        num_points = 24
         running_cum = 0.0
         
         # Determine actual active trading span

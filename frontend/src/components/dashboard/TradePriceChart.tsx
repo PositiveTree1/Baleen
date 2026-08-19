@@ -103,6 +103,8 @@ export function TradePriceChart({ tradeId, fillPrice, currentPrice, side }: Trad
                 tickFormatter={(val) => `$${val.toFixed(2)}`}
               />
               <Tooltip 
+                isAnimationActive={false}
+                cursor={{ stroke: '#6366F1', strokeWidth: 1.5, strokeDasharray: '3 3' }}
                 content={({ active, payload }) => {
                   if (active && payload && payload.length) {
                     const pt = payload[0].payload;
@@ -134,7 +136,10 @@ export function TradePriceChart({ tradeId, fillPrice, currentPrice, side }: Trad
                 stroke={strokeColor} 
                 strokeWidth={2}
                 fillOpacity={1} 
-                fill={`url(#gradient-${tradeId})`} 
+                fill={`url(#gradient-${tradeId})`}
+                dot={false}
+                activeDot={{ r: 4.5, fill: strokeColor, stroke: '#FFFFFF', strokeWidth: 2 }}
+                isAnimationActive={false}
               />
             </AreaChart>
           </ResponsiveContainer>

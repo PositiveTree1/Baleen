@@ -229,8 +229,11 @@ export function TradeDrawer({ trade, onClose, onSelectWallet }: TradeDrawerProps
                     {isProfit ? '+' : ''}{pnlPct.toFixed(1)}%
                   </span>
                 </div>
-                <div className={`text-2xl font-mono font-bold ${isProfit ? 'text-emerald-700' : 'text-rose-700'}`}>
-                  {isProfit ? '+' : '-'}${Math.abs(pnl).toFixed(2)}
+                <div 
+                  className={`text-2xl font-mono font-bold truncate tabular-nums tracking-tight ${isProfit ? 'text-emerald-700' : 'text-rose-700'}`}
+                  title={`${isProfit ? '+' : '-'}$${Math.abs(pnl).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+                >
+                  {isProfit ? '+' : '-'}${Math.abs(pnl).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </div>
               </div>
             </div>

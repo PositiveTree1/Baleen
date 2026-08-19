@@ -6,6 +6,7 @@ import { Badge } from '../ui/Badge';
 import { Skeleton } from '../ui/Skeleton';
 import { RotateCw, Search, DollarSign, TrendingUp, Award } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { formatCompactPnL, formatExactPnL } from '@/lib/formatters';
 
 interface WalletLeaderboardProps {
   userId?: string;
@@ -221,8 +222,11 @@ export function WalletLeaderboard({ userId, onSelectWallet }: WalletLeaderboardP
                       <td className="p-3.5 text-right text-slate-800 font-mono font-semibold">
                         {item.winRateCopied.toFixed(0)}%
                       </td>
-                      <td className={`p-3.5 px-4 text-right font-mono font-bold ${isProfit ? 'text-emerald-600' : 'text-rose-600'}`}>
-                        {isProfit ? '+' : '-'}${Math.abs(item.netPnl || 0).toFixed(1)}
+                      <td 
+                        className={`p-3.5 px-4 text-right font-mono font-bold truncate tabular-nums tracking-tight ${isProfit ? 'text-emerald-600' : 'text-rose-600'}`}
+                        title={formatExactPnL(item.netPnl)}
+                      >
+                        {formatCompactPnL(item.netPnl)}
                       </td>
                     </tr>
                   );
@@ -293,8 +297,11 @@ export function WalletLeaderboard({ userId, onSelectWallet }: WalletLeaderboardP
                       </td>
                       <td className="p-3.5"><Badge tier={wallet.tier} /></td>
                       <td className="p-3.5 text-right text-slate-800 font-mono font-semibold">{formatWinRate(wallet.winRate || 0)}</td>
-                      <td className={`p-3.5 px-4 text-right font-mono font-bold ${(wallet.pnl || 0) >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
-                        {(wallet.pnl || 0) >= 0 ? '+' : '-'}${Math.abs(wallet.pnl || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                      <td 
+                        className={`p-3.5 px-4 text-right font-mono font-bold truncate tabular-nums tracking-tight ${(wallet.pnl || 0) >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}
+                        title={formatExactPnL(wallet.pnl)}
+                      >
+                        {formatCompactPnL(wallet.pnl)}
                       </td>
                     </tr>
                   );

@@ -4,6 +4,7 @@ import { fetchExecutionLogs } from '@/lib/api-client';
 import { ExecutionLog } from '@/types';
 import { Skeleton } from '../ui/Skeleton';
 import { Tag, HelpCircle, Users } from 'lucide-react';
+import { formatCompactPnL, formatExactPnL } from '@/lib/formatters';
 
 interface TradeLogProps {
   userId?: string;
@@ -139,9 +140,12 @@ export function TradeLog({ userId, onSelectTrade }: TradeLogProps) {
                     <td className="p-4 text-right font-mono text-slate-500 text-[11px]">
                       {fee > 0 ? `-$${fee.toFixed(2)}` : '$0.00'}
                     </td>
-                    <td className="p-4 sm:px-6 text-right font-mono font-bold">
+                    <td 
+                      className="p-4 sm:px-6 text-right font-mono font-bold truncate tabular-nums tracking-tight"
+                      title={formatExactPnL(pnl)}
+                    >
                       <span className={isProfit ? 'text-emerald-600' : 'text-rose-600'}>
-                        {isProfit ? '+' : '-'}${Math.abs(pnl).toFixed(2)}
+                        {formatCompactPnL(pnl)}
                       </span>
                     </td>
                   </tr>

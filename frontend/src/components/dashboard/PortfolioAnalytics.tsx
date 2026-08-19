@@ -210,6 +210,8 @@ export function PortfolioAnalytics({
                   tickFormatter={(val) => `$${Math.round(val).toLocaleString()}`}
                 />
                 <Tooltip 
+                  isAnimationActive={false}
+                  cursor={{ stroke: '#6366F1', strokeWidth: 1.5, strokeDasharray: '3 3' }}
                   content={({ active, payload }) => {
                     if (active && payload && payload.length) {
                       const d = payload[0].payload;
@@ -232,7 +234,10 @@ export function PortfolioAnalytics({
                   stroke={netPnL >= 0 ? '#10B981' : '#F43F5E'} 
                   strokeWidth={2.5}
                   fillOpacity={1} 
-                  fill="url(#balanceGradient)" 
+                  fill="url(#balanceGradient)"
+                  dot={false}
+                  activeDot={{ r: 5, fill: netPnL >= 0 ? '#10B981' : '#F43F5E', stroke: '#FFFFFF', strokeWidth: 2 }}
+                  isAnimationActive={false}
                 />
               </AreaChart>
             </ResponsiveContainer>

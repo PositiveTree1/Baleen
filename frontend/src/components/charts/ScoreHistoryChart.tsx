@@ -42,6 +42,8 @@ export function ScoreHistoryChart({ data }: ScoreHistoryChartProps) {
             domain={['dataMin - 5', 'dataMax + 5']}
           />
           <Tooltip 
+            isAnimationActive={false}
+            cursor={{ stroke: '#2563EB', strokeWidth: 1.5, strokeDasharray: '3 3' }}
             contentStyle={{ 
               backgroundColor: '#FFFFFF', 
               border: '1px solid rgba(0,0,0,0.1)', 
@@ -67,7 +69,7 @@ export function ScoreHistoryChart({ data }: ScoreHistoryChartProps) {
             strokeWidth={2.5}
             dot={{ r: 3, fill: '#2563EB', stroke: '#FFFFFF', strokeWidth: 2 }}
             activeDot={{ r: 5, fill: '#2563EB', stroke: '#FFFFFF', strokeWidth: 2 }}
-            isAnimationActive={true}
+            isAnimationActive={false}
           />
         </LineChart>
       </ResponsiveContainer>

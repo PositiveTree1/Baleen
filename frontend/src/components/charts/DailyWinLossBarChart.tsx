@@ -10,7 +10,7 @@ export function DailyWinLossBarChart({ data }: DailyWinLossBarChartProps) {
   if (!data || data.length === 0) {
     return (
       <div className="w-full h-full flex items-center justify-center bg-slate-50 rounded-2xl border border-black/[0.06]">
-        <span className="text-xs text-slate-400 font-medium">No trade volume history recorded yet</span>
+        <span className="text-xs text-slate-400 font-medium">No trade history recorded in selected timeframe</span>
       </div>
     );
   }
@@ -51,6 +51,8 @@ export function DailyWinLossBarChart({ data }: DailyWinLossBarChartProps) {
           />
           <ReferenceLine y={0} stroke="rgba(0,0,0,0.18)" strokeWidth={1} />
           <Tooltip 
+            isAnimationActive={false}
+            cursor={{ fill: 'rgba(99, 102, 241, 0.08)' }}
             content={({ active, payload, label }) => {
               if (active && payload && payload.length) {
                 const pt = payload[0].payload as DailyPnLPoint;
@@ -88,11 +90,11 @@ export function DailyWinLossBarChart({ data }: DailyWinLossBarChartProps) {
               return null;
             }}
           />
-          {/* Dynamic Green (Win) / Red (Loss) Daily P&L Bars */}
           <Bar 
             dataKey="dailyPnL" 
             maxBarSize={28}
             radius={[4, 4, 4, 4]}
+            isAnimationActive={false}
           >
             {data.map((entry, index) => {
               const net = entry.netPnL ?? entry.dailyPnL ?? 0;
