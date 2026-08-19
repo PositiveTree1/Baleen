@@ -121,7 +121,9 @@ class LiveTradeMirrorService:
                             "cash": cash,
                             "dt": trade_dt,
                             "outcome": outcome,
-                            "asset": asset
+                            "asset": asset,
+                            "event_slug": str(t.get("eventSlug") or t.get("event_slug") or t.get("slug") or ""),
+                            "icon": str(t.get("icon") or t.get("image") or "")
                         })
 
                     # Mirror new trades into ExecutionLogs
@@ -143,6 +145,8 @@ class LiveTradeMirrorService:
                                 source_wallet_address=w.address,
                                 market_condition_id=nt["cid"],
                                 market_question=nt["title"],
+                                event_slug=nt["event_slug"],
+                                icon=nt["icon"],
                                 side=nt["side"],
                                 whale_entry_price=nt["price"],
                                 user_fill_price=nt["price"],

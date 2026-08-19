@@ -68,10 +68,19 @@ export function TradeDrawer({ trade, onClose, onSelectWallet }: TradeDrawerProps
             {/* Content Body */}
             <div className="flex-1 overflow-y-auto p-6 space-y-6">
               {/* Market Question */}
-              <div className="p-4 rounded-2xl bg-slate-50 border border-black/[0.06] space-y-2 shadow-[inset_0_1px_2px_rgba(0,0,0,0.02)]">
+              <div className="p-4 rounded-2xl bg-slate-50 border border-black/[0.06] space-y-2.5 shadow-[inset_0_1px_2px_rgba(0,0,0,0.02)]">
                 <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Prediction Market</div>
-                <div className="text-sm font-bold text-slate-900 leading-snug">
-                  {trade.marketQuestion || 'Polymarket Event Prediction'}
+                <div className="flex items-center gap-3">
+                  {trade.icon ? (
+                    <img 
+                      src={trade.icon} 
+                      alt="" 
+                      className="w-9 h-9 rounded-xl object-cover border border-black/10 shrink-0 shadow-2xs" 
+                    />
+                  ) : null}
+                  <div className="text-sm font-bold text-slate-900 leading-snug">
+                    {trade.marketQuestion || 'Polymarket Event Prediction'}
+                  </div>
                 </div>
                 {trade.marketConditionId && (
                   <div className="text-[11px] font-mono text-slate-400 truncate pt-1">

@@ -94,15 +94,32 @@ export function WalletDrawer({ address, onClose }: WalletDrawerProps) {
               {/* Header */}
               <div className="flex items-center justify-between mb-8 pb-4 border-b border-black/[0.06]">
                 <div className="flex items-center gap-3">
-                  <div className="flex items-center gap-2">
-                    {isGold ? (
-                      <span className="w-2 h-2 rounded-full bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.6)]" />
-                    ) : (
-                      <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                  {wallet?.profileImage ? (
+                    <img 
+                      src={wallet.profileImage} 
+                      alt="" 
+                      className="w-10 h-10 rounded-full object-cover border border-black/10 shadow-2xs shrink-0" 
+                    />
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      {isGold ? (
+                        <span className="w-2.5 h-2.5 rounded-full bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.6)]" />
+                      ) : (
+                        <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
+                      )}
+                    </div>
+                  )}
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h2 className="text-base font-bold text-slate-900 tracking-tight">
+                        {wallet?.name || wallet?.pseudonym || 'Whale Audit Profile'}
+                      </h2>
+                      {isGold && <Badge tier="gold_sniper" />}
+                    </div>
+                    {wallet?.pseudonym && wallet?.name && wallet.pseudonym !== wallet.name && (
+                      <p className="text-xs text-slate-500 font-mono">@{wallet.pseudonym}</p>
                     )}
-                    <h2 className="text-base font-bold text-slate-900 tracking-tight">Whale Audit Profile</h2>
                   </div>
-                  {isGold && <Badge tier="gold_sniper" />}
                 </div>
                 <button 
                   onClick={onClose} 

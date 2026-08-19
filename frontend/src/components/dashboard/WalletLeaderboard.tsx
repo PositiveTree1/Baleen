@@ -235,6 +235,7 @@ export function WalletLeaderboard({ userId, onSelectWallet }: WalletLeaderboardP
               ) : filteredWallets.length > 0 ? (
                 filteredWallets.map((wallet) => {
                   const isGold = wallet.tier === 'gold_sniper';
+                  const displayName = wallet.name || wallet.pseudonym;
                   return (
                     <tr 
                       key={wallet.address} 
@@ -246,7 +247,25 @@ export function WalletLeaderboard({ userId, onSelectWallet }: WalletLeaderboardP
                       }`}
                     >
                       <td className="p-3.5 px-4 font-mono text-slate-800 font-bold group-hover:text-indigo-600 transition-colors truncate">
-                        {wallet.address.slice(0, 6)}...{wallet.address.slice(-4)}
+                        <div className="flex items-center gap-2">
+                          {wallet.profileImage ? (
+                            <img 
+                              src={wallet.profileImage} 
+                              alt="Avatar" 
+                              className="w-5 h-5 rounded-full object-cover border border-black/10 shrink-0" 
+                            />
+                          ) : null}
+                          <div className="truncate">
+                            {displayName ? (
+                              <div className="font-sans font-bold text-slate-900 text-xs truncate">
+                                {displayName}
+                              </div>
+                            ) : null}
+                            <div className="text-[10px] text-slate-500 font-mono">
+                              {wallet.address.slice(0, 6)}...{wallet.address.slice(-4)}
+                            </div>
+                          </div>
+                        </div>
                       </td>
                       <td className="p-3.5"><Badge tier={wallet.tier} /></td>
                       <td className="p-3.5 text-right text-slate-800 font-mono font-semibold">{formatWinRate(wallet.winRate || 0)}</td>

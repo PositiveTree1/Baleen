@@ -2,6 +2,9 @@ export type Tier = 'gold_sniper' | 'standard' | 'dormant';
 
 export interface Wallet {
   address: string;
+  name?: string | null;
+  pseudonym?: string | null;
+  profileImage?: string | null;
   tier: Tier;
   winRate: number;
   wilsonLb?: number | null;
@@ -57,6 +60,8 @@ export interface ExecutionLog {
   walletAddress: string;
   marketQuestion: string;
   marketConditionId?: string;
+  eventSlug?: string;
+  icon?: string;
   side: 'BUY' | 'SELL';
   entryPrice: number;
   fillPrice: number;

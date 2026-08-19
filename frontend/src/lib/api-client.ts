@@ -13,6 +13,9 @@ export async function fetchWallets(params?: Record<string, string>): Promise<Wal
     const data = await res.json();
     return data.map((w: any) => ({
       address: w.address,
+      name: w.name || null,
+      pseudonym: w.pseudonym || null,
+      profileImage: w.profileImage || null,
       tier: w.tier,
       winRate: w.win_rate_pct || 0,
       wilsonLb: w.wilson_lb ?? null,
@@ -41,6 +44,9 @@ export async function fetchWallet(address: string): Promise<WalletDetail | null>
     const w = data.wallet || data;
     return {
       address: w.address,
+      name: w.name || null,
+      pseudonym: w.pseudonym || null,
+      profileImage: w.profileImage || null,
       tier: w.tier,
       winRate: w.win_rate_pct || 0,
       wilsonLb: w.wilson_lb ?? null,
@@ -70,7 +76,20 @@ export async function fetchWallet(address: string): Promise<WalletDetail | null>
         cumulativePnL: d.cumulative_pnl ?? 0,
         tradesCount: d.trades_count ?? 1
       })),
-      recentTrades: data.recent_trades || []
+      recentTrades: (data.recent_trades || []).map((t: any) => ({
+        id: t.id,
+        timestamp: t.executed_at,
+        walletAddress: address,
+        marketQuestion: t.market_id || 'Polymarket Condition',
+        marketConditionId: t.market_id,
+        side: t.side,
+        entryPrice: t.fill_price || 0.5,
+        fillPrice: t.fill_price || 0.5,
+        size: t.size_usd || 0,
+        status: t.status,
+        pnl: t.pnl_usd || 0,
+        polymarketUrl: t.market_id ? `https://polymarket.com/market/${t.market_id}` : 'https://polymarket.com'
+      }))
     };
   } catch (error) {
     return null;
@@ -83,6 +102,8 @@ export async function fetchExecutionLogs(userId?: string, params?: Record<string
     if (userId) url.searchParams.append('userId', userId);
     if (params) {
       Object.keys(params).forEach(key => url.searchParams.append(key, params[key]));
+    } else {
+      url.searchParams.append('limit', '500');
     }
     const res = await fetch(url.toString());
     if (!res.ok) return [];
@@ -93,6 +114,8 @@ export async function fetchExecutionLogs(userId?: string, params?: Record<string
       walletAddress: log.walletAddress || log.source_wallet_address,
       marketQuestion: log.marketQuestion || log.market_question,
       marketConditionId: log.marketConditionId || log.market_condition_id,
+      eventSlug: log.eventSlug,
+      icon: log.icon,
       side: log.side,
       entryPrice: log.entryPrice ?? log.whale_entry_price ?? 0,
       fillPrice: log.fillPrice ?? log.user_fill_price ?? 0,
@@ -106,7 +129,7 @@ export async function fetchExecutionLogs(userId?: string, params?: Record<string
       marketCategory: log.marketCategory ?? 'General',
       categoryRate: log.categoryRate ?? 0.05,
       consensus: log.consensus ?? { whale_count: 1, total_cash: 0, is_consensus: false },
-      polymarketUrl: log.polymarketUrl ?? (log.marketConditionId ? `https://polymarket.com/event/${log.marketConditionId}` : 'https://polymarket.com'),
+      polymarketUrl: log.polymarketUrl ?? (log.eventSlug ? `https://polymarket.com/event/${log.eventSlug}` : (log.marketConditionId ? `https://polymarket.com/market/${log.marketConditionId}` : 'https://polymarket.com')),
     }));
   } catch (error) {
     return [];

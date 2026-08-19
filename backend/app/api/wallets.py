@@ -17,6 +17,9 @@ router = APIRouter(prefix="/api/wallets", tags=["wallets"])
 def wallet_to_response(w: Wallet) -> dict:
     return {
         "address": w.address,
+        "name": w.name,
+        "pseudonym": w.pseudonym,
+        "profileImage": w.profile_image,
         "tier": w.tier or "standard",
         "win_rate_pct": w.win_rate_pct or 0.0,
         "wilson_lb": getattr(w, "wilson_lb", None),

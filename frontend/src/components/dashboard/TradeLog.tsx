@@ -16,7 +16,7 @@ export function TradeLog({ userId, onSelectTrade }: TradeLogProps) {
 
   useEffect(() => {
     async function load() {
-      const data = await fetchExecutionLogs(userId, { limit: '50' });
+      const data = await fetchExecutionLogs(userId, { limit: '500' });
       setLogs(data);
       setLoading(false);
     }
@@ -85,7 +85,12 @@ export function TradeLog({ userId, onSelectTrade }: TradeLogProps) {
                       {log.timestamp ? new Date(log.timestamp).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' }) : '--'}
                     </td>
                     <td className="p-4 text-slate-800 truncate max-w-[200px] font-semibold group-hover:text-indigo-600 transition-colors" title={log.marketQuestion}>
-                      {log.marketQuestion || 'Polymarket Condition'}
+                      <div className="flex items-center gap-2">
+                        {log.icon ? (
+                          <img src={log.icon} alt="" className="w-5 h-5 rounded-full object-cover shrink-0 border border-black/10" />
+                        ) : null}
+                        <span className="truncate max-w-[200px]">{log.marketQuestion || 'Polymarket Condition'}</span>
+                      </div>
                     </td>
                     <td className="p-4 whitespace-nowrap">
                       <span className={`px-2 py-0.5 rounded-md text-[10px] font-semibold border ${

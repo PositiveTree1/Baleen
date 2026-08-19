@@ -60,6 +60,9 @@ class Wallet(Base):
     first_trade_at = Column(DateTime, nullable=True)
     last_trade_at = Column(DateTime, nullable=True)
     cached_daily_pnl = Column(String, nullable=True)
+    name = Column(String, nullable=True)
+    pseudonym = Column(String, nullable=True)
+    profile_image = Column(String, nullable=True)
     first_seen_at = Column(DateTime, default=datetime.utcnow)
     last_scored_at = Column(DateTime, nullable=True)
 
@@ -68,10 +71,13 @@ class WalletSnapshot(Base):
 
     id = Column(GUID(), primary_key=True, default=uuid.uuid4)
     wallet_address = Column(String, ForeignKey("wallets.address"))
-    baleen_score = Column(Float, nullable=True)
-    win_rate_pct = Column(Float, nullable=True)
-    pnl_usd = Column(Float, nullable=True)
     snapshot_at = Column(DateTime, default=datetime.utcnow)
+    score = Column(Float)
+    win_rate = Column(Float)
+    trades_analyzed = Column(Integer)
+    status = Column(String)
+    tier = Column(String, nullable=True)
+    metrics_json = Column(String)
 
 class User(Base):
     __tablename__ = "users"
@@ -109,6 +115,8 @@ class ExecutionLog(Base):
     source_wallet_address = Column(String, ForeignKey("wallets.address"))
     market_condition_id = Column(String)
     market_question = Column(String)
+    event_slug = Column(String, nullable=True)
+    icon = Column(String, nullable=True)
     side = Column(String) # BUY or SELL
     whale_entry_price = Column(Float)
     user_fill_price = Column(Float, nullable=True)

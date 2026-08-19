@@ -15,7 +15,7 @@ async def get_execution_logs(
     status: Optional[str] = None,
     start_date: Optional[datetime] = None,
     end_date: Optional[datetime] = None,
-    limit: int = 50,
+    limit: int = 500,
     offset: int = 0,
     db: AsyncSession = Depends(get_db)
 ):
@@ -50,12 +50,23 @@ async def get_execution_logs(
         net_pnl = log.realized_pnl_usd if log.realized_pnl_usd is not None else round(gross_pnl - fee_usd, 2)
         pnl_pct = round((net_pnl / notional) * 100.0, 1) if notional > 0 else 0.0
 
+        # Construct authentic Polymarket event URL
+        slug = log.event_slug or ""
+        if slug:
+            poly_url = f"https://polymarket.com/event/{slug}"
+        elif cid:
+            poly_url = f"https://polymarket.com/market/{cid}"
+        else:
+            poly_url = "https://polymarket.com"
+
         return {
             "id": str(log.id),
             "timestamp": log.executed_at.isoformat() if log.executed_at else None,
             "walletAddress": log.source_wallet_address,
             "marketQuestion": log.market_question,
             "marketConditionId": cid,
+            "eventSlug": log.event_slug,
+            "icon": log.icon,
             "side": log.side,
             "entryPrice": log.whale_entry_price,
             "fillPrice": log.user_fill_price,
@@ -69,7 +80,7 @@ async def get_execution_logs(
             "grossPnl": round(gross_pnl, 2),
             "pnlPct": pnl_pct,
             "consensus": consensus,
-            "polymarketUrl": f"https://polymarket.com/event/{cid}" if cid else "https://polymarket.com"
+            "polymarketUrl": poly_url
         }
 
     stmt = select(ExecutionLog)

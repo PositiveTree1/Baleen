@@ -349,7 +349,15 @@ async def evaluate_pending_wallets(db: AsyncSession):
                 wallet.cached_daily_pnl = json.dumps(stats.get('daily_pnl_history', [])) if stats.get('daily_pnl_history') else None
                 wallet.last_scored_at = datetime.utcnow()
                 if raw_profile and isinstance(raw_profile, dict):
-                    p_name = raw_profile.get("userName") or raw_profile.get("name") or raw_profile.get("pseudonym")
+                    p_name = raw_profile.get("userName") or raw_profile.get("name") or ""
+                    p_pseudo = raw_profile.get("pseudonym") or ""
+                    p_img = raw_profile.get("profileImage") or ""
+                    if p_name:
+                        wallet.name = str(p_name)
+                    if p_pseudo:
+                        wallet.pseudonym = str(p_pseudo)
+                    if p_img:
+                        wallet.profile_image = str(p_img)
                     if p_name and not wallet.ai_style_tag:
                         wallet.ai_style_tag = str(p_name)
                 
@@ -391,12 +399,12 @@ async def scan_for_wallets(db: AsyncSession, full_refresh: bool = False):
     
     try:
         if full_refresh:
-            discovery_state["step_description"] = "Purging stale unranked candidates..."
+            discovery_state["step_description"] = "Resetting candidate wallets for fresh deep audit..."
             await db.execute(delete(WalletSnapshot))
-            # Keep active wallets intact so the dashboard never goes blank! Only purge rejected or pending queue
-            await db.execute(delete(Wallet).where(Wallet.status.in_(["rejected", "pending"])))
+            from sqlalchemy import update
+            await db.execute(update(Wallet).values(status="pending"))
             await db.commit()
-            logger.info("Stale pending candidates purged for fresh discovery scan.")
+            logger.info("All wallets marked pending for fresh discovery scan.")
 
         discovery_state["progress_pct"] = 15
         discovery_state["step_description"] = "Stage 1: Multi-Period Leaderboard & Trade Scraping..."
@@ -426,6 +434,9 @@ async def scan_for_wallets(db: AsyncSession, full_refresh: bool = False):
                 )
                 db.add(wallet)
                 saved_count += 1
+            else:
+                if full_refresh:
+                    wallet.status = "pending"
 
         await db.commit()
         discovery_state["step_description"] = f"Stage 1 Complete. Ingested {saved_count} whale candidates."

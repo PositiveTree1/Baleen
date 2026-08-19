@@ -96,8 +96,11 @@ export function LiveTape({ userId, onSelectTrade }: LiveTapeProps) {
                       {(log.walletAddress || '0x0000').slice(0, 6)}...
                     </span>
                   </div>
-                  <div className="w-1/3 truncate px-2 text-slate-600 font-sans text-xs font-medium" title={log.marketQuestion}>
-                    {log.marketQuestion || 'Market Order'}
+                  <div className="w-1/3 truncate px-2 flex items-center gap-1.5 text-slate-600 font-sans text-xs font-medium" title={log.marketQuestion}>
+                    {log.icon ? (
+                      <img src={log.icon} alt="" className="w-4 h-4 rounded-full object-cover shrink-0 border border-black/10" />
+                    ) : null}
+                    <span className="truncate">{log.marketQuestion || 'Market Order'}</span>
                   </div>
                   <div className="w-1/3 flex justify-end items-center gap-3">
                     {log.consensus?.is_consensus && (
