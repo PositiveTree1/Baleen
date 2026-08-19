@@ -72,7 +72,7 @@ export interface ExecutionLog {
   fillPrice: number;
   currentPrice?: number;
   size: number;
-  status: 'PENDING' | 'FILLED' | 'FAILED';
+  status: 'PENDING' | 'FILLED' | 'RESOLVED' | 'CLOSED' | 'FAILED';
   pnl?: number;
   grossPnl?: number;
   pnlPct?: number;
