@@ -22,9 +22,10 @@ def score_wallet(wallet_stats: dict) -> ScoringResult:
     if pnl < 50000:
         return ScoringResult("rejected", None, "PNL_BELOW_THRESHOLD", False)
 
-    # FILTER 2: Anti-HFT (trades_per_day <= 100)
-    if trades_per_day > 100:
-        return ScoringResult("rejected", None, "HFT_EXCEEDED", False)
+    # FILTER 2: Anti-HFT (trades_per_day <= 100 or marked as burst trader)
+    is_burst_hft = wallet_stats.get('is_hft', False)
+    if trades_per_day > 100 or is_burst_hft:
+        return ScoringResult("rejected", None, "HFT_BURST_TRADER", False)
 
     # FILTER 3: Outlier concentration (max_single_trade_profit/realized_pnl <= 0.35)
     if outlier_pct > 0.35:

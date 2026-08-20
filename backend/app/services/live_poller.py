@@ -131,6 +131,41 @@ class LiveTradeMirrorService:
             stmt_users = select(User)
             users = (await db.execute(stmt_users)).scalars().all()
 
+            # Real-time Burst Trader Filter Guard (>4 trades in 60s)
+            import time
+            now_epoch = time.time()
+            if not hasattr(self, 'recent_trade_timestamps'):
+                self.recent_trade_timestamps = {}
+            whale_recent = self.recent_trade_timestamps.get(addr, [])
+            whale_recent = [t for t in whale_recent if (now_epoch - t) < 60.0]
+
+            if len(whale_recent) >= 4:
+                logger.warning(f"🚨 REAL-TIME BURST TRADER DETECTED: Whale {addr[:10]}... fired {len(whale_recent)+1} trades in 60s! Ejecting from active basket.")
+                if source_whale:
+                    source_whale.is_hft = True
+                    source_whale.status = "rejected"
+                    source_whale.rejection_reason = "HFT_BURST_TRADER"
+                    await db.commit()
+                return
+
+            whale_recent.append(now_epoch)
+            self.recent_trade_timestamps[addr] = whale_recent
+
+            # Prevent Naked Short Selling: If whale is selling, only mirror if we hold open long positions
+            target_open_buys = []
+            if side == "SELL":
+                stmt_open_buys = select(ExecutionLog).where(
+                    ExecutionLog.market_condition_id == condition_id,
+                    ExecutionLog.resolution_outcome == outcome,
+                    ExecutionLog.side == "BUY",
+                    ExecutionLog.status == "FILLED"
+                ).order_by(ExecutionLog.executed_at.asc())
+                target_open_buys = (await db.execute(stmt_open_buys)).scalars().all()
+                
+                if not target_open_buys:
+                    logger.info(f"🛡️ Position Guard: Whale {addr[:8]} sold '{title[:25]}', but sandbox portfolio holds 0 open shares. Skipping naked sell.")
+                    return
+
             # Check for sniper conviction weighting (e.g. Mr. Ozi / Gold snipers)
             source_whale = next((w for w in active_wallets if w.address.lower() == wallet_address.lower()), None)
             is_sniper = bool(source_whale and (
@@ -156,7 +191,6 @@ class LiveTradeMirrorService:
                 return
 
             # Rule 2: Execution Delay / Anti-Frontrunning Guard (1.5 ticks / $0.015 max slippage)
-            from app.services.mark_to_market import get_consensus, get_live_price
             live_p = get_live_price(condition_id, outcome=outcome, asset=asset or tx_hash or "", fallback=price)
             max_slippage = 0.015  # 1.5 cents ($0.015) max slippage tolerance
             if side == "BUY" and (live_p - price) > max_slippage:
@@ -171,7 +205,7 @@ class LiveTradeMirrorService:
             # Rule 1: Fee-Aware Expected Value Gate (EV_net > 2.5 * Fee Rate)
             expected_edge = abs(effective_fill_price - 0.5)
             ev_pass, fee_rate, min_edge = calculate_fee_aware_ev_gate(effective_fill_price, title, expected_edge)
-            if not ev_pass and expected_edge > 0.02:
+            if not ev_pass and expected_edge > 0.02 and side == "BUY":
                 logger.info(f"🛑 Fee-Aware EV Gate: Skipping '{title[:25]}' - edge {expected_edge:.3f} < 2.5x fee rate ({min_edge:.3f}).")
                 return
 
@@ -182,6 +216,18 @@ class LiveTradeMirrorService:
                 market_title=title,
                 is_maker=False
             )
+
+            # If this is a valid SELL closing an open BUY position, close the earliest position
+            realized_pnl_val = None
+            if side == "SELL" and target_open_buys:
+                earliest_buy = target_open_buys[0]
+                earliest_buy.status = "CLOSED"
+                orig_buy_price = float(earliest_buy.user_fill_price or 0.5)
+                orig_notional = float(earliest_buy.notional_usd or sys_notional)
+                gross_realized = orig_notional * ((effective_fill_price - orig_buy_price) / orig_buy_price) if orig_buy_price > 0 else 0.0
+                total_fees = float(earliest_buy.fee_usd or 0.0) + float(fee_calc["fee_usd"])
+                realized_pnl_val = round(gross_realized - total_fees, 2)
+                earliest_buy.realized_pnl_usd = realized_pnl_val
 
             # System execution log
             sys_log = ExecutionLog(
@@ -200,7 +246,8 @@ class LiveTradeMirrorService:
                 market_category=fee_calc["category"],
                 active_basket_size_at_trade=len(active_wallets),
                 is_sandbox=True,
-                status="FILLED",
+                status="CLOSED" if side == "SELL" else "FILLED",
+                realized_pnl_usd=realized_pnl_val,
                 executed_at=dt
             )
             db.add(sys_log)
@@ -231,7 +278,8 @@ class LiveTradeMirrorService:
                     market_category=u_fee["category"],
                     active_basket_size_at_trade=len(active_wallets),
                     is_sandbox=True,
-                    status="FILLED",
+                    status="CLOSED" if side == "SELL" else "FILLED",
+                    realized_pnl_usd=realized_pnl_val,
                     executed_at=dt
                 )
                 db.add(user_log)
@@ -315,6 +363,31 @@ class LiveTradeMirrorService:
                         continue
                     trades = res.json()
                     if not isinstance(trades, list) or not trades:
+                        continue
+
+                    # Pre-scan batch for burst frequency (>4 trades in 60s)
+                    valid_ts = []
+                    for t in trades:
+                        ts_raw = t.get("timestamp") or t.get("match_time") or t.get("created_at")
+                        if ts_raw:
+                            try:
+                                ts_sec = float(ts_raw) / 1000.0 if float(ts_raw) > 1e11 else float(ts_raw)
+                                valid_ts.append(ts_sec)
+                            except Exception:
+                                pass
+                    valid_ts.sort()
+                    is_batch_burst = False
+                    for i in range(len(valid_ts) - 4):
+                        if (valid_ts[i+4] - valid_ts[i]) <= 60.0:
+                            is_batch_burst = True
+                            break
+
+                    if is_batch_burst:
+                        logger.warning(f"🚨 Pre-Scan Burst Filter: Whale {addr[:10]}... executed >4 trades in 60s window. Disqualifying from basket.")
+                        w.is_hft = True
+                        w.status = "rejected"
+                        w.rejection_reason = "HFT_BURST_TRADER"
+                        await db.commit()
                         continue
 
                     for t in trades:

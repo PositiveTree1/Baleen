@@ -56,7 +56,8 @@ export function ResetSandboxModal({
         setSuccess(false);
         onResetComplete();
         onClose();
-      }, 900);
+        window.location.reload();
+      }, 500);
     }
   };
 

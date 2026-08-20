@@ -396,6 +396,23 @@ async def reset_sandbox(
         active_trades_count=0
     ))
     
+    # Reset live poller started_at to now
+    try:
+        from app.services.live_poller import live_trade_mirror
+        import time
+        live_trade_mirror.started_at = time.time()
+        live_trade_mirror.seen_trade_keys.clear()
+    except Exception:
+        pass
+
+    # Clear price caches
+    try:
+        from app.services.mark_to_market import _live_price_cache, _consensus_cache
+        _live_price_cache.clear()
+        _consensus_cache.clear()
+    except Exception:
+        pass
+
     await db.commit()
     return {"status": "success", "message": "Sandbox balance reset to $10,000.00 successfully"}
 

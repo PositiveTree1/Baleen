@@ -118,6 +118,9 @@ async def purge_and_rescan(db: AsyncSession = Depends(get_db)):
     if discovery_state["status"] == "running":
         return {"status": "running", "message": "Discovery already in progress."}
         
+    # Execute full hard wipe of EVERYTHING
+    await hard_wipe_all_database(db)
+        
     async def _run_bg():
         from app.database import SessionLocal
         async with SessionLocal() as bg_db:
@@ -126,7 +129,7 @@ async def purge_and_rescan(db: AsyncSession = Depends(get_db)):
     asyncio.create_task(_run_bg())
     return {
         "status": "started",
-        "message": "Database purge initiated. Background Polymarket scraping & audit started."
+        "message": "Complete database wipe successful. Background Polymarket scraping & audit started."
     }
 
 @router.post("/hard-wipe-all")

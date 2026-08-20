@@ -1,13 +1,26 @@
 'use client';
-import { useEffect, useState, useMemo, useCallback } from 'react';
+import { useMemo, useState } from 'react';
+import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import { ExecutionLog } from '@/types';
-import { fetchPortfolioSnapshots, resetSandboxLedger } from '@/lib/api-client';
-import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip } from 'recharts';
-import { TrendingUp, TrendingDown, Award, AlertTriangle, Zap, HelpCircle, Flame, Compass, ArrowUpRight, ArrowDownRight, Sparkles, Filter, RefreshCw } from 'lucide-react';
+import { 
+  TrendingUp, 
+  TrendingDown, 
+  Sparkles, 
+  Layers, 
+  Compass, 
+  ArrowUpRight, 
+  ArrowDownRight, 
+  CheckCircle2, 
+  RefreshCw,
+  HelpCircle,
+  Zap
+} from 'lucide-react';
 import { formatCompactPnL } from '@/lib/formatters';
+import { resetSandboxLedger } from '@/lib/api-client';
 
 interface PortfolioAnalyticsProps {
   logs: ExecutionLog[];
+  snapshots?: any[];
   userId?: string;
   startingBalance?: number;
   currentBalance?: number;
@@ -17,6 +30,7 @@ interface PortfolioAnalyticsProps {
 
 export function PortfolioAnalytics({
   logs,
+  snapshots = [],
   userId,
   startingBalance = 10000.0,
   currentBalance = 10000.0,
@@ -24,44 +38,18 @@ export function PortfolioAnalytics({
   onResetComplete
 }: PortfolioAnalyticsProps) {
   const [timeframe, setTimeframe] = useState<'1H' | '6H' | '1D' | '1W' | '1M' | 'YTD' | 'ALL'>('ALL');
-  const [viewMode, setViewMode] = useState<'curve' | 'attribution'>('curve');
   const [attributionTab, setAttributionTab] = useState<'both' | 'alpha' | 'drawdown'>('both');
-  const [isResetting, setIsResetting] = useState(false);
   const [showResetModal, setShowResetModal] = useState(false);
-  
-  const [snapshots, setSnapshots] = useState<{
-    id: string;
-    timestamp: string;
-    time: string;
-    date: string;
-    balance: number;
-    pnl: number;
-    activeTrades: number;
-  }[]>([]);
+  const [isResetting, setIsResetting] = useState(false);
 
-  // Load authentic backend snapshot history without flickering
-  const loadSnapshots = useCallback(async () => {
-    try {
-      const data = await fetchPortfolioSnapshots(undefined, timeframe === 'ALL' ? 'all' : timeframe.toLowerCase());
-      if (data && data.length > 0) {
-        setSnapshots(data);
-      }
-    } catch {
-      // Keep existing snapshots on background error
-    }
-  }, [timeframe]);
-
-  useEffect(() => {
-    loadSnapshots();
-    const interval = setInterval(loadSnapshots, 5000);
-    return () => clearInterval(interval);
-  }, [loadSnapshots]);
-
-  // Filter logs by selected timeframe
+  // 1. Filter Logs by Timeframe
   const filteredLogs = useMemo(() => {
+    if (!logs || logs.length === 0) return [];
     if (timeframe === 'ALL') return logs;
-    const now = Date.now();
+
+    const now = new Date().getTime();
     let cutoff = 0;
+
     if (timeframe === '1H') cutoff = now - 60 * 60 * 1000;
     else if (timeframe === '6H') cutoff = now - 6 * 60 * 60 * 1000;
     else if (timeframe === '1D') cutoff = now - 24 * 60 * 60 * 1000;
@@ -69,45 +57,31 @@ export function PortfolioAnalytics({
     else if (timeframe === '1M') cutoff = now - 30 * 24 * 60 * 60 * 1000;
     else if (timeframe === 'YTD') cutoff = new Date(new Date().getFullYear(), 0, 1).getTime();
 
-    return logs.filter(l => {
+    return logs.filter((l) => {
       if (!l.timestamp) return true;
       const t = new Date(l.timestamp).getTime();
       return t >= cutoff;
     });
   }, [logs, timeframe]);
 
-  // Active unique positions count
-  const activePositionsCount = useMemo(() => {
-    const activeCids = new Set<string>();
-    for (const l of logs) {
-      if (l.side === 'BUY' && l.status === 'FILLED') {
-        activeCids.add(l.marketConditionId || l.id);
-      }
-    }
-    return activeCids.size;
-  }, [logs]);
-
-  // Aggregate Market Positions (Eliminates duplicate slice spam)
-  const { 
-    alphaDrivers, 
-    drawdownCulprits, 
-    topWinnerLog, 
-    topLoserLog, 
-    winCount, 
-    lossCount, 
-    winRate, 
-    pnlTimeline, 
+  // Aggregate Market Attribution & Stats
+  const {
+    alphaDrivers,
+    drawdownCulprits,
+    topWinnerLog,
+    topLoserLog,
+    winCount,
+    lossCount,
+    winRate,
+    pnlTimeline,
     periodPnL,
-    periodPnLPct,
-    topSignificantTrades,
-    isFlat
+    periodPnLPct
   } = useMemo(() => {
     let wins = 0;
     let losses = 0;
     let bestWinLog: ExecutionLog | null = null;
     let worstLossLog: ExecutionLog | null = null;
 
-    // 1. Unique Market Position Aggregator
     interface MarketSummary {
       key: string;
       question: string;
@@ -130,11 +104,11 @@ export function PortfolioAnalytics({
       const curP = log.currentPrice ?? fillP;
       const notional = log.size ?? 0;
 
-      // Classify true winners and losers (ignore minor $0.20 taker fees on open orders)
-      if (pnl > 0.10) {
+      // Classify true winners and losers
+      if (pnl >= 0) {
         wins++;
         if (!bestWinLog || pnl > (bestWinLog.pnl ?? 0)) bestWinLog = log;
-      } else if (pnl < -0.30) {
+      } else {
         losses++;
         if (!worstLossLog || pnl < (worstLossLog.pnl ?? 0)) worstLossLog = log;
       }
@@ -170,54 +144,67 @@ export function PortfolioAnalytics({
     const totalResolved = wins + losses;
     const wr = totalResolved > 0 ? (wins / totalResolved) * 100 : 0.0;
 
-    // Top 50 significant individual fills for heatpoints
-    const topSignificantTrades = [...filteredLogs]
-      .sort((a, b) => Math.abs(b.pnl ?? 0) - Math.abs(a.pnl ?? 0))
-      .slice(0, 50);
-
-    // 2. Build High-Fidelity Timeline from Backend Snapshots
+    // 2. Build High-Fidelity Timeline strictly from Realized Trades
     interface TimelinePoint {
-      time: string;
+      displayTime: string;
       balance: number;
       pnl: number;
       date: string;
+      rawTimestamp: number;
     }
 
     let timeline: TimelinePoint[] = [];
 
-    if (snapshots.length > 0) {
-      timeline = snapshots.map((s) => ({
-        time: s.time || '00:00',
-        balance: s.balance,
-        pnl: s.pnl,
-        date: s.date || 'Today'
-      }));
+    // Sort logs chronologically
+    const chronologicalLogs = [...filteredLogs].sort((a, b) => {
+      const ta = new Date(a.timestamp || 0).getTime();
+      const tb = new Date(b.timestamp || 0).getTime();
+      return ta - tb;
+    });
 
-      // Ensure final point is locked to live current balance
-      const lastSnap = timeline[timeline.length - 1];
-      if (lastSnap && Math.abs(lastSnap.balance - currentBalance) > 0.01) {
+    let runningBalance = startingBalance;
+    const nowMs = Date.now();
+    const firstTradeMs = chronologicalLogs.length > 0 ? new Date(chronologicalLogs[0].timestamp || 0).getTime() : nowMs - 3600000;
+
+    // Genesis starting baseline
+    timeline.push({
+      displayTime: new Date(firstTradeMs - 60000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      balance: startingBalance,
+      pnl: 0,
+      date: 'Start',
+      rawTimestamp: firstTradeMs - 60000
+    });
+
+    for (const log of chronologicalLogs) {
+      if (log.status === 'FILLED' || log.status === 'RESOLVED' || log.status === 'CLOSED') {
+        const netTradePnl = log.pnl ?? 0;
+        runningBalance += netTradePnl;
+
+        const ts = new Date(log.timestamp || 0);
         timeline.push({
-          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-          balance: Math.round(currentBalance * 100) / 100,
-          pnl: Math.round((currentBalance - startingBalance) * 100) / 100,
-          date: 'Now'
+          displayTime: ts.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          balance: Math.round(runningBalance * 100) / 100,
+          pnl: Math.round((runningBalance - startingBalance) * 100) / 100,
+          date: ts.toLocaleDateString(undefined, { day: 'numeric', month: 'short' }),
+          rawTimestamp: ts.getTime()
         });
       }
-    } else {
-      timeline = [
-        { time: 'Start', balance: startingBalance, pnl: 0, date: 'Base' },
-        { time: 'Now', balance: currentBalance, pnl: currentBalance - startingBalance, date: 'Today' }
-      ];
     }
+
+    // Always anchor to live current balance at current moment
+    timeline.push({
+      displayTime: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      balance: Math.round(currentBalance * 100) / 100,
+      pnl: Math.round((currentBalance - startingBalance) * 100) / 100,
+      date: 'Now',
+      rawTimestamp: nowMs
+    });
 
     // Accurate Period P&L calculation over selected timeframe window
     const startBal = timeline.length > 0 ? timeline[0].balance : startingBalance;
     const endBal = timeline.length > 0 ? timeline[timeline.length - 1].balance : currentBalance;
     const periodPnL = Math.round((endBal - startBal) * 100) / 100;
     const periodPnLPct = startBal > 0 ? Math.round((periodPnL / startBal) * 10000) / 100 : 0.0;
-
-    // Determine if trajectory is horizontal/flat to prevent bezier spline arcs
-    const isFlat = timeline.length > 0 && timeline.every(t => Math.abs(t.balance - timeline[0].balance) < 0.01);
 
     return {
       alphaDrivers,
@@ -229,11 +216,9 @@ export function PortfolioAnalytics({
       winRate: wr,
       pnlTimeline: timeline,
       periodPnL,
-      periodPnLPct,
-      topSignificantTrades,
-      isFlat
+      periodPnLPct
     };
-  }, [filteredLogs, snapshots, startingBalance, currentBalance]);
+  }, [filteredLogs, startingBalance, currentBalance]);
 
   // Handle Sandbox Reset
   const handleResetSandbox = async () => {
@@ -250,6 +235,17 @@ export function PortfolioAnalytics({
     }
   };
 
+  // Calculate active distinct positions count
+  const activePositionsCount = useMemo(() => {
+    const activeConditions = new Set<string>();
+    for (const log of filteredLogs) {
+      if (log.side === 'BUY' && log.status === 'FILLED' && !log.marketQuestion?.toLowerCase().includes('resolved')) {
+        activeConditions.add(log.marketConditionId || log.id);
+      }
+    }
+    return activeConditions.size;
+  }, [filteredLogs]);
+
   return (
     <div className="space-y-6">
       {/* Top Banner: Capital Curve + Scorecard */}
@@ -261,28 +257,8 @@ export function PortfolioAnalytics({
               <div className="flex items-center gap-2 flex-wrap">
                 <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Sandbox Capital Curve</span>
                 <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
-                  <Zap size={10} /> Live Blockchain MTM
+                  <Zap size={10} /> Real-Time MTM
                 </span>
-                {/* View Mode Toggle */}
-                <div className="flex rounded-xl bg-slate-100 p-0.5 border border-black/[0.06] text-[11px] font-semibold">
-                  <button
-                    onClick={() => setViewMode('curve')}
-                    className={`px-2.5 py-0.5 rounded-lg transition-all cursor-pointer ${
-                      viewMode === 'curve' ? 'bg-white text-slate-900 shadow-2xs font-bold' : 'text-slate-500 hover:text-slate-800'
-                    }`}
-                  >
-                    Smooth Curve
-                  </button>
-                  <button
-                    onClick={() => setViewMode('attribution')}
-                    className={`px-2.5 py-0.5 rounded-lg transition-all cursor-pointer flex items-center gap-1.5 ${
-                      viewMode === 'attribution' ? 'bg-indigo-600 text-white shadow-2xs font-bold' : 'text-slate-500 hover:text-slate-800'
-                    }`}
-                    title="Top 50 significant trade markers & heatpoints"
-                  >
-                    <Compass size={11} /> Top 50 Heatpoints
-                  </button>
-                </div>
               </div>
               <div className="flex items-baseline gap-3 mt-1">
                 <span className="text-3xl font-extrabold font-mono text-slate-950">
@@ -322,7 +298,7 @@ export function PortfolioAnalytics({
             </div>
           </div>
 
-          {/* Area Chart: Clean Smooth Curve without trade popups */}
+          {/* Area Chart: Clean Smooth Curve with crosshair value tracking at cursor */}
           <div className="h-56 w-full pt-2 outline-none focus:outline-none ring-0 focus:ring-0 [&_*]:outline-none [&_*]:focus:outline-none select-none">
             <ResponsiveContainer width="100%" height="100%" className="outline-none">
               <AreaChart data={pnlTimeline} margin={{ top: 10, right: 10, left: -20, bottom: 0 }} className="outline-none">
@@ -333,7 +309,7 @@ export function PortfolioAnalytics({
                   </linearGradient>
                 </defs>
                 <XAxis 
-                  dataKey="time" 
+                  dataKey="displayTime" 
                   tick={{ fontSize: 10, fill: '#94A3B8' }} 
                   axisLine={false} 
                   tickLine={false}
@@ -354,12 +330,12 @@ export function PortfolioAnalytics({
                       return (
                         <div className="bg-slate-950 text-white px-4 py-3 rounded-2xl text-xs font-mono shadow-2xl border border-white/10 max-w-xs space-y-1">
                           <div className="flex items-center justify-between text-[10px] text-slate-400">
-                            <span>{d.date} • {d.time}</span>
-                            <span className="font-bold text-slate-300">Sandbox MTM</span>
+                            <span>{d.date} • {d.displayTime}</span>
+                            <span className="font-bold text-slate-300">Sandbox Balance</span>
                           </div>
                           <div className="text-base font-bold text-white">${d.balance.toLocaleString(undefined, { minimumFractionDigits: 2 })}</div>
                           <div className={`text-[11px] font-bold ${d.pnl >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                            {d.pnl >= 0 ? '+' : ''}${d.pnl.toFixed(2)} Mark-to-Market P&amp;L
+                            {d.pnl >= 0 ? '+' : ''}${d.pnl.toFixed(2)} Total P&amp;L
                           </div>
                         </div>
                       );
@@ -368,74 +344,19 @@ export function PortfolioAnalytics({
                   }}
                 />
                 <Area 
-                  type={isFlat ? 'linear' : 'monotoneX'} 
+                  type="monotone"
                   dataKey="balance" 
                   stroke={periodPnL >= 0 ? '#10B981' : '#F43F5E'} 
                   strokeWidth={2.5}
                   fillOpacity={1} 
                   fill="url(#balanceGradient)"
-                  dot={(props: any) => {
-                    const { cx, cy, payload } = props;
-                    if (!payload || !payload.isTrade || viewMode !== 'attribution') return null;
-                    const isWin = (payload.tradePnl ?? 0) >= 0;
-                    return (
-                      <circle
-                        key={`trade-dot-${payload.tradeId || cx}`}
-                        cx={cx}
-                        cy={cy}
-                        r={5}
-                        fill={isWin ? '#10B981' : '#F43F5E'}
-                        stroke="#FFFFFF"
-                        strokeWidth={2}
-                        className="cursor-pointer transition-all hover:scale-125"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          if (payload.trade && onSelectTrade) {
-                            onSelectTrade(payload.trade);
-                          }
-                        }}
-                      />
-                    );
-                  }}
-                  activeDot={{ r: 6, fill: periodPnL >= 0 ? '#10B981' : '#F43F5E', stroke: '#FFFFFF', strokeWidth: 2.5 }}
+                  dot={false}
+                  activeDot={false}
                   isAnimationActive={false}
                 />
               </AreaChart>
             </ResponsiveContainer>
           </div>
-
-          {/* Quick-Select Top 50 Significant Fills (Attribution Mode) */}
-          {viewMode === 'attribution' && topSignificantTrades.length > 0 && (
-            <div className="pt-2 border-t border-black/[0.06] space-y-2">
-              <div className="flex items-center justify-between text-[11px] font-semibold text-slate-500">
-                <span className="flex items-center gap-1.5">
-                  <Sparkles size={12} className="text-indigo-600" />
-                  Top Significant Alpha &amp; Drawdown Fills ({topSignificantTrades.length})
-                </span>
-                <span className="text-[10px] text-slate-400 font-mono">1-click to inspect trade details</span>
-              </div>
-              <div className="flex gap-2 overflow-x-auto pb-1.5 scroll-smooth">
-                {topSignificantTrades.slice(0, 20).map((t) => {
-                  const pnl = t.pnl ?? 0;
-                  const isWin = pnl >= 0;
-                  return (
-                    <button
-                      key={t.id}
-                      onClick={() => onSelectTrade && onSelectTrade(t)}
-                      className={`px-3 py-1.5 rounded-xl text-[10px] font-mono font-bold whitespace-nowrap flex items-center gap-2 border transition-all cursor-pointer shadow-2xs hover:scale-105 ${
-                        isWin 
-                          ? 'bg-emerald-50 text-emerald-800 border-emerald-200 hover:bg-emerald-100' 
-                          : 'bg-rose-50 text-rose-800 border-rose-200 hover:bg-rose-100'
-                      }`}
-                    >
-                      <span className="truncate max-w-[110px]">{t.marketQuestion || 'Event'}</span>
-                      <span className={isWin ? 'text-emerald-700' : 'text-rose-700'}>{formatCompactPnL(pnl)}</span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          )}
         </div>
 
         {/* Right: Execution Scorecard */}
@@ -457,16 +378,20 @@ export function PortfolioAnalytics({
             </div>
           </div>
 
-          {/* Win/Loss Bar Visualizer */}
+          {/* Win/Loss Bar */}
           <div className="space-y-1.5">
-            <div className="h-3 w-full bg-slate-100 rounded-full overflow-hidden flex p-0.5 border border-black/[0.04]">
+            <div className="flex justify-between text-xs font-bold font-mono">
+              <span className="text-emerald-700">{winCount} Won</span>
+              <span className="text-rose-700">{lossCount} Lost</span>
+            </div>
+            <div className="h-2 w-full rounded-full bg-slate-100 overflow-hidden flex">
               <div 
-                className="h-full bg-emerald-500 rounded-full transition-all duration-500" 
-                style={{ width: `${Math.max(4, winRate)}%` }} 
+                className="bg-emerald-500 transition-all duration-500" 
+                style={{ width: `${winRate}%` }} 
               />
               <div 
-                className="h-full bg-rose-500 rounded-full transition-all duration-500" 
-                style={{ width: `${Math.max(4, 100 - winRate)}%` }} 
+                className="bg-rose-500 transition-all duration-500" 
+                style={{ width: `${100 - winRate}%` }} 
               />
             </div>
             <div className="flex justify-between text-[10px] font-mono font-semibold text-slate-400">
@@ -582,7 +507,7 @@ export function PortfolioAnalytics({
                         <span className="font-bold text-slate-900 truncate max-w-[210px]" title={m.question}>
                           {m.question}
                         </span>
-                        <span className="font-mono font-bold text-rose-700">{formatCompactPnL(m.totalPnl)}</span>
+                        <span className="font-mono font-bold text-rose-700">{formatCompactPnL(m.totalPnl, false)}</span>
                       </div>
                       <div className="flex items-center justify-between text-[10px] font-mono text-slate-500">
                         <span>Avg Fill: ${(m.avgFillPrice).toFixed(3)} → Live: ${(m.currentPrice).toFixed(3)}</span>
@@ -597,114 +522,27 @@ export function PortfolioAnalytics({
         </div>
       )}
 
-      {/* Bottom Section: Top Single Winner vs Top Single Loser */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {/* Top Winner Card */}
-        <div 
-          onClick={() => topWinnerLog && onSelectTrade && onSelectTrade(topWinnerLog)}
-          className={`p-5 rounded-3xl bg-emerald-50/40 border border-emerald-200/80 transition-all ${
-            topWinnerLog ? 'hover:shadow-md cursor-pointer hover:border-emerald-300' : 'opacity-60'
-          }`}
-        >
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-2">
-              <div className="w-7 h-7 rounded-xl bg-emerald-100 flex items-center justify-center text-emerald-800 border border-emerald-200">
-                <Award size={16} />
-              </div>
-              <span className="text-xs font-bold uppercase tracking-wider text-emerald-900">Highest Alpha Single Fill ({timeframe})</span>
-            </div>
-            {topWinnerLog && (
-              <span className="text-xs font-mono font-bold text-emerald-700 bg-emerald-100/60 px-2 py-0.5 rounded-full border border-emerald-300">
-                +{formatCompactPnL(topWinnerLog.pnl, false)} (+{(topWinnerLog.pnlPct ?? 0).toFixed(1)}%)
-              </span>
-            )}
-          </div>
-
-          {topWinnerLog ? (
-            <div className="space-y-2">
-              <div className="text-sm font-bold text-slate-900 leading-snug truncate" title={topWinnerLog.marketQuestion}>
-                {topWinnerLog.marketQuestion}
-              </div>
-              <div className="flex items-center gap-3 text-xs font-mono text-slate-600">
-                <span>Filled @ ${(topWinnerLog.fillPrice ?? 0.5).toFixed(3)}</span>
-                <span>•</span>
-                <span>Live MTM @ ${(topWinnerLog.currentPrice ?? 0.5).toFixed(3)}</span>
-                <span>•</span>
-                <span>Size ${topWinnerLog.size?.toLocaleString()}</span>
-              </div>
-            </div>
-          ) : (
-            <p className="text-xs text-slate-400 font-medium">No profitable trade in selected timeframe.</p>
-          )}
-        </div>
-
-        {/* Top Loser Card */}
-        <div 
-          onClick={() => topLoserLog && onSelectTrade && onSelectTrade(topLoserLog)}
-          className={`p-5 rounded-3xl bg-rose-50/40 border border-rose-200/80 transition-all ${
-            topLoserLog ? 'hover:shadow-md cursor-pointer hover:border-rose-300' : 'opacity-60'
-          }`}
-        >
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-2">
-              <div className="w-7 h-7 rounded-xl bg-rose-100 flex items-center justify-center text-rose-800 border border-rose-200">
-                <AlertTriangle size={16} />
-              </div>
-              <span className="text-xs font-bold uppercase tracking-wider text-rose-900">Largest Drawdown Single Fill ({timeframe})</span>
-            </div>
-            {topLoserLog && (
-              <span className="text-xs font-mono font-bold text-rose-700 bg-rose-100/60 px-2 py-0.5 rounded-full border border-rose-300">
-                {formatCompactPnL(topLoserLog.pnl)} ({(topLoserLog.pnlPct ?? 0).toFixed(1)}%)
-              </span>
-            )}
-          </div>
-
-          {topLoserLog ? (
-            <div className="space-y-2">
-              <div className="text-sm font-bold text-slate-900 leading-snug truncate" title={topLoserLog.marketQuestion}>
-                {topLoserLog.marketQuestion}
-              </div>
-              <div className="flex items-center gap-3 text-xs font-mono text-slate-600">
-                <span>Filled @ ${(topLoserLog.fillPrice ?? 0.5).toFixed(3)}</span>
-                <span>•</span>
-                <span>Live MTM @ ${(topLoserLog.currentPrice ?? 0.5).toFixed(3)}</span>
-                <span>•</span>
-                <span>Size ${topLoserLog.size?.toLocaleString()}</span>
-              </div>
-            </div>
-          ) : (
-            <p className="text-xs text-slate-400 font-medium">No negative trade in selected timeframe.</p>
-          )}
-        </div>
-      </div>
-
-      {/* Reset Confirmation Modal */}
+      {/* Confirmation Reset Modal */}
       {showResetModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
-          <div className="bg-white rounded-3xl p-6 max-w-md w-full border border-black/[0.08] shadow-2xl space-y-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center border border-rose-200">
-                <AlertTriangle size={20} />
-              </div>
-              <div>
-                <h4 className="text-base font-bold text-slate-900">Reset Sandbox Ledger?</h4>
-                <p className="text-xs text-slate-500">This will clear simulated execution history and reset your capital back to $10,000.00.</p>
-              </div>
-            </div>
-
-            <div className="flex items-center justify-end gap-2 pt-2">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm">
+          <div className="w-full max-w-md bg-white rounded-3xl p-6 shadow-2xl border border-black/[0.08] space-y-4">
+            <h3 className="text-base font-bold text-slate-900">Reset Sandbox Simulation?</h3>
+            <p className="text-xs text-slate-600 leading-relaxed">
+              This will reset your paper trading balance back to <strong>$10,000.00</strong>, clear all execution logs and simulation charts.
+            </p>
+            <div className="flex justify-end gap-3 pt-2">
               <button
                 onClick={() => setShowResetModal(false)}
-                className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
+                className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-100 transition-colors"
               >
                 Cancel
               </button>
               <button
-                onClick={handleResetSandbox}
                 disabled={isResetting}
-                className="px-4 py-2 rounded-xl text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 transition-all cursor-pointer shadow-sm disabled:opacity-50"
+                onClick={handleResetSandbox}
+                className="px-4 py-2 rounded-xl text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 transition-colors shadow-sm"
               >
-                {isResetting ? 'Resetting...' : 'Yes, Reset to $10k'}
+                {isResetting ? 'Resetting...' : 'Confirm Reset'}
               </button>
             </div>
           </div>

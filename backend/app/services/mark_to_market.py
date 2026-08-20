@@ -142,16 +142,11 @@ class MarkToMarketService:
                         net_pnl = gross_pnl - fee
                         elog.realized_pnl_usd = round(net_pnl, 2)
 
-                # 4. Synchronize authoritative sandbox balance & snapshots
-                from app.models import PortfolioSnapshot
-                from datetime import datetime
-
-                now_dt = datetime.utcnow()
+                # Synchronize authoritative sandbox balance
                 stmt_all_filled = select(ExecutionLog).where(ExecutionLog.status == "FILLED")
                 all_filled = (await db.execute(stmt_all_filled)).scalars().all()
                 total_portfolio_pnl = sum(float(l.realized_pnl_usd or 0.0) for l in all_filled)
                 canonical_balance = round(10000.0 + total_portfolio_pnl, 2)
-                trades_count = len(all_filled)
 
                 # Update all users to authoritative canonical balance
                 stmt_users = select(User)
@@ -160,23 +155,6 @@ class MarkToMarketService:
                     u.sandbox_balance_usd = canonical_balance
                     if canonical_balance > float(u.sandbox_high_water_mark_usd or 10000.0):
                         u.sandbox_high_water_mark_usd = canonical_balance
-                    
-                    db.add(PortfolioSnapshot(
-                        user_id=u.id,
-                        timestamp=now_dt,
-                        balance=canonical_balance,
-                        total_pnl=round(total_portfolio_pnl, 2),
-                        active_trades_count=trades_count
-                    ))
-
-                # Global platform sandbox snapshot
-                db.add(PortfolioSnapshot(
-                    user_id=None,
-                    timestamp=now_dt,
-                    balance=canonical_balance,
-                    total_pnl=round(total_portfolio_pnl, 2),
-                    active_trades_count=trades_count
-                ))
 
                 await db.commit()
         finally:

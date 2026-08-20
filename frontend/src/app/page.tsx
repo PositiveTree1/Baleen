@@ -1,7 +1,6 @@
 'use client';
 import { useState } from 'react';
 import { Hero } from '@/components/landing/Hero';
-import { LiveTicker } from '@/components/landing/LiveTicker';
 import { ProfitSimulator } from '@/components/landing/ProfitSimulator';
 import { FeaturesGrid } from '@/components/landing/FeaturesGrid';
 import { Leaderboard } from '@/components/landing/Leaderboard';
@@ -30,7 +29,6 @@ export default function LandingPage() {
       </nav>
 
       <Hero />
-      <LiveTicker />
       <ProfitSimulator />
       <Leaderboard />
       <FeaturesGrid />

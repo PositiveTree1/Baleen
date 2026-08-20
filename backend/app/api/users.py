@@ -168,51 +168,62 @@ async def reset_user_sandbox(
         stmt = select(User).where(User.id == user_id)
 
     user = (await db.execute(stmt)).scalar_one_or_none()
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-
     new_bal = float(req.new_starting_balance or 10000.0)
-    user.sandbox_starting_balance_usd = new_bal
-    user.sandbox_balance_usd = new_bal
-    user.sandbox_high_water_mark_usd = new_bal
 
-    # Clear execution logs and snapshots for this user
-    await db.execute(delete(ExecutionLog).where(ExecutionLog.user_id == user.id))
-    await db.execute(delete(PortfolioSnapshot).where(PortfolioSnapshot.user_id == user.id))
+    if user:
+        user.sandbox_starting_balance_usd = new_bal
+        user.sandbox_balance_usd = new_bal
+        user.sandbox_high_water_mark_usd = new_bal
 
-    # Also clear system global logs if demo/guest
-    if user.email == SHARED_GUEST_EMAIL:
-        await db.execute(delete(ExecutionLog).where(ExecutionLog.user_id.is_(None)))
-        await db.execute(delete(PortfolioSnapshot).where(PortfolioSnapshot.user_id.is_(None)))
+    # Clear ALL execution logs and snapshots across all users and global
+    await db.execute(delete(ExecutionLog))
+    await db.execute(delete(PortfolioSnapshot))
 
     # Initial starting snapshot
     now_dt = datetime.utcnow()
     db.add(PortfolioSnapshot(
-        user_id=user.id,
+        user_id=user.id if user else None,
+        timestamp=now_dt,
+        balance=new_bal,
+        total_pnl=0.0,
+        active_trades_count=0
+    ))
+    db.add(PortfolioSnapshot(
+        user_id=None,
         timestamp=now_dt,
         balance=new_bal,
         total_pnl=0.0,
         active_trades_count=0
     ))
 
-    # Reset poller started_at to now
+    # Reset live poller started_at to right now so past trades are discarded
     try:
-        from app.services.live_poller import live_poller_service
-        live_poller_service.started_at = time.time()
-        live_poller_service.seen_trade_keys.clear()
+        from app.services.live_poller import live_trade_mirror
+        live_trade_mirror.started_at = time.time()
+        live_trade_mirror.seen_trade_keys.clear()
     except Exception:
         pass
 
-    # Clear price caches
+    # Clear price and consensus caches
     try:
-        from app.services.mark_to_market import _live_price_cache
+        from app.services.mark_to_market import _live_price_cache, _consensus_cache
         _live_price_cache.clear()
+        _consensus_cache.clear()
     except Exception:
         pass
 
     await db.commit()
-    await db.refresh(user)
-    return user_to_response(user)
+    if user:
+        await db.refresh(user)
+        return user_to_response(user)
+    return {
+        "id": user_id,
+        "email": SHARED_GUEST_EMAIL,
+        "startingBalance": new_bal,
+        "currentBalance": new_bal,
+        "riskProfile": "Balanced",
+        "dailyDigestOptIn": True
+    }
 
 
 @router.post("/api/users/reset-sandbox")
@@ -227,13 +238,13 @@ async def reset_global_sandbox(
 
     new_bal = float(req.new_starting_balance or 10000.0)
 
-    # 1. Reset guest user
-    stmt = select(User).where(User.email == SHARED_GUEST_EMAIL)
-    guest = (await db.execute(stmt)).scalar_one_or_none()
-    if guest:
-        guest.sandbox_starting_balance_usd = new_bal
-        guest.sandbox_balance_usd = new_bal
-        guest.sandbox_high_water_mark_usd = new_bal
+    # 1. Reset all users
+    stmt = select(User)
+    users = (await db.execute(stmt)).scalars().all()
+    for u in users:
+        u.sandbox_starting_balance_usd = new_bal
+        u.sandbox_balance_usd = new_bal
+        u.sandbox_high_water_mark_usd = new_bal
 
     # 2. Reset ALL execution logs & snapshots
     await db.execute(delete(ExecutionLog))
@@ -251,16 +262,17 @@ async def reset_global_sandbox(
 
     # Reset poller started_at to now
     try:
-        from app.services.live_poller import live_poller_service
-        live_poller_service.started_at = time.time()
-        live_poller_service.seen_trade_keys.clear()
+        from app.services.live_poller import live_trade_mirror
+        live_trade_mirror.started_at = time.time()
+        live_trade_mirror.seen_trade_keys.clear()
     except Exception:
         pass
 
     # Clear price caches
     try:
-        from app.services.mark_to_market import _live_price_cache
+        from app.services.mark_to_market import _live_price_cache, _consensus_cache
         _live_price_cache.clear()
+        _consensus_cache.clear()
     except Exception:
         pass
 
