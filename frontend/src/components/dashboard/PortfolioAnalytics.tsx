@@ -15,7 +15,7 @@ import {
   HelpCircle,
   Zap
 } from 'lucide-react';
-import { formatCompactPnL } from '@/lib/formatters';
+import { formatCompactPnL, formatFrenchTime, formatFrenchDate } from '@/lib/formatters';
 import { resetSandboxLedger } from '@/lib/api-client';
 
 interface PortfolioAnalyticsProps {
@@ -138,24 +138,64 @@ export function PortfolioAnalytics({
     }
 
     const allMarkets = Array.from(marketMap.values());
-    const alphaDrivers = allMarkets.filter(m => m.totalPnl > 0).sort((a, b) => b.totalPnl - a.totalPnl).slice(0, 3);
-    const drawdownCulprits = allMarkets.filter(m => m.totalPnl < 0).sort((a, b) => a.totalPnl - b.totalPnl).slice(0, 3);
+    let grossWins = 0;
+    let grossLosses = 0;
+    let totalVolume = 0;
+    let bestWin = 0;
+    let worstLoss = 0;
+    let winningHoldsMs: number[] = [];
+    let losingHoldsMs: number[] = [];
 
-    const totalResolved = wins + losses;
-    const wr = totalResolved > 0 ? (wins / totalResolved) * 100 : 0.0;
+    filteredLogs.forEach((log) => {
+      if (log.status === 'FILLED' || log.status === 'RESOLVED' || log.status === 'CLOSED') {
+        const netPnl = log.pnl ?? 0;
+        totalVolume += log.size || 0;
 
-    // 2. Build High-Fidelity Timeline strictly from Realized Trades
-    interface TimelinePoint {
+        if (netPnl > 0) {
+          wins++;
+          grossWins += netPnl;
+          if (netPnl > bestWin) bestWin = netPnl;
+        } else if (netPnl < 0) {
+          losses++;
+          grossLosses += Math.abs(netPnl);
+          if (netPnl < worstLoss) worstLoss = netPnl;
+        }
+      }
+    });
+
+    const totalTrades = wins + losses;
+    const winRate = totalTrades > 0 ? (wins / totalTrades) * 100 : 0;
+    const profitFactor = grossLosses > 0 ? grossWins / grossLosses : grossWins > 0 ? 99.0 : 1.0;
+    const netPnl = grossWins - grossLosses;
+    const roi = totalVolume > 0 ? (netPnl / totalVolume) * 100 : 0;
+
+    return {
+      wins,
+      losses,
+      totalTrades,
+      winRate,
+      profitFactor,
+      grossWins,
+      grossLosses,
+      netPnl,
+      roi,
+      totalVolume,
+      bestWin,
+      worstLoss
+    };
+  }, [filteredLogs]);
+
+  // 3. Construct Unified Authoritative Equity Timeline
+  const { chartData, periodPnl, periodPnlPct } = useMemo(() => {
+    const timeline: {
       displayTime: string;
       balance: number;
       pnl: number;
       date: string;
       rawTimestamp: number;
-    }
+    }[] = [];
 
-    let timeline: TimelinePoint[] = [];
-
-    // Sort logs chronologically
+    // Sort chronologically (oldest to newest)
     const chronologicalLogs = [...filteredLogs].sort((a, b) => {
       const ta = new Date(a.timestamp || 0).getTime();
       const tb = new Date(b.timestamp || 0).getTime();
@@ -168,7 +208,7 @@ export function PortfolioAnalytics({
 
     // Genesis starting baseline
     timeline.push({
-      displayTime: new Date(firstTradeMs - 60000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      displayTime: formatFrenchTime(firstTradeMs - 60000),
       balance: startingBalance,
       pnl: 0,
       date: 'Start',
@@ -182,10 +222,10 @@ export function PortfolioAnalytics({
 
         const ts = new Date(log.timestamp || 0);
         timeline.push({
-          displayTime: ts.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          displayTime: formatFrenchTime(ts),
           balance: Math.round(runningBalance * 100) / 100,
           pnl: Math.round((runningBalance - startingBalance) * 100) / 100,
-          date: ts.toLocaleDateString(undefined, { day: 'numeric', month: 'short' }),
+          date: formatFrenchDate(ts),
           rawTimestamp: ts.getTime()
         });
       }
@@ -193,7 +233,7 @@ export function PortfolioAnalytics({
 
     // Always anchor to live current balance at current moment
     timeline.push({
-      displayTime: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      displayTime: formatFrenchTime(new Date()),
       balance: Math.round(currentBalance * 100) / 100,
       pnl: Math.round((currentBalance - startingBalance) * 100) / 100,
       date: 'Now',

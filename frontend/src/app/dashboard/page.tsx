@@ -11,7 +11,7 @@ import { TradeDrawer } from '@/components/dashboard/TradeDrawer';
 import { ResetSandboxModal } from '@/components/dashboard/ResetSandboxModal';
 import { ActivityFeed } from '@/components/dashboard/ActivityFeed';
 import { CommandPalette } from '@/components/ui/CommandPalette';
-import { fetchUserSettings, fetchPortfolioSummary, fetchExecutionLogs } from '@/lib/api-client';
+import { fetchUserSettings, fetchPortfolioSummary, fetchExecutionLogs, getCachedExecutionLogs, getCachedPortfolioSummary } from '@/lib/api-client';
 import { User, ExecutionLog } from '@/types';
 import Link from 'next/link';
 import { Settings, LogOut, Volume2, VolumeX, ShieldCheck, Sparkles, Command, Bell } from 'lucide-react';
@@ -26,7 +26,7 @@ export default function DashboardPage() {
   const [isResetOpen, setIsResetOpen] = useState(false);
   const [activityOpen, setActivityOpen] = useState(false);
   const [soundActive, setSoundActive] = useState(false);
-  const [logs, setLogs] = useState<ExecutionLog[]>([]);
+  const [logs, setLogs] = useState<ExecutionLog[]>(() => getCachedExecutionLogs(session?.user?.id) || []);
   const [user, setUser] = useState<User | null>(null);
   const [portfolio, setPortfolio] = useState<{
     startingBalance: number;
@@ -36,7 +36,7 @@ export default function DashboardPage() {
     totalFeesPaidUsd?: number;
     filledTradesCount: number;
     totalNotionalInvested: number;
-  } | null>(null);
+  } | null>(() => getCachedPortfolioSummary(session?.user?.id) || null);
 
   const loadData = async () => {
     try {

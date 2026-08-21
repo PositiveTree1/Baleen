@@ -2,6 +2,72 @@ import { Wallet, WalletDetail, ExecutionLog, User, PlatformStats } from '../type
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000';
 
+// Global In-Memory Cache (persists across Next.js page navigations in browser)
+const memoryCache = new Map<string, { data: any; ts: number }>();
+
+function getCached<T>(key: string, maxAgeMs: number = 60000): T | null {
+  const entry = memoryCache.get(key);
+  if (entry && (Date.now() - entry.ts) < maxAgeMs) {
+    return entry.data as T;
+  }
+  if (typeof window !== 'undefined') {
+    try {
+      const raw = sessionStorage.getItem(`baleen_cache_${key}`);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Date.now() - parsed.ts < maxAgeMs) {
+          memoryCache.set(key, parsed);
+          return parsed.data as T;
+        }
+      }
+    } catch {}
+  }
+  return null;
+}
+
+function setCached(key: string, data: any) {
+  const entry = { data, ts: Date.now() };
+  memoryCache.set(key, entry);
+  if (typeof window !== 'undefined') {
+    try {
+      sessionStorage.setItem(`baleen_cache_${key}`, JSON.stringify(entry));
+    } catch {}
+  }
+}
+
+// Synchronous instant-read cache getters for initial component states
+export function getCachedWallets(): Wallet[] | null {
+  return getCached<Wallet[]>('wallets_list', 120000);
+}
+
+export function getCachedExecutionLogs(userId?: string): ExecutionLog[] | null {
+  return getCached<ExecutionLog[]>(`exec_logs_${userId || 'all'}`, 60000);
+}
+
+export function getCachedPortfolioSummary(userId?: string): {
+  startingBalance: number;
+  currentBalance: number;
+  totalPnlUsd: number;
+  totalPnlPct: number;
+  totalFeesPaidUsd?: number;
+  filledTradesCount: number;
+  totalNotionalInvested: number;
+} | null {
+  return getCached(`portfolio_summary_${userId || 'all'}`, 60000);
+}
+
+export function getCachedPortfolioSnapshots(userId?: string, timeframe?: string): {
+  id: string;
+  timestamp: string;
+  time: string;
+  date: string;
+  balance: number;
+  pnl: number;
+  activeTrades: number;
+}[] | null {
+  return getCached(`snapshots_${userId || 'all'}_${timeframe || 'all'}`, 60000);
+}
+
 export async function fetchWallets(params?: Record<string, string>): Promise<Wallet[]> {
   try {
     const url = new URL(`${API_BASE_URL}/api/wallets`);
@@ -9,9 +75,9 @@ export async function fetchWallets(params?: Record<string, string>): Promise<Wal
       Object.keys(params).forEach(key => url.searchParams.append(key, params[key]));
     }
     const res = await fetch(url.toString(), { next: { revalidate: 60 } });
-    if (!res.ok) return [];
+    if (!res.ok) return getCachedWallets() || [];
     const data = await res.json();
-    return data.map((w: any) => ({
+    const result = data.map((w: any) => ({
       address: w.address,
       name: w.name || null,
       pseudonym: w.pseudonym || null,
@@ -31,8 +97,10 @@ export async function fetchWallets(params?: Record<string, string>): Promise<Wal
       lastTradeAt: w.last_trade_at || null,
       aiStyleTag: w.ai_style_tag || null
     }));
+    setCached('wallets_list', result);
+    return result;
   } catch (error) {
-    return [];
+    return getCachedWallets() || [];
   }
 }
 
@@ -97,6 +165,7 @@ export async function fetchWallet(address: string): Promise<WalletDetail | null>
 }
 
 export async function fetchExecutionLogs(userId?: string, params?: Record<string, string>): Promise<ExecutionLog[]> {
+  const cacheKey = `exec_logs_${userId || 'all'}`;
   try {
     const url = new URL(`${API_BASE_URL}/api/executions`);
     if (userId) url.searchParams.append('userId', userId);
@@ -106,9 +175,9 @@ export async function fetchExecutionLogs(userId?: string, params?: Record<string
       url.searchParams.append('limit', '500');
     }
     const res = await fetch(url.toString());
-    if (!res.ok) return [];
+    if (!res.ok) return getCachedExecutionLogs(userId) || [];
     const data = await res.json();
-    return data.map((log: any) => ({
+    const result = data.map((log: any) => ({
       id: log.id,
       timestamp: log.timestamp || log.executed_at,
       walletAddress: log.walletAddress || log.source_wallet_address,
@@ -136,8 +205,12 @@ export async function fetchExecutionLogs(userId?: string, params?: Record<string
       consensus: log.consensus ?? { whale_count: 1, total_cash: 0, is_consensus: false },
       polymarketUrl: log.polymarketUrl ?? (log.eventSlug ? `https://polymarket.com/event/${log.eventSlug}` : (log.marketConditionId ? `https://polymarket.com/market/${log.marketConditionId}` : 'https://polymarket.com')),
     }));
+    if (result.length > 0 || !getCachedExecutionLogs(userId)) {
+      setCached(cacheKey, result);
+    }
+    return result;
   } catch (error) {
-    return [];
+    return getCachedExecutionLogs(userId) || [];
   }
 }
 
@@ -170,15 +243,20 @@ export async function fetchPortfolioSummary(userId?: string, timeframe?: string)
   filledTradesCount: number;
   totalNotionalInvested: number;
 } | null> {
+  const cacheKey = `portfolio_summary_${userId || 'all'}`;
   try {
     const url = new URL(`${API_BASE_URL}/api/executions/summary`);
     if (userId) url.searchParams.append('userId', userId);
     if (timeframe) url.searchParams.append('timeframe', timeframe);
     const res = await fetch(url.toString());
-    if (!res.ok) return null;
-    return await res.json();
+    if (!res.ok) return getCachedPortfolioSummary(userId);
+    const data = await res.json();
+    if (data) {
+      setCached(cacheKey, data);
+    }
+    return data;
   } catch (error) {
-    return null;
+    return getCachedPortfolioSummary(userId);
   }
 }
 
@@ -191,16 +269,21 @@ export async function fetchPortfolioSnapshots(userId?: string, timeframe?: strin
   pnl: number;
   activeTrades: number;
 }[]> {
+  const cacheKey = `snapshots_${userId || 'all'}_${timeframe || 'all'}`;
   try {
     const url = new URL(`${API_BASE_URL}/api/executions/snapshots`);
     if (userId) url.searchParams.append('userId', userId);
     if (timeframe) url.searchParams.append('timeframe', timeframe);
     url.searchParams.append('limit', '200');
     const res = await fetch(url.toString());
-    if (!res.ok) return [];
-    return await res.json();
+    if (!res.ok) return getCachedPortfolioSnapshots(userId, timeframe) || [];
+    const data = await res.json();
+    if (Array.isArray(data) && data.length > 0) {
+      setCached(cacheKey, data);
+    }
+    return data;
   } catch (error) {
-    return [];
+    return getCachedPortfolioSnapshots(userId, timeframe) || [];
   }
 }
 
@@ -218,15 +301,18 @@ export async function fetchCopiedWalletStats(userId?: string): Promise<{
   wins: number;
   losses: number;
 }[]> {
+  const cacheKey = `copied_stats_${userId || 'all'}`;
   try {
     const url = userId 
       ? `${API_BASE_URL}/api/wallets/copied-stats?userId=${encodeURIComponent(userId)}`
       : `${API_BASE_URL}/api/wallets/copied-stats`;
     const res = await fetch(url);
-    if (!res.ok) return [];
-    return await res.json();
+    if (!res.ok) return getCached(cacheKey) || [];
+    const data = await res.json();
+    setCached(cacheKey, data);
+    return data;
   } catch (error) {
-    return [];
+    return getCached(cacheKey) || [];
   }
 }
 
@@ -348,22 +434,35 @@ export async function guestLogin(): Promise<{ email: string; password: string } 
   }
 }
 
+export function getCachedAdminStatus(): any {
+  return getCached('admin_status', 30000);
+}
+
+export function getCachedAdminWallets(status?: string): any[] | null {
+  return getCached(`admin_wallets_${status || 'all'}`, 30000);
+}
+
 export async function fetchAdminStatus(): Promise<any> {
   try {
     const res = await fetch(`${API_BASE_URL}/api/admin/status`);
-    if (!res.ok) return null;
-    return await res.json();
-  } catch { return null; }
+    if (!res.ok) return getCachedAdminStatus();
+    const data = await res.json();
+    setCached('admin_status', data);
+    return data;
+  } catch { return getCachedAdminStatus(); }
 }
 
 export async function fetchAdminWallets(status?: string): Promise<any[]> {
+  const cacheKey = `admin_wallets_${status || 'all'}`;
   try {
     const url = new URL(`${API_BASE_URL}/api/admin/wallets`);
     if (status) url.searchParams.append('status', status);
     const res = await fetch(url.toString());
-    if (!res.ok) return [];
-    return await res.json();
-  } catch { return []; }
+    if (!res.ok) return getCachedAdminWallets(status) || [];
+    const data = await res.json();
+    setCached(cacheKey, data);
+    return data;
+  } catch { return getCachedAdminWallets(status) || []; }
 }
 
 export async function reEvaluateWallets(): Promise<{ status: string; evaluated?: number; active?: number; message?: string } | null> {

@@ -18,7 +18,7 @@ import {
   Layers,
   Users
 } from 'lucide-react';
-import { formatCompactPnL, formatExactPnL } from '@/lib/formatters';
+import { formatCompactPnL, formatExactPnL, formatFrenchDateTime } from '@/lib/formatters';
 
 interface FullHistorySpreadsheetModalProps {
   isOpen: boolean;
@@ -461,7 +461,7 @@ export function FullHistorySpreadsheetModal({
                         className="hover:bg-indigo-50/50 transition-colors cursor-pointer group"
                       >
                         <td className="p-3.5 px-4 text-slate-500 whitespace-nowrap text-[11px]">
-                          {log.timestamp ? new Date(log.timestamp).toLocaleString([], { dateStyle: 'short', timeStyle: 'medium' }) : '--'}
+                          {formatFrenchDateTime(log.timestamp, true)}
                         </td>
                         <td className="p-3.5 whitespace-nowrap">
                           <div className="flex items-center gap-2">

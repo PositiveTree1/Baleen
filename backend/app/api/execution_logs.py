@@ -152,7 +152,7 @@ async def get_execution_logs(
 
         response_list.append({
             "id": str(log.id),
-            "timestamp": log.executed_at.isoformat() if log.executed_at else None,
+            "timestamp": (log.executed_at.isoformat() + "Z") if log.executed_at else None,
             "walletAddress": log.source_wallet_address,
             "whaleName": w_meta.get("name"),
             "whalePseudonym": w_meta.get("pseudonym"),
@@ -335,7 +335,7 @@ async def get_portfolio_snapshots(
                     ts = t.executed_at
                     synth_points.append({
                         "id": f"synth-{str(t.id)[:8]}",
-                        "timestamp": ts.isoformat() if ts else None,
+                        "timestamp": (ts.isoformat() + "Z") if ts else None,
                         "time": ts.strftime("%H:%M") if ts else "",
                         "date": ts.strftime("%d %b") if ts else "",
                         "balance": balance,
@@ -379,7 +379,7 @@ async def get_portfolio_snapshots(
     result = [
         {
             "id": str(r.id),
-            "timestamp": r.timestamp.isoformat() if r.timestamp else None,
+            "timestamp": (r.timestamp.isoformat() + "Z") if r.timestamp else None,
             "time": r.timestamp.strftime("%H:%M") if r.timestamp else "",
             "date": r.timestamp.strftime("%d %b") if r.timestamp else "",
             "balance": round(float(r.balance), 2),

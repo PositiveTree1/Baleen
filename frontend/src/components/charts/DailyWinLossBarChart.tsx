@@ -1,6 +1,7 @@
 'use client';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, ReferenceLine, Cell } from 'recharts';
 import { DailyPnLPoint } from '@/types';
+import { formatFrenchDate } from '@/lib/formatters';
 
 interface DailyWinLossBarChartProps {
   data: DailyPnLPoint[];
@@ -36,7 +37,7 @@ export function DailyWinLossBarChart({ data }: DailyWinLossBarChartProps) {
             tickFormatter={(val) => {
               if (String(val).startsWith('Day')) return val;
               try {
-                return new Date(val).toLocaleDateString([], { month: 'short', day: 'numeric' });
+                return formatFrenchDate(val);
               } catch {
                 return String(val);
               }

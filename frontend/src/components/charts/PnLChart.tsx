@@ -1,5 +1,6 @@
 'use client';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
+import { formatFrenchDate } from '@/lib/formatters';
 
 interface PnLChartProps {
   data: { date: string; pnl: number }[];
@@ -37,7 +38,13 @@ export function PnLChart({ data }: PnLChartProps) {
             tick={{ fill: '#9CA3AF' }}
             tickLine={false}
             axisLine={false}
-            tickFormatter={(val) => new Date(val).toLocaleDateString([], { month: 'short', day: 'numeric' })}
+            tickFormatter={(val) => {
+              try {
+                return formatFrenchDate(val);
+              } catch {
+                return String(val);
+              }
+            }}
           />
           <YAxis 
             stroke="#9CA3AF" 
@@ -50,7 +57,13 @@ export function PnLChart({ data }: PnLChartProps) {
             contentStyle={{ backgroundColor: '#161B22', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px' }}
             itemStyle={{ color: color }}
             labelStyle={{ color: '#9CA3AF', marginBottom: '4px' }}
-            labelFormatter={(val) => new Date(String(val)).toLocaleDateString()}
+            labelFormatter={(val) => {
+              try {
+                return formatFrenchDate(String(val));
+              } catch {
+                return String(val);
+              }
+            }}
             formatter={(value: unknown) => [`$${Number(value).toFixed(2)}`, 'Cumulative P&L']}
           />
           <Area 

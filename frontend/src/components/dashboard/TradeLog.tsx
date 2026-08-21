@@ -1,10 +1,10 @@
 'use client';
 import { useEffect, useState, useMemo } from 'react';
-import { fetchExecutionLogs } from '@/lib/api-client';
+import { fetchExecutionLogs, getCachedExecutionLogs } from '@/lib/api-client';
 import { ExecutionLog } from '@/types';
 import { Skeleton } from '../ui/Skeleton';
 import { Tag, HelpCircle, Users, FileSpreadsheet, Layers, CheckCircle2, TrendingUp, TrendingDown, ArrowRight, ExternalLink } from 'lucide-react';
-import { formatCompactPnL, formatExactPnL } from '@/lib/formatters';
+import { formatCompactPnL, formatExactPnL, formatFrenchDateTime } from '@/lib/formatters';
 import { FullHistorySpreadsheetModal } from './FullHistorySpreadsheetModal';
 
 interface TradeLogProps {
@@ -15,8 +15,8 @@ interface TradeLogProps {
 const MAX_DISPLAY_TRADES = 30;
 
 export function TradeLog({ userId, onSelectTrade }: TradeLogProps) {
-  const [logs, setLogs] = useState<ExecutionLog[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [logs, setLogs] = useState<ExecutionLog[]>(() => getCachedExecutionLogs(userId) || []);
+  const [loading, setLoading] = useState(() => (getCachedExecutionLogs(userId)?.length || 0) === 0);
   const [tab, setTab] = useState<'holding' | 'closed' | 'all'>('holding');
   const [isSpreadsheetOpen, setIsSpreadsheetOpen] = useState(false);
 
@@ -223,7 +223,7 @@ export function TradeLog({ userId, onSelectTrade }: TradeLogProps) {
                       className="hover:bg-indigo-50/60 transition-colors text-xs cursor-pointer group"
                     >
                       <td className="p-4 sm:px-6 text-slate-500 font-mono whitespace-nowrap">
-                        {log.timestamp ? new Date(log.timestamp).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' }) : '--'}
+                        {formatFrenchDateTime(log.timestamp)}
                       </td>
                       <td className="p-4 whitespace-nowrap">
                         <div className="flex items-center gap-2">

@@ -35,3 +35,58 @@ export function formatExactPnL(val: number | null | undefined): string {
   const sign = val >= 0 ? '+' : '-';
   return `${sign}$${abs.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
+
+/**
+ * Formats timestamps in French timezone (Europe/Paris / CET/CEST)
+ */
+export function formatFrenchTime(date: Date | string | number | null | undefined): string {
+  if (!date) return '--:--';
+  const d = typeof date === 'string' || typeof date === 'number' ? new Date(date) : date;
+  if (isNaN(d.getTime())) return '--:--';
+  return d.toLocaleTimeString('fr-FR', {
+    timeZone: 'Europe/Paris',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false
+  });
+}
+
+export function formatFrenchTimeWithSeconds(date: Date | string | number | null | undefined): string {
+  if (!date) return '--:--:--';
+  const d = typeof date === 'string' || typeof date === 'number' ? new Date(date) : date;
+  if (isNaN(d.getTime())) return '--:--:--';
+  return d.toLocaleTimeString('fr-FR', {
+    timeZone: 'Europe/Paris',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false
+  });
+}
+
+export function formatFrenchDateTime(date: Date | string | number | null | undefined, includeSeconds: boolean = false): string {
+  if (!date) return '--';
+  const d = typeof date === 'string' || typeof date === 'number' ? new Date(date) : date;
+  if (isNaN(d.getTime())) return '--';
+  return d.toLocaleString('fr-FR', {
+    timeZone: 'Europe/Paris',
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: includeSeconds ? '2-digit' : undefined,
+    hour12: false
+  });
+}
+
+export function formatFrenchDate(date: Date | string | number | null | undefined): string {
+  if (!date) return '--';
+  const d = typeof date === 'string' || typeof date === 'number' ? new Date(date) : date;
+  if (isNaN(d.getTime())) return '--';
+  return d.toLocaleDateString('fr-FR', {
+    timeZone: 'Europe/Paris',
+    day: 'numeric',
+    month: 'short'
+  });
+}

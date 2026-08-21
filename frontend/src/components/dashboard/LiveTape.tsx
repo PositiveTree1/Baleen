@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
-import { fetchExecutionLogs } from '@/lib/api-client';
+import { fetchExecutionLogs, getCachedExecutionLogs } from '@/lib/api-client';
+import { formatFrenchTime, formatFrenchTimeWithSeconds } from '@/lib/formatters';
 import { ExecutionLog } from '@/types';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Activity, Flame, Filter, Search, Zap } from 'lucide-react';
@@ -11,8 +12,8 @@ interface LiveTapeProps {
 }
 
 export function LiveTape({ userId, onSelectTrade }: LiveTapeProps) {
-  const [logs, setLogs] = useState<ExecutionLog[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [logs, setLogs] = useState<ExecutionLog[]>(() => getCachedExecutionLogs(userId) || []);
+  const [loading, setLoading] = useState(() => (getCachedExecutionLogs(userId)?.length || 0) === 0);
   const [sideFilter, setSideFilter] = useState<'ALL' | 'BUY' | 'SELL' | 'CONSENSUS'>('ALL');
   const [search, setSearch] = useState('');
 
@@ -92,7 +93,7 @@ export function LiveTape({ userId, onSelectTrade }: LiveTapeProps) {
                 >
                   <div className="flex items-center gap-2.5 w-1/3">
                     <span className="text-slate-500 text-[11px]">
-                      {log.timestamp ? new Date(log.timestamp).toLocaleTimeString([], { hour12: false }) : '--:--'}
+                      {formatFrenchTimeWithSeconds(log.timestamp)}
                     </span>
                     <div className="flex items-center gap-1.5 truncate">
                       {log.whaleAvatar ? (

@@ -1,6 +1,8 @@
 'use client';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 
+import { formatFrenchDate, formatFrenchDateTime } from '@/lib/formatters';
+
 interface ScoreHistoryChartProps {
   data: { date: string; score: number }[];
 }
@@ -27,8 +29,7 @@ export function ScoreHistoryChart({ data }: ScoreHistoryChartProps) {
             axisLine={false}
             tickFormatter={(val) => {
               try {
-                const d = new Date(val);
-                return d.toLocaleDateString([], { month: 'short', day: 'numeric' });
+                return formatFrenchDate(val);
               } catch {
                 return String(val);
               }
@@ -55,8 +56,7 @@ export function ScoreHistoryChart({ data }: ScoreHistoryChartProps) {
             labelStyle={{ color: '#64748B', marginBottom: '2px', fontSize: '11px' }}
             labelFormatter={(val: any) => {
               try {
-                const d = new Date(String(val));
-                return d.toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+                return formatFrenchDateTime(String(val));
               } catch {
                 return String(val);
               }

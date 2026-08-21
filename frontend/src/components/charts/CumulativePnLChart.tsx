@@ -1,5 +1,6 @@
 'use client';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, ReferenceLine } from 'recharts';
+import { formatFrenchDate } from '@/lib/formatters';
 
 interface PnLPoint {
   date: string;
@@ -52,7 +53,7 @@ export function CumulativePnLChart({ data }: CumulativePnLChartProps) {
             tickFormatter={(val) => {
               if (String(val).startsWith('Day')) return val;
               try {
-                return new Date(val).toLocaleDateString([], { month: 'short', day: 'numeric' });
+                return formatFrenchDate(val);
               } catch {
                 return String(val);
               }

@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { X, ExternalLink, Activity, ArrowUpRight, ArrowDownRight, Users, ShieldCheck, Clock, DollarSign, Wallet, CheckCircle2 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { TradePriceChart } from './TradePriceChart';
+import { formatFrenchDateTime } from '@/lib/formatters';
 
 interface TradeDrawerProps {
   trade: ExecutionLog | null;
@@ -30,28 +31,28 @@ export function TradeDrawer({ trade, onClose, onSelectWallet }: TradeDrawerProps
 
   return (
     <AnimatePresence>
-      <div className="fixed inset-0 z-50 overflow-hidden">
+      <div className="fixed inset-0 z-50 overflow-hidden flex justify-end">
         {/* Backdrop */}
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           onClick={onClose}
-          className="absolute inset-0 bg-slate-900/30 backdrop-blur-sm transition-opacity cursor-pointer"
+          className="fixed inset-0 bg-slate-900/20 backdrop-blur-xs transition-opacity"
         />
 
-        <div className="fixed inset-y-0 right-0 max-w-full flex pl-10">
-          <motion.div
-            initial={{ x: '100%' }}
-            animate={{ x: 0 }}
-            exit={{ x: '100%' }}
-            transition={{ type: 'spring', damping: 30, stiffness: 300 }}
-            className="w-screen max-w-lg bg-white border-l border-black/[0.08] shadow-2xl flex flex-col justify-between"
-          >
+        {/* Slide-out Panel */}
+        <motion.div
+          initial={{ x: '100%' }}
+          animate={{ x: 0 }}
+          exit={{ x: '100%' }}
+          transition={{ type: 'spring', damping: 28, stiffness: 280 }}
+          className="relative w-full max-w-lg bg-white shadow-2xl z-10 flex flex-col h-full border-l border-black/[0.08]"
+        >
             {/* Header */}
             <div className="p-6 border-b border-black/[0.06] bg-slate-50/50 flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${isBuy ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-rose-50 text-rose-700 border border-rose-200'}`}>
+                <div className={`p-2.5 rounded-2xl border ${isBuy ? 'bg-emerald-50 border-emerald-200 text-emerald-600' : 'bg-rose-50 border-rose-200 text-rose-600'}`}>
                   {isBuy ? <ArrowUpRight size={20} /> : <ArrowDownRight size={20} />}
                 </div>
                 <div>
@@ -60,7 +61,7 @@ export function TradeDrawer({ trade, onClose, onSelectWallet }: TradeDrawerProps
                   </h2>
                   <p className="text-[11px] font-mono text-slate-500 flex items-center gap-1">
                     <Clock size={12} />
-                    {trade.timestamp ? new Date(trade.timestamp).toLocaleString([], { dateStyle: 'medium', timeStyle: 'medium' }) : '--'}
+                    {formatFrenchDateTime(trade.timestamp, true)}
                   </p>
                 </div>
               </div>
@@ -287,7 +288,6 @@ export function TradeDrawer({ trade, onClose, onSelectWallet }: TradeDrawerProps
               </a>
             </div>
           </motion.div>
-        </div>
       </div>
     </AnimatePresence>
   );

@@ -44,7 +44,7 @@ async def get_events(
                     "detail": r.detail,
                     "relatedAddress": r.related_address,
                     "relatedMarket": r.related_market,
-                    "createdAt": r.created_at.isoformat() if r.created_at else None,
+                    "createdAt": (r.created_at.isoformat() + "Z") if r.created_at else None,
                 }
                 for r in rows
             ]

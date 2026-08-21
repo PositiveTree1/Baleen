@@ -1,6 +1,6 @@
 'use client';
 import { useState, useEffect } from 'react';
-import { fetchAdminStatus, fetchAdminWallets, reEvaluateWallets, purgeAndRescanWallets, fetchDiscoveryProgress } from '@/lib/api-client';
+import { fetchAdminStatus, fetchAdminWallets, getCachedAdminStatus, getCachedAdminWallets, reEvaluateWallets, purgeAndRescanWallets, fetchDiscoveryProgress } from '@/lib/api-client';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Skeleton } from '@/components/ui/Skeleton';
@@ -10,9 +10,9 @@ import { ArrowLeft, Activity, Database, Users, Wallet, CheckCircle, AlertTriangl
 import { motion, AnimatePresence } from 'framer-motion';
 
 export default function AdminPage() {
-  const [status, setStatus] = useState<any>(null);
-  const [wallets, setWallets] = useState<any[]>([]);
-  const [initialLoading, setInitialLoading] = useState(true);
+  const [status, setStatus] = useState<any>(() => getCachedAdminStatus() || null);
+  const [wallets, setWallets] = useState<any[]>(() => getCachedAdminWallets() || []);
+  const [initialLoading, setInitialLoading] = useState(() => !getCachedAdminStatus());
   const [justRefreshed, setJustRefreshed] = useState(false);
   const [triggering, setTriggering] = useState(false);
   const [evaluating, setEvaluating] = useState(false);

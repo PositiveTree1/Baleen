@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useState } from 'react';
-import { fetchWallets, reEvaluateWallets, fetchDiscoveryProgress, fetchCopiedWalletStats } from '@/lib/api-client';
+import { fetchWallets, getCachedWallets, reEvaluateWallets, fetchDiscoveryProgress, fetchCopiedWalletStats } from '@/lib/api-client';
 import { Wallet } from '@/types';
 import { Badge } from '../ui/Badge';
 import { Skeleton } from '../ui/Skeleton';
@@ -14,9 +14,9 @@ interface WalletLeaderboardProps {
 }
 
 export function WalletLeaderboard({ userId, onSelectWallet }: WalletLeaderboardProps) {
-  const [wallets, setWallets] = useState<Wallet[]>([]);
+  const [wallets, setWallets] = useState<Wallet[]>(() => getCachedWallets() || []);
   const [copiedStats, setCopiedStats] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(() => (getCachedWallets()?.length || 0) === 0);
   const [evaluating, setEvaluating] = useState(false);
   const [progress, setProgress] = useState<any>(null);
   const [search, setSearch] = useState('');

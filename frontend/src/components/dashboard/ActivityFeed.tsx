@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useState, useCallback } from 'react';
 import { fetchSystemEvents } from '@/lib/api-client';
+import { formatFrenchDateTime } from '@/lib/formatters';
 import { X, Bell, Filter, Zap, AlertTriangle, CheckCircle2, Info, Wallet, TrendingUp, ShieldAlert } from 'lucide-react';
 
 interface SystemEvent {
@@ -145,7 +146,7 @@ export function ActivityFeed({ isOpen, onClose }: ActivityFeedProps) {
                         <span className="text-xs font-semibold text-slate-800 truncate">
                           {evt.title}
                         </span>
-                        <span className="text-[10px] text-slate-400 font-mono shrink-0">
+                        <span className="text-[10px] text-slate-400 font-mono shrink-0" title={formatFrenchDateTime(evt.createdAt, true)}>
                           {timeAgo(evt.createdAt)}
                         </span>
                       </div>
