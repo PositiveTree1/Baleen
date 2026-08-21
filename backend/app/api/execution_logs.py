@@ -412,14 +412,18 @@ async def reset_sandbox(
     db: AsyncSession = Depends(get_db)
 ):
     """
-    Resets sandbox balance to pristine $10,000.00 and clears historical simulation logs.
+    Resets sandbox balance to pristine $10,000.00 and clears historical simulation logs and notifications.
     """
-    from app.models import ExecutionLog, PortfolioSnapshot, User
+    from app.models import ExecutionLog, PortfolioSnapshot, User, SystemEvent
+    from app.services.event_logger import clear_recent_events_from_memory, log_event
     from sqlalchemy import delete
+    import time
     
-    # Delete historical snapshots & execution logs
+    # Delete historical snapshots, execution logs & system events
     await db.execute(delete(PortfolioSnapshot))
     await db.execute(delete(ExecutionLog))
+    await db.execute(delete(SystemEvent))
+    clear_recent_events_from_memory()
     
     # Reset all users to $10,000
     stmt_users = select(User)
@@ -449,7 +453,6 @@ async def reset_sandbox(
     # Reset live poller started_at to now
     try:
         from app.services.live_poller import live_trade_mirror
-        import time
         live_trade_mirror.started_at = time.time()
         live_trade_mirror.seen_trade_keys.clear()
     except Exception:
@@ -460,6 +463,17 @@ async def reset_sandbox(
         from app.services.mark_to_market import _live_price_cache, _consensus_cache
         _live_price_cache.clear()
         _consensus_cache.clear()
+    except Exception:
+        pass
+
+    # Log initial reset event
+    try:
+        await log_event(
+            "SANDBOX_RESET",
+            "Sandbox reset to $10,000.00",
+            detail="All paper trading balances, past execution logs, and notification history have been reset.",
+            severity="info"
+        )
     except Exception:
         pass
 

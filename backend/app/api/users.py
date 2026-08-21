@@ -156,7 +156,8 @@ async def reset_user_sandbox(
     req: ResetSandboxRequest = Body(default=ResetSandboxRequest()),
     db: AsyncSession = Depends(get_db)
 ):
-    from app.models import ExecutionLog, PortfolioSnapshot
+    from app.models import ExecutionLog, PortfolioSnapshot, SystemEvent
+    from app.services.event_logger import clear_recent_events_from_memory, log_event
     from sqlalchemy import delete
     from datetime import datetime
     import uuid, time
@@ -175,9 +176,11 @@ async def reset_user_sandbox(
         user.sandbox_balance_usd = new_bal
         user.sandbox_high_water_mark_usd = new_bal
 
-    # Clear ALL execution logs and snapshots across all users and global
+    # Clear ALL execution logs, snapshots and system events across all users and global
     await db.execute(delete(ExecutionLog))
     await db.execute(delete(PortfolioSnapshot))
+    await db.execute(delete(SystemEvent))
+    clear_recent_events_from_memory()
 
     # Initial starting snapshot
     now_dt = datetime.utcnow()
@@ -212,6 +215,17 @@ async def reset_user_sandbox(
     except Exception:
         pass
 
+    # Log initial reset event
+    try:
+        await log_event(
+            "SANDBOX_RESET",
+            f"Sandbox reset to ${new_bal:,.2f}",
+            detail="All paper trading balances, past execution logs, and notification history have been reset.",
+            severity="info"
+        )
+    except Exception:
+        pass
+
     await db.commit()
     if user:
         await db.refresh(user)
@@ -231,7 +245,8 @@ async def reset_global_sandbox(
     req: ResetSandboxRequest = Body(default=ResetSandboxRequest()),
     db: AsyncSession = Depends(get_db)
 ):
-    from app.models import ExecutionLog, PortfolioSnapshot
+    from app.models import ExecutionLog, PortfolioSnapshot, SystemEvent
+    from app.services.event_logger import clear_recent_events_from_memory, log_event
     from sqlalchemy import delete
     from datetime import datetime
     import time
@@ -246,9 +261,11 @@ async def reset_global_sandbox(
         u.sandbox_balance_usd = new_bal
         u.sandbox_high_water_mark_usd = new_bal
 
-    # 2. Reset ALL execution logs & snapshots
+    # 2. Reset ALL execution logs, snapshots & system events
     await db.execute(delete(ExecutionLog))
     await db.execute(delete(PortfolioSnapshot))
+    await db.execute(delete(SystemEvent))
+    clear_recent_events_from_memory()
 
     # Initial starting snapshot
     now_dt = datetime.utcnow()
@@ -273,6 +290,17 @@ async def reset_global_sandbox(
         from app.services.mark_to_market import _live_price_cache, _consensus_cache
         _live_price_cache.clear()
         _consensus_cache.clear()
+    except Exception:
+        pass
+
+    # Log initial reset event
+    try:
+        await log_event(
+            "SANDBOX_RESET",
+            f"Sandbox reset to ${new_bal:,.2f}",
+            detail="All paper trading balances, past execution logs, and notification history have been reset.",
+            severity="info"
+        )
     except Exception:
         pass
 

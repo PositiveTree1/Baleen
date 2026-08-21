@@ -47,7 +47,7 @@ export default function DashboardPage() {
       ]);
       if (userData) setUser(userData);
       if (portfolioData) setPortfolio(portfolioData);
-      if (logsData && logsData.length > 0) setLogs(logsData);
+      if (Array.isArray(logsData)) setLogs(logsData);
     } catch (err) {
       console.debug("Dashboard polling note:", err);
     }

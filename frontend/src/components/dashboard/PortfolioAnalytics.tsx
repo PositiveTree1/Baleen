@@ -16,7 +16,7 @@ import {
   Zap
 } from 'lucide-react';
 import { formatCompactPnL, formatFrenchTime, formatFrenchDate } from '@/lib/formatters';
-import { resetSandboxLedger } from '@/lib/api-client';
+import { resetSandboxLedger, clearAllCache } from '@/lib/api-client';
 
 interface PortfolioAnalyticsProps {
   logs: ExecutionLog[];
@@ -223,6 +223,7 @@ export function PortfolioAnalytics({
     setIsResetting(true);
     try {
       await resetSandboxLedger(userId);
+      clearAllCache();
       setShowResetModal(false);
       if (onResetComplete) onResetComplete();
       window.location.reload();

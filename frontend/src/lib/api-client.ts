@@ -35,6 +35,22 @@ function setCached(key: string, data: any) {
   }
 }
 
+export function clearAllCache() {
+  memoryCache.clear();
+  if (typeof window !== 'undefined') {
+    try {
+      const keysToRemove: string[] = [];
+      for (let i = 0; i < sessionStorage.length; i++) {
+        const k = sessionStorage.key(i);
+        if (k && k.startsWith('baleen_cache_')) {
+          keysToRemove.push(k);
+        }
+      }
+      keysToRemove.forEach(k => sessionStorage.removeItem(k));
+    } catch {}
+  }
+}
+
 // Synchronous instant-read cache getters for initial component states
 export function getCachedWallets(): Wallet[] | null {
   return getCached<Wallet[]>('wallets_list', 120000);
@@ -205,9 +221,7 @@ export async function fetchExecutionLogs(userId?: string, params?: Record<string
       consensus: log.consensus ?? { whale_count: 1, total_cash: 0, is_consensus: false },
       polymarketUrl: log.polymarketUrl ?? (log.eventSlug ? `https://polymarket.com/event/${log.eventSlug}` : (log.marketConditionId ? `https://polymarket.com/market/${log.marketConditionId}` : 'https://polymarket.com')),
     }));
-    if (result.length > 0 || !getCachedExecutionLogs(userId)) {
-      setCached(cacheKey, result);
-    }
+    setCached(cacheKey, result);
     return result;
   } catch (error) {
     return getCachedExecutionLogs(userId) || [];
@@ -278,7 +292,7 @@ export async function fetchPortfolioSnapshots(userId?: string, timeframe?: strin
     const res = await fetch(url.toString());
     if (!res.ok) return getCachedPortfolioSnapshots(userId, timeframe) || [];
     const data = await res.json();
-    if (Array.isArray(data) && data.length > 0) {
+    if (Array.isArray(data)) {
       setCached(cacheKey, data);
     }
     return data;
@@ -292,11 +306,9 @@ export async function fetchCopiedWalletStats(userId?: string): Promise<{
   tier: string;
   score: number;
   aiStyleTag: string;
-  tradesCopied: number;
-  totalNotional: number;
-  netPnl: number;
-  roiPct: number;
-  winRateCopied: number;
+  pnl: number;
+  roi: number;
+  winRate: number;
   profitFactor: number;
   wins: number;
   losses: number;
@@ -369,6 +381,9 @@ export async function resetSandboxAmount(userId?: string, newBalance: number = 1
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ newBalance }),
     });
+    if (res.ok) {
+      clearAllCache();
+    }
     return res.ok;
   } catch (error) {
     return false;
@@ -383,6 +398,9 @@ export async function resetSandboxLedger(userId?: string): Promise<boolean> {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' }
     });
+    if (res.ok) {
+      clearAllCache();
+    }
     return res.ok;
   } catch (error) {
     return false;

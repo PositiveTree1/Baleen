@@ -2,7 +2,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { fetchSystemEvents } from '@/lib/api-client';
 import { formatFrenchDateTime } from '@/lib/formatters';
-import { X, Bell, Filter, Zap, AlertTriangle, CheckCircle2, Info, Wallet, TrendingUp, ShieldAlert } from 'lucide-react';
+import { X, Bell, Filter, Zap, AlertTriangle, CheckCircle2, Info, Wallet, TrendingUp, ShieldAlert, RotateCcw } from 'lucide-react';
 
 interface SystemEvent {
   id: string;
@@ -22,6 +22,7 @@ interface ActivityFeedProps {
 
 const EVENT_ICONS: Record<string, { icon: React.ReactNode; color: string; bg: string }> = {
   TRADE_COPIED: { icon: <TrendingUp size={14} />, color: 'text-emerald-600', bg: 'bg-emerald-50 border-emerald-200' },
+  SANDBOX_RESET: { icon: <RotateCcw size={14} />, color: 'text-indigo-600', bg: 'bg-indigo-50 border-indigo-200' },
   TRADE_SKIPPED_SLIPPAGE: { icon: <ShieldAlert size={14} />, color: 'text-amber-600', bg: 'bg-amber-50 border-amber-200' },
   TRADE_SKIPPED_EV: { icon: <AlertTriangle size={14} />, color: 'text-amber-600', bg: 'bg-amber-50 border-amber-200' },
   TRADE_SKIPPED_CATEGORY: { icon: <AlertTriangle size={14} />, color: 'text-orange-600', bg: 'bg-orange-50 border-orange-200' },
@@ -55,7 +56,7 @@ export function ActivityFeed({ isOpen, onClose }: ActivityFeedProps) {
 
   const loadEvents = useCallback(async () => {
     const data = await fetchSystemEvents(200, filter === 'all' ? undefined : filter);
-    if (data && data.length > 0) setEvents(data);
+    if (Array.isArray(data)) setEvents(data);
   }, [filter]);
 
   useEffect(() => {

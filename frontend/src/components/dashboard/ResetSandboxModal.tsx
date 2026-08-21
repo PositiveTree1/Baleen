@@ -1,6 +1,6 @@
 'use client';
 import { useState } from 'react';
-import { resetSandboxAmount } from '@/lib/api-client';
+import { resetSandboxAmount, clearAllCache } from '@/lib/api-client';
 import { motion, AnimatePresence } from 'framer-motion';
 import { RotateCcw, X, DollarSign, Check, AlertCircle, ShieldAlert, Sparkles } from 'lucide-react';
 import { Button } from '../ui/Button';
@@ -51,6 +51,7 @@ export function ResetSandboxModal({
     setLoading(false);
 
     if (ok) {
+      clearAllCache();
       setSuccess(true);
       setTimeout(() => {
         setSuccess(false);

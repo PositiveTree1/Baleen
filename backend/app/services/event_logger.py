@@ -53,3 +53,9 @@ async def log_event(
 def get_recent_events_from_memory(limit: int = 100) -> list[dict]:
     """Return recent events from in-memory buffer (newest first)."""
     return list(reversed(_recent_events[-limit:]))
+
+
+def clear_recent_events_from_memory():
+    """Clear in-memory ring buffer of events upon reset."""
+    global _recent_events
+    _recent_events.clear()
