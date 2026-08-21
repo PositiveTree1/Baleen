@@ -131,26 +131,6 @@ class LiveTradeMirrorService:
             stmt_users = select(User)
             users = (await db.execute(stmt_users)).scalars().all()
 
-            # Real-time Burst Trader Filter Guard (>4 trades in 60s)
-            import time
-            now_epoch = time.time()
-            if not hasattr(self, 'recent_trade_timestamps'):
-                self.recent_trade_timestamps = {}
-            whale_recent = self.recent_trade_timestamps.get(addr, [])
-            whale_recent = [t for t in whale_recent if (now_epoch - t) < 60.0]
-
-            if len(whale_recent) >= 4:
-                logger.warning(f"🚨 REAL-TIME BURST TRADER DETECTED: Whale {addr[:10]}... fired {len(whale_recent)+1} trades in 60s! Ejecting from active basket.")
-                if source_whale:
-                    source_whale.is_hft = True
-                    source_whale.status = "rejected"
-                    source_whale.rejection_reason = "HFT_BURST_TRADER"
-                    await db.commit()
-                return
-
-            whale_recent.append(now_epoch)
-            self.recent_trade_timestamps[addr] = whale_recent
-
             # Prevent Naked Short Selling: If whale is selling, only mirror if we hold open long positions
             target_open_buys = []
             if side == "SELL":
@@ -411,31 +391,6 @@ class LiveTradeMirrorService:
                         continue
                     trades = res.json()
                     if not isinstance(trades, list) or not trades:
-                        continue
-
-                    # Pre-scan batch for burst frequency (>4 trades in 60s)
-                    valid_ts = []
-                    for t in trades:
-                        ts_raw = t.get("timestamp") or t.get("match_time") or t.get("created_at")
-                        if ts_raw:
-                            try:
-                                ts_sec = float(ts_raw) / 1000.0 if float(ts_raw) > 1e11 else float(ts_raw)
-                                valid_ts.append(ts_sec)
-                            except Exception:
-                                pass
-                    valid_ts.sort()
-                    is_batch_burst = False
-                    for i in range(len(valid_ts) - 4):
-                        if (valid_ts[i+4] - valid_ts[i]) <= 60.0:
-                            is_batch_burst = True
-                            break
-
-                    if is_batch_burst:
-                        logger.warning(f"🚨 Pre-Scan Burst Filter: Whale {addr[:10]}... executed >4 trades in 60s window. Disqualifying from basket.")
-                        w.is_hft = True
-                        w.status = "rejected"
-                        w.rejection_reason = "HFT_BURST_TRADER"
-                        await db.commit()
                         continue
 
                     for t in trades:

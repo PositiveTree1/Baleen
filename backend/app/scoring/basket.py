@@ -89,7 +89,6 @@ async def refresh_basket(db: AsyncSession):
             'outlier_concentration_pct': wallet.outlier_concentration_pct,
             'win_rate_pct': wallet.win_rate_pct,
             'max_drawdown_pct': wallet.max_drawdown_pct,
-            'is_hft': wallet.is_hft,
         }
         
         # Only valid stats should be scored

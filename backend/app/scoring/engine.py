@@ -22,10 +22,9 @@ def score_wallet(wallet_stats: dict) -> ScoringResult:
     if pnl < 50000:
         return ScoringResult("rejected", None, "PNL_BELOW_THRESHOLD", False)
 
-    # FILTER 2: Anti-HFT (trades_per_day <= 100 or marked as burst trader)
-    is_burst_hft = wallet_stats.get('is_hft', False)
-    if trades_per_day > 100 or is_burst_hft:
-        return ScoringResult("rejected", None, "HFT_BURST_TRADER", False)
+    # FILTER 2: Anti-HFT (only reject high-frequency automated market maker bots >300 trades/day)
+    if trades_per_day > 300:
+        return ScoringResult("rejected", None, "HFT_EXCEEDED", False)
 
     # FILTER 3: Outlier concentration (max_single_trade_profit/realized_pnl <= 0.35)
     if outlier_pct > 0.35:
@@ -35,8 +34,8 @@ def score_wallet(wallet_stats: dict) -> ScoringResult:
     if win_rate < 55.0:
         return ScoringResult("rejected", None, "WIN_RATE_TOO_LOW", False)
 
-    # TIER: Gold Sniper if win_rate >= 85.0% AND max_drawdown <= 10.0%
-    if win_rate >= 85.0 and max_drawdown <= 10.0:
+    # TIER: Gold Sniper if win_rate >= 80.0% OR (pnl >= $100,000 and win_rate >= 70.0%)
+    if (win_rate >= 80.0 and max_drawdown <= 15.0) or (pnl >= 100000 and win_rate >= 70.0):
         tier = "gold_sniper"
     else:
         tier = "standard"

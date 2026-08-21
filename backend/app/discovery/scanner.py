@@ -237,23 +237,8 @@ def calculate_authentic_wallet_stats(
     total_positions_cnt = max(len(positions), len(trades or []), len(activity), 1)
     avg_trades_day = round(max(1.0, len(activity) / max(1, len(daily_map))), 1)
 
-    # Detect Burst Traders (>5 trades within any 60-second window)
-    is_burst_trader = False
-    activity_timestamps = []
-    for act in activity:
-        ts_raw = act.get("timestamp") or act.get("time") or act.get("created_at")
-        if ts_raw:
-            try:
-                ts_sec = float(ts_raw) / 1000.0 if float(ts_raw) > 1e11 else float(ts_raw)
-                activity_timestamps.append(ts_sec)
-            except Exception:
-                pass
-    
-    activity_timestamps.sort()
-    for i in range(len(activity_timestamps) - 5):
-        if activity_timestamps[i+5] - activity_timestamps[i] <= 60.0:
-            is_burst_trader = True
-            break
+    # Detect Automated High-Frequency Market Maker Bots (>300 trades/day)
+    is_hft_bot = bool(avg_trades_day > 300.0)
 
     return {
         "all_time_pnl_usd": round(all_time_pnl, 2),
@@ -264,7 +249,7 @@ def calculate_authentic_wallet_stats(
         "avg_trades_per_day": avg_trades_day,
         "max_drawdown_pct": max_drawdown,
         "outlier_concentration_pct": outlier_concentration,
-        "is_hft": is_burst_trader,
+        "is_hft": is_hft_bot,
         "is_dormant": False,
         "today_pnl": round(today_pnl, 2),
         "today_trades_count": today_trades,
@@ -370,7 +355,7 @@ async def evaluate_pending_wallets(db: AsyncSession):
                 elif stats['is_hft']:
                     wallet.status = 'rejected'
                     wallet.tier = 'rejected'
-                    wallet.rejection_reason = 'High-Frequency Bot detected (TPH > 5 or automated trading)'
+                    wallet.rejection_reason = 'High-Frequency Bot detected (>300 trades/day)'
                     discovery_state["rejected"] += 1
                 elif stats['is_dormant']:
                     wallet.status = 'rejected'
