@@ -13,6 +13,11 @@ _live_price_cache: dict[str, dict] = {}
 # Consensus cache: condition_id -> {whale_count, total_cash}
 _consensus_cache: dict[str, dict] = {}
 
+# Snapshot throttle: track last snapshot write time and balance
+_last_snapshot_time: float = 0.0
+_last_snapshot_balance: float = 0.0
+_SNAPSHOT_MIN_INTERVAL_SECS = 60  # Write at most 1 snapshot per minute unless balance changes significantly
+
 class MarkToMarketService:
     def __init__(self):
         self.running = False
@@ -34,6 +39,7 @@ class MarkToMarketService:
             await asyncio.sleep(3.5)
 
     async def update_valuations_and_consensus(self):
+        global _last_snapshot_time, _last_snapshot_balance
         client = PolymarketClient()
         try:
             async with SessionLocal() as db:
@@ -111,6 +117,7 @@ class MarkToMarketService:
                     await asyncio.gather(*tasks, return_exceptions=True)
 
                 # 3. Update PnL on all execution logs (system feed + user copy trades)
+                # Use a single query and reuse these objects for the snapshot calculation below
                 stmt_all_logs = select(ExecutionLog).where(ExecutionLog.status == "FILLED")
                 all_logs = (await db.execute(stmt_all_logs)).scalars().all()
                 from app.services.polymarket_fees import calculate_polymarket_fee
@@ -142,21 +149,72 @@ class MarkToMarketService:
                         net_pnl = gross_pnl - fee
                         elog.realized_pnl_usd = round(net_pnl, 2)
 
-                # Synchronize authoritative sandbox balance
-                stmt_all_filled = select(ExecutionLog).where(ExecutionLog.status == "FILLED")
-                all_filled = (await db.execute(stmt_all_filled)).scalars().all()
-                total_portfolio_pnl = sum(float(l.realized_pnl_usd or 0.0) for l in all_filled)
-                canonical_balance = round(10000.0 + total_portfolio_pnl, 2)
+                # 4. Synchronize authoritative sandbox balance & snapshots
+                # IMPORTANT: Reuse `all_logs` from step 3 — do NOT re-query, as the
+                # realized_pnl_usd values were just updated in-memory above.
+                from app.models import PortfolioSnapshot
+                from datetime import datetime
+
+                now_dt = datetime.utcnow()
+                total_portfolio_pnl = sum(float(l.realized_pnl_usd or 0.0) for l in all_logs)
+                trades_count = len(all_logs)
+
+                # Guard: If total PnL is exactly 0 and we have trades, live prices
+                # likely failed. Preserve the last known good balance instead of
+                # collapsing to $10,000.
+                if trades_count > 0 and total_portfolio_pnl == 0.0:
+                    logger.warning(
+                        f"⚠️ MTM: {trades_count} filled trades but total PnL = $0.00. "
+                        f"Live prices likely unavailable. Preserving last known balance ${_last_snapshot_balance:,.2f}."
+                    )
+                    canonical_balance = _last_snapshot_balance if _last_snapshot_balance > 0 else 10000.0
+                else:
+                    canonical_balance = round(10000.0 + total_portfolio_pnl, 2)
 
                 # Update all users to authoritative canonical balance
-                stmt_users = select(User)
-                users = (await db.execute(stmt_users)).scalars().all()
-                for u in users:
-                    u.sandbox_balance_usd = canonical_balance
-                    if canonical_balance > float(u.sandbox_high_water_mark_usd or 10000.0):
-                        u.sandbox_high_water_mark_usd = canonical_balance
+                try:
+                    stmt_users = select(User)
+                    users = (await db.execute(stmt_users)).scalars().all()
+                    for u in users:
+                        u.sandbox_balance_usd = canonical_balance
+                        if canonical_balance > float(u.sandbox_high_water_mark_usd or 10000.0):
+                            u.sandbox_high_water_mark_usd = canonical_balance
 
-                await db.commit()
+                    # Snapshot throttle: Only write if balance changed meaningfully or enough time passed
+                    time_since_last = time.time() - _last_snapshot_time
+                    balance_changed = abs(canonical_balance - _last_snapshot_balance) > 0.50
+                    should_snapshot = balance_changed or time_since_last >= _SNAPSHOT_MIN_INTERVAL_SECS
+
+                    if should_snapshot:
+                        for u in users:
+                            db.add(PortfolioSnapshot(
+                                user_id=u.id,
+                                timestamp=now_dt,
+                                balance=canonical_balance,
+                                total_pnl=round(total_portfolio_pnl, 2),
+                                active_trades_count=trades_count
+                            ))
+
+                        # Global platform sandbox snapshot
+                        db.add(PortfolioSnapshot(
+                            user_id=None,
+                            timestamp=now_dt,
+                            balance=canonical_balance,
+                            total_pnl=round(total_portfolio_pnl, 2),
+                            active_trades_count=trades_count
+                        ))
+
+                        _last_snapshot_time = time.time()
+                        _last_snapshot_balance = canonical_balance
+
+                    await db.commit()
+                except Exception as snap_err:
+                    logger.error(f"❌ MTM snapshot write failed: {snap_err}", exc_info=True)
+                    # Still try to commit the PnL updates even if snapshot failed
+                    try:
+                        await db.commit()
+                    except Exception:
+                        pass
         finally:
             await client.close()
 

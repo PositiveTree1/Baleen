@@ -42,7 +42,7 @@ export function Hero() {
 
         <h1 className="text-5xl sm:text-6xl lg:text-7xl font-extrabold tracking-tight text-slate-950 leading-[1.05]">
           Mirror the top 1% <br />
-          <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 via-blue-600 to-indigo-800 font-brand-cinematic">
+          <span className="text-transparent bg-clip-text bg-gradient-to-r from-slate-700 via-slate-500 to-slate-800 font-brand-cinematic">
             on autopilot.
           </span>
         </h1>

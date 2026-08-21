@@ -188,6 +188,15 @@ class LiveTradeMirrorService:
             whale_win_rate = float(source_whale.win_rate_pct or 0.0) if source_whale else 0.0
             if category_name == "Sports" and whale_win_rate < 65.0:
                 logger.info(f"🛑 Category Gate: Skipping Sports trade on '{title[:25]}' (whale win rate {whale_win_rate:.1f}% < 65% edge threshold).")
+                from app.services.event_logger import log_event
+                asyncio.create_task(log_event(
+                    "TRADE_SKIPPED_CATEGORY",
+                    f"Sports trade skipped: {title[:50]}",
+                    detail=f"Whale {addr[:10]}... win rate {whale_win_rate:.1f}% < 65% required for Sports category.",
+                    severity="warning",
+                    related_address=wallet_address,
+                    related_market=title,
+                ))
                 return
 
             # Rule 2: Execution Delay / Anti-Frontrunning Guard (1.5 ticks / $0.015 max slippage)
@@ -195,9 +204,27 @@ class LiveTradeMirrorService:
             max_slippage = 0.015  # 1.5 cents ($0.015) max slippage tolerance
             if side == "BUY" and (live_p - price) > max_slippage:
                 logger.info(f"⚠️ Anti-Frontrunning Guard: BUY on '{title[:25]}' live={live_p:.3f} > entry={price:.3f} + 0.015. Aborting slippage spike fill.")
+                from app.services.event_logger import log_event
+                asyncio.create_task(log_event(
+                    "TRADE_SKIPPED_SLIPPAGE",
+                    f"Slippage guard: {side} {title[:50]}",
+                    detail=f"Live price {live_p:.4f} vs entry {price:.4f} — slippage {(live_p - price):.4f} > max {max_slippage}.",
+                    severity="warning",
+                    related_address=wallet_address,
+                    related_market=title,
+                ))
                 return
             elif side == "SELL" and (price - live_p) > max_slippage:
                 logger.info(f"⚠️ Anti-Frontrunning Guard: SELL on '{title[:25]}' live={live_p:.3f} < entry={price:.3f} - 0.015. Aborting slippage spike fill.")
+                from app.services.event_logger import log_event
+                asyncio.create_task(log_event(
+                    "TRADE_SKIPPED_SLIPPAGE",
+                    f"Slippage guard: {side} {title[:50]}",
+                    detail=f"Live price {live_p:.4f} vs entry {price:.4f} — slippage {(price - live_p):.4f} > max {max_slippage}.",
+                    severity="warning",
+                    related_address=wallet_address,
+                    related_market=title,
+                ))
                 return
 
             effective_fill_price = live_p if (0.01 <= live_p <= 0.99) else price
@@ -207,6 +234,15 @@ class LiveTradeMirrorService:
             ev_pass, fee_rate, min_edge = calculate_fee_aware_ev_gate(effective_fill_price, title, expected_edge)
             if not ev_pass and expected_edge > 0.02 and side == "BUY":
                 logger.info(f"🛑 Fee-Aware EV Gate: Skipping '{title[:25]}' - edge {expected_edge:.3f} < 2.5x fee rate ({min_edge:.3f}).")
+                from app.services.event_logger import log_event
+                asyncio.create_task(log_event(
+                    "TRADE_SKIPPED_EV",
+                    f"EV gate: {title[:50]}",
+                    detail=f"Edge {expected_edge:.4f} < 2.5× fee rate ({min_edge:.4f}). Category: {category_name}.",
+                    severity="warning",
+                    related_address=wallet_address,
+                    related_market=title,
+                ))
                 return
 
             sys_notional = round(min(max(10.0, cash_usd * 0.1 * sizing_multiplier), 350.0), 2)
@@ -285,7 +321,19 @@ class LiveTradeMirrorService:
                 db.add(user_log)
 
             await db.commit()
+            whale_name = source_whale.name or source_whale.pseudonym or addr[:10] if source_whale else addr[:10]
             logger.info(f"🎯 COPIED WHALE TRADE: {addr[:10]}... {side} ${cash_usd:,.2f} on '{title[:30]}' @ {effective_fill_price:.3f} (Consensus: {consensus.get('is_consensus')})")
+
+            # Log successful trade copy event
+            from app.services.event_logger import log_event
+            asyncio.create_task(log_event(
+                "TRADE_COPIED",
+                f"Copied {side} from {whale_name}: {title[:50]}",
+                detail=f"${sys_notional:,.2f} @ {effective_fill_price:.4f}. Whale: {whale_name}. Consensus: {'Yes' if consensus.get('is_consensus') else 'No'}. Sniper: {'Yes' if is_sniper else 'No'}.",
+                severity="success",
+                related_address=wallet_address,
+                related_market=title,
+            ))
 
     async def process_onchain_signal(
         self,

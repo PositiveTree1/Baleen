@@ -9,11 +9,12 @@ import { PortfolioAnalytics } from '@/components/dashboard/PortfolioAnalytics';
 import { WalletDrawer } from '@/components/dashboard/WalletDrawer';
 import { TradeDrawer } from '@/components/dashboard/TradeDrawer';
 import { ResetSandboxModal } from '@/components/dashboard/ResetSandboxModal';
+import { ActivityFeed } from '@/components/dashboard/ActivityFeed';
 import { CommandPalette } from '@/components/ui/CommandPalette';
 import { fetchUserSettings, fetchPortfolioSummary, fetchExecutionLogs } from '@/lib/api-client';
 import { User, ExecutionLog } from '@/types';
 import Link from 'next/link';
-import { Settings, LogOut, Volume2, VolumeX, ShieldCheck, Sparkles, Command } from 'lucide-react';
+import { Settings, LogOut, Volume2, VolumeX, ShieldCheck, Sparkles, Command, Bell } from 'lucide-react';
 import { signOut } from 'next-auth/react';
 import { BrandLogo } from '@/components/ui/BrandLogo';
 import { soundFx } from '@/lib/sound';
@@ -23,6 +24,7 @@ export default function DashboardPage() {
   const [selectedWallet, setSelectedWallet] = useState<string | null>(null);
   const [selectedTrade, setSelectedTrade] = useState<ExecutionLog | null>(null);
   const [isResetOpen, setIsResetOpen] = useState(false);
+  const [activityOpen, setActivityOpen] = useState(false);
   const [soundActive, setSoundActive] = useState(false);
   const [logs, setLogs] = useState<ExecutionLog[]>([]);
   const [user, setUser] = useState<User | null>(null);
@@ -87,6 +89,14 @@ export default function DashboardPage() {
             <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
             <span>HyperSync Live</span>
           </div>
+
+          <button
+            onClick={() => setActivityOpen(true)}
+            className="p-2 rounded-xl border border-black/[0.06] bg-white hover:bg-indigo-50 text-slate-500 hover:text-indigo-600 transition-colors cursor-pointer relative"
+            title="Activity Feed & Notifications"
+          >
+            <Bell size={16} />
+          </button>
 
           <button
             onClick={toggleSound}
@@ -182,6 +192,12 @@ export default function DashboardPage() {
         userId={session?.user?.id}
         currentBalance={liveBalance}
         onResetComplete={loadData}
+      />
+
+      {/* Activity Feed / Notification Panel */}
+      <ActivityFeed
+        isOpen={activityOpen}
+        onClose={() => setActivityOpen(false)}
       />
     </div>
   );

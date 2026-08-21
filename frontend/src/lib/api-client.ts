@@ -415,3 +415,26 @@ export async function hardWipeAllDatabase(): Promise<{ status: string; message: 
   }
 }
 
+export async function fetchSystemEvents(limit: number = 100, eventType?: string): Promise<{
+  id: string;
+  eventType: string;
+  severity: string;
+  title: string;
+  detail?: string;
+  relatedAddress?: string;
+  relatedMarket?: string;
+  createdAt: string;
+}[]> {
+  try {
+    const url = new URL(`${API_BASE_URL}/api/events`);
+    url.searchParams.append('limit', String(limit));
+    if (eventType) url.searchParams.append('event_type', eventType);
+    const res = await fetch(url.toString());
+    if (!res.ok) return [];
+    return await res.json();
+  } catch (error) {
+    return [];
+  }
+}
+
+

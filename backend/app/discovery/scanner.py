@@ -12,6 +12,7 @@ from app.models import Wallet, WalletSnapshot, ExecutionLog, KeyValue
 from app.scoring.engine import score_wallet
 from app.scoring.basket import compute_baleen_score
 from app.analysis.ai_summary import generate_summary
+from app.services.event_logger import log_event
 
 logger = logging.getLogger(__name__)
 
@@ -429,6 +430,26 @@ async def evaluate_pending_wallets(db: AsyncSession):
                     if p_name and not wallet.ai_style_tag:
                         wallet.ai_style_tag = str(p_name)
                 
+                # Event logging for wallet promotion / rejection
+                if wallet.status == 'active':
+                    asyncio.create_task(log_event(
+                        "WALLET_PROMOTED",
+                        f"Wallet promoted: {wallet.name or wallet.pseudonym or wallet.address[:12]}",
+                        detail=f"Score: {wallet.baleen_score}, WR: {wallet.win_rate_pct}%, PnL: ${wallet.all_time_pnl_usd:,.0f}. Tier: {wallet.tier}.",
+                        severity="success",
+                        related_address=wallet.address,
+                    ))
+                elif wallet.status == 'rejected':
+                    pnl = stats.get('all_time_pnl_usd', 0.0) or 0.0
+                    win_rate = stats.get('win_rate_pct', 0.0) or 0.0
+                    asyncio.create_task(log_event(
+                        "WALLET_REJECTED",
+                        f"Wallet rejected: {wallet.name or wallet.pseudonym or wallet.address[:12]}",
+                        detail=f"Reason: {wallet.rejection_reason}. PnL: ${pnl:,.0f}, WR: {win_rate:.1f}%.",
+                        severity="warning",
+                        related_address=wallet.address,
+                    ))
+
                 await db.commit()
                 processed_count += 1
                 await asyncio.sleep(0.04)

@@ -318,6 +318,56 @@ async def get_portfolio_snapshots(
 
     rows = list(reversed(rows))
 
+    # FALLBACK: If snapshot table is sparse (< 3 points), synthesize a timeline
+    # from execution logs so the chart always renders correctly
+    if len(rows) < 3:
+        try:
+            trade_stmt = select(ExecutionLog).where(
+                ExecutionLog.status == "FILLED"
+            ).order_by(ExecutionLog.executed_at.asc())
+            trades = (await db.execute(trade_stmt)).scalars().all()
+            if trades:
+                synth_points = []
+                cumulative_pnl = 0.0
+                for t in trades:
+                    cumulative_pnl += float(t.realized_pnl_usd or 0.0)
+                    balance = round(10000.0 + cumulative_pnl, 2)
+                    ts = t.executed_at
+                    synth_points.append({
+                        "id": f"synth-{str(t.id)[:8]}",
+                        "timestamp": ts.isoformat() if ts else None,
+                        "time": ts.strftime("%H:%M") if ts else "",
+                        "date": ts.strftime("%d %b") if ts else "",
+                        "balance": balance,
+                        "pnl": round(cumulative_pnl, 2),
+                        "activeTrades": len(trades)
+                    })
+
+                # Include genesis baseline
+                if synth_points and abs(synth_points[0]["balance"] - 10000.0) > 0.01:
+                    first_date = synth_points[0]["date"]
+                    synth_points.insert(0, {
+                        "id": "genesis-baseline",
+                        "timestamp": None,
+                        "time": "00:00",
+                        "date": first_date,
+                        "balance": 10000.0,
+                        "pnl": 0.0,
+                        "activeTrades": 0
+                    })
+
+                # Downsample if needed
+                if len(synth_points) > 120:
+                    step = max(1, len(synth_points) // 100)
+                    downsampled = [synth_points[i] for i in range(0, len(synth_points) - 1, step)]
+                    if synth_points[-1] not in downsampled:
+                        downsampled.append(synth_points[-1])
+                    synth_points = downsampled
+
+                return synth_points
+        except Exception:
+            pass  # Fall through to normal logic
+
     # Downsample if more than 120 points to keep UI silky smooth
     if len(rows) > 120:
         step = max(1, len(rows) // 100)

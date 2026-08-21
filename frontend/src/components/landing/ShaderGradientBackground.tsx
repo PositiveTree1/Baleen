@@ -20,10 +20,10 @@ export function ShaderGradientBackground() {
           control="props"
           animate="on"
           type="waterPlane"
-          color1="#87a1ff"
-          color2="#cdcdd1"
-          color3="#fafdff"
-          brightness={1}
+          color1="#c8ccd0"
+          color2="#e8eaed"
+          color3="#f8f9fb"
+          brightness={1.15}
           cAzimuthAngle={170}
           cDistance={4.4}
           cPolarAngle={70}
@@ -39,10 +39,10 @@ export function ShaderGradientBackground() {
           rotationZ={0}
           shader="defaults"
           uAmplitude={0}
-          uDensity={1.2}
+          uDensity={0.9}
           uFrequency={0}
-          uSpeed={0.2}
-          uStrength={3.4}
+          uSpeed={0.12}
+          uStrength={2.0}
           uTime={0}
           wireframe={false}
         />

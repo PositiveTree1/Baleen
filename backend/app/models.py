@@ -170,3 +170,16 @@ class PortfolioSnapshot(Base):
     total_pnl = Column(Float, nullable=False)
     active_trades_count = Column(Integer, default=0)
 
+class SystemEvent(Base):
+    __tablename__ = "system_events"
+
+    id = Column(GUID(), primary_key=True, default=uuid.uuid4)
+    event_type = Column(String, index=True)  # TRADE_COPIED, WALLET_DISCOVERED, WALLET_REJECTED, TRADE_SKIPPED, WALLET_PROMOTED, WALLET_DORMANT
+    severity = Column(String, default="info")  # info, warning, success, error
+    title = Column(String)
+    detail = Column(String, nullable=True)
+    related_address = Column(String, nullable=True)
+    related_market = Column(String, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow, index=True)
+
+

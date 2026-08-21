@@ -121,3 +121,15 @@ export interface PlatformStats {
   activeBasketWhales: number;
   indexerStatus: 'ONLINE' | 'OFFLINE' | 'SYNCING';
 }
+
+export interface SystemEvent {
+  id: string;
+  eventType: string;
+  severity: 'info' | 'warning' | 'success' | 'error';
+  title: string;
+  detail?: string;
+  relatedAddress?: string;
+  relatedMarket?: string;
+  createdAt: string;
+}
+

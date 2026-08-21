@@ -6,7 +6,7 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 from app.database import init_db, get_db
-from app.api import wallets, execution_logs, users, admin, signals
+from app.api import wallets, execution_logs, users, admin, signals, events
 from app.workers.discovery_worker import run_discovery
 from app.workers.scoring_worker import run_rescoring
 from app.workers.analysis_worker import run_analysis
@@ -30,6 +30,7 @@ app.include_router(execution_logs.router)
 app.include_router(users.router)
 app.include_router(admin.router)
 app.include_router(signals.router)
+app.include_router(events.router)
 
 scheduler = AsyncIOScheduler()
 import time
