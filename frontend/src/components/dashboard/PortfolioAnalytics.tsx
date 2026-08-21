@@ -64,7 +64,21 @@ export function PortfolioAnalytics({
     });
   }, [logs, timeframe]);
 
-  // Aggregate Market Attribution & Stats
+  interface MarketSummary {
+    key: string;
+    question: string;
+    conditionId: string;
+    outcome: string;
+    totalPnl: number;
+    totalNotional: number;
+    fillsCount: number;
+    avgFillPrice: number;
+    currentPrice: number;
+    whaleName: string;
+    sampleTrade: ExecutionLog;
+  }
+
+  // Aggregate Market Attribution, Performance Stats & Authoritative Equity Timeline
   const {
     alphaDrivers,
     drawdownCulprits,
@@ -81,20 +95,6 @@ export function PortfolioAnalytics({
     let losses = 0;
     let bestWinLog: ExecutionLog | null = null;
     let worstLossLog: ExecutionLog | null = null;
-
-    interface MarketSummary {
-      key: string;
-      question: string;
-      conditionId: string;
-      outcome: string;
-      totalPnl: number;
-      totalNotional: number;
-      fillsCount: number;
-      avgFillPrice: number;
-      currentPrice: number;
-      whaleName: string;
-      sampleTrade: ExecutionLog;
-    }
 
     const marketMap = new Map<string, MarketSummary>();
 
@@ -138,55 +138,13 @@ export function PortfolioAnalytics({
     }
 
     const allMarkets = Array.from(marketMap.values());
-    let grossWins = 0;
-    let grossLosses = 0;
-    let totalVolume = 0;
-    let bestWin = 0;
-    let worstLoss = 0;
-    let winningHoldsMs: number[] = [];
-    let losingHoldsMs: number[] = [];
-
-    filteredLogs.forEach((log) => {
-      if (log.status === 'FILLED' || log.status === 'RESOLVED' || log.status === 'CLOSED') {
-        const netPnl = log.pnl ?? 0;
-        totalVolume += log.size || 0;
-
-        if (netPnl > 0) {
-          wins++;
-          grossWins += netPnl;
-          if (netPnl > bestWin) bestWin = netPnl;
-        } else if (netPnl < 0) {
-          losses++;
-          grossLosses += Math.abs(netPnl);
-          if (netPnl < worstLoss) worstLoss = netPnl;
-        }
-      }
-    });
+    const alphaDrivers = allMarkets.filter(m => m.totalPnl > 0).sort((a, b) => b.totalPnl - a.totalPnl).slice(0, 3);
+    const drawdownCulprits = allMarkets.filter(m => m.totalPnl < 0).sort((a, b) => a.totalPnl - b.totalPnl).slice(0, 3);
 
     const totalTrades = wins + losses;
-    const winRate = totalTrades > 0 ? (wins / totalTrades) * 100 : 0;
-    const profitFactor = grossLosses > 0 ? grossWins / grossLosses : grossWins > 0 ? 99.0 : 1.0;
-    const netPnl = grossWins - grossLosses;
-    const roi = totalVolume > 0 ? (netPnl / totalVolume) * 100 : 0;
+    const wr = totalTrades > 0 ? (wins / totalTrades) * 100 : 0.0;
 
-    return {
-      wins,
-      losses,
-      totalTrades,
-      winRate,
-      profitFactor,
-      grossWins,
-      grossLosses,
-      netPnl,
-      roi,
-      totalVolume,
-      bestWin,
-      worstLoss
-    };
-  }, [filteredLogs]);
-
-  // 3. Construct Unified Authoritative Equity Timeline
-  const { chartData, periodPnl, periodPnlPct } = useMemo(() => {
+    // Construct Timeline from filtered logs
     const timeline: {
       displayTime: string;
       balance: number;
@@ -507,7 +465,7 @@ export function PortfolioAnalytics({
                   <span>Top Alpha Markets (Aggregated Gains)</span>
                 </div>
                 <div className="space-y-2">
-                  {alphaDrivers.map((m) => (
+                  {alphaDrivers.map((m: MarketSummary) => (
                     <div 
                       key={m.key} 
                       onClick={() => onSelectTrade && onSelectTrade(m.sampleTrade)}
@@ -537,7 +495,7 @@ export function PortfolioAnalytics({
                   <span>Top Drawdown Markets (Aggregated Losses)</span>
                 </div>
                 <div className="space-y-2">
-                  {drawdownCulprits.map((m) => (
+                  {drawdownCulprits.map((m: MarketSummary) => (
                     <div 
                       key={m.key} 
                       onClick={() => onSelectTrade && onSelectTrade(m.sampleTrade)}
