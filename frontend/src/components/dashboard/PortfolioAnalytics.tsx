@@ -177,14 +177,19 @@ export function PortfolioAnalytics({
         '1H': '1h', '6H': '6h', '1D': '1d', '1W': '1w', '1M': '1m', 'YTD': 'ytd', 'ALL': 'all'
       };
       const data = await fetchPortfolioSnapshots(userId, tfMap[timeframe] || 'all');
+      const isMultiDay = timeframe === 'ALL' || timeframe === '1W' || timeframe === '1M' || timeframe === 'YTD' || timeframe === '1D';
+
       if (Array.isArray(data) && data.length > 0) {
         const timeline = data.map((s: any) => {
           const ts = s.timestamp ? new Date(s.timestamp) : new Date();
+          const timeStr = s.time || formatFrenchTime(ts);
+          const dateStr = s.date || formatFrenchDate(ts);
           return {
-            displayTime: s.time || formatFrenchTime(ts),
+            displayTime: isMultiDay && dateStr ? `${dateStr} ${timeStr}` : timeStr,
+            time: timeStr,
+            date: dateStr,
             balance: Math.round((s.balance ?? 10000) * 100) / 100,
             pnl: Math.round((s.pnl ?? 0) * 100) / 100,
-            date: s.date || formatFrenchDate(ts),
             rawTimestamp: ts.getTime(),
           };
         });
@@ -343,9 +348,10 @@ export function PortfolioAnalytics({
                 </defs>
                 <XAxis 
                   dataKey="displayTime" 
-                  tick={{ fontSize: 10, fill: '#94A3B8' }} 
+                  tick={{ fontSize: 9, fill: '#94A3B8' }} 
                   axisLine={false} 
                   tickLine={false}
+                  minTickGap={30}
                 />
                 <YAxis 
                   domain={['auto', 'auto']} 
@@ -363,7 +369,7 @@ export function PortfolioAnalytics({
                       return (
                         <div className="bg-slate-950 text-white px-4 py-3 rounded-2xl text-xs font-mono shadow-2xl border border-white/10 max-w-xs space-y-1">
                           <div className="flex items-center justify-between text-[10px] text-slate-400">
-                            <span>{d.date} • {d.displayTime}</span>
+                            <span>{d.date} • {d.time || d.displayTime}</span>
                             <span className="font-bold text-slate-300">Sandbox Balance</span>
                           </div>
                           <div className="text-base font-bold text-white">${d.balance.toLocaleString(undefined, { minimumFractionDigits: 2 })}</div>
