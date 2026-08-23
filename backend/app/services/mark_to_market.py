@@ -174,14 +174,17 @@ class MarkToMarketService:
                         # else leave elog.realized_pnl_usd as-is (its DB value)
 
                 # 4. Synchronize authoritative sandbox balance & snapshots
-                # IMPORTANT: Reuse `all_logs` from step 3 — do NOT re-query, as the
-                # realized_pnl_usd values were just updated in-memory above.
                 from app.models import PortfolioSnapshot
                 from datetime import datetime
 
                 now_dt = datetime.utcnow()
-                total_portfolio_pnl = sum(float(l.realized_pnl_usd or 0.0) for l in all_logs)
-                trades_count = len(all_logs)
+                # Deduplicate: only sum platform logs (user_id IS NULL) for global balance
+                platform_logs = [l for l in all_logs if l.user_id is None]
+                if not platform_logs:
+                    platform_logs = all_logs
+
+                total_portfolio_pnl = sum(float(l.realized_pnl_usd or 0.0) for l in platform_logs)
+                trades_count = len(platform_logs)
 
                 # Guard: If total PnL is exactly 0 and we have trades, live prices
                 # likely failed. Preserve the last known good balance instead of
@@ -195,14 +198,20 @@ class MarkToMarketService:
                 else:
                     canonical_balance = round(10000.0 + total_portfolio_pnl, 2)
 
-                # Update all users to authoritative canonical balance
+                # Update all users to their authoritative balance
                 try:
                     stmt_users = select(User)
                     users = (await db.execute(stmt_users)).scalars().all()
                     for u in users:
-                        u.sandbox_balance_usd = canonical_balance
-                        if canonical_balance > float(u.sandbox_high_water_mark_usd or 10000.0):
-                            u.sandbox_high_water_mark_usd = canonical_balance
+                        u_logs = [l for l in all_logs if l.user_id == u.id]
+                        if not u_logs:
+                            u_logs = platform_logs
+                        u_pnl = sum(float(l.realized_pnl_usd or 0.0) for l in u_logs)
+                        u_start = float(u.sandbox_starting_balance_usd or 10000.0)
+                        u_bal = round(u_start + u_pnl, 2)
+                        u.sandbox_balance_usd = u_bal
+                        if u_bal > float(u.sandbox_high_water_mark_usd or u_start):
+                            u.sandbox_high_water_mark_usd = u_bal
 
                     # Snapshot throttle: Only write if balance changed meaningfully or enough time passed
                     time_since_last = time.time() - _last_snapshot_time

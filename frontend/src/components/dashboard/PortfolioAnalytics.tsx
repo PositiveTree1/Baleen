@@ -72,6 +72,10 @@ export function PortfolioAnalytics({
     });
   }, [logs, timeframe]);
 
+  // Gracefully fallback to all logs if the specific timeframe window has 0 executions
+  const isTimeframeEmpty = filteredLogs.length === 0 && logs.length > 0;
+  const targetLogs = isTimeframeEmpty ? logs : filteredLogs;
+
   interface MarketSummary {
     key: string;
     question: string;
@@ -103,7 +107,7 @@ export function PortfolioAnalytics({
 
     const marketMap = new Map<string, MarketSummary>();
 
-    for (const log of filteredLogs) {
+    for (const log of targetLogs) {
       const pnl = log.pnl ?? 0;
       const fillP = log.fillPrice ?? log.entryPrice ?? 0.5;
       const curP = log.currentPrice ?? fillP;
@@ -158,7 +162,7 @@ export function PortfolioAnalytics({
       lossCount: losses,
       winRate: wr,
     };
-  }, [filteredLogs]);
+  }, [targetLogs]);
 
   // ---- Snapshot-based Chart Timeline (fetched from backend, not computed from trades) ----
   const [snapshotTimeline, setSnapshotTimeline] = useState<{

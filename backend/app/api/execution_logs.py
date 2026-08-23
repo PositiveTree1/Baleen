@@ -196,7 +196,9 @@ async def get_portfolio_summary(
             u_uuid = UUID(user_id)
             stmt = stmt.where(ExecutionLog.user_id == u_uuid)
         except Exception:
-            pass
+            stmt = stmt.where(ExecutionLog.user_id.is_(None))
+    else:
+        stmt = stmt.where(ExecutionLog.user_id.is_(None))
 
     now = datetime.utcnow()
     if timeframe:
@@ -215,6 +217,28 @@ async def get_portfolio_summary(
             stmt = stmt.where(ExecutionLog.executed_at >= datetime(now.year, 1, 1))
 
     logs = (await db.execute(stmt)).scalars().all()
+    # Fallback to platform logs if user has no copy trades
+    if not logs and user_id:
+        sys_stmt = select(ExecutionLog).where(
+            ExecutionLog.status.in_(["FILLED", "CLOSED", "RESOLVED"]),
+            ExecutionLog.user_id.is_(None)
+        )
+        if timeframe:
+            tf = timeframe.lower()
+            if tf == "1h":
+                sys_stmt = sys_stmt.where(ExecutionLog.executed_at >= now - timedelta(hours=1))
+            elif tf == "6h":
+                sys_stmt = sys_stmt.where(ExecutionLog.executed_at >= now - timedelta(hours=6))
+            elif tf == "1d":
+                sys_stmt = sys_stmt.where(ExecutionLog.executed_at >= now - timedelta(days=1))
+            elif tf == "1w":
+                sys_stmt = sys_stmt.where(ExecutionLog.executed_at >= now - timedelta(days=7))
+            elif tf == "1m":
+                sys_stmt = sys_stmt.where(ExecutionLog.executed_at >= now - timedelta(days=30))
+            elif tf == "ytd":
+                sys_stmt = sys_stmt.where(ExecutionLog.executed_at >= datetime(now.year, 1, 1))
+        logs = (await db.execute(sys_stmt)).scalars().all()
+
     starting_balance = 10000.0
 
     if user_id:
@@ -303,7 +327,8 @@ async def get_portfolio_snapshots(
     if len(rows) < 3:
         try:
             trade_stmt = select(ExecutionLog).where(
-                ExecutionLog.status.in_(["FILLED", "CLOSED", "RESOLVED"])
+                ExecutionLog.status.in_(["FILLED", "CLOSED", "RESOLVED"]),
+                ExecutionLog.user_id.is_(None)
             ).order_by(ExecutionLog.executed_at.asc())
             trades = (await db.execute(trade_stmt)).scalars().all()
             if trades:
@@ -326,10 +351,11 @@ async def get_portfolio_snapshots(
                 # Include genesis baseline
                 if synth_points and abs(synth_points[0]["balance"] - 10000.0) > 0.01:
                     first_date = synth_points[0]["date"]
+                    first_time = synth_points[0]["time"]
                     synth_points.insert(0, {
                         "id": "genesis-baseline",
-                        "timestamp": None,
-                        "time": "00:00",
+                        "timestamp": synth_points[0]["timestamp"],
+                        "time": first_time,
                         "date": first_date,
                         "balance": 10000.0,
                         "pnl": 0.0,
@@ -394,16 +420,17 @@ async def get_portfolio_snapshots(
     # Prepend Genesis $10,000.00 baseline for ALL timeframe
     if tf == "all" and result:
         first_date = result[0]["date"]
-        genesis_point = {
-            "id": "genesis-baseline",
-            "timestamp": None,
-            "time": "00:00",
-            "date": first_date,
-            "balance": 10000.0,
-            "pnl": 0.0,
-            "activeTrades": 0
-        }
+        first_time = result[0]["time"]
         if abs(result[0]["balance"] - 10000.0) > 0.01:
+            genesis_point = {
+                "id": "genesis-baseline",
+                "timestamp": result[0].get("timestamp"),
+                "time": first_time,
+                "date": first_date,
+                "balance": 10000.0,
+                "pnl": 0.0,
+                "activeTrades": 0
+            }
             result.insert(0, genesis_point)
 
     return result
