@@ -18,7 +18,8 @@ import {
   Database,
   Copy,
   Check,
-  X
+  X,
+  Loader2
 } from 'lucide-react';
 import { formatCompactPnL, formatFrenchTime, formatFrenchDate } from '@/lib/formatters';
 import { resetSandboxLedger, clearAllCache, fetchPortfolioSnapshots } from '@/lib/api-client';
@@ -303,20 +304,34 @@ export function PortfolioAnalytics({
 
             {/* Timeframe selector & Reset */}
             <div className="flex items-center gap-2">
-              <div className="flex rounded-xl bg-slate-100 p-0.5 border border-black/[0.06] text-xs font-mono font-semibold">
-                {(['1H', '6H', '1D', '1W', '1M', 'YTD', 'ALL'] as const).map((tf) => (
-                  <button
-                    key={tf}
-                    onClick={() => setTimeframe(tf)}
-                    className={`px-2 py-1 rounded-lg transition-all cursor-pointer ${
-                      timeframe === tf 
-                        ? 'bg-white text-slate-950 font-bold shadow-xs' 
-                        : 'text-slate-500 hover:text-slate-900'
-                    }`}
-                  >
-                    {tf}
-                  </button>
-                ))}
+              <div className={`flex items-center rounded-xl bg-slate-100 p-0.5 border border-black/[0.06] text-xs font-mono font-semibold transition-opacity ${chartLoading ? 'opacity-85' : ''}`}>
+                {(['1H', '6H', '1D', '1W', '1M', 'YTD', 'ALL'] as const).map((tf) => {
+                  const isActive = timeframe === tf;
+                  return (
+                    <button
+                      key={tf}
+                      disabled={chartLoading}
+                      onClick={() => {
+                        if (!chartLoading && tf !== timeframe) {
+                          setTimeframe(tf);
+                        }
+                      }}
+                      className={`px-2 py-1 rounded-lg transition-all flex items-center gap-1 ${
+                        chartLoading ? 'cursor-not-allowed' : 'cursor-pointer'
+                      } ${
+                        isActive 
+                          ? 'bg-white text-slate-950 font-bold shadow-xs' 
+                          : 'text-slate-500 hover:text-slate-900'
+                      }`}
+                      title={chartLoading ? `Loading ${timeframe} snapshots...` : `Switch to ${tf} timeframe`}
+                    >
+                      {isActive && chartLoading && (
+                        <Loader2 size={10} className="animate-spin text-indigo-600 shrink-0" />
+                      )}
+                      <span>{tf}</span>
+                    </button>
+                  );
+                })}
               </div>
               <button
                 onClick={() => setShowResetModal(true)}
