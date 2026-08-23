@@ -22,7 +22,7 @@ export function TradeLog({ userId, onSelectTrade }: TradeLogProps) {
 
   useEffect(() => {
     async function load() {
-      const data = await fetchExecutionLogs(userId, { limit: '2500' });
+      const data = await fetchExecutionLogs(userId, { limit: '10000' });
       if (Array.isArray(data)) {
         setLogs(data);
       }
