@@ -13,7 +13,12 @@ import {
   CheckCircle2, 
   RefreshCw,
   HelpCircle,
-  Zap
+  Zap,
+  Code2,
+  Database,
+  Copy,
+  Check,
+  X
 } from 'lucide-react';
 import { formatCompactPnL, formatFrenchTime, formatFrenchDate } from '@/lib/formatters';
 import { resetSandboxLedger, clearAllCache, fetchPortfolioSnapshots } from '@/lib/api-client';
@@ -41,6 +46,8 @@ export function PortfolioAnalytics({
   const [attributionTab, setAttributionTab] = useState<'both' | 'alpha' | 'drawdown'>('both');
   const [showResetModal, setShowResetModal] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
+  const [showRawDataModal, setShowRawDataModal] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   // 1. Filter Logs by Timeframe
   const filteredLogs = useMemo(() => {
@@ -313,6 +320,14 @@ export function PortfolioAnalytics({
               >
                 <RefreshCw size={13} />
               </button>
+              <button
+                onClick={() => setShowRawDataModal(true)}
+                className="p-1.5 px-2 rounded-xl bg-slate-100 hover:bg-indigo-50 text-slate-500 hover:text-indigo-600 border border-black/[0.04] transition-all cursor-pointer flex items-center gap-1 text-[11px] font-mono font-semibold"
+                title="View raw chart snapshot data received from server"
+              >
+                <Code2 size={13} />
+                <span className="hidden sm:inline">Raw Data</span>
+              </button>
             </div>
           </div>
 
@@ -562,6 +577,57 @@ export function PortfolioAnalytics({
               >
                 {isResetting ? 'Resetting...' : 'Confirm Reset'}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Raw Snapshot Data Modal */}
+      {showRawDataModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm">
+          <div className="w-full max-w-3xl max-h-[85vh] bg-white rounded-3xl p-6 shadow-2xl border border-black/[0.08] flex flex-col space-y-4">
+            <div className="flex items-center justify-between border-b border-black/[0.06] pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 rounded-xl bg-indigo-50 text-indigo-600 border border-indigo-200">
+                  <Database size={16} />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-slate-900">Received Chart Snapshot Data</h3>
+                  <p className="text-[11px] text-slate-500 font-mono">
+                    Timeframe: <span className="font-bold text-slate-800">{timeframe}</span> • {pnlTimeline.length} points received from server
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => {
+                    navigator.clipboard.writeText(JSON.stringify(pnlTimeline, null, 2));
+                    setCopied(true);
+                    setTimeout(() => setCopied(false), 2000);
+                  }}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-xs font-semibold text-slate-700 transition-colors cursor-pointer"
+                >
+                  {copied ? <Check size={13} className="text-emerald-600" /> : <Copy size={13} />}
+                  <span>{copied ? 'Copied!' : 'Copy JSON'}</span>
+                </button>
+                <button
+                  onClick={() => setShowRawDataModal(false)}
+                  className="p-1.5 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+            </div>
+
+            {/* Code / JSON Viewer */}
+            <div className="flex-1 overflow-auto bg-slate-950 text-emerald-400 p-4 rounded-2xl font-mono text-xs leading-relaxed border border-white/10 shadow-inner max-h-[60vh]">
+              <pre>{JSON.stringify(pnlTimeline, null, 2)}</pre>
+            </div>
+
+            <div className="flex justify-between items-center text-[11px] text-slate-400 pt-1">
+              <span>Endpoint: <code className="text-slate-600 font-mono">/api/executions/snapshots?timeframe={timeframe.toLowerCase()}</code></span>
+              <span>Latest Balance: <strong className="text-slate-800">${(pnlTimeline[pnlTimeline.length - 1]?.balance ?? currentBalance).toLocaleString(undefined, { minimumFractionDigits: 2 })}</strong></span>
             </div>
           </div>
         </div>
