@@ -12,11 +12,13 @@ logger = logging.getLogger(__name__)
 _live_price_cache: dict[str, dict] = {}
 # Consensus cache: condition_id -> {whale_count, total_cash}
 _consensus_cache: dict[str, dict] = {}
+# Per-trade last-known PnL: trade_id -> last computed PnL (avoids oscillation from stale prices)
+_last_known_pnl: dict[str, float] = {}
 
 # Snapshot throttle: track last snapshot write time and balance
 _last_snapshot_time: float = 0.0
 _last_snapshot_balance: float = 0.0
-_SNAPSHOT_MIN_INTERVAL_SECS = 60  # Write at most 1 snapshot per minute unless balance changes significantly
+_SNAPSHOT_MIN_INTERVAL_SECS = 25  # Write at most 1 snapshot per 25s unless balance changes significantly
 
 class MarkToMarketService:
     def __init__(self):
@@ -139,15 +141,33 @@ class MarkToMarketService:
                         elog.market_category = fee_info["category"]
 
                     fee = float(elog.fee_usd or 0.0)
-                    cur_p = get_live_price(cid, outcome=outc, asset=asset_id, fallback=fill_p)
-                    if cur_p > 0 and fill_p > 0:
-                        if elog.side == "BUY":
-                            gross_pnl = notional * ((cur_p - fill_p) / fill_p)
-                        else:
-                            gross_pnl = notional * ((fill_p - cur_p) / fill_p)
-                        # Net PnL after Polymarket trading fee
-                        net_pnl = gross_pnl - fee
-                        elog.realized_pnl_usd = round(net_pnl, 2)
+
+                    # Detect if we have a fresh price (from cache, within 60s)
+                    cache_key = f"{cid.lower().strip()}:{outc.lower().strip()}"
+                    price_entry = None
+                    if asset_id and asset_id in _live_price_cache:
+                        price_entry = _live_price_cache[asset_id]
+                    elif cid and cache_key in _live_price_cache:
+                        price_entry = _live_price_cache.get(cache_key)
+
+                    price_is_fresh = (price_entry is not None and (time.time() - price_entry.get("ts", 0)) < 60.0)
+
+                    if price_is_fresh:
+                        cur_p = price_entry["price"]
+                        if cur_p > 0 and fill_p > 0:
+                            if elog.side == "BUY":
+                                gross_pnl = notional * ((cur_p - fill_p) / fill_p)
+                            else:
+                                gross_pnl = notional * ((fill_p - cur_p) / fill_p)
+                            net_pnl = gross_pnl - fee
+                            elog.realized_pnl_usd = round(net_pnl, 2)
+                            _last_known_pnl[str(elog.id)] = elog.realized_pnl_usd
+                    else:
+                        # Use last known PnL to avoid oscillation from stale/fill prices
+                        last_pnl = _last_known_pnl.get(str(elog.id))
+                        if last_pnl is not None:
+                            elog.realized_pnl_usd = last_pnl
+                        # else leave elog.realized_pnl_usd as-is (its DB value)
 
                 # 4. Synchronize authoritative sandbox balance & snapshots
                 # IMPORTANT: Reuse `all_logs` from step 3 — do NOT re-query, as the
@@ -182,20 +202,11 @@ class MarkToMarketService:
 
                     # Snapshot throttle: Only write if balance changed meaningfully or enough time passed
                     time_since_last = time.time() - _last_snapshot_time
-                    balance_changed = abs(canonical_balance - _last_snapshot_balance) > 0.50
+                    balance_changed = abs(canonical_balance - _last_snapshot_balance) > 2.0
                     should_snapshot = balance_changed or time_since_last >= _SNAPSHOT_MIN_INTERVAL_SECS
 
                     if should_snapshot:
-                        for u in users:
-                            db.add(PortfolioSnapshot(
-                                user_id=u.id,
-                                timestamp=now_dt,
-                                balance=canonical_balance,
-                                total_pnl=round(total_portfolio_pnl, 2),
-                                active_trades_count=trades_count
-                            ))
-
-                        # Global platform sandbox snapshot
+                        # Global platform sandbox snapshot (no per-user snapshots)
                         db.add(PortfolioSnapshot(
                             user_id=None,
                             timestamp=now_dt,

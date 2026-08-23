@@ -1,5 +1,5 @@
 'use client';
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect, useCallback, useRef } from 'react';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import { ExecutionLog } from '@/types';
 import { 
@@ -16,7 +16,7 @@ import {
   Zap
 } from 'lucide-react';
 import { formatCompactPnL, formatFrenchTime, formatFrenchDate } from '@/lib/formatters';
-import { resetSandboxLedger, clearAllCache } from '@/lib/api-client';
+import { resetSandboxLedger, clearAllCache, fetchPortfolioSnapshots } from '@/lib/api-client';
 
 interface PortfolioAnalyticsProps {
   logs: ExecutionLog[];
@@ -78,7 +78,7 @@ export function PortfolioAnalytics({
     sampleTrade: ExecutionLog;
   }
 
-  // Aggregate Market Attribution, Performance Stats & Authoritative Equity Timeline
+  // Aggregate Market Attribution & Performance Stats
   const {
     alphaDrivers,
     drawdownCulprits,
@@ -87,9 +87,6 @@ export function PortfolioAnalytics({
     winCount,
     lossCount,
     winRate,
-    pnlTimeline,
-    periodPnL,
-    periodPnLPct
   } = useMemo(() => {
     let wins = 0;
     let losses = 0;
@@ -144,66 +141,6 @@ export function PortfolioAnalytics({
     const totalTrades = wins + losses;
     const wr = totalTrades > 0 ? (wins / totalTrades) * 100 : 0.0;
 
-    // Construct Timeline from filtered logs
-    const timeline: {
-      displayTime: string;
-      balance: number;
-      pnl: number;
-      date: string;
-      rawTimestamp: number;
-    }[] = [];
-
-    // Sort chronologically (oldest to newest)
-    const chronologicalLogs = [...filteredLogs].sort((a, b) => {
-      const ta = new Date(a.timestamp || 0).getTime();
-      const tb = new Date(b.timestamp || 0).getTime();
-      return ta - tb;
-    });
-
-    let runningBalance = startingBalance;
-    const nowMs = Date.now();
-    const firstTradeMs = chronologicalLogs.length > 0 ? new Date(chronologicalLogs[0].timestamp || 0).getTime() : nowMs - 3600000;
-
-    // Genesis starting baseline
-    timeline.push({
-      displayTime: formatFrenchTime(firstTradeMs - 60000),
-      balance: startingBalance,
-      pnl: 0,
-      date: 'Start',
-      rawTimestamp: firstTradeMs - 60000
-    });
-
-    for (const log of chronologicalLogs) {
-      if (log.status === 'FILLED' || log.status === 'RESOLVED' || log.status === 'CLOSED') {
-        const netTradePnl = log.pnl ?? 0;
-        runningBalance += netTradePnl;
-
-        const ts = new Date(log.timestamp || 0);
-        timeline.push({
-          displayTime: formatFrenchTime(ts),
-          balance: Math.round(runningBalance * 100) / 100,
-          pnl: Math.round((runningBalance - startingBalance) * 100) / 100,
-          date: formatFrenchDate(ts),
-          rawTimestamp: ts.getTime()
-        });
-      }
-    }
-
-    // Always anchor to live current balance at current moment
-    timeline.push({
-      displayTime: formatFrenchTime(new Date()),
-      balance: Math.round(currentBalance * 100) / 100,
-      pnl: Math.round((currentBalance - startingBalance) * 100) / 100,
-      date: 'Now',
-      rawTimestamp: nowMs
-    });
-
-    // Accurate Period P&L calculation over selected timeframe window
-    const startBal = timeline.length > 0 ? timeline[0].balance : startingBalance;
-    const endBal = timeline.length > 0 ? timeline[timeline.length - 1].balance : currentBalance;
-    const periodPnL = Math.round((endBal - startBal) * 100) / 100;
-    const periodPnLPct = startBal > 0 ? Math.round((periodPnL / startBal) * 10000) / 100 : 0.0;
-
     return {
       alphaDrivers,
       drawdownCulprits,
@@ -212,11 +149,99 @@ export function PortfolioAnalytics({
       winCount: wins,
       lossCount: losses,
       winRate: wr,
-      pnlTimeline: timeline,
-      periodPnL,
-      periodPnLPct
     };
-  }, [filteredLogs, startingBalance, currentBalance]);
+  }, [filteredLogs]);
+
+  // ---- Snapshot-based Chart Timeline (fetched from backend, not computed from trades) ----
+  const [snapshotTimeline, setSnapshotTimeline] = useState<{
+    displayTime: string;
+    balance: number;
+    pnl: number;
+    date: string;
+    rawTimestamp: number;
+  }[]>([]);
+  const [chartLoading, setChartLoading] = useState(false);
+  const prevTimelineRef = useRef(snapshotTimeline);
+
+  const loadSnapshots = useCallback(async () => {
+    setChartLoading(true);
+    try {
+      const tfMap: Record<string, string> = {
+        '1H': '1h', '6H': '6h', '1D': '1d', '1W': '1w', '1M': '1m', 'YTD': 'ytd', 'ALL': 'all'
+      };
+      const data = await fetchPortfolioSnapshots(userId, tfMap[timeframe] || 'all');
+      if (Array.isArray(data) && data.length > 0) {
+        const timeline = data.map((s: any) => {
+          const ts = s.timestamp ? new Date(s.timestamp) : new Date();
+          return {
+            displayTime: formatFrenchTime(ts),
+            balance: Math.round((s.balance ?? 10000) * 100) / 100,
+            pnl: Math.round((s.pnl ?? 0) * 100) / 100,
+            date: formatFrenchDate(ts),
+            rawTimestamp: ts.getTime(),
+          };
+        });
+
+        // Append live "Now" point anchored to currentBalance
+        const nowMs = Date.now();
+        const lastPoint = timeline[timeline.length - 1];
+        if (lastPoint && Math.abs(lastPoint.balance - currentBalance) > 0.50) {
+          timeline.push({
+            displayTime: formatFrenchTime(new Date()),
+            balance: Math.round(currentBalance * 100) / 100,
+            pnl: Math.round((currentBalance - startingBalance) * 100) / 100,
+            date: 'Now',
+            rawTimestamp: nowMs,
+          });
+        }
+
+        prevTimelineRef.current = timeline;
+        setSnapshotTimeline(timeline);
+      } else if (prevTimelineRef.current.length === 0) {
+        // No snapshots at all — show a single point at current balance
+        const nowMs = Date.now();
+        const fallback = [{
+          displayTime: formatFrenchTime(new Date()),
+          balance: Math.round(currentBalance * 100) / 100,
+          pnl: Math.round((currentBalance - startingBalance) * 100) / 100,
+          date: 'Now',
+          rawTimestamp: nowMs,
+        }];
+        setSnapshotTimeline(fallback);
+      }
+    } catch (e) {
+      console.debug("Snapshot fetch note:", e);
+    } finally {
+      setChartLoading(false);
+    }
+  }, [userId, timeframe, currentBalance, startingBalance]);
+
+  useEffect(() => {
+    loadSnapshots();
+    const interval = setInterval(loadSnapshots, 15000); // Refresh chart every 15s
+    return () => clearInterval(interval);
+  }, [loadSnapshots]);
+
+  // Use previous timeline while loading to prevent flicker
+  const pnlTimeline = chartLoading && prevTimelineRef.current.length > 0 
+    ? prevTimelineRef.current 
+    : snapshotTimeline;
+
+  // Period P&L from chart endpoints
+  const periodPnL = useMemo(() => {
+    if (pnlTimeline.length < 2) return Math.round((currentBalance - startingBalance) * 100) / 100;
+    const startBal = pnlTimeline[0].balance;
+    const endBal = pnlTimeline[pnlTimeline.length - 1].balance;
+    return Math.round((endBal - startBal) * 100) / 100;
+  }, [pnlTimeline, currentBalance, startingBalance]);
+
+  const periodPnLPct = useMemo(() => {
+    if (pnlTimeline.length < 2) {
+      return startingBalance > 0 ? Math.round(((currentBalance - startingBalance) / startingBalance) * 10000) / 100 : 0;
+    }
+    const startBal = pnlTimeline[0].balance;
+    return startBal > 0 ? Math.round(((pnlTimeline[pnlTimeline.length - 1].balance - startBal) / startBal) * 10000) / 100 : 0;
+  }, [pnlTimeline, currentBalance, startingBalance]);
 
   // Handle Sandbox Reset
   const handleResetSandbox = async () => {
