@@ -348,13 +348,35 @@ async def get_portfolio_snapshots(
         except Exception:
             pass  # Fall through to normal logic
 
-    # Downsample evenly across the ENTIRE timeframe to at most 120 points
-    if len(rows) > 120:
-        step = max(1, len(rows) // 100)
-        downsampled = [rows[i] for i in range(0, len(rows) - 1, step)]
-        if rows[-1] not in downsampled:
-            downsampled.append(rows[-1])
-        rows = downsampled
+    # Fixed time-interval bucketing so past historical points NEVER shift or jitter
+    if len(rows) > 60:
+        if tf in ("all", "1m", "ytd"):
+            bucket_secs = 3600  # 1-hour buckets for all-time
+        elif tf == "1w":
+            bucket_secs = 1800  # 30-min buckets for 1 week
+        elif tf == "1d":
+            bucket_secs = 900   # 15-min buckets for 1 day
+        elif tf == "6h":
+            bucket_secs = 300   # 5-min buckets for 6 hours
+        else:
+            bucket_secs = 60    # 1-min buckets for 1 hour
+
+        bucketed_rows = []
+        seen_buckets = set()
+        for r in rows:
+            if r.timestamp:
+                b_key = int(r.timestamp.timestamp() // bucket_secs)
+                if b_key not in seen_buckets:
+                    seen_buckets.add(b_key)
+                    bucketed_rows.append(r)
+            else:
+                bucketed_rows.append(r)
+
+        # Always include the exact latest live snapshot at the end
+        if rows and (not bucketed_rows or bucketed_rows[-1].id != rows[-1].id):
+            bucketed_rows.append(rows[-1])
+
+        rows = bucketed_rows
 
     result = [
         {
