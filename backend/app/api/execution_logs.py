@@ -189,7 +189,7 @@ async def get_portfolio_summary(
     timeframe: Optional[str] = None,
     db: AsyncSession = Depends(get_db)
 ):
-    stmt = select(ExecutionLog).where(ExecutionLog.status == "FILLED")
+    stmt = select(ExecutionLog).where(ExecutionLog.status.in_(["FILLED", "CLOSED", "RESOLVED"]))
     if user_id:
         from uuid import UUID
         try:
@@ -197,8 +197,6 @@ async def get_portfolio_summary(
             stmt = stmt.where(ExecutionLog.user_id == u_uuid)
         except Exception:
             pass
-    else:
-        stmt = stmt.where(ExecutionLog.user_id.is_(None))
 
     now = datetime.utcnow()
     if timeframe:
@@ -233,28 +231,23 @@ async def get_portfolio_summary(
     total_fees = 0.0
     
     for log in logs:
-        cid = log.market_condition_id or ""
-        outc = log.resolution_outcome or "Yes"
-        fill_p = float(log.user_fill_price or log.whale_entry_price or 0.5)
-        cur_p = get_live_price(cid, outcome=outc, asset=log.onchain_tx_hash or "", fallback=fill_p)
         notional = float(log.notional_usd or 0.0)
         total_notional += notional
-        
-        fee_info = calculate_polymarket_fee(
-            notional_usd=notional,
-            price=fill_p,
-            market_title=log.market_question or ""
-        )
-        fee = float(log.fee_usd) if log.fee_usd is not None and log.fee_usd > 0 else fee_info["fee_usd"]
-        total_fees += fee
+        total_fees += float(log.fee_usd or 0.0)
         
         trade_pnl = log.realized_pnl_usd
-        if trade_pnl is None and fill_p > 0:
-            if log.side == "BUY":
-                gross_pnl = notional * ((cur_p - fill_p) / fill_p)
-            else:
-                gross_pnl = notional * ((fill_p - cur_p) / fill_p)
-            trade_pnl = gross_pnl - fee
+        if trade_pnl is None:
+            cid = log.market_condition_id or ""
+            outc = log.resolution_outcome or "Yes"
+            fill_p = float(log.user_fill_price or log.whale_entry_price or 0.5)
+            cur_p = get_live_price(cid, outcome=outc, asset=log.onchain_tx_hash or "", fallback=fill_p)
+            fee = float(log.fee_usd or 0.0)
+            if fill_p > 0:
+                if log.side == "BUY":
+                    gross_pnl = notional * ((cur_p - fill_p) / fill_p)
+                else:
+                    gross_pnl = notional * ((fill_p - cur_p) / fill_p)
+                trade_pnl = gross_pnl - fee
         if trade_pnl is not None:
             total_pnl += float(trade_pnl)
             
@@ -275,7 +268,7 @@ async def get_portfolio_summary(
 async def get_portfolio_snapshots(
     user_id: Optional[str] = Query(None, alias="userId"),
     timeframe: Optional[str] = None,
-    limit: int = 500,
+    limit: int = 5000,
     db: AsyncSession = Depends(get_db)
 ):
     from uuid import UUID
@@ -297,33 +290,20 @@ async def get_portfolio_snapshots(
     elif tf == "ytd":
         stmt = stmt.where(PortfolioSnapshot.timestamp >= datetime(now.year, 1, 1))
 
-    # Query snapshots (fallback gracefully to system snapshots)
-    rows = []
-    if user_id:
-        try:
-            u_uuid = UUID(user_id)
-            user_stmt = stmt.where(PortfolioSnapshot.user_id == u_uuid).order_by(PortfolioSnapshot.timestamp.desc()).limit(limit)
-            rows = (await db.execute(user_stmt)).scalars().all()
-        except Exception:
-            rows = []
+    # Query snapshots in ascending chronological order
+    stmt = stmt.where(PortfolioSnapshot.user_id.is_(None)).order_by(PortfolioSnapshot.timestamp.asc()).limit(limit)
+    rows = (await db.execute(stmt)).scalars().all()
 
     if not rows:
-        sys_stmt = stmt.where(PortfolioSnapshot.user_id.is_(None)).order_by(PortfolioSnapshot.timestamp.desc()).limit(limit)
-        rows = (await db.execute(sys_stmt)).scalars().all()
-
-    # If window has < 2 snapshots, fetch the latest global snapshot and previous
-    if len(rows) < 2 and tf != "all":
-        fallback_stmt = select(PortfolioSnapshot).order_by(PortfolioSnapshot.timestamp.desc()).limit(2)
-        rows = (await db.execute(fallback_stmt)).scalars().all()
-
-    rows = list(reversed(rows))
+        fallback_stmt = select(PortfolioSnapshot).where(PortfolioSnapshot.user_id.is_(None)).order_by(PortfolioSnapshot.timestamp.desc()).limit(2)
+        rows = list(reversed((await db.execute(fallback_stmt)).scalars().all()))
 
     # FALLBACK: If snapshot table is sparse (< 3 points), synthesize a timeline
     # from execution logs so the chart always renders correctly
     if len(rows) < 3:
         try:
             trade_stmt = select(ExecutionLog).where(
-                ExecutionLog.status == "FILLED"
+                ExecutionLog.status.in_(["FILLED", "CLOSED", "RESOLVED"])
             ).order_by(ExecutionLog.executed_at.asc())
             trades = (await db.execute(trade_stmt)).scalars().all()
             if trades:
@@ -368,7 +348,7 @@ async def get_portfolio_snapshots(
         except Exception:
             pass  # Fall through to normal logic
 
-    # Downsample if more than 120 points to keep UI silky smooth
+    # Downsample evenly across the ENTIRE timeframe to at most 120 points
     if len(rows) > 120:
         step = max(1, len(rows) // 100)
         downsampled = [rows[i] for i in range(0, len(rows) - 1, step)]

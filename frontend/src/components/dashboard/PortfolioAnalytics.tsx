@@ -174,25 +174,19 @@ export function PortfolioAnalytics({
         const timeline = data.map((s: any) => {
           const ts = s.timestamp ? new Date(s.timestamp) : new Date();
           return {
-            displayTime: formatFrenchTime(ts),
+            displayTime: s.time || formatFrenchTime(ts),
             balance: Math.round((s.balance ?? 10000) * 100) / 100,
             pnl: Math.round((s.pnl ?? 0) * 100) / 100,
-            date: formatFrenchDate(ts),
+            date: s.date || formatFrenchDate(ts),
             rawTimestamp: ts.getTime(),
           };
         });
 
-        // Append live "Now" point anchored to currentBalance
-        const nowMs = Date.now();
-        const lastPoint = timeline[timeline.length - 1];
-        if (lastPoint && Math.abs(lastPoint.balance - currentBalance) > 0.50) {
-          timeline.push({
-            displayTime: formatFrenchTime(new Date()),
-            balance: Math.round(currentBalance * 100) / 100,
-            pnl: Math.round((currentBalance - startingBalance) * 100) / 100,
-            date: 'Now',
-            rawTimestamp: nowMs,
-          });
+        // Ensure the last point is anchored to live current balance
+        if (timeline.length > 0) {
+          const lastPoint = timeline[timeline.length - 1];
+          lastPoint.balance = Math.round(currentBalance * 100) / 100;
+          lastPoint.pnl = Math.round((currentBalance - startingBalance) * 100) / 100;
         }
 
         prevTimelineRef.current = timeline;

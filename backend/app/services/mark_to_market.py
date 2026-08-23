@@ -118,12 +118,16 @@ class MarkToMarketService:
                 if tasks:
                     await asyncio.gather(*tasks, return_exceptions=True)
 
-                # 3. Update PnL on all execution logs (system feed + user copy trades)
+                # 3. Update PnL on all execution logs (FILLED + CLOSED + RESOLVED)
                 # Use a single query and reuse these objects for the snapshot calculation below
-                stmt_all_logs = select(ExecutionLog).where(ExecutionLog.status == "FILLED")
+                stmt_all_logs = select(ExecutionLog).where(ExecutionLog.status.in_(["FILLED", "CLOSED", "RESOLVED"]))
                 all_logs = (await db.execute(stmt_all_logs)).scalars().all()
                 from app.services.polymarket_fees import calculate_polymarket_fee
                 for elog in all_logs:
+                    # Closed/resolved trades already have their final realized PnL locked in
+                    if elog.status != "FILLED":
+                        continue
+
                     cid = elog.market_condition_id or ""
                     outc = elog.resolution_outcome or "Yes"
                     asset_id = elog.onchain_tx_hash or ""

@@ -288,7 +288,7 @@ export async function fetchPortfolioSnapshots(userId?: string, timeframe?: strin
     const url = new URL(`${API_BASE_URL}/api/executions/snapshots`);
     if (userId) url.searchParams.append('userId', userId);
     if (timeframe) url.searchParams.append('timeframe', timeframe);
-    url.searchParams.append('limit', '200');
+    url.searchParams.append('limit', '5000');
     const res = await fetch(url.toString());
     if (!res.ok) return getCachedPortfolioSnapshots(userId, timeframe) || [];
     const data = await res.json();
