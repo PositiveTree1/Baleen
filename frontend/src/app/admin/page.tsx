@@ -115,7 +115,11 @@ export default function AdminPage() {
   const handleTriggerDiscovery = async () => {
     setTriggering(true);
     try {
-      const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000';
+      const backendUrl = (
+        process.env.NEXT_PUBLIC_BACKEND_URL || 
+        process.env.NEXT_PUBLIC_API_URL || 
+        'http://localhost:8000'
+      ).replace(/\/$/, '');
       await fetch(`${backendUrl}/api/admin/trigger-discovery`, { method: 'POST' });
       setTimeout(() => {
         loadData();
