@@ -12,9 +12,16 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) return null;
 
+        const backendUrl = (
+          process.env.BACKEND_URL || 
+          process.env.NEXT_PUBLIC_BACKEND_URL || 
+          process.env.NEXT_PUBLIC_API_URL || 
+          'http://localhost:8000'
+        ).replace(/\/$/, '');
+
         try {
           const res = await fetch(
-            `${process.env.BACKEND_URL || 'http://localhost:8000'}/api/auth/login`,
+            `${backendUrl}/api/auth/login`,
             {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
@@ -28,7 +35,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           if (!res.ok) return null;
           const user = await res.json();
           return { id: user.id, email: user.email };
-        } catch {
+        } catch (e) {
+          console.error("NextAuth authorize error:", e);
           return null;
         }
       },
