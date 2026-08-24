@@ -43,7 +43,7 @@ export default function DashboardPage() {
       const [userData, portfolioData, logsData] = await Promise.all([
         session?.user?.id ? fetchUserSettings(session.user.id) : null,
         fetchPortfolioSummary(session?.user?.id),
-        fetchExecutionLogs(session?.user?.id, { limit: '10000' })
+        fetchExecutionLogs(session?.user?.id, { limit: '100' })
       ]);
       if (userData) setUser(userData);
       if (portfolioData) setPortfolio(portfolioData);
@@ -55,7 +55,7 @@ export default function DashboardPage() {
 
   useEffect(() => {
     loadData();
-    const interval = setInterval(loadData, 4000);
+    const interval = setInterval(loadData, 6000);
     return () => clearInterval(interval);
   }, [session]);
 

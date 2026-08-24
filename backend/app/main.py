@@ -2,6 +2,7 @@ import asyncio
 import logging
 from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
@@ -15,6 +16,9 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 app = FastAPI(title="Baleen Backend", version="0.1.0")
+
+# Enable Gzip compression (compresses responses > 500 bytes by ~85%)
+app.add_middleware(GZipMiddleware, minimum_size=500)
 
 # CORS
 app.add_middleware(

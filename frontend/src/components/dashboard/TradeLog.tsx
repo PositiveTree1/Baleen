@@ -22,14 +22,14 @@ export function TradeLog({ userId, onSelectTrade }: TradeLogProps) {
 
   useEffect(() => {
     async function load() {
-      const data = await fetchExecutionLogs(userId, { limit: '10000' });
+      const data = await fetchExecutionLogs(userId, { limit: '100' });
       if (Array.isArray(data)) {
         setLogs(data);
       }
       setLoading(false);
     }
     load();
-    const interval = setInterval(load, 8000);
+    const interval = setInterval(load, 10000);
     return () => clearInterval(interval);
   }, [userId]);
 
