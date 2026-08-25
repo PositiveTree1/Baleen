@@ -108,8 +108,8 @@ async def get_execution_logs(
         fee_usd = float(log.fee_usd) if log.fee_usd is not None and log.fee_usd > 0 else fee_info["fee_usd"]
         category = log.market_category or fee_info["category"]
 
-        # Gross & Net PnL
-        if fill_p > 0:
+        # Gross & Net PnL — guard against cold price cache
+        if fill_p > 0 and abs(cur_p - fill_p) > 0.001:
             if log.side == "BUY":
                 gross_pnl = notional * ((cur_p - fill_p) / fill_p)
             else:
@@ -117,7 +117,12 @@ async def get_execution_logs(
         else:
             gross_pnl = 0.0
 
-        net_pnl = log.realized_pnl_usd if log.realized_pnl_usd is not None else round(gross_pnl - fee_usd, 2)
+        if log.realized_pnl_usd is not None:
+            net_pnl = log.realized_pnl_usd
+        elif abs(cur_p - fill_p) > 0.001:
+            net_pnl = round(gross_pnl - fee_usd, 2)
+        else:
+            net_pnl = 0.0
         pnl_pct = round((net_pnl / notional) * 100.0, 2) if notional > 0 else 0.0
 
         whale_info = whale_meta_map.get((log.source_wallet_address or "").lower(), {})
@@ -196,17 +201,22 @@ async def get_portfolio_summary(
         
         trade_pnl = log.realized_pnl_usd
         if trade_pnl is None:
+            # For FILLED (open) trades with no stored PnL, only compute unrealized
+            # PnL if we have a REAL live price (different from the entry).
+            # If the price cache is cold (cur_p == fill_p), treat as 0 PnL
+            # rather than subtracting fees as a phantom loss.
             cid = log.market_condition_id or ""
             outc = log.resolution_outcome or "Yes"
             fill_p = float(log.user_fill_price or log.whale_entry_price or 0.5)
             cur_p = get_live_price(cid, outcome=outc, asset=log.onchain_tx_hash or "", fallback=fill_p)
-            fee = float(log.fee_usd or 0.0)
-            if fill_p > 0:
-                if log.side == "BUY":
-                    gross_pnl = notional * ((cur_p - fill_p) / fill_p)
-                else:
-                    gross_pnl = notional * ((fill_p - cur_p) / fill_p)
-                trade_pnl = gross_pnl - fee
+            if abs(cur_p - fill_p) > 0.001:  # Only count if we have a real price change
+                fee = float(log.fee_usd or 0.0)
+                if fill_p > 0:
+                    if log.side == "BUY":
+                        gross_pnl = notional * ((cur_p - fill_p) / fill_p)
+                    else:
+                        gross_pnl = notional * ((fill_p - cur_p) / fill_p)
+                    trade_pnl = gross_pnl - fee
         if trade_pnl is not None:
             total_pnl += float(trade_pnl)
             
