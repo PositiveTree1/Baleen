@@ -260,6 +260,31 @@ export async function fetchPortfolioSummary(userId?: string, timeframe?: string)
   totalFeesPaidUsd?: number;
   filledTradesCount: number;
   totalNotionalInvested: number;
+  topAlphaMarkets?: {
+    key: string;
+    question: string;
+    conditionId: string;
+    outcome: string;
+    totalPnl: number;
+    totalNotional: number;
+    fillsCount: number;
+    avgFillPrice: number;
+    whaleName: string;
+  }[];
+  topDrawdownMarkets?: {
+    key: string;
+    question: string;
+    conditionId: string;
+    outcome: string;
+    totalPnl: number;
+    totalNotional: number;
+    fillsCount: number;
+    avgFillPrice: number;
+    whaleName: string;
+  }[];
+  allTimeWinRate?: number;
+  allTimeWins?: number;
+  allTimeLosses?: number;
 } | null> {
   const cacheKey = `portfolio_summary_${userId || 'all'}`;
   try {

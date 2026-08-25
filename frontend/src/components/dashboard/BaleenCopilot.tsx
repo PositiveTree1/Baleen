@@ -206,22 +206,16 @@ export function BaleenCopilot() {
 
   return (
     <>
-      {/* Floating Trigger Pill */}
-      <div className="fixed bottom-6 right-6 z-40">
+      {/* Floating Trigger Button (Discrete & Elegant) */}
+      <div className="fixed bottom-5 right-5 z-40">
         <motion.button
-          whileHover={{ scale: 1.04 }}
-          whileTap={{ scale: 0.96 }}
+          whileHover={{ scale: 1.06 }}
+          whileTap={{ scale: 0.94 }}
           onClick={() => setIsOpen(true)}
-          className="flex items-center gap-2.5 px-4 py-2.5 rounded-full bg-slate-900 text-white shadow-xl hover:bg-slate-800 border border-white/20 transition-all cursor-pointer group"
-          title="Open Baleen Copilot (Cmd+K)"
+          className="w-10 h-10 rounded-full bg-white/95 backdrop-blur-md text-slate-800 shadow-md hover:shadow-lg border border-black/[0.08] hover:border-indigo-300 flex items-center justify-center transition-all cursor-pointer group"
+          title="Open Baleen Copilot (⌘K / Ctrl+K)"
         >
-          <div className="w-5 h-5 rounded-full bg-gradient-to-tr from-indigo-500 to-emerald-400 flex items-center justify-center shadow-xs">
-            <Sparkles size={11} className="text-white animate-pulse" />
-          </div>
-          <span className="text-xs font-bold tracking-tight">Copilot AI</span>
-          <span className="hidden sm:inline-block px-1.5 py-0.5 rounded text-[10px] font-mono font-semibold bg-white/15 text-slate-300">
-            ⌘K
-          </span>
+          <Sparkles size={16} className="text-indigo-600 group-hover:rotate-12 transition-transform" />
         </motion.button>
       </div>
 

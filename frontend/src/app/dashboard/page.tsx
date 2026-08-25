@@ -150,6 +150,8 @@ export default function DashboardPage() {
           startingBalance={portfolio?.startingBalance ?? user?.startingBalance ?? 10000.0}
           currentBalance={liveBalance}
           totalFilledTrades={portfolio?.filledTradesCount || 5049}
+          topAlphaMarkets={portfolio?.topAlphaMarkets}
+          topDrawdownMarkets={portfolio?.topDrawdownMarkets}
           onSelectTrade={setSelectedTrade}
           onResetComplete={loadData}
         />

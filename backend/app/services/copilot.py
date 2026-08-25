@@ -340,20 +340,39 @@ import re
 def _clean_response_text(text: str) -> str:
     if not text:
         return ""
+    # Strip <think>...</think> XML blocks
     if "</think>" in text:
         text = text.split("</think>")[-1].strip()
-    return re.sub(r'<think>[\s\S]*?</think>', '', text).strip()
+    text = re.sub(r'<think>[\s\S]*?</think>', '', text, flags=re.DOTALL).strip()
+    
+    # Strip any "Here's a thinking process..." or chain of thought preambles
+    if any(m in text for m in ["thinking process", "Draft 1", "Draft 2", "Draft 3", "Final Output Generation", "Analyze User Input"]):
+        match = re.search(r'(?:(?:Final Output Generation|Suggested Response|Final Response|Response):\s*|\n(?=#{1,4}\s|\*\*[A-Z]|\bExecutive\b|\bCurrent\b|\bPortfolio\b))([\s\S]+)', text, re.IGNORECASE)
+        if match:
+            text = match.group(1).strip()
+        else:
+            lines = text.split('\n')
+            clean_lines = []
+            capturing = False
+            for line in lines:
+                if re.match(r'^(?:#{1,4}\s|\*\*[A-Z]|\|\s|Executive|Current Portfolio|Portfolio Snapshot)', line.strip()):
+                    capturing = True
+                if capturing:
+                    clean_lines.append(line)
+            if clean_lines:
+                text = '\n'.join(clean_lines).strip()
+
+    return text.strip()
 
 # --- Main Copilot Reasoning Agent ---
 
 SYSTEM_PROMPT = """You are the **Baleen Copilot**, an institutional quantitative AI assistant integrated into the Baleen autonomous Polymarket whale copy-trading engine.
 
-### Your Capabilities & Knowledge:
-1. You have direct access to real-time portfolio statistics, whale basket analytics, trade execution history, multi-whale consensus signals, and fee structures via built-in tools.
-2. ALWAYS use the provided tools to query real data when the user asks about performance, specific whales, trades, balances, fees, or events.
-3. NEVER make up statistics or hallucinate trade figures. Use tool results as the single source of truth.
-4. Format all responses cleanly using GitHub Markdown:
-   - Use bold numbers and currency formatting (e.g. **$11,842.58**, **+18.4% ROI**).
+### Strict Rules:
+1. Output ONLY your direct, final markdown response. NEVER output internal thoughts, notes, drafts, or preamble like "Here is a thinking process".
+2. ALWAYS use real numbers from provided live telemetry and tools.
+3. Format all responses cleanly using GitHub Markdown:
+   - Use bold numbers and currency formatting (e.g. **$12,265.61**, **+22.7% ROI**).
    - Use bullet points, concise tables, and clear visual hierarchy.
    - Maintain a sophisticated, sharp, institutional hedge-fund tone (confident, precise, quantitative).
 """

@@ -219,6 +219,44 @@ async def get_portfolio_summary(
                     trade_pnl = gross_pnl - fee
         if trade_pnl is not None:
             total_pnl += float(trade_pnl)
+
+    # Market Attribution aggregation across database records
+    market_map = {}
+    wins_count = 0
+    losses_count = 0
+    for log in logs:
+        key = log.market_question or log.market_condition_id or str(log.id)
+        pnl_val = float(log.realized_pnl_usd or 0.0)
+        notional_val = float(log.notional_usd or 0.0)
+        fill_p = float(log.user_fill_price or log.whale_entry_price or 0.5)
+        
+        if pnl_val > 0:
+            wins_count += 1
+        elif pnl_val < 0:
+            losses_count += 1
+            
+        if key not in market_map:
+            market_map[key] = {
+                "key": key,
+                "question": log.market_question or "Prediction Market",
+                "conditionId": log.market_condition_id or "",
+                "outcome": log.resolution_outcome or "Yes",
+                "totalPnl": 0.0,
+                "totalNotional": 0.0,
+                "fillsCount": 0,
+                "avgFillPrice": fill_p,
+                "whaleName": (log.source_wallet_address[:6] + "..." + log.source_wallet_address[-4:]) if log.source_wallet_address else "Whale"
+            }
+        m = market_map[key]
+        m["totalPnl"] = round(m["totalPnl"] + pnl_val, 2)
+        m["totalNotional"] = round(m["totalNotional"] + notional_val, 2)
+        m["fillsCount"] += 1
+
+    all_markets = list(market_map.values())
+    top_alpha = sorted([m for m in all_markets if m["totalPnl"] > 0], key=lambda x: x["totalPnl"], reverse=True)[:5]
+    top_drawdown = sorted([m for m in all_markets if m["totalPnl"] < 0], key=lambda x: x["totalPnl"])[:5]
+    total_evaluated = wins_count + losses_count
+    all_time_win_rate = round((wins_count / total_evaluated * 100), 1) if total_evaluated > 0 else 0.0
             
     current_balance = round(starting_balance + total_pnl, 2)
     pnl_pct = round((total_pnl / starting_balance) * 100.0, 2) if starting_balance > 0 else 0.0
@@ -230,7 +268,12 @@ async def get_portfolio_summary(
         "totalPnlPct": pnl_pct,
         "totalFeesPaidUsd": round(total_fees, 2),
         "filledTradesCount": len(logs),
-        "totalNotionalInvested": round(total_notional, 2)
+        "totalNotionalInvested": round(total_notional, 2),
+        "topAlphaMarkets": top_alpha,
+        "topDrawdownMarkets": top_drawdown,
+        "allTimeWinRate": all_time_win_rate,
+        "allTimeWins": wins_count,
+        "allTimeLosses": losses_count
     }
 
 @router.get("/snapshots")
