@@ -1,0 +1,50 @@
+﻿{
+  "name": "Baleen Protocol Design System",
+  "version": "2.0.0",
+  "theme": "Nordic Institutional Glass & Obsidian",
+  "colors": {
+    "primary": {
+      "obsidian": "#0A0D12",
+      "obsidianSoft": "#111620",
+      "slate950": "#020617",
+      "slate900": "#0F172A",
+      "slate800": "#1E293B",
+      "slate600": "#475569",
+      "slate400": "#94A3B8"
+    },
+    "background": {
+      "canvas": "#F8F9FB",
+      "surfaceWhite": "#FFFFFF",
+      "glacierMist": "#F1F4F9",
+      "arcticIce": "#E8ECF2"
+    },
+    "alphaAccents": {
+      "emeraldBright": "#10B981",
+      "emeraldGlow": "#059669",
+      "emeraldSoft": "#ECFDF5",
+      "emeraldBorder": "#A7F3D0",
+      "goldSniper": "#F59E0B",
+      "goldSoft": "#FEF3C7",
+      "goldBorder": "#FDE68A",
+      "drawdownRose": "#F43F5E",
+      "roseSoft": "#FFF1F2",
+      "roseBorder": "#FECDD3"
+    },
+    "glassmorphism": {
+      "refractionBorder": "rgba(255, 255, 255, 0.85)",
+      "specularHighlight": "rgba(255, 255, 255, 1.0)",
+      "ambientShadow": "rgba(15, 23, 42, 0.04)",
+      "frostBackdrop": "blur(24px)"
+    }
+  },
+  "typography": {
+    "display": "Inter, -apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif",
+    "futuristic": "Space Grotesk, Syne, sans-serif",
+    "mono": "'SF Mono', 'JetBrains Mono', 'Fira Code', monospace"
+  },
+  "elevation": {
+    "appleCard": "inset 0 1px 1px 0 rgba(255, 255, 255, 1), 0 2px 8px -2px rgba(15, 23, 42, 0.03), 0 16px 36px -8px rgba(15, 23, 42, 0.05)",
+    "floatingPill": "0 1px 2px rgba(0, 0, 0, 0.06), 0 8px 16px -4px rgba(0, 0, 0, 0.08)",
+    "obsidianCard": "inset 0 1px 0 rgba(255, 255, 255, 0.1), 0 24px 48px -12px rgba(0, 0, 0, 0.35)"
+  }
+}
