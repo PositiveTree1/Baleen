@@ -199,11 +199,13 @@ export function PortfolioAnalytics({
           };
         });
 
-        // Ensure the last point is anchored to live current balance
+        // Anchor the last point only if currentBalance is consistent with the snapshot timeline
         if (timeline.length > 0) {
           const lastPoint = timeline[timeline.length - 1];
-          lastPoint.balance = Math.round(currentBalance * 100) / 100;
-          lastPoint.pnl = Math.round((currentBalance - startingBalance) * 100) / 100;
+          if (currentBalance > 0 && Math.abs(currentBalance - lastPoint.balance) < 300) {
+            lastPoint.balance = Math.round(currentBalance * 100) / 100;
+            lastPoint.pnl = Math.round((currentBalance - startingBalance) * 100) / 100;
+          }
         }
 
         prevTimelineRef.current = timeline;

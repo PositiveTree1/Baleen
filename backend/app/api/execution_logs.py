@@ -69,17 +69,9 @@ async def get_execution_logs(
     if end_date:
         stmt = stmt.where(ExecutionLog.executed_at <= end_date)
 
-    if user_id:
-        from uuid import UUID
-        try:
-            u_uuid = UUID(user_id)
-            user_stmt = stmt.where(ExecutionLog.user_id == u_uuid).order_by(ExecutionLog.executed_at.desc()).limit(limit).offset(offset)
-            raw_logs = (await db.execute(user_stmt)).scalars().all()
-        except Exception:
-            raw_logs = []
-    else:
-        system_stmt = stmt.where(ExecutionLog.user_id.is_(None)).order_by(ExecutionLog.executed_at.desc()).limit(limit).offset(offset)
-        raw_logs = (await db.execute(system_stmt)).scalars().all()
+    # Query canonical sandbox execution logs (user_id IS NULL)
+    system_stmt = stmt.where(ExecutionLog.user_id.is_(None)).order_by(ExecutionLog.executed_at.desc()).limit(limit).offset(offset)
+    raw_logs = (await db.execute(system_stmt)).scalars().all()
 
     if not raw_logs:
         return []
@@ -126,59 +118,39 @@ async def get_execution_logs(
             gross_pnl = 0.0
 
         net_pnl = log.realized_pnl_usd if log.realized_pnl_usd is not None else round(gross_pnl - fee_usd, 2)
-        pnl_pct = round((net_pnl / notional) * 100.0, 1) if notional > 0 else 0.0
+        pnl_pct = round((net_pnl / notional) * 100.0, 2) if notional > 0 else 0.0
 
-        poly_url = make_polymarket_url(log.event_slug, log.market_question, cid)
-        w_meta = whale_meta_map.get(log.source_wallet_address.lower() if log.source_wallet_address else "", {})
-
-        whale_pnl_bankroll = float(w_meta.get("all_time_pnl_usd") or 35000.0)
-        whale_stake = float(log.notional_usd or 5.0) * 10.0
-        whale_bankroll_pct = round(min(100.0, max(0.05, (whale_stake / max(5000.0, whale_pnl_bankroll)) * 100.0)), 1)
-
-        # Enrich consensus whale list
-        enriched_consensus = dict(consensus) if consensus else {}
-        if enriched_consensus.get("whales"):
-            w_details = []
-            for w_addr in enriched_consensus["whales"]:
-                m = whale_meta_map.get(w_addr.lower(), {})
-                w_details.append({
-                    "address": w_addr,
-                    "name": m.get("name"),
-                    "pseudonym": m.get("pseudonym"),
-                    "profileImage": m.get("profileImage"),
-                    "tier": m.get("tier")
-                })
-            enriched_consensus["whale_details"] = w_details
+        whale_info = whale_meta_map.get((log.source_wallet_address or "").lower(), {})
 
         response_list.append({
             "id": str(log.id),
-            "timestamp": (log.executed_at.isoformat() + "Z") if log.executed_at else None,
-            "walletAddress": log.source_wallet_address,
-            "whaleName": w_meta.get("name"),
-            "whalePseudonym": w_meta.get("pseudonym"),
-            "whaleAvatar": w_meta.get("profileImage"),
-            "whaleTier": w_meta.get("tier"),
-            "whaleStakeUsd": round(whale_stake, 2),
-            "whaleBankrollPct": whale_bankroll_pct,
-            "marketQuestion": log.market_question,
-            "marketConditionId": cid,
+            "timestamp": log.executed_at.isoformat() if log.executed_at else None,
+            "source_wallet_address": log.source_wallet_address,
+            "whaleName": whale_info.get("name"),
+            "whalePseudonym": whale_info.get("pseudonym"),
+            "whaleAvatar": whale_info.get("profileImage"),
+            "whaleTier": whale_info.get("tier"),
+            "market_question": log.market_question,
+            "market_condition_id": log.market_condition_id,
             "eventSlug": log.event_slug,
             "icon": log.icon,
             "side": log.side,
             "outcome": outc,
-            "entryPrice": log.whale_entry_price,
-            "fillPrice": log.user_fill_price,
+            "entryPrice": fill_p,
+            "fillPrice": fill_p,
             "currentPrice": cur_p,
-            "size": log.notional_usd,
+            "size": notional,
             "status": log.status,
-            "feeUsd": round(fee_usd, 4),
-            "marketCategory": category,
-            "categoryRate": fee_info["category_rate"],
-            "pnl": round(net_pnl, 2),
+            "pnl": net_pnl,
             "grossPnl": round(gross_pnl, 2),
             "pnlPct": pnl_pct,
-            "consensus": enriched_consensus,
-            "polymarketUrl": poly_url
+            "feeUsd": fee_usd,
+            "marketCategory": category,
+            "categoryRate": fee_info["rate"],
+            "consensus": consensus,
+            "polymarketUrl": f"https://polymarket.com/event/{log.event_slug}" if log.event_slug else (
+                f"https://polymarket.com/market/{cid}" if cid else "https://polymarket.com"
+            )
         })
 
     return response_list
@@ -189,16 +161,10 @@ async def get_portfolio_summary(
     timeframe: Optional[str] = None,
     db: AsyncSession = Depends(get_db)
 ):
-    stmt = select(ExecutionLog).where(ExecutionLog.status.in_(["FILLED", "CLOSED", "RESOLVED"]))
-    if user_id:
-        from uuid import UUID
-        try:
-            u_uuid = UUID(user_id)
-            stmt = stmt.where(ExecutionLog.user_id == u_uuid)
-        except Exception:
-            stmt = stmt.where(ExecutionLog.user_id.is_(None))
-    else:
-        stmt = stmt.where(ExecutionLog.user_id.is_(None))
+    stmt = select(ExecutionLog).where(
+        ExecutionLog.status.in_(["FILLED", "CLOSED", "RESOLVED"]),
+        ExecutionLog.user_id.is_(None)
+    )
 
     now = datetime.utcnow()
     if timeframe:
@@ -217,38 +183,7 @@ async def get_portfolio_summary(
             stmt = stmt.where(ExecutionLog.executed_at >= datetime(now.year, 1, 1))
 
     logs = (await db.execute(stmt)).scalars().all()
-    # Fallback to platform logs if user has no copy trades
-    if not logs and user_id:
-        sys_stmt = select(ExecutionLog).where(
-            ExecutionLog.status.in_(["FILLED", "CLOSED", "RESOLVED"]),
-            ExecutionLog.user_id.is_(None)
-        )
-        if timeframe:
-            tf = timeframe.lower()
-            if tf == "1h":
-                sys_stmt = sys_stmt.where(ExecutionLog.executed_at >= now - timedelta(hours=1))
-            elif tf == "6h":
-                sys_stmt = sys_stmt.where(ExecutionLog.executed_at >= now - timedelta(hours=6))
-            elif tf == "1d":
-                sys_stmt = sys_stmt.where(ExecutionLog.executed_at >= now - timedelta(days=1))
-            elif tf == "1w":
-                sys_stmt = sys_stmt.where(ExecutionLog.executed_at >= now - timedelta(days=7))
-            elif tf == "1m":
-                sys_stmt = sys_stmt.where(ExecutionLog.executed_at >= now - timedelta(days=30))
-            elif tf == "ytd":
-                sys_stmt = sys_stmt.where(ExecutionLog.executed_at >= datetime(now.year, 1, 1))
-        logs = (await db.execute(sys_stmt)).scalars().all()
-
     starting_balance = 10000.0
-
-    if user_id:
-        try:
-            u_uuid = UUID(user_id)
-            u_obj = (await db.execute(select(User).where(User.id == u_uuid))).scalar_one_or_none()
-            if u_obj and u_obj.sandbox_starting_balance_usd is not None:
-                starting_balance = float(u_obj.sandbox_starting_balance_usd)
-        except Exception:
-            pass
 
     total_pnl = 0.0
     total_notional = 0.0
