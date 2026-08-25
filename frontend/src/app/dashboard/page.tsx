@@ -12,7 +12,7 @@ import { ResetSandboxModal } from '@/components/dashboard/ResetSandboxModal';
 import { ActivityFeed } from '@/components/dashboard/ActivityFeed';
 import { CommandPalette } from '@/components/ui/CommandPalette';
 import { fetchUserSettings, fetchPortfolioSummary, fetchExecutionLogs, getCachedExecutionLogs, getCachedPortfolioSummary } from '@/lib/api-client';
-import { User, ExecutionLog } from '@/types';
+import { User, ExecutionLog, PortfolioSummary } from '@/types';
 import Link from 'next/link';
 import { Settings, LogOut, Volume2, VolumeX, Bell } from 'lucide-react';
 import { signOut } from 'next-auth/react';
@@ -28,17 +28,7 @@ export default function DashboardPage() {
   const [soundActive, setSoundActive] = useState(false);
   const [logs, setLogs] = useState<ExecutionLog[]>(() => getCachedExecutionLogs(session?.user?.id) || []);
   const [user, setUser] = useState<User | null>(null);
-  const [portfolio, setPortfolio] = useState<{
-    startingBalance: number;
-    currentBalance: number;
-    totalPnlUsd: number;
-    totalPnlPct: number;
-    totalFeesPaidUsd?: number;
-    filledTradesCount: number;
-    totalNotionalInvested: number;
-    topAlphaMarkets?: any[];
-    topDrawdownMarkets?: any[];
-  } | null>(() => getCachedPortfolioSummary(session?.user?.id) || null);
+  const [portfolio, setPortfolio] = useState<PortfolioSummary | null>(() => getCachedPortfolioSummary(session?.user?.id) || null);
 
   const loadData = async () => {
     try {
