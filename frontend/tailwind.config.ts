@@ -23,7 +23,8 @@ const config: Config = {
         }
       },
       fontFamily: {
-        sans: ['var(--font-inter)', '-apple-system', 'BlinkMacSystemFont', 'SF Pro Text', 'Segoe UI', 'Roboto', 'sans-serif'],
+        sans: ['var(--font-jakarta)', 'var(--font-inter)', '-apple-system', 'BlinkMacSystemFont', 'SF Pro Display', 'Segoe UI', 'Roboto', 'sans-serif'],
+        display: ['var(--font-jakarta)', 'var(--font-space)', 'sans-serif'],
       },
       boxShadow: {
         'skeuo': 'inset 0 1px 0 rgba(255, 255, 255, 1), 0 1px 3px rgba(0, 0, 0, 0.05), 0 8px 24px -4px rgba(0, 0, 0, 0.04)',

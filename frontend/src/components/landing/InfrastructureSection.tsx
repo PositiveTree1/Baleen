@@ -1,6 +1,7 @@
 ﻿'use client';
 import Link from 'next/link';
-import { ArrowRight, ShieldCheck, Zap, Lock, Server } from 'lucide-react';
+import Image from 'next/image';
+import { ArrowRight } from 'lucide-react';
 
 export function InfrastructureSection() {
   return (
@@ -13,7 +14,7 @@ export function InfrastructureSection() {
             <span className="text-[11px] font-bold tracking-[0.2em] uppercase text-slate-400 font-mono">
               Built for Performance
             </span>
-            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-slate-950 tracking-tight leading-[1.15]">
+            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-slate-950 tracking-[-0.03em] leading-[1.12]">
               Institutional-grade <br />
               infrastructure.
             </h2>
@@ -25,24 +26,32 @@ export function InfrastructureSection() {
           {/* Middle Stats Column */}
           <div className="lg:col-span-3 space-y-8 lg:border-l lg:border-black/[0.06] lg:pl-10">
             <div>
-              <div className="text-2xl sm:text-3xl font-extrabold text-slate-950 font-mono tracking-tight">&lt; 1s</div>
+              <div className="text-3xl font-extrabold text-slate-950 font-mono tracking-tight">&lt; 1s</div>
               <div className="text-xs text-slate-500 font-medium mt-1">Execution latency</div>
             </div>
             <div>
-              <div className="text-2xl sm:text-3xl font-extrabold text-slate-950 font-mono tracking-tight">99.9%</div>
+              <div className="text-3xl font-extrabold text-slate-950 font-mono tracking-tight">99.9%</div>
               <div className="text-xs text-slate-500 font-medium mt-1">Uptime</div>
             </div>
             <div>
-              <div className="text-2xl sm:text-3xl font-extrabold text-slate-950 font-mono tracking-tight">Bank-grade</div>
+              <div className="text-3xl font-extrabold text-slate-950 font-mono tracking-tight">Bank-grade</div>
               <div className="text-xs text-slate-500 font-medium mt-1">Security</div>
             </div>
           </div>
 
-          {/* Right Dark Obsidian CTA Card */}
+          {/* Right Dark Obsidian Silk CTA Card */}
           <div className="lg:col-span-4">
-            <div className="relative rounded-3xl bg-slate-950 p-8 sm:p-10 text-white shadow-2xl overflow-hidden border border-slate-800 space-y-6">
-              {/* Subtle background ambient wave */}
-              <div className="absolute -right-10 -bottom-10 w-48 h-48 bg-gradient-to-tr from-indigo-500/20 to-emerald-500/20 rounded-full blur-2xl pointer-events-none" />
+            <div className="relative rounded-3xl bg-slate-950 p-8 sm:p-10 text-white shadow-2xl overflow-hidden border border-white/10 space-y-6">
+              {/* Generated Liquid Obsidian Silk Texture Background */}
+              <div className="absolute inset-0 w-full h-full pointer-events-none select-none z-0">
+                <Image
+                  src="/images/cta_obsidian_silk.jpg"
+                  alt="Liquid Obsidian Silk Texture"
+                  fill
+                  className="object-cover opacity-60 mix-blend-luminosity"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-slate-950/90 via-slate-950/50 to-slate-950/70" />
+              </div>
               
               <div className="relative z-10 space-y-3">
                 <span className="text-[10px] font-bold tracking-[0.2em] uppercase text-slate-400 font-mono">
