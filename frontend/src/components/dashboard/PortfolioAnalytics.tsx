@@ -301,7 +301,7 @@ export function PortfolioAnalytics({
       {/* Top Banner: Capital Curve + Scorecard */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left: Net Worth Performance Area Chart */}
-        <div className="lg:col-span-2 p-6 rounded-3xl bg-white border border-black/[0.08] shadow-[inset_0_1px_0_rgba(255,255,255,1),0_2px_8px_rgba(0,0,0,0.03),0_16px_36px_-6px_rgba(0,0,0,0.05)] space-y-4">
+        <div className="lg:col-span-2 p-6 rounded-3xl apple-glass light-refraction relative overflow-hidden space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
               <div className="flex items-center gap-2 flex-wrap">
@@ -433,7 +433,7 @@ export function PortfolioAnalytics({
         </div>
 
         {/* Right: Execution Scorecard */}
-        <div className="p-6 rounded-3xl bg-white border border-black/[0.08] shadow-[inset_0_1px_0_rgba(255,255,255,1),0_2px_8px_rgba(0,0,0,0.03),0_16px_36px_-6px_rgba(0,0,0,0.05)] flex flex-col justify-between space-y-4">
+        <div className="p-6 rounded-3xl apple-glass light-refraction relative overflow-hidden flex flex-col justify-between space-y-4">
           <div>
             <div className="flex items-center justify-between mb-2">
               <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Execution Scorecard</span>
@@ -536,7 +536,7 @@ export function PortfolioAnalytics({
         if (effectiveAlpha.length === 0 && effectiveDrawdown.length === 0) return null;
 
         return (
-          <div className="p-6 rounded-3xl bg-white border border-black/[0.08] shadow-[inset_0_1px_0_rgba(255,255,255,1),0_2px_8px_rgba(0,0,0,0.03),0_16px_36px_-6px_rgba(0,0,0,0.05)] space-y-4">
+          <div className="p-6 rounded-3xl apple-glass light-refraction relative overflow-hidden space-y-4">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-black/[0.06] pb-3">
               <div className="flex items-center gap-2.5">
                 <div className="w-7 h-7 rounded-xl bg-indigo-50 text-indigo-700 flex items-center justify-center border border-indigo-200">
