@@ -126,6 +126,7 @@ export function TradeLog({ userId, onSelectTrade }: TradeLogProps) {
             </div>
           </div>
 
+          <div className="flex items-center gap-2.5 flex-wrap">
             {/* Open Full Spreadsheet Button */}
             <button
               onClick={() => setIsSpreadsheetOpen(true)}
