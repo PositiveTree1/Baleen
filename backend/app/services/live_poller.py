@@ -234,16 +234,22 @@ class LiveTradeMirrorService:
             )
 
             # If this is a valid SELL closing an open BUY position, close the earliest position
-            realized_pnl_val = None
+            sys_realized_pnl_val = None
             if side == "SELL" and target_open_buys:
                 earliest_buy = target_open_buys[0]
-                earliest_buy.status = "CLOSED"
-                orig_buy_price = float(earliest_buy.user_fill_price or 0.5)
+                orig_buy_price = float(earliest_buy.user_fill_price or earliest_buy.whale_entry_price or 0.5)
                 orig_notional = float(earliest_buy.notional_usd or sys_notional)
-                gross_realized = orig_notional * ((effective_fill_price - orig_buy_price) / orig_buy_price) if orig_buy_price > 0 else 0.0
-                total_fees = float(earliest_buy.fee_usd or 0.0) + float(fee_calc["fee_usd"])
-                realized_pnl_val = round(gross_realized - total_fees, 2)
-                earliest_buy.realized_pnl_usd = realized_pnl_val
+                
+                # Proportional price return ratio
+                price_ratio = ((effective_fill_price - orig_buy_price) / orig_buy_price) if orig_buy_price > 0 else 0.0
+                
+                # Close the original buy order with its own sized PnL
+                earliest_buy.status = "CLOSED"
+                buy_fee = float(earliest_buy.fee_usd or 0.0)
+                earliest_buy.realized_pnl_usd = round(orig_notional * price_ratio - buy_fee, 2)
+                
+                # The sell order records PnL strictly based on its own sys_notional
+                sys_realized_pnl_val = round(sys_notional * price_ratio - float(fee_calc["fee_usd"]), 2)
 
             # System execution log
             sys_log = ExecutionLog(
@@ -263,7 +269,7 @@ class LiveTradeMirrorService:
                 active_basket_size_at_trade=len(active_wallets),
                 is_sandbox=True,
                 status="CLOSED" if side == "SELL" else "FILLED",
-                realized_pnl_usd=realized_pnl_val,
+                realized_pnl_usd=sys_realized_pnl_val,
                 executed_at=dt
             )
             db.add(sys_log)
@@ -277,6 +283,27 @@ class LiveTradeMirrorService:
                     market_title=title,
                     is_maker=False
                 )
+                
+                u_realized_pnl_val = None
+                if side == "SELL":
+                    stmt_u_buys = select(ExecutionLog).where(
+                        ExecutionLog.user_id == u.id,
+                        ExecutionLog.market_condition_id == condition_id,
+                        ExecutionLog.resolution_outcome == outcome,
+                        ExecutionLog.side == "BUY",
+                        ExecutionLog.status == "FILLED"
+                    ).order_by(ExecutionLog.executed_at.asc())
+                    u_open_buys = (await db.execute(stmt_u_buys)).scalars().all()
+                    if u_open_buys:
+                        u_earliest_buy = u_open_buys[0]
+                        u_orig_price = float(u_earliest_buy.user_fill_price or 0.5)
+                        u_orig_notional = float(u_earliest_buy.notional_usd or u_notional)
+                        u_ratio = ((effective_fill_price - u_orig_price) / u_orig_price) if u_orig_price > 0 else 0.0
+                        
+                        u_earliest_buy.status = "CLOSED"
+                        u_earliest_buy.realized_pnl_usd = round(u_orig_notional * u_ratio - float(u_earliest_buy.fee_usd or 0.0), 2)
+                        u_realized_pnl_val = round(u_notional * u_ratio - float(u_fee["fee_usd"]), 2)
+
                 user_log = ExecutionLog(
                     user_id=u.id,
                     source_wallet_address=wallet_address,
@@ -295,7 +322,7 @@ class LiveTradeMirrorService:
                     active_basket_size_at_trade=len(active_wallets),
                     is_sandbox=True,
                     status="CLOSED" if side == "SELL" else "FILLED",
-                    realized_pnl_usd=realized_pnl_val,
+                    realized_pnl_usd=u_realized_pnl_val,
                     executed_at=dt
                 )
                 db.add(user_log)
