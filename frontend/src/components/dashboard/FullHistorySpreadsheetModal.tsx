@@ -1,7 +1,8 @@
 'use client';
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ExecutionLog } from '@/types';
+import { fetchExecutionLogs } from '@/lib/api-client';
 import { 
   X, 
   Download, 
@@ -16,7 +17,8 @@ import {
   ChevronLeft, 
   ChevronRight,
   Layers,
-  Users
+  Users,
+  Loader2
 } from 'lucide-react';
 import { formatCompactPnL, formatExactPnL, formatFrenchDateTime } from '@/lib/formatters';
 
@@ -42,10 +44,28 @@ export function FullHistorySpreadsheetModal({
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
   const [page, setPage] = useState(1);
   const pageSize = 25;
+  const [fullLogs, setFullLogs] = useState<ExecutionLog[]>(logs);
+  const [loadingFull, setLoadingFull] = useState(false);
+
+  useEffect(() => {
+    if (isOpen) {
+      setLoadingFull(true);
+      fetchExecutionLogs(undefined, { limit: '10000' })
+        .then(allLogs => {
+          if (Array.isArray(allLogs) && allLogs.length > 0) {
+            setFullLogs(allLogs);
+          }
+        })
+        .catch(() => {})
+        .finally(() => setLoadingFull(false));
+    }
+  }, [isOpen]);
+
+  const activeLogs = fullLogs.length > logs.length ? fullLogs : logs;
 
   // Filter & Sort
   const filteredLogs = useMemo(() => {
-    let list = [...logs];
+    let list = [...activeLogs];
 
     if (statusFilter === 'HOLDING') {
       list = list.filter(l => l.side === 'BUY' && l.status === 'FILLED' && !l.marketQuestion?.toLowerCase().includes('resolved'));

@@ -126,15 +126,14 @@ export function TradeLog({ userId, onSelectTrade }: TradeLogProps) {
             </div>
           </div>
 
-          <div className="flex items-center gap-2.5 flex-wrap">
             {/* Open Full Spreadsheet Button */}
             <button
               onClick={() => setIsSpreadsheetOpen(true)}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white hover:bg-slate-50 text-slate-800 border border-black/[0.08] text-xs font-semibold shadow-2xs hover:shadow-xs transition-all cursor-pointer"
-              title="Open full interactive spreadsheet modal with search, column sorting, and CSV export"
+              title="Open full interactive spreadsheet modal with search, column sorting, and CSV export for all 5,000+ executions"
             >
               <FileSpreadsheet size={14} className="text-emerald-700" />
-              <span>Full Spreadsheet ({logs.length})</span>
+              <span>Full Spreadsheet</span>
             </button>
 
             <div className="flex items-center gap-2 text-[10px] font-mono font-semibold text-slate-500 bg-white px-2.5 py-1 rounded-full border border-black/[0.06] shadow-2xs">

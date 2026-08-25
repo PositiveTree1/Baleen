@@ -289,7 +289,7 @@ export function PortfolioAnalytics({
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left: Net Worth Performance Area Chart */}
         <div className="lg:col-span-2 p-6 rounded-3xl bg-white border border-black/[0.08] shadow-[inset_0_1px_0_rgba(255,255,255,1),0_2px_8px_rgba(0,0,0,0.03),0_16px_36px_-6px_rgba(0,0,0,0.05)] space-y-4">
-          <div className="flex flex-wrap items-center justify-between gap-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
               <div className="flex items-center gap-2 flex-wrap">
                 <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Sandbox Capital Curve</span>
@@ -298,10 +298,10 @@ export function PortfolioAnalytics({
                 </span>
               </div>
               <div className="flex items-baseline gap-3 mt-1">
-                <span className="text-3xl font-extrabold font-mono text-slate-950">
+                <span className="text-2xl sm:text-3xl font-extrabold font-mono text-slate-950">
                   ${currentBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </span>
-                <span className={`text-sm font-mono font-bold ${periodPnL >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                <span className={`text-xs sm:text-sm font-mono font-bold ${periodPnL >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
                   {periodPnL >= 0 ? '+' : ''}${periodPnL.toFixed(2)} ({periodPnL >= 0 ? '+' : ''}{periodPnLPct.toFixed(2)}%)
                   <span className="text-[10px] text-slate-400 font-sans font-normal ml-1">in {timeframe}</span>
                 </span>
@@ -309,7 +309,7 @@ export function PortfolioAnalytics({
             </div>
 
             {/* Timeframe selector & Reset */}
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5 sm:gap-2 shrink-0 overflow-x-auto">
               <div className={`flex items-center rounded-xl bg-slate-100 p-0.5 border border-black/[0.06] text-xs font-mono font-semibold transition-opacity ${chartLoading ? 'opacity-85' : ''}`}>
                 {(['1H', '6H', '1D', '1W', '1M', 'YTD', 'ALL'] as const).map((tf) => {
                   const isActive = timeframe === tf;
