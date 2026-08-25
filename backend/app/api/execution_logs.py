@@ -199,12 +199,16 @@ async def get_portfolio_summary(
         total_notional += notional
         total_fees += float(log.fee_usd or 0.0)
         
+        # In the execution architecture, position PnL is tracked strictly on the BUY order
+        # (which holds the open mark-to-market and closed realized returns).
+        # SELL orders serve as the audit exit execution log.
+        if log.side == "SELL" and log.realized_pnl_usd is None:
+            continue
+            
         trade_pnl = log.realized_pnl_usd
-        if trade_pnl is None:
+        if trade_pnl is None and log.side == "BUY" and log.status == "FILLED":
             # For FILLED (open) trades with no stored PnL, only compute unrealized
             # PnL if we have a REAL live price (different from the entry).
-            # If the price cache is cold (cur_p == fill_p), treat as 0 PnL
-            # rather than subtracting fees as a phantom loss.
             cid = log.market_condition_id or ""
             outc = log.resolution_outcome or "Yes"
             fill_p = float(log.user_fill_price or log.whale_entry_price or 0.5)
@@ -212,10 +216,7 @@ async def get_portfolio_summary(
             if abs(cur_p - fill_p) > 0.001:  # Only count if we have a real price change
                 fee = float(log.fee_usd or 0.0)
                 if fill_p > 0:
-                    if log.side == "BUY":
-                        gross_pnl = notional * ((cur_p - fill_p) / fill_p)
-                    else:
-                        gross_pnl = notional * ((fill_p - cur_p) / fill_p)
+                    gross_pnl = notional * ((cur_p - fill_p) / fill_p)
                     trade_pnl = gross_pnl - fee
         if trade_pnl is not None:
             total_pnl += float(trade_pnl)
@@ -225,6 +226,9 @@ async def get_portfolio_summary(
     wins_count = 0
     losses_count = 0
     for log in logs:
+        if log.side == "SELL" and log.realized_pnl_usd is None:
+            continue
+            
         key = log.market_question or log.market_condition_id or str(log.id)
         pnl_val = float(log.realized_pnl_usd or 0.0)
         notional_val = float(log.notional_usd or 0.0)

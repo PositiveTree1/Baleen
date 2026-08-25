@@ -243,13 +243,14 @@ class LiveTradeMirrorService:
                 # Proportional price return ratio
                 price_ratio = ((effective_fill_price - orig_buy_price) / orig_buy_price) if orig_buy_price > 0 else 0.0
                 
-                # Close the original buy order with its own sized PnL
+                # Close the original buy position and lock in net realized PnL (accounting for both entry and exit fees)
                 earliest_buy.status = "CLOSED"
                 buy_fee = float(earliest_buy.fee_usd or 0.0)
-                earliest_buy.realized_pnl_usd = round(orig_notional * price_ratio - buy_fee, 2)
+                sell_fee = float(fee_calc["fee_usd"] or 0.0)
+                earliest_buy.realized_pnl_usd = round(orig_notional * price_ratio - (buy_fee + sell_fee), 2)
                 
-                # The sell order records PnL strictly based on its own sys_notional
-                sys_realized_pnl_val = round(sys_notional * price_ratio - float(fee_calc["fee_usd"]), 2)
+                # The sell order serves as the audit exit record; PnL is tracked strictly on the closed position
+                sys_realized_pnl_val = None
 
             # System execution log
             sys_log = ExecutionLog(
