@@ -369,85 +369,86 @@ async def execute_copilot_chat(messages: List[Dict[str, str]]) -> Dict[str, Any]
 
     tools_executed = []
 
-    # Use fastest & most capable Groq model with tool support
-    model_name = "llama-3.3-70b-versatile"
+    # Try candidate models with tool-calling capabilities in order of capability
+    CANDIDATE_MODELS = [
+        "llama-3.1-70b-versatile",
+        "llama-3.1-8b-instant",
+        "llama3-70b-8192",
+        "llama3-8b-8192",
+        "mixtral-8x7b-32768",
+        "groq/compound-mini"
+    ]
 
-    try:
-        # Step 1: Initial LLM inference with tool calling
-        response = await client.chat.completions.create(
-            model=model_name,
-            messages=formatted_messages,
-            tools=COPILOT_TOOLS,
-            tool_choice="auto",
-            temperature=0.3,
-            max_tokens=1024,
-        )
-
-        response_message = response.choices[0].message
-        tool_calls = response_message.tool_calls
-
-        # Step 2: Handle tool calls if requested
-        if tool_calls:
-            formatted_messages.append(response_message)
-            
-            for tool_call in tool_calls:
-                function_name = tool_call.function.name
-                handler = TOOL_HANDLERS.get(function_name)
-                
-                try:
-                    function_args = json.loads(tool_call.function.arguments or "{}")
-                except Exception:
-                    function_args = {}
-
-                if handler:
-                    tool_result = await handler(function_args)
-                    tools_executed.append({
-                        "name": function_name,
-                        "args": function_args,
-                        "summary": f"Executed {function_name}"
-                    })
-                else:
-                    tool_result = {"error": f"Tool '{function_name}' not recognized."}
-
-                formatted_messages.append({
-                    "role": "tool",
-                    "tool_call_id": tool_call.id,
-                    "name": function_name,
-                    "content": json.dumps(tool_result),
-                })
-
-            # Step 3: Second call to generate synthesized final response from tool outputs
-            second_response = await client.chat.completions.create(
+    for model_name in CANDIDATE_MODELS:
+        try:
+            # Step 1: Initial LLM inference with tool calling
+            response = await client.chat.completions.create(
                 model=model_name,
                 messages=formatted_messages,
+                tools=COPILOT_TOOLS,
+                tool_choice="auto",
                 temperature=0.3,
                 max_tokens=1024,
             )
-            final_content = second_response.choices[0].message.content or ""
-        else:
-            final_content = response_message.content or ""
 
-        return {
-            "message": final_content,
-            "tool_calls_executed": tools_executed
-        }
+            response_message = response.choices[0].message
+            tool_calls = response_message.tool_calls
 
-    except Exception as e:
-        logger.error(f"Error in Copilot reasoning loop: {e}", exc_info=True)
-        # Fallback to fast 8B model if 70B encounters rate limit or temporary error
-        try:
-            fallback_response = await client.chat.completions.create(
-                model="llama-3.1-8b-instant",
-                messages=formatted_messages,
-                temperature=0.4,
-                max_tokens=800,
-            )
-            return {
-                "message": fallback_response.choices[0].message.content or "Analyzing...",
-                "tool_calls_executed": tools_executed
-            }
-        except Exception as e2:
-            return {
-                "message": f"Unable to process query at this time: {str(e)}",
-                "tool_calls_executed": tools_executed
-            }
+            # Step 2: Handle tool calls if requested
+            if tool_calls:
+                # Make a working copy of messages for tool execution
+                turn_messages = list(formatted_messages)
+                turn_messages.append(response_message)
+                
+                for tool_call in tool_calls:
+                    function_name = tool_call.function.name
+                    handler = TOOL_HANDLERS.get(function_name)
+                    
+                    try:
+                        function_args = json.loads(tool_call.function.arguments or "{}")
+                    except Exception:
+                        function_args = {}
+
+                    if handler:
+                        tool_result = await handler(function_args)
+                        tools_executed.append({
+                            "name": function_name,
+                            "args": function_args,
+                            "summary": f"Executed {function_name}"
+                        })
+                    else:
+                        tool_result = {"error": f"Tool '{function_name}' not recognized."}
+
+                    turn_messages.append({
+                        "role": "tool",
+                        "tool_call_id": tool_call.id,
+                        "name": function_name,
+                        "content": json.dumps(tool_result),
+                    })
+
+                # Step 3: Second call to generate synthesized final response from tool outputs
+                second_response = await client.chat.completions.create(
+                    model=model_name,
+                    messages=turn_messages,
+                    temperature=0.3,
+                    max_tokens=1024,
+                )
+                final_content = second_response.choices[0].message.content or ""
+            else:
+                final_content = response_message.content or ""
+
+            if final_content:
+                return {
+                    "message": final_content,
+                    "tool_calls_executed": tools_executed
+                }
+
+        except Exception as e:
+            logger.warning(f"Groq Copilot inference with model {model_name} failed: {e}")
+            continue
+
+    return {
+        "message": "Quantitative AI Copilot is temporarily initializing live price models. Please try your question again in a moment.",
+        "tool_calls_executed": tools_executed
+    }
+
