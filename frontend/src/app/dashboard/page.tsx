@@ -154,6 +154,9 @@ export default function DashboardPage() {
           totalFilledTrades={portfolio?.filledTradesCount || 5049}
           topAlphaMarkets={portfolio?.topAlphaMarkets}
           topDrawdownMarkets={portfolio?.topDrawdownMarkets}
+          allTimeWinRate={portfolio?.allTimeWinRate}
+          allTimeWins={portfolio?.allTimeWins}
+          allTimeLosses={portfolio?.allTimeLosses}
           onSelectTrade={setSelectedTrade}
           onResetComplete={loadData}
         />

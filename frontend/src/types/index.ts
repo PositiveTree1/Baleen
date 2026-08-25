@@ -107,6 +107,11 @@ export interface PortfolioSummary {
   totalFeesPaidUsd?: number;
   filledTradesCount: number;
   totalNotionalInvested: number;
+  topAlphaMarkets?: any[];
+  topDrawdownMarkets?: any[];
+  allTimeWinRate?: number;
+  allTimeWins?: number;
+  allTimeLosses?: number;
 }
 
 export interface FeeCharge {
