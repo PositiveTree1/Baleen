@@ -335,6 +335,15 @@ TOOL_HANDLERS = {
     "get_system_events": _tool_get_system_events,
 }
 
+import re
+
+def _clean_response_text(text: str) -> str:
+    if not text:
+        return ""
+    if "</think>" in text:
+        text = text.split("</think>")[-1].strip()
+    return re.sub(r'<think>[\s\S]*?</think>', '', text).strip()
+
 # --- Main Copilot Reasoning Agent ---
 
 SYSTEM_PROMPT = """You are the **Baleen Copilot**, an institutional quantitative AI assistant integrated into the Baleen autonomous Polymarket whale copy-trading engine.
@@ -433,7 +442,7 @@ async def execute_copilot_chat(messages: List[Dict[str, str]]) -> Dict[str, Any]
 
             if final_content and len(final_content.strip()) > 5:
                 return {
-                    "message": final_content,
+                    "message": _clean_response_text(final_content),
                     "tool_calls_executed": tools_executed
                 }
 
@@ -476,9 +485,10 @@ LIVE BALEEN PORTFOLIO TELEMETRY:
                     max_tokens=1024,
                 )
                 content = resp.choices[0].message.content or ""
-                if content and len(content.strip()) > 5:
+                cleaned = _clean_response_text(content)
+                if cleaned and len(cleaned.strip()) > 5:
                     return {
-                        "message": content,
+                        "message": cleaned,
                         "tool_calls_executed": tools_executed
                     }
             except Exception:
