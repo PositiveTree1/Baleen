@@ -304,13 +304,13 @@ export function PortfolioAnalytics({
                   <Zap size={10} /> Real-Time MTM
                 </span>
               </div>
-              <div className="flex items-baseline gap-3 mt-1">
-                <span className="text-2xl sm:text-3xl font-extrabold font-mono text-slate-950">
+              <div className="flex items-baseline gap-2.5 sm:gap-3 mt-1 flex-wrap sm:flex-nowrap">
+                <span className="text-2xl sm:text-3xl font-extrabold font-mono text-slate-950 tabular-nums whitespace-nowrap">
                   ${currentBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </span>
-                <span className={`text-xs sm:text-sm font-mono font-bold ${periodPnL >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
-                  {periodPnL >= 0 ? '+' : ''}${periodPnL.toFixed(2)} ({periodPnL >= 0 ? '+' : ''}{periodPnLPct.toFixed(2)}%)
-                  <span className="text-[10px] text-slate-400 font-sans font-normal ml-1">in {timeframe}</span>
+                <span className={`inline-flex items-baseline gap-1 text-xs sm:text-sm font-mono font-bold whitespace-nowrap ${periodPnL >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                  <span>{periodPnL >= 0 ? '+' : ''}${periodPnL.toFixed(2)} ({periodPnL >= 0 ? '+' : ''}{periodPnLPct.toFixed(2)}%)</span>
+                  <span className="text-[10px] text-slate-400 font-sans font-normal whitespace-nowrap ml-0.5">in {timeframe}</span>
                 </span>
               </div>
             </div>
