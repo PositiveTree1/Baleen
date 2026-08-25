@@ -151,7 +151,7 @@ async def get_execution_logs(
             "pnlPct": pnl_pct,
             "feeUsd": fee_usd,
             "marketCategory": category,
-            "categoryRate": fee_info["rate"],
+            "categoryRate": fee_info["category_rate"],
             "consensus": consensus,
             "polymarketUrl": f"https://polymarket.com/event/{log.event_slug}" if log.event_slug else (
                 f"https://polymarket.com/market/{cid}" if cid else "https://polymarket.com"
