@@ -37,6 +37,8 @@ export default function DashboardPage() {
     totalFeesPaidUsd?: number;
     filledTradesCount: number;
     totalNotionalInvested: number;
+    topAlphaMarkets?: any[];
+    topDrawdownMarkets?: any[];
   } | null>(() => getCachedPortfolioSummary(session?.user?.id) || null);
 
   const loadData = async () => {
