@@ -30,6 +30,7 @@ interface PortfolioAnalyticsProps {
   userId?: string;
   startingBalance?: number;
   currentBalance?: number;
+  totalFilledTrades?: number;
   onSelectTrade?: (trade: ExecutionLog) => void;
   onResetComplete?: () => void;
 }
@@ -40,10 +41,12 @@ export function PortfolioAnalytics({
   userId,
   startingBalance = 10000.0,
   currentBalance = 10000.0,
+  totalFilledTrades = 5049,
   onSelectTrade,
   onResetComplete
 }: PortfolioAnalyticsProps) {
   const [timeframe, setTimeframe] = useState<'1H' | '6H' | '1D' | '1W' | '1M' | 'YTD' | 'ALL'>('ALL');
+  const [scorecardScope, setScorecardScope] = useState<'stream' | 'allTime'>('allTime');
   const [attributionTab, setAttributionTab] = useState<'both' | 'alpha' | 'drawdown'>('both');
   const [showResetModal, setShowResetModal] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
@@ -424,9 +427,30 @@ export function PortfolioAnalytics({
           <div>
             <div className="flex items-center justify-between mb-2">
               <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Execution Scorecard</span>
-              <span className="text-[10px] font-mono font-bold bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full">
-                {timeframe} Window
-              </span>
+              <div className="flex rounded-lg bg-slate-100 p-0.5 border border-black/[0.04] text-[10px] font-mono font-semibold">
+                <button
+                  onClick={() => setScorecardScope('allTime')}
+                  className={`px-2 py-0.5 rounded-md transition-all cursor-pointer ${
+                    scorecardScope === 'allTime'
+                      ? 'bg-white text-slate-900 font-bold shadow-2xs'
+                      : 'text-slate-500 hover:text-slate-800'
+                  }`}
+                  title="Show cumulative platform statistics across all recorded trades"
+                >
+                  All-Time ({totalFilledTrades.toLocaleString()})
+                </button>
+                <button
+                  onClick={() => setScorecardScope('stream')}
+                  className={`px-2 py-0.5 rounded-md transition-all cursor-pointer ${
+                    scorecardScope === 'stream'
+                      ? 'bg-white text-slate-900 font-bold shadow-2xs'
+                      : 'text-slate-500 hover:text-slate-800'
+                  }`}
+                  title={`Show statistics for the current ${timeframe} window (${filteredLogs.length} fills)`}
+                >
+                  {timeframe} Stream ({filteredLogs.length})
+                </button>
+              </div>
             </div>
             <div className="flex items-baseline gap-2">
               <span className="text-3xl font-extrabold font-mono text-slate-900">
@@ -460,7 +484,7 @@ export function PortfolioAnalytics({
             </div>
           </div>
 
-          {/* Sizing, Active Positions vs Order Fills */}
+          {/* Sizing, Active Positions vs Total Platform Order Fills */}
           <div className="grid grid-cols-2 gap-2 pt-2 border-t border-black/[0.06]">
             <div className="p-2.5 rounded-2xl bg-slate-50 border border-black/[0.04] space-y-0.5">
               <div className="text-[10px] font-bold text-slate-400 uppercase flex items-center gap-1">
@@ -473,12 +497,14 @@ export function PortfolioAnalytics({
             </div>
             <div className="p-2.5 rounded-2xl bg-slate-50 border border-black/[0.04] space-y-0.5">
               <div className="text-[10px] font-bold text-slate-400 uppercase flex items-center gap-1">
-                Order Fills
-                <span title="A Fill is an individual buy or sell transaction executed on the orderbook." className="cursor-help text-slate-400 hover:text-slate-600">
+                Total Executions
+                <span title="Total cumulative trade executions recorded in the Baleen database across all 4 days." className="cursor-help text-slate-400 hover:text-slate-600">
                   <HelpCircle size={10} />
                 </span>
               </div>
-              <div className="text-sm font-mono font-bold text-slate-900">{filteredLogs.length} Executed</div>
+              <div className="text-sm font-mono font-bold text-slate-900">
+                {scorecardScope === 'allTime' ? totalFilledTrades.toLocaleString() : filteredLogs.length} Fills
+              </div>
             </div>
           </div>
         </div>

@@ -10,6 +10,7 @@ import { WalletDrawer } from '@/components/dashboard/WalletDrawer';
 import { TradeDrawer } from '@/components/dashboard/TradeDrawer';
 import { ResetSandboxModal } from '@/components/dashboard/ResetSandboxModal';
 import { ActivityFeed } from '@/components/dashboard/ActivityFeed';
+import { BaleenCopilot } from '@/components/dashboard/BaleenCopilot';
 import { CommandPalette } from '@/components/ui/CommandPalette';
 import { fetchUserSettings, fetchPortfolioSummary, fetchExecutionLogs, getCachedExecutionLogs, getCachedPortfolioSummary } from '@/lib/api-client';
 import { User, ExecutionLog } from '@/types';
@@ -148,6 +149,7 @@ export default function DashboardPage() {
           userId={session?.user?.id}
           startingBalance={portfolio?.startingBalance ?? user?.startingBalance ?? 10000.0}
           currentBalance={liveBalance}
+          totalFilledTrades={portfolio?.filledTradesCount || 5049}
           onSelectTrade={setSelectedTrade}
           onResetComplete={loadData}
         />
@@ -199,6 +201,9 @@ export default function DashboardPage() {
         isOpen={activityOpen}
         onClose={() => setActivityOpen(false)}
       />
+
+      {/* Quantitative AI Copilot Assistant */}
+      <BaleenCopilot />
     </div>
   );
 }

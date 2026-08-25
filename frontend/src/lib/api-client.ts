@@ -558,4 +558,20 @@ export async function fetchSystemEvents(limit: number = 100, eventType?: string)
   }
 }
 
-
+export async function fetchCopilotChat(messages: { role: string; content: string }[]): Promise<{
+  message: string;
+  tool_calls_executed?: { name: string; args: any; summary: string }[];
+} | null> {
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/copilot/chat`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ messages })
+    });
+    if (!res.ok) return null;
+    return await res.json();
+  } catch (error) {
+    console.error('Copilot API error:', error);
+    return null;
+  }
+}
