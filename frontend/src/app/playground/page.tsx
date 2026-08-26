@@ -5,7 +5,8 @@ import {
   Sliders, Sparkles, Layers, Eye, RefreshCw, Zap, TrendingUp, TrendingDown, 
   HelpCircle, Copy, Check, ShieldCheck, ChevronDown, ChevronUp, Bell, Volume2, 
   VolumeX, Settings, LogOut, ArrowRight, ExternalLink, Activity, Play, Pause,
-  RotateCcw, Droplets, Sun, Moon, Maximize2, Minimize2, Move, Palette, CheckCircle2
+  RotateCcw, Droplets, Sun, Moon, Maximize2, Minimize2, Move, Palette, CheckCircle2,
+  BarChart3
 } from 'lucide-react';
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, BarChart, Bar, CartesianGrid, ReferenceLine, Cell } from 'recharts';
 import Link from 'next/link';
