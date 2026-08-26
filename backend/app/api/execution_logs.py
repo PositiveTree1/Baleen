@@ -405,18 +405,25 @@ async def get_portfolio_snapshots(
 
         rows = bucketed_rows
 
-    result = [
-        {
+    result = []
+    for i, r in enumerate(rows):
+        is_latest = (i == len(rows) - 1)
+        ts = r.timestamp
+        if ts and not is_latest and tf in ("all", "1m", "ytd"):
+            # Cleanly floor historical hours to :00
+            ts_clean = ts.replace(minute=0, second=0, microsecond=0)
+        else:
+            ts_clean = ts
+
+        result.append({
             "id": str(r.id),
-            "timestamp": (r.timestamp.isoformat() + "Z") if r.timestamp else None,
-            "time": r.timestamp.strftime("%H:%M") if r.timestamp else "",
-            "date": r.timestamp.strftime("%d %b") if r.timestamp else "",
+            "timestamp": (ts_clean.isoformat() + "Z") if ts_clean else None,
+            "time": ts_clean.strftime("%H:%M") if ts_clean else "",
+            "date": ts_clean.strftime("%d %b") if ts_clean else "",
             "balance": round(float(r.balance), 2),
             "pnl": round(float(r.total_pnl), 2),
             "activeTrades": r.active_trades_count
-        }
-        for r in rows
-    ]
+        })
 
     # Prepend Genesis $10,000.00 baseline for ALL timeframe
     if tf == "all" and result:
