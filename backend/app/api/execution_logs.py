@@ -423,11 +423,22 @@ async def get_portfolio_snapshots(
         first_date = result[0]["date"]
         first_time = result[0]["time"]
         if abs(result[0]["balance"] - 10000.0) > 0.01:
+            try:
+                first_ts = datetime.fromisoformat(result[0]["timestamp"].replace("Z", ""))
+                gen_ts = first_ts - timedelta(minutes=1)
+                gen_ts_str = gen_ts.isoformat() + "Z"
+                gen_time_str = gen_ts.strftime("%H:%M")
+                gen_date_str = gen_ts.strftime("%d %b")
+            except Exception:
+                gen_ts_str = result[0].get("timestamp")
+                gen_time_str = first_time
+                gen_date_str = first_date
+
             genesis_point = {
                 "id": "genesis-baseline",
-                "timestamp": result[0].get("timestamp"),
-                "time": first_time,
-                "date": first_date,
+                "timestamp": gen_ts_str,
+                "time": gen_time_str,
+                "date": gen_date_str,
                 "balance": 10000.0,
                 "pnl": 0.0,
                 "activeTrades": 0
