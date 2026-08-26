@@ -20,6 +20,8 @@ _last_snapshot_time: float = 0.0
 _last_snapshot_balance: float = 0.0
 _SNAPSHOT_MIN_INTERVAL_SECS = 25  # Write at most 1 snapshot per 25s unless balance changes significantly
 
+_price_cycle_index: int = 0
+
 class MarkToMarketService:
     def __init__(self):
         self.running = False
@@ -41,11 +43,11 @@ class MarkToMarketService:
             await asyncio.sleep(3.5)
 
     async def update_valuations_and_consensus(self):
-        global _last_snapshot_time, _last_snapshot_balance
+        global _last_snapshot_time, _last_snapshot_balance, _price_cycle_index
         client = PolymarketClient()
         try:
             async with SessionLocal() as db:
-                # 1. Update consensus across recent active whale trades
+                # 1. Update Consensus State for top recent active markets
                 stmt_recent = select(ExecutionLog).where(
                     ExecutionLog.status == "FILLED"
                 ).order_by(ExecutionLog.executed_at.desc()).limit(100)
@@ -77,23 +79,48 @@ class MarkToMarketService:
                         "detail": f"{cnt} distinct whales took aligned {mkt_outcomes.get(cid, 'Yes')} positions with ${mkt_cash.get(cid, 0.0):,.0f} aggregate capital." if is_con else ""
                     }
 
-                # 2. Fetch live prices for ALL distinct open market positions (no 30 limit)
+                # 2. Fetch live prices: Priority for recent trades + Round-Robin rotation across all positions
                 stmt_active_pairs = select(
                     ExecutionLog.market_condition_id,
                     ExecutionLog.resolution_outcome,
-                    ExecutionLog.onchain_tx_hash
+                    ExecutionLog.onchain_tx_hash,
+                    ExecutionLog.executed_at
                 ).where(
                     ExecutionLog.status == "FILLED",
                     ExecutionLog.market_condition_id.is_not(None)
-                ).distinct()
+                ).order_by(ExecutionLog.executed_at.desc())
                 all_active_rows = (await db.execute(stmt_active_pairs)).all()
-                pairs_to_price = list(set(
+
+                # Prioritize active trades from the last 4 hours
+                recent_cutoff = datetime.utcnow() - timedelta(hours=4)
+                recent_pairs = list({
+                    (row[0], row[1] or "Yes", row[2] or "")
+                    for row in all_active_rows if row[0] and row[3] and row[3] >= recent_cutoff
+                })
+                
+                all_pairs = list({
                     (row[0], row[1] or "Yes", row[2] or "")
                     for row in all_active_rows if row[0]
-                ))
+                })
+
+                # Rotate through the full pool
+                batch_size = 40
+                n_pairs = len(all_pairs)
+                if n_pairs > 0:
+                    start_idx = _price_cycle_index % n_pairs
+                    end_idx = min(start_idx + batch_size, n_pairs)
+                    rotating_batch = all_pairs[start_idx:end_idx]
+                    if len(rotating_batch) < batch_size and n_pairs > batch_size:
+                        rotating_batch += all_pairs[:(batch_size - len(rotating_batch))]
+                    _price_cycle_index = (start_idx + batch_size) % n_pairs
+                else:
+                    rotating_batch = []
+
+                # Combine recent priority with rotating batch
+                combined_to_price = list({(c, o, a): True for c, o, a in (recent_pairs[:25] + rotating_batch)}.keys())
 
                 # Concurrently price in bounded chunks with strict rate-limit protection
-                sem = asyncio.Semaphore(4)
+                sem = asyncio.Semaphore(6)
 
                 async def _price_pair(cid: str, outc: str, asset_id: str):
                     async with sem:
@@ -111,10 +138,9 @@ class MarkToMarketService:
                                     _live_price_cache[asset_id] = entry
                         except Exception as e:
                             logger.debug(f"Live price fetch note for {cid}: {e}")
-                        await asyncio.sleep(0.05)
+                        await asyncio.sleep(0.04)
 
-                # Rotating window: refresh up to 40 distinct active positions per 4s cycle
-                tasks = [_price_pair(c, o, a) for c, o, a in pairs_to_price[:40]]
+                tasks = [_price_pair(c, o, a) for c, o, a in combined_to_price]
                 if tasks:
                     await asyncio.gather(*tasks, return_exceptions=True)
 
