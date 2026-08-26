@@ -212,12 +212,34 @@ export function PortfolioAnalytics({
           };
         });
 
-        // Anchor the last point only if currentBalance is consistent with the snapshot timeline
-        if (timeline.length > 0) {
-          const lastPoint = timeline[timeline.length - 1];
-          if (currentBalance > 0 && Math.abs(currentBalance - lastPoint.balance) < 300) {
-            lastPoint.balance = Math.round(currentBalance * 100) / 100;
-            lastPoint.pnl = Math.round((currentBalance - startingBalance) * 100) / 100;
+        // Always ensure the timeline culminates at the present moment with the authoritative current balance
+        if (currentBalance > 0) {
+          const now = new Date();
+          const nowTimeStr = formatFrenchTime(now);
+          const nowDateStr = formatFrenchDate(now);
+          const livePoint = {
+            displayTime: isMultiDay && nowDateStr ? `${nowDateStr} ${nowTimeStr}` : nowTimeStr,
+            time: nowTimeStr,
+            date: nowDateStr,
+            balance: Math.round(currentBalance * 100) / 100,
+            pnl: Math.round((currentBalance - startingBalance) * 100) / 100,
+            rawTimestamp: now.getTime(),
+          };
+
+          if (timeline.length === 0) {
+            timeline.push(livePoint);
+          } else {
+            const lastPoint = timeline[timeline.length - 1];
+            // If the latest snapshot is older than 3 minutes, append the live present point
+            if ((now.getTime() - lastPoint.rawTimestamp) > 180000) {
+              timeline.push(livePoint);
+            } else {
+              lastPoint.balance = Math.round(currentBalance * 100) / 100;
+              lastPoint.pnl = Math.round((currentBalance - startingBalance) * 100) / 100;
+              lastPoint.displayTime = livePoint.displayTime;
+              lastPoint.time = livePoint.time;
+              lastPoint.date = livePoint.date;
+            }
           }
         }
 
@@ -501,111 +523,6 @@ export function PortfolioAnalytics({
           </div>
         </div>
       </div>
-
-      {/* Unique Market Attribution Card (Grouped by Prediction Event) */}
-      {(() => {
-        const effectiveAlpha = (topAlphaMarkets && topAlphaMarkets.length > 0) ? topAlphaMarkets : alphaDrivers;
-        const effectiveDrawdown = (topDrawdownMarkets && topDrawdownMarkets.length > 0) ? topDrawdownMarkets : drawdownCulprits;
-
-        if (effectiveAlpha.length === 0 && effectiveDrawdown.length === 0) return null;
-
-        return (
-          <div className="p-6 rounded-3xl apple-glass light-refraction relative overflow-hidden space-y-4">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-black/[0.06] pb-3">
-              <div className="flex items-center gap-2.5">
-                <div className="w-7 h-7 rounded-xl bg-indigo-50 text-indigo-700 flex items-center justify-center border border-indigo-200">
-                  <Sparkles size={15} />
-                </div>
-                <div>
-                  <h4 className="text-xs font-bold uppercase tracking-wider text-slate-900">
-                    Market Valuation Attribution (Aggregated by Prediction Event)
-                  </h4>
-                  <span className="text-[11px] text-slate-500 font-mono">Cumulative Platform Gains &amp; Losses per Market ({totalFilledTrades.toLocaleString()} Executions)</span>
-                </div>
-              </div>
-
-              {/* Filter Tabs */}
-              <div className="flex rounded-xl bg-slate-100 p-0.5 border border-black/[0.04] text-[11px] font-semibold">
-                {(['both', 'alpha', 'drawdown'] as const).map((t) => (
-                  <button
-                    key={t}
-                    onClick={() => setAttributionTab(t)}
-                    className={`px-2.5 py-0.5 rounded-lg transition-all cursor-pointer ${
-                      attributionTab === t 
-                        ? 'bg-white text-slate-950 font-bold shadow-2xs border border-black/[0.04]' 
-                        : 'text-slate-500 hover:text-slate-900'
-                    }`}
-                  >
-                    {t === 'both' ? 'All Markets' : t === 'alpha' ? '🚀 Top Alpha' : '⚠️ Top Drawdown'}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              {/* Top Alpha Markets (Winners) */}
-              {(attributionTab === 'both' || attributionTab === 'alpha') && effectiveAlpha.length > 0 && (
-                <div className="space-y-2.5">
-                  <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-800">
-                    <ArrowUpRight size={14} className="text-emerald-600" />
-                    <span>Top Alpha Markets (Aggregated Gains)</span>
-                  </div>
-                  <div className="space-y-2">
-                    {effectiveAlpha.map((m: any) => (
-                      <div 
-                        key={m.key || m.conditionId || m.question} 
-                        onClick={() => m.sampleTrade && onSelectTrade && onSelectTrade(m.sampleTrade)}
-                        className="p-3.5 rounded-2xl bg-emerald-50/40 hover:bg-emerald-50/80 border border-emerald-200/80 transition-all cursor-pointer space-y-1.5 shadow-2xs"
-                      >
-                        <div className="flex items-center justify-between text-xs">
-                          <span className="font-bold text-slate-900 truncate max-w-[210px] sm:max-w-xs" title={m.question}>
-                            {m.question}
-                          </span>
-                          <span className="font-mono font-bold text-emerald-700">+{formatCompactPnL(m.totalPnl, false)}</span>
-                        </div>
-                        <div className="flex items-center justify-between text-[10px] font-mono text-slate-500">
-                          <span>Outcome: <strong className="text-slate-700">{m.outcome || 'Yes'}</strong> • Avg Fill: ${(m.avgFillPrice || 0.5).toFixed(3)}</span>
-                          <span className="text-slate-700 font-bold">{m.fillsCount || 1} fill{(m.fillsCount || 1) > 1 ? 's' : ''} • {m.whaleName || 'Whale'}</span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Top Drawdown Markets (Losses) */}
-              {(attributionTab === 'both' || attributionTab === 'drawdown') && effectiveDrawdown.length > 0 && (
-                <div className="space-y-2.5">
-                  <div className="flex items-center gap-1.5 text-xs font-bold text-rose-800">
-                    <ArrowDownRight size={14} className="text-rose-600" />
-                    <span>Top Drawdown Markets (Aggregated Losses)</span>
-                  </div>
-                  <div className="space-y-2">
-                    {effectiveDrawdown.map((m: any) => (
-                      <div 
-                        key={m.key || m.conditionId || m.question} 
-                        onClick={() => m.sampleTrade && onSelectTrade && onSelectTrade(m.sampleTrade)}
-                        className="p-3.5 rounded-2xl bg-rose-50/40 hover:bg-rose-50/80 border border-rose-200/80 transition-all cursor-pointer space-y-1.5 shadow-2xs"
-                      >
-                        <div className="flex items-center justify-between text-xs">
-                          <span className="font-bold text-slate-900 truncate max-w-[210px] sm:max-w-xs" title={m.question}>
-                            {m.question}
-                          </span>
-                          <span className="font-mono font-bold text-rose-700">{formatCompactPnL(m.totalPnl, false)}</span>
-                        </div>
-                        <div className="flex items-center justify-between text-[10px] font-mono text-slate-500">
-                          <span>Outcome: <strong className="text-slate-700">{m.outcome || 'Yes'}</strong> • Avg Fill: ${(m.avgFillPrice || 0.5).toFixed(3)}</span>
-                          <span className="text-slate-700 font-bold">{m.fillsCount || 1} fill{(m.fillsCount || 1) > 1 ? 's' : ''} • {m.whaleName || 'Whale'}</span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        );
-      })()}
 
       {/* Confirmation Reset Modal */}
       {showResetModal && (
