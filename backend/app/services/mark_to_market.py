@@ -30,10 +30,37 @@ class MarkToMarketService:
     async def start(self):
         self.running = True
         logger.info("Mark-to-Market Live Valuation & Consensus Service started.")
+        asyncio.create_task(self._ensure_snapshot_continuity())
         asyncio.create_task(self._valuation_loop())
 
     async def stop(self):
         self.running = False
+
+    async def _ensure_snapshot_continuity(self):
+        """Self-healing snapshot watchdog: verifies snapshot table continuity on startup and auto-recovers from execution_logs."""
+        try:
+            async with SessionLocal() as db:
+                from app.models import PortfolioSnapshot
+                stmt = select(PortfolioSnapshot).where(PortfolioSnapshot.user_id.is_(None)).order_by(PortfolioSnapshot.timestamp.desc()).limit(1)
+                latest = (await db.execute(stmt)).scalars().first()
+                now = datetime.utcnow()
+                if latest and latest.timestamp and (now - latest.timestamp) > timedelta(minutes=30):
+                    logger.info(f"🛡️ Self-healing watchdog: Found {(now - latest.timestamp).total_seconds()/60:.0f}m gap in snapshots. Auto-recovering from trade ledger...")
+                    stmt_logs = select(ExecutionLog).where(ExecutionLog.status.in_(["FILLED", "CLOSED", "RESOLVED"]))
+                    logs = (await db.execute(stmt_logs)).scalars().all()
+                    tot_pnl = sum(float(l.realized_pnl_usd or 0.0) for l in logs if l.user_id is None) or sum(float(l.realized_pnl_usd or 0.0) for l in logs)
+                    bal = round(10000.0 + tot_pnl, 2)
+                    db.add(PortfolioSnapshot(
+                        user_id=None,
+                        timestamp=now,
+                        balance=bal,
+                        total_pnl=round(tot_pnl, 2),
+                        active_trades_count=len(logs)
+                    ))
+                    await db.commit()
+                    logger.info(f"✅ Self-healing recovery snapshot written: Balance ${bal:,.2f} ({len(logs)} trades).")
+        except Exception as e:
+            logger.error(f"Watchdog recovery check note: {e}")
 
     async def _valuation_loop(self):
         while self.running:
