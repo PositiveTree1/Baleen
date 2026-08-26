@@ -38,6 +38,17 @@ async def get_admin_status(db: AsyncSession = Depends(get_db)):
     user_count = (await db.execute(select(func.count()).select_from(User))).scalar() or 0
     trade_count = (await db.execute(select(func.count()).select_from(ExecutionLog))).scalar() or 0
 
+    # Latest scoring & discovery timestamps
+    latest_scored_dt = (await db.execute(select(func.max(Wallet.last_scored_at)))).scalar()
+    latest_discovered_dt = (await db.execute(select(func.max(Wallet.first_seen_at)))).scalar()
+    gold_count = (await db.execute(select(func.count()).select_from(Wallet).where(Wallet.tier == 'gold_sniper', Wallet.status == 'active'))).scalar() or 0
+    standard_count = (await db.execute(select(func.count()).select_from(Wallet).where(Wallet.tier == 'standard', Wallet.status == 'active'))).scalar() or 0
+
+    # Rejection reasons breakdown
+    rejection_stmt = select(Wallet.rejection_reason, func.count()).where(Wallet.status == 'rejected').group_by(Wallet.rejection_reason).order_by(func.count().desc()).limit(5)
+    rejection_rows = (await db.execute(rejection_stmt)).all()
+    rejection_breakdown = [{"reason": r[0] or "Failed Scoring Thresholds", "count": r[1]} for r in rejection_rows]
+
     # Listener is online if heartbeat in last 60s or if started recently
     listener_online = (time.time() - last_listener_heartbeat) < 60 if last_listener_heartbeat > 0 else True
 
@@ -55,6 +66,13 @@ async def get_admin_status(db: AsyncSession = Depends(get_db)):
             "pending": pending_wallets,
             "active": active_wallets,
             "rejected": rejected_wallets
+        },
+        "audit": {
+            "last_scoring_at": latest_scored_dt.isoformat() if latest_scored_dt else None,
+            "last_discovery_at": latest_discovered_dt.isoformat() if latest_discovered_dt else None,
+            "gold_snipers": gold_count,
+            "standard_whales": standard_count,
+            "rejection_breakdown": rejection_breakdown,
         },
         "database": {
             "type": "Supabase PostgreSQL" if is_postgres else "SQLite (Local Failover)",

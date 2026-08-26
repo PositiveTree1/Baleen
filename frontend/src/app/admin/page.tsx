@@ -334,27 +334,40 @@ export default function AdminPage() {
             </div>
           </div>
 
-          {/* Job Schedules */}
+          {/* Discovery & Re-evaluation Audit */}
           <div className="p-6 rounded-3xl border border-black/[0.08] shadow-[inset_0_1px_0_rgba(255,255,255,1),0_2px_8px_rgba(0,0,0,0.03),0_12px_28px_-4px_rgba(0,0,0,0.05)] bg-white">
             <h2 className="text-sm font-bold text-slate-900 mb-5 flex items-center gap-2">
-              <RefreshCw size={16} className="text-slate-600" /> Continuous Pipeline
+              <RefreshCw size={16} className="text-slate-600" /> Discovery &amp; Scoring Audit
             </h2>
-            <div className="space-y-3.5 text-xs">
+            <div className="space-y-3 text-xs">
               <div className="flex justify-between items-center">
-                <span className="text-slate-600 font-medium">Whale Discovery Scan</span>
-                <span className="font-mono text-slate-900 font-bold px-2 py-0.5 rounded bg-slate-100 border border-black/[0.04]">Every 20 minutes</span>
+                <span className="text-slate-600 font-medium">Last Discovery Scan</span>
+                <span className="font-mono text-slate-900 font-bold">
+                  {status?.audit?.last_discovery_at ? new Date(status.audit.last_discovery_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: 'short' }) : 'Continuous'}
+                </span>
               </div>
               <div className="flex justify-between items-center">
-                <span className="text-slate-600 font-medium">Mark-to-Market Valuation</span>
-                <span className="font-mono text-slate-900 font-bold px-2 py-0.5 rounded bg-slate-100 border border-black/[0.04]">Every 25 seconds</span>
+                <span className="text-slate-600 font-medium">Last Re-evaluation</span>
+                <span className="font-mono text-slate-900 font-bold">
+                  {status?.audit?.last_scoring_at ? new Date(status.audit.last_scoring_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: 'short' }) : 'Active'}
+                </span>
               </div>
               <div className="flex justify-between items-center">
-                <span className="text-slate-600 font-medium">AI Behavioral Analysis</span>
-                <span className="font-mono text-slate-900 font-bold px-2 py-0.5 rounded bg-slate-100 border border-black/[0.04]">Nightly (Groq Llama-3.1)</span>
+                <span className="text-slate-600 font-medium">Active Basket Composition</span>
+                <span className="font-mono text-emerald-700 font-bold">
+                  {status?.audit?.gold_snipers || 0} Gold • {status?.audit?.standard_whales || 0} Standard
+                </span>
               </div>
-              <div className="flex justify-between items-center">
-                <span className="text-slate-600 font-medium">Render Idle Keep-Alive</span>
-                <span className="font-mono text-emerald-800 font-bold px-2.5 py-0.5 rounded-full bg-emerald-50 border border-emerald-200">5m Ping Cadence</span>
+              <div className="border-t border-black/[0.06] pt-2">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 block mb-1.5">Top Rejection Reasons</span>
+                <div className="space-y-1">
+                  {(status?.audit?.rejection_breakdown || []).slice(0, 3).map((r: any, idx: number) => (
+                    <div key={idx} className="flex justify-between text-[11px]">
+                      <span className="text-slate-500 truncate max-w-[170px]">{r.reason}</span>
+                      <span className="font-mono font-bold text-rose-600">{r.count}</span>
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
           </div>
