@@ -327,20 +327,20 @@ export function PortfolioAnalytics({
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
               <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Sandbox Capital Curve</span>
-              <div className="flex items-baseline gap-2.5 sm:gap-3 mt-1 flex-wrap sm:flex-nowrap">
-                <span className="text-2xl sm:text-3xl font-extrabold font-mono text-slate-950 tabular-nums whitespace-nowrap">
+              <div className="mt-1 space-y-0.5">
+                <div className="text-2xl sm:text-3xl font-extrabold font-mono text-slate-950 tabular-nums whitespace-nowrap">
                   ${currentBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                </span>
-                <span className={`inline-flex items-baseline gap-1 text-xs sm:text-sm font-mono font-bold whitespace-nowrap ${periodPnL >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                </div>
+                <div className={`inline-flex items-center gap-1 text-xs font-mono font-bold whitespace-nowrap ${periodPnL >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
                   <span>{periodPnL >= 0 ? '+' : ''}${periodPnL.toFixed(2)} ({periodPnL >= 0 ? '+' : ''}{periodPnLPct.toFixed(2)}%)</span>
                   <span className="text-[10px] text-slate-400 font-sans font-normal whitespace-nowrap ml-0.5">in {timeframe}</span>
-                </span>
+                </div>
               </div>
             </div>
 
             {/* Timeframe selector & Reset */}
             <div className="flex items-center gap-1.5 sm:gap-2 shrink-0 overflow-x-auto">
-              <div className={`flex items-center rounded-xl bg-white/40 backdrop-blur-md p-0.5 border border-white/60 shadow-[inset_0_1px_1px_rgba(255,255,255,0.8)] text-xs font-mono font-semibold transition-opacity ${chartLoading ? 'opacity-85' : ''}`}>
+              <div className={`flex items-center rounded-xl bg-white/40 backdrop-blur-md p-0.5 border border-white/60 shadow-[inset_0_1px_1px_rgba(255,255,255,0.8)] text-xs font-mono font-semibold transition-opacity ${chartLoading ? 'opacity-70' : ''}`}>
                 {(['1H', '6H', '1D', '1W', '1M', 'YTD', 'ALL'] as const).map((tf) => {
                   const isActive = timeframe === tf;
                   return (
@@ -352,18 +352,15 @@ export function PortfolioAnalytics({
                           setTimeframe(tf);
                         }
                       }}
-                      className={`px-2 py-1 rounded-lg transition-all flex items-center gap-1 ${
+                      className={`px-2.5 py-1 rounded-lg transition-all flex items-center justify-center ${
                         chartLoading ? 'cursor-not-allowed' : 'cursor-pointer'
                       } ${
                         isActive 
                           ? 'bg-white text-slate-950 font-bold shadow-xs' 
                           : 'text-slate-500 hover:text-slate-900'
                       }`}
-                      title={chartLoading ? `Loading ${timeframe} snapshots...` : `Switch to ${tf} timeframe`}
+                      title={`Switch to ${tf} timeframe`}
                     >
-                      {isActive && chartLoading && (
-                        <Loader2 size={10} className="animate-spin text-indigo-600 shrink-0" />
-                      )}
                       <span>{tf}</span>
                     </button>
                   );
@@ -374,7 +371,7 @@ export function PortfolioAnalytics({
                 className="p-1.5 rounded-xl bg-slate-100 hover:bg-rose-50 text-slate-400 hover:text-rose-600 border border-black/[0.04] transition-all cursor-pointer"
                 title="Reset Sandbox to $10,000 baseline"
               >
-                <RefreshCw size={13} />
+                <RefreshCw size={13} className={chartLoading ? "animate-spin text-slate-400" : ""} />
               </button>
               <button
                 onClick={() => setShowRawDataModal(true)}
@@ -388,8 +385,8 @@ export function PortfolioAnalytics({
           </div>
 
           {/* Area Chart: Clean Smooth Curve with crosshair value tracking at cursor */}
-          <div className="h-56 w-full pt-2 outline-none focus:outline-none ring-0 focus:ring-0 [&_*]:outline-none [&_*]:focus:outline-none select-none">
-            <ResponsiveContainer width="100%" height="100%" className="outline-none">
+          <div className="h-60 min-h-[240px] w-full pt-2 outline-none select-none overflow-hidden" style={{ minWidth: 0 }}>
+            <ResponsiveContainer width="100%" height={240} debounce={30}>
               <AreaChart data={pnlTimeline} margin={{ top: 10, right: 10, left: -20, bottom: 0 }} className="outline-none">
                 <defs>
                   <linearGradient id="balanceGradient" x1="0" y1="0" x2="0" y2="1">
