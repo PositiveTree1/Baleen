@@ -72,12 +72,18 @@ export default function DashboardPage() {
   const livePnlPct = portfolio?.totalPnlPct ?? 0.0;
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#F8F9FB] text-slate-900 selection:bg-slate-900 selection:text-white relative overflow-x-hidden">
-      {/* Ambient Optical Glassmorphism Depth Layer */}
-      <div className="fixed inset-0 pointer-events-none overflow-hidden z-0">
-        <div className="absolute -top-40 -right-40 w-[650px] h-[650px] bg-gradient-to-br from-indigo-200/35 via-sky-200/20 to-transparent rounded-full blur-3xl opacity-75" />
-        <div className="absolute top-[35%] -left-32 w-[550px] h-[550px] bg-gradient-to-tr from-emerald-100/40 via-teal-100/25 to-transparent rounded-full blur-3xl opacity-60" />
-        <div className="absolute bottom-10 right-[15%] w-[600px] h-[600px] bg-gradient-to-tl from-slate-200/50 via-indigo-100/20 to-transparent rounded-full blur-3xl opacity-70" />
+    <div className="min-h-screen flex flex-col bg-[#F6F7F9] text-slate-900 selection:bg-slate-900 selection:text-white relative overflow-x-hidden">
+      {/* Serene Frosted Glass Architectural Canvas Background */}
+      <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden">
+        <div 
+          className="absolute inset-0 bg-cover bg-center bg-no-repeat opacity-[0.22] filter saturate-[0.80] contrast-[1.08]"
+          style={{ backgroundImage: `url('/images/glass_canvas_bg.jpg')` }}
+        />
+        {/* Soft Natural Lighting Diffuser & Muted Earth Tones */}
+        <div className="absolute inset-0 bg-gradient-to-b from-[#F6F7F9]/70 via-[#F6F7F9]/85 to-[#F6F7F9]/95" />
+        <div className="absolute -top-40 -right-40 w-[650px] h-[650px] bg-gradient-to-br from-amber-100/30 via-orange-50/20 to-transparent rounded-full blur-3xl opacity-70" />
+        <div className="absolute top-[35%] -left-32 w-[550px] h-[550px] bg-gradient-to-tr from-stone-200/35 via-neutral-100/20 to-transparent rounded-full blur-3xl opacity-60" />
+        <div className="absolute bottom-10 right-[15%] w-[600px] h-[600px] bg-gradient-to-tl from-slate-200/40 via-stone-100/20 to-transparent rounded-full blur-3xl opacity-70" />
       </div>
 
       {/* Top Navigation */}

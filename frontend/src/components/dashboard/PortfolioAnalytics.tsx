@@ -323,7 +323,7 @@ export function PortfolioAnalytics({
 
             {/* Timeframe selector & Reset */}
             <div className="flex items-center gap-1.5 sm:gap-2 shrink-0 overflow-x-auto">
-              <div className={`flex items-center rounded-xl bg-slate-100 p-0.5 border border-black/[0.06] text-xs font-mono font-semibold transition-opacity ${chartLoading ? 'opacity-85' : ''}`}>
+              <div className={`flex items-center rounded-xl bg-white/40 backdrop-blur-md p-0.5 border border-white/60 shadow-[inset_0_1px_1px_rgba(255,255,255,0.8)] text-xs font-mono font-semibold transition-opacity ${chartLoading ? 'opacity-85' : ''}`}>
                 {(['1H', '6H', '1D', '1W', '1M', 'YTD', 'ALL'] as const).map((tf) => {
                   const isActive = timeframe === tf;
                   return (
@@ -483,7 +483,7 @@ export function PortfolioAnalytics({
 
           {/* Sizing, Active Positions vs Total Platform Order Fills */}
           <div className="grid grid-cols-2 gap-2 pt-2 border-t border-black/[0.06]">
-            <div className="p-2.5 rounded-2xl bg-slate-50 border border-black/[0.04] space-y-0.5">
+            <div className="p-2.5 rounded-2xl bg-white/40 backdrop-blur-md border border-white/60 shadow-[inset_0_1px_1px_rgba(255,255,255,0.7)] space-y-0.5">
               <div className="text-[10px] font-bold text-slate-400 uppercase flex items-center gap-1">
                 Active Positions
                 <span title="A Position is your active aggregated contracts in an open prediction market." className="cursor-help text-slate-400 hover:text-slate-600">
@@ -492,7 +492,7 @@ export function PortfolioAnalytics({
               </div>
               <div className="text-sm font-mono font-bold text-emerald-700">{activePositionsCount} Open</div>
             </div>
-            <div className="p-2.5 rounded-2xl bg-slate-50 border border-black/[0.04] space-y-0.5">
+            <div className="p-2.5 rounded-2xl bg-white/40 backdrop-blur-md border border-white/60 shadow-[inset_0_1px_1px_rgba(255,255,255,0.7)] space-y-0.5">
               <div className="text-[10px] font-bold text-slate-400 uppercase flex items-center gap-1">
                 Total Executions
                 <span title="Total cumulative trade executions recorded in the Baleen database across all 4 days." className="cursor-help text-slate-400 hover:text-slate-600">
@@ -500,7 +500,7 @@ export function PortfolioAnalytics({
                 </span>
               </div>
               <div className="text-sm font-mono font-bold text-slate-900">
-                {scorecardScope === 'allTime' ? totalFilledTrades.toLocaleString() : filteredLogs.length} Fills
+                {totalFilledTrades.toLocaleString()} Fills
               </div>
             </div>
           </div>
