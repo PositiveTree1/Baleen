@@ -200,8 +200,8 @@ export function PortfolioAnalytics({
       if (Array.isArray(data) && data.length > 0) {
         const timeline = data.map((s: any) => {
           const ts = s.timestamp ? new Date(s.timestamp) : new Date();
-          const timeStr = s.time || formatFrenchTime(ts);
-          const dateStr = s.date || formatFrenchDate(ts);
+          const timeStr = formatFrenchTime(ts);
+          const dateStr = formatFrenchDate(ts);
           return {
             displayTime: isMultiDay && dateStr ? `${dateStr} ${timeStr}` : timeStr,
             time: timeStr,
@@ -437,37 +437,16 @@ export function PortfolioAnalytics({
           <div>
             <div className="flex items-center justify-between mb-2">
               <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Execution Scorecard</span>
-              <div className="flex rounded-lg bg-slate-100 p-0.5 border border-black/[0.04] text-[10px] font-mono font-semibold">
-                <button
-                  onClick={() => setScorecardScope('allTime')}
-                  className={`px-2 py-0.5 rounded-md transition-all cursor-pointer ${
-                    scorecardScope === 'allTime'
-                      ? 'bg-white text-slate-900 font-bold shadow-2xs'
-                      : 'text-slate-500 hover:text-slate-800'
-                  }`}
-                  title="Show cumulative platform statistics across all recorded trades"
-                >
-                  All-Time ({totalFilledTrades.toLocaleString()})
-                </button>
-                <button
-                  onClick={() => setScorecardScope('stream')}
-                  className={`px-2 py-0.5 rounded-md transition-all cursor-pointer ${
-                    scorecardScope === 'stream'
-                      ? 'bg-white text-slate-900 font-bold shadow-2xs'
-                      : 'text-slate-500 hover:text-slate-800'
-                  }`}
-                  title={`Show statistics for the current ${timeframe} window (${filteredLogs.length} fills)`}
-                >
-                  {timeframe} Stream ({filteredLogs.length})
-                </button>
-              </div>
+              <span className="text-[11px] font-mono font-bold text-slate-700 px-2.5 py-0.5 rounded-full bg-slate-100 border border-black/[0.06]">
+                {totalFilledTrades.toLocaleString()} Lifetime Fills
+              </span>
             </div>
             <div className="flex items-baseline gap-2">
               <span className="text-3xl font-extrabold font-mono text-slate-900">
-                {(scorecardScope === 'allTime' && allTimeWinRate !== undefined ? allTimeWinRate : winRate).toFixed(1)}%
+                {(allTimeWinRate !== undefined ? allTimeWinRate : winRate).toFixed(1)}%
               </span>
               <span className="text-xs font-mono font-semibold text-slate-500">
-                Win Rate ({scorecardScope === 'allTime' && allTimeWins !== undefined ? allTimeWins.toLocaleString() : winCount}W / {scorecardScope === 'allTime' && allTimeLosses !== undefined ? allTimeLosses.toLocaleString() : lossCount}L)
+                Win Rate ({allTimeWins !== undefined ? allTimeWins.toLocaleString() : winCount}W / {allTimeLosses !== undefined ? allTimeLosses.toLocaleString() : lossCount}L)
               </span>
             </div>
           </div>
@@ -476,28 +455,28 @@ export function PortfolioAnalytics({
           <div className="space-y-1.5">
             <div className="flex justify-between text-xs font-bold font-mono">
               <span className="text-emerald-700">
-                {scorecardScope === 'allTime' && allTimeWins !== undefined ? allTimeWins.toLocaleString() : winCount} Won
+                {allTimeWins !== undefined ? allTimeWins.toLocaleString() : winCount} Won
               </span>
               <span className="text-rose-700">
-                {scorecardScope === 'allTime' && allTimeLosses !== undefined ? allTimeLosses.toLocaleString() : lossCount} Lost
+                {allTimeLosses !== undefined ? allTimeLosses.toLocaleString() : lossCount} Lost
               </span>
             </div>
             <div className="h-2 w-full rounded-full bg-slate-100 overflow-hidden flex">
               <div 
                 className="bg-emerald-500 transition-all duration-500" 
-                style={{ width: `${scorecardScope === 'allTime' && allTimeWinRate !== undefined ? allTimeWinRate : winRate}%` }} 
+                style={{ width: `${allTimeWinRate !== undefined ? allTimeWinRate : winRate}%` }} 
               />
               <div 
                 className="bg-rose-500 transition-all duration-500" 
-                style={{ width: `${100 - (scorecardScope === 'allTime' && allTimeWinRate !== undefined ? allTimeWinRate : winRate)}%` }} 
+                style={{ width: `${100 - (allTimeWinRate !== undefined ? allTimeWinRate : winRate)}%` }} 
               />
             </div>
             <div className="flex justify-between text-[10px] font-mono font-semibold text-slate-400">
               <span className="text-emerald-700">
-                {scorecardScope === 'allTime' && allTimeWins !== undefined ? allTimeWins.toLocaleString() : winCount} Profitable Fills
+                {allTimeWins !== undefined ? allTimeWins.toLocaleString() : winCount} Profitable Fills
               </span>
               <span className="text-rose-700">
-                {scorecardScope === 'allTime' && allTimeLosses !== undefined ? allTimeLosses.toLocaleString() : lossCount} Unprofitable Fills
+                {allTimeLosses !== undefined ? allTimeLosses.toLocaleString() : lossCount} Unprofitable Fills
               </span>
             </div>
           </div>

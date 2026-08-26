@@ -108,21 +108,25 @@ async def get_execution_logs(
         fee_usd = float(log.fee_usd) if log.fee_usd is not None and log.fee_usd > 0 else fee_info["fee_usd"]
         category = log.market_category or fee_info["category"]
 
-        # Gross & Net PnL — guard against cold price cache
-        if fill_p > 0 and abs(cur_p - fill_p) > 0.001:
+        # Gross & Net PnL resolution
+        if log.realized_pnl_usd is not None:
+            net_pnl = float(log.realized_pnl_usd)
+            gross_pnl = round(net_pnl + fee_usd, 2)
+            # Reconstruct implied current market price if in-memory price cache is cold
+            if abs(cur_p - fill_p) < 0.001 and notional > 0 and fill_p > 0:
+                implied_p = fill_p * (1.0 + gross_pnl / notional) if log.side == "BUY" else fill_p * (1.0 - gross_pnl / notional)
+                if 0.001 <= implied_p <= 0.999:
+                    cur_p = round(implied_p, 4)
+        elif fill_p > 0 and abs(cur_p - fill_p) > 0.001:
             if log.side == "BUY":
                 gross_pnl = notional * ((cur_p - fill_p) / fill_p)
             else:
                 gross_pnl = notional * ((fill_p - cur_p) / fill_p)
-        else:
-            gross_pnl = 0.0
-
-        if log.realized_pnl_usd is not None:
-            net_pnl = log.realized_pnl_usd
-        elif abs(cur_p - fill_p) > 0.001:
             net_pnl = round(gross_pnl - fee_usd, 2)
         else:
+            gross_pnl = 0.0
             net_pnl = 0.0
+
         pnl_pct = round((net_pnl / notional) * 100.0, 2) if notional > 0 else 0.0
 
         whale_info = whale_meta_map.get((log.source_wallet_address or "").lower(), {})
@@ -265,6 +269,9 @@ async def get_portfolio_summary(
     current_balance = round(starting_balance + total_pnl, 2)
     pnl_pct = round((total_pnl / starting_balance) * 100.0, 2) if starting_balance > 0 else 0.0
     
+    holding_count = sum(1 for l in logs if l.side == "BUY" and l.status == "FILLED")
+    closed_count = sum(1 for l in logs if l.status in ("CLOSED", "RESOLVED") or l.side == "SELL")
+    
     return {
         "startingBalance": starting_balance,
         "currentBalance": current_balance,
@@ -272,6 +279,8 @@ async def get_portfolio_summary(
         "totalPnlPct": pnl_pct,
         "totalFeesPaidUsd": round(total_fees, 2),
         "filledTradesCount": len(logs),
+        "holdingTradesCount": holding_count,
+        "closedTradesCount": closed_count,
         "totalNotionalInvested": round(total_notional, 2),
         "topAlphaMarkets": top_alpha,
         "topDrawdownMarkets": top_drawdown,

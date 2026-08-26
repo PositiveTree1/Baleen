@@ -161,7 +161,13 @@ export default function DashboardPage() {
         </div>
 
         {/* Trade Log */}
-        <TradeLog userId={session?.user?.id} onSelectTrade={setSelectedTrade} />
+        <TradeLog 
+          userId={session?.user?.id} 
+          totalHoldingCount={portfolio?.holdingTradesCount}
+          totalClosedCount={portfolio?.closedTradesCount}
+          totalFillsCount={portfolio?.filledTradesCount}
+          onSelectTrade={setSelectedTrade} 
+        />
       </main>
 
       {/* Quick Command Palette (CMD+K) */}

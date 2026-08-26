@@ -324,40 +324,65 @@ async def get_wallet(address: str, db: AsyncSession = Depends(get_db)):
         win_ratio = max(0.40, min(0.98, (wallet.win_rate_pct or 80.0) / 100.0))
         avg_step_vol = max(800.0, abs(total_pnl) / (num_points * 0.75))
         
-        # Build active points with realistic green gains and red losses
+        # Build active points with realistic green gains and red losses matching the wallet's win rate
+        points = []
+        cum = 0.0
+        
+        # Determine how many down days this wallet realistically experienced
+        loss_rate = 1.0 - win_ratio  # e.g., 0.15 to 0.30
+        
         for i in range(num_points):
             point_date = start_date + timedelta(days=i * step_days)
-            step_factor = (i + 1) / float(num_points)
-            noise = ((addr_seed * (i + 5)) % 100 - 30) / 1200.0
-            cum_val = total_pnl * (step_factor ** 1.32) * (1.0 + noise)
-            if i == num_points - 1:
-                cum_val = total_pnl
-            daily_val = cum_val - running_cum
-            running_cum = cum_val
             
-            # Realistic occasional red down-day or partial losing trades
-            is_down_day = (i % 5 == 0 and win_ratio < 0.95) or (i % 3 == 0 and win_ratio < 0.80) or (i == num_points - 2 and total_pnl < 0)
+            # Deterministic pseudo-randomness based on address and day index
+            day_hash = ((addr_seed * (i + 7)) % 1000) / 1000.0
+            is_loss_day = (day_hash < loss_rate) and (i < num_points - 1)
             
-            if is_down_day:
-                loss_amt = avg_step_vol * (1.0 - win_ratio) * 2.5 + abs(daily_val * 0.9)
-                day_lost = -abs(loss_amt)
-                day_won = round(max(0.0, avg_step_vol * win_ratio * 0.35), 2)
+            if is_loss_day:
+                # Realistic losing day
+                loss_magnitude = avg_step_vol * (0.6 + 0.8 * ((day_hash * 10) % 1))
+                day_lost = -round(loss_magnitude, 2)
+                day_won = round(loss_magnitude * 0.2 * ((day_hash * 5) % 1), 2)
                 net_day = round(day_won + day_lost, 2)
             else:
-                loss_amt = avg_step_vol * (1.0 - win_ratio) * 0.65
-                day_lost = -abs(loss_amt)
-                day_won = round(max(0.0, abs(daily_val) + abs(day_lost)), 2)
+                # Winning day
+                win_magnitude = avg_step_vol * (1.1 + 0.9 * ((day_hash * 10) % 1))
+                day_won = round(win_magnitude, 2)
+                day_lost = -round(win_magnitude * 0.15 * ((day_hash * 3) % 1), 2)
                 net_day = round(day_won + day_lost, 2)
-            
-            daily_pnl_history.append({
+                
+            points.append({
                 "date": point_date.strftime("%Y-%m-%d"),
-                "won_usd": round(day_won, 2),
-                "lost_usd": round(day_lost, 2),
-                "net_pnl": round(net_day, 2),
-                "daily_pnl": round(net_day, 2),
-                "cumulative_pnl": round(cum_val, 2),
+                "won_usd": day_won,
+                "lost_usd": day_lost,
+                "net_pnl": net_day,
+                "daily_pnl": net_day,
                 "trades_count": max(1, int(wallet.avg_trades_per_day or 3))
             })
+            
+        # Re-scale points so that sum(net_pnl) precisely equals total_pnl
+        current_sum = sum(p["net_pnl"] for p in points)
+        if abs(current_sum) > 0.01:
+            scale_factor = total_pnl / current_sum
+            running_cum = 0.0
+            for p in points:
+                p["net_pnl"] = round(p["net_pnl"] * scale_factor, 2)
+                p["daily_pnl"] = p["net_pnl"]
+                p["won_usd"] = round(abs(p["won_usd"] * scale_factor), 2) if p["net_pnl"] >= 0 else round(abs(p["won_usd"] * scale_factor * 0.2), 2)
+                p["lost_usd"] = -round(abs(p["won_usd"] - p["net_pnl"]), 2)
+                running_cum += p["net_pnl"]
+                p["cumulative_pnl"] = round(running_cum, 2)
+        else:
+            running_cum = 0.0
+            for p in points:
+                running_cum += p["net_pnl"]
+                p["cumulative_pnl"] = round(running_cum, 2)
+
+        # Force the final point's cumulative PnL to match total_pnl exactly
+        if points:
+            points[-1]["cumulative_pnl"] = round(total_pnl, 2)
+            
+        daily_pnl_history = points
             
         # If dormant, append plateau points up to today
         if wallet.dormant and end_date < today:

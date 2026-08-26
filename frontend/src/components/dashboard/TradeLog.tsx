@@ -9,12 +9,21 @@ import { FullHistorySpreadsheetModal } from './FullHistorySpreadsheetModal';
 
 interface TradeLogProps {
   userId?: string;
+  totalHoldingCount?: number;
+  totalClosedCount?: number;
+  totalFillsCount?: number;
   onSelectTrade?: (trade: ExecutionLog) => void;
 }
 
 const MAX_DISPLAY_TRADES = 30;
 
-export function TradeLog({ userId, onSelectTrade }: TradeLogProps) {
+export function TradeLog({ 
+  userId, 
+  totalHoldingCount, 
+  totalClosedCount, 
+  totalFillsCount, 
+  onSelectTrade 
+}: TradeLogProps) {
   const [logs, setLogs] = useState<ExecutionLog[]>(() => getCachedExecutionLogs(userId) || []);
   const [loading, setLoading] = useState(() => (getCachedExecutionLogs(userId)?.length || 0) === 0);
   const [tab, setTab] = useState<'holding' | 'closed' | 'all'>('holding');
@@ -99,7 +108,7 @@ export function TradeLog({ userId, onSelectTrade }: TradeLogProps) {
                 }`}
               >
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                <span>Currently Holding ({holdingLogs.length})</span>
+                <span>Currently Holding ({totalHoldingCount !== undefined ? totalHoldingCount.toLocaleString() : holdingLogs.length})</span>
               </button>
               <button
                 onClick={() => setTab('closed')}
@@ -110,7 +119,7 @@ export function TradeLog({ userId, onSelectTrade }: TradeLogProps) {
                 }`}
               >
                 <span className="w-1.5 h-1.5 rounded-full bg-slate-400" />
-                <span>Sold / Resolved ({closedLogs.length})</span>
+                <span>Sold / Resolved ({totalClosedCount !== undefined ? totalClosedCount.toLocaleString() : closedLogs.length})</span>
               </button>
               <button
                 onClick={() => setTab('all')}
@@ -121,7 +130,7 @@ export function TradeLog({ userId, onSelectTrade }: TradeLogProps) {
                 }`}
               >
                 <Layers size={12} />
-                <span>All Fills ({logs.length})</span>
+                <span>All Fills ({totalFillsCount !== undefined ? totalFillsCount.toLocaleString() : logs.length})</span>
               </button>
             </div>
           </div>

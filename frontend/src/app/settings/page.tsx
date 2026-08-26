@@ -1,8 +1,8 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
-import { fetchUserSettings, updateUserSettings } from '@/lib/api-client';
-import { User } from '@/types';
+import { fetchUserSettings, updateUserSettings, fetchPortfolioSummary } from '@/lib/api-client';
+import { User, PortfolioSummary } from '@/types';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { BrandLogo } from '@/components/ui/BrandLogo';
@@ -13,6 +13,7 @@ import Link from 'next/link';
 export default function SettingsPage() {
   const { data: session } = useSession();
   const [user, setUser] = useState<User | null>(null);
+  const [portfolio, setPortfolio] = useState<PortfolioSummary | null>(null);
   const [isResetOpen, setIsResetOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [savedSuccess, setSavedSuccess] = useState(false);
@@ -21,11 +22,17 @@ export default function SettingsPage() {
 
   const loadUserData = () => {
     if (session?.user?.id) {
-      fetchUserSettings(session.user.id).then(data => {
-        if (data) {
-          setUser(data);
-          setRiskProfile(data.riskProfile as any || 'Balanced');
-          setDailyDigest(data.dailyDigestOptIn);
+      Promise.all([
+        fetchUserSettings(session.user.id),
+        fetchPortfolioSummary(session.user.id)
+      ]).then(([userData, portfolioData]) => {
+        if (userData) {
+          setUser(userData);
+          setRiskProfile(userData.riskProfile as any || 'Balanced');
+          setDailyDigest(userData.dailyDigestOptIn);
+        }
+        if (portfolioData) {
+          setPortfolio(portfolioData);
         }
       });
     }
@@ -94,7 +101,7 @@ export default function SettingsPage() {
               <div className="p-4 rounded-2xl bg-slate-50 border border-black/[0.06] shadow-[inset_0_1px_2px_rgba(0,0,0,0.02)]">
                 <div className="text-[11px] text-slate-500 font-medium mb-1">Current Mark-to-Market</div>
                 <div className="text-2xl font-bold font-mono text-emerald-600">
-                  ${(user?.currentBalance ?? 10000).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  ${(portfolio?.currentBalance ?? user?.currentBalance ?? 10000).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </div>
               </div>
             </div>

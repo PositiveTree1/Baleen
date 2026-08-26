@@ -192,11 +192,7 @@ export function WalletDrawer({ address, onClose }: WalletDrawerProps) {
                     initial={{ opacity: 0, y: 8 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.25 }}
-                    className={`p-5 rounded-3xl relative overflow-hidden transition-all duration-300 ${
-                      isGold
-                        ? 'bg-gradient-to-b from-amber-500/[0.05] via-amber-500/[0.02] to-transparent border border-amber-300/60 shadow-[0_4px_24px_rgba(245,158,11,0.06),inset_0_1px_0_rgba(255,255,255,0.8)]'
-                        : 'bg-gradient-to-b from-indigo-500/[0.04] via-indigo-500/[0.01] to-transparent border border-indigo-200/70 shadow-[0_4px_20px_rgba(99,102,241,0.04),inset_0_1px_0_rgba(255,255,255,0.8)]'
-                    }`}
+                    className="p-5 rounded-3xl relative overflow-hidden bg-slate-50/80 border border-black/[0.06] shadow-[inset_0_1px_0_rgba(255,255,255,1),0_2px_8px_rgba(0,0,0,0.02)]"
                   >
                     <div className="space-y-2.5">
                       <div className="flex items-center justify-between">

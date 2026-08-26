@@ -106,6 +106,8 @@ export interface PortfolioSummary {
   totalPnlPct: number;
   totalFeesPaidUsd?: number;
   filledTradesCount: number;
+  holdingTradesCount?: number;
+  closedTradesCount?: number;
   totalNotionalInvested: number;
   topAlphaMarkets?: any[];
   topDrawdownMarkets?: any[];
