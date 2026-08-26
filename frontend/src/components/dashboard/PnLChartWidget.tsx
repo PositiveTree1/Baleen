@@ -21,6 +21,7 @@ interface PnLChartWidgetProps {
   currentBalance?: number;
   onResetComplete?: () => void;
   heightMode?: 'normal' | 'tall';
+  onCycleSize?: () => void;
 }
 
 export function PnLChartWidget({
@@ -29,7 +30,8 @@ export function PnLChartWidget({
   startingBalance = 10000.0,
   currentBalance = 10000.0,
   onResetComplete,
-  heightMode = 'normal'
+  heightMode = 'normal',
+  onCycleSize
 }: PnLChartWidgetProps) {
   const [timeframe, setTimeframe] = useState<'1H' | '6H' | '1D' | '1W' | '1M' | 'YTD' | 'ALL'>('ALL');
   const [showResetModal, setShowResetModal] = useState(false);
@@ -65,9 +67,41 @@ export function PnLChartWidget({
           };
         });
 
-        // Always anchor live balance to present time
-        if (currentBalance > 0) {
+        // Ensure smooth continuous timeline up to present moment
+        if (currentBalance > 0 && timeline.length > 0) {
           const now = new Date();
+          const lastPoint = timeline[timeline.length - 1];
+          const gapMs = now.getTime() - lastPoint.rawTimestamp;
+
+          // If there is a multi-hour gap, interpolate smooth hourly checkpoints
+          if (gapMs > 3600000) {
+            const hours = Math.min(24, Math.floor(gapMs / 3600000));
+            const startBal = lastPoint.balance;
+            const endBal = currentBalance;
+            const startPnl = lastPoint.pnl;
+            const endPnl = currentBalance - startingBalance;
+
+            for (let h = 1; h <= hours; h++) {
+              const interpMs = lastPoint.rawTimestamp + h * 3600000;
+              if (interpMs >= now.getTime() - 60000) break;
+              const interpDate = new Date(interpMs);
+              const ratio = h / (hours + 1);
+              const interpBal = Math.round((startBal + ratio * (endBal - startBal)) * 100) / 100;
+              const interpPnl = Math.round((startPnl + ratio * (endPnl - startPnl)) * 100) / 100;
+              const iTime = formatFrenchTime(interpDate);
+              const iDate = formatFrenchDate(interpDate);
+              timeline.push({
+                displayTime: isMultiDay && iDate ? `${iDate} ${iTime}` : iTime,
+                time: iTime,
+                date: iDate,
+                balance: interpBal,
+                pnl: interpPnl,
+                rawTimestamp: interpMs,
+              });
+            }
+          }
+
+          // Append authoritative current live point
           const nowTimeStr = formatFrenchTime(now);
           const nowDateStr = formatFrenchDate(now);
           const livePoint = {
@@ -79,19 +113,15 @@ export function PnLChartWidget({
             rawTimestamp: now.getTime(),
           };
 
-          if (timeline.length === 0) {
+          const latestPt = timeline[timeline.length - 1];
+          if ((now.getTime() - latestPt.rawTimestamp) > 180000) {
             timeline.push(livePoint);
           } else {
-            const lastPoint = timeline[timeline.length - 1];
-            if ((now.getTime() - lastPoint.rawTimestamp) > 180000) {
-              timeline.push(livePoint);
-            } else {
-              lastPoint.balance = Math.round(currentBalance * 100) / 100;
-              lastPoint.pnl = Math.round((currentBalance - startingBalance) * 100) / 100;
-              lastPoint.displayTime = livePoint.displayTime;
-              lastPoint.time = livePoint.time;
-              lastPoint.date = livePoint.date;
-            }
+            latestPt.balance = Math.round(currentBalance * 100) / 100;
+            latestPt.pnl = Math.round((currentBalance - startingBalance) * 100) / 100;
+            latestPt.displayTime = livePoint.displayTime;
+            latestPt.time = livePoint.time;
+            latestPt.date = livePoint.date;
           }
         }
 
@@ -156,10 +186,10 @@ export function PnLChartWidget({
     }
   };
 
-  const chartHeightClass = heightMode === 'tall' ? 'h-80' : 'h-56';
+  const chartHeightPx = heightMode === 'tall' ? 320 : 220;
 
   return (
-    <div className="p-6 rounded-3xl apple-glass light-refraction relative overflow-hidden space-y-4 h-full flex flex-col justify-between">
+    <div className="p-6 rounded-3xl apple-glass light-refraction relative overflow-hidden space-y-4 h-full flex flex-col justify-between group">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Sandbox Capital Curve</span>
@@ -223,9 +253,12 @@ export function PnLChartWidget({
         </div>
       </div>
 
-      {/* Area Chart */}
-      <div className={`${chartHeightClass} w-full pt-2 outline-none focus:outline-none ring-0 focus:ring-0 [&_*]:outline-none select-none flex-1`}>
-        <ResponsiveContainer width="100%" height="100%" className="outline-none">
+      {/* Stable, Zero-Jitter Area Chart Container */}
+      <div 
+        className="w-full pt-2 outline-none select-none overflow-hidden" 
+        style={{ height: `${chartHeightPx}px`, minHeight: `${chartHeightPx}px`, minWidth: 0 }}
+      >
+        <ResponsiveContainer width="100%" height={chartHeightPx} debounce={40}>
           <AreaChart data={pnlTimeline} margin={{ top: 10, right: 10, left: -20, bottom: 0 }} className="outline-none">
             <defs>
               <linearGradient id="widgetBalanceGradient" x1="0" y1="0" x2="0" y2="1">
@@ -283,6 +316,19 @@ export function PnLChartWidget({
           </AreaChart>
         </ResponsiveContainer>
       </div>
+
+      {/* Subtle Apple-Style Corner Resize Grabber */}
+      {onCycleSize && (
+        <button
+          onClick={onCycleSize}
+          className="absolute bottom-2 right-2 p-1.5 rounded-xl bg-black/[0.03] hover:bg-black/[0.08] text-slate-400 hover:text-slate-800 transition-all opacity-40 group-hover:opacity-100 cursor-nwse-resize"
+          title="Click to cycle card width (1/3 → 2/3 → Full)"
+        >
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-current">
+            <path d="M10 2L2 10M10 6L6 10M10 10H10.01" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+          </svg>
+        </button>
+      )}
 
       {/* Confirmation Reset Modal */}
       {showResetModal && (

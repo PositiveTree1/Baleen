@@ -1,7 +1,7 @@
 ﻿'use client';
 import { useMemo } from 'react';
 import { ExecutionLog } from '@/types';
-import { HelpCircle, TrendingUp, Award, Layers } from 'lucide-react';
+import { HelpCircle } from 'lucide-react';
 
 interface ScorecardWidgetProps {
   logs?: ExecutionLog[];
@@ -10,6 +10,7 @@ interface ScorecardWidgetProps {
   allTimeWins?: number;
   allTimeLosses?: number;
   sizeMode?: 'small' | 'medium' | 'full';
+  onCycleSize?: () => void;
 }
 
 export function ScorecardWidget({
@@ -18,7 +19,8 @@ export function ScorecardWidget({
   allTimeWinRate,
   allTimeWins,
   allTimeLosses,
-  sizeMode = 'small'
+  sizeMode = 'small',
+  onCycleSize
 }: ScorecardWidgetProps) {
   const { winCount, lossCount, winRate, activePositionsCount } = useMemo(() => {
     let wins = 0;
@@ -51,7 +53,7 @@ export function ScorecardWidget({
   const effectiveLosses = allTimeLosses !== undefined ? allTimeLosses : lossCount;
 
   return (
-    <div className="p-6 rounded-3xl apple-glass light-refraction relative overflow-hidden flex flex-col justify-between space-y-4 h-full">
+    <div className="p-6 rounded-3xl apple-glass light-refraction relative overflow-hidden flex flex-col justify-between space-y-4 h-full group">
       <div>
         <div className="flex items-center justify-between mb-2">
           <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Execution Scorecard</span>
@@ -122,6 +124,19 @@ export function ScorecardWidget({
           </div>
         </div>
       </div>
+
+      {/* Subtle Apple-Style Corner Resize Grabber */}
+      {onCycleSize && (
+        <button
+          onClick={onCycleSize}
+          className="absolute bottom-2 right-2 p-1.5 rounded-xl bg-black/[0.03] hover:bg-black/[0.08] text-slate-400 hover:text-slate-800 transition-all opacity-40 group-hover:opacity-100 cursor-nwse-resize"
+          title="Click to cycle card width (1/3 → 2/3 → Full)"
+        >
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-current">
+            <path d="M10 2L2 10M10 6L6 10M10 10H10.01" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+          </svg>
+        </button>
+      )}
     </div>
   );
 }
