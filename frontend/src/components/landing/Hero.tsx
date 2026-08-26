@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 import { motion } from 'framer-motion';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -43,10 +43,10 @@ export function Hero() {
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.08 }}
-            className="text-4xl sm:text-6xl lg:text-7xl font-extrabold tracking-[-0.04em] text-slate-950 leading-[1.04]"
+            className="text-4xl sm:text-6xl lg:text-7xl font-outfit font-extrabold tracking-[-0.035em] text-slate-950 leading-[1.04]"
           >
             Mirror the top 1% <br />
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-slate-950 via-slate-700 to-slate-800">
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-slate-950 via-slate-700 to-indigo-950">
               on Polymarket.
             </span>
           </motion.h1>

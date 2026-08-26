@@ -33,11 +33,11 @@ export function BrandLogo({ size = 'md', href = '/', subtitle, className = '' }:
       />
 
       <div className="flex flex-col">
-        <span className={`font-brand-futuristic font-black uppercase text-slate-950 ${textSizes[size]} transition-colors group-hover:text-slate-800`}>
+        <span className={`font-outfit font-black tracking-[0.10em] text-slate-950 ${textSizes[size]} transition-colors group-hover:text-slate-800`}>
           BALEEN
         </span>
         {subtitle && (
-          <span className="text-[10px] font-mono text-slate-400 font-semibold tracking-wider -mt-1 uppercase">
+          <span className="text-[10px] font-mono text-slate-400 font-semibold tracking-wider -mt-0.5 uppercase">
             {subtitle}
           </span>
         )}
