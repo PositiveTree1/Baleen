@@ -36,12 +36,26 @@ export function formatExactPnL(val: number | null | undefined): string {
   return `${sign}$${abs.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
+function normalizeToUTCDate(date: Date | string | number | null | undefined): Date {
+  if (!date) return new Date(NaN);
+  if (date instanceof Date) return date;
+  if (typeof date === 'number') return new Date(date);
+  let s = String(date).trim();
+  // Ensure server ISO timestamps are explicitly interpreted as UTC in JavaScript
+  if (s.includes('T') && !s.endsWith('Z') && !s.includes('+') && !/[-+]\d{2}:\d{2}$/.test(s)) {
+    s += 'Z';
+  } else if (!s.includes('T') && !s.endsWith('Z') && !s.includes('+') && s.includes(' ')) {
+    s = s.replace(' ', 'T') + 'Z';
+  }
+  return new Date(s);
+}
+
 /**
  * Formats timestamps in French timezone (Europe/Paris / CET/CEST)
  */
 export function formatFrenchTime(date: Date | string | number | null | undefined): string {
   if (!date) return '--:--';
-  const d = typeof date === 'string' || typeof date === 'number' ? new Date(date) : date;
+  const d = normalizeToUTCDate(date);
   if (isNaN(d.getTime())) return '--:--';
   return d.toLocaleTimeString('fr-FR', {
     timeZone: 'Europe/Paris',
@@ -53,7 +67,7 @@ export function formatFrenchTime(date: Date | string | number | null | undefined
 
 export function formatFrenchTimeWithSeconds(date: Date | string | number | null | undefined): string {
   if (!date) return '--:--:--';
-  const d = typeof date === 'string' || typeof date === 'number' ? new Date(date) : date;
+  const d = normalizeToUTCDate(date);
   if (isNaN(d.getTime())) return '--:--:--';
   return d.toLocaleTimeString('fr-FR', {
     timeZone: 'Europe/Paris',
@@ -66,7 +80,7 @@ export function formatFrenchTimeWithSeconds(date: Date | string | number | null 
 
 export function formatFrenchDateTime(date: Date | string | number | null | undefined, includeSeconds: boolean = false): string {
   if (!date) return '--';
-  const d = typeof date === 'string' || typeof date === 'number' ? new Date(date) : date;
+  const d = normalizeToUTCDate(date);
   if (isNaN(d.getTime())) return '--';
   return d.toLocaleString('fr-FR', {
     timeZone: 'Europe/Paris',
@@ -82,7 +96,7 @@ export function formatFrenchDateTime(date: Date | string | number | null | undef
 
 export function formatFrenchDate(date: Date | string | number | null | undefined): string {
   if (!date) return '--';
-  const d = typeof date === 'string' || typeof date === 'number' ? new Date(date) : date;
+  const d = normalizeToUTCDate(date);
   if (isNaN(d.getTime())) return '--';
   return d.toLocaleDateString('fr-FR', {
     timeZone: 'Europe/Paris',

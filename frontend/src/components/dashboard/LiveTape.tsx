@@ -39,7 +39,7 @@ export function LiveTape({ userId, onSelectTrade }: LiveTapeProps) {
   });
 
   return (
-    <div className="rounded-3xl overflow-hidden h-[460px] flex flex-col border border-black/[0.08] shadow-[inset_0_1px_0_rgba(255,255,255,1),0_2px_8px_rgba(0,0,0,0.03),0_12px_28px_-4px_rgba(0,0,0,0.05)] bg-white">
+    <div className="rounded-3xl overflow-hidden h-[460px] flex flex-col apple-glass light-refraction relative">
       <div className="p-4 px-6 border-b border-black/[0.06] flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-50/50">
         <div className="flex items-center gap-2.5">
           <Activity size={16} className="text-slate-900" />

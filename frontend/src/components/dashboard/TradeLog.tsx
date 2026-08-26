@@ -81,16 +81,13 @@ export function TradeLog({
 
   return (
     <>
-      <div className="rounded-3xl overflow-hidden mt-6 border border-black/[0.08] shadow-[inset_0_1px_0_rgba(255,255,255,1),0_2px_8px_rgba(0,0,0,0.03),0_16px_36px_-6px_rgba(0,0,0,0.05)] bg-white">
+      <div className="rounded-3xl overflow-hidden mt-6 apple-glass light-refraction relative">
         {/* Header & Tabs */}
         <div className="p-4 px-6 border-b border-black/[0.06] bg-slate-50/50 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
           <div className="flex flex-col sm:flex-row sm:items-center gap-4">
             <div>
-              <h3 className="text-sm font-bold text-slate-900 tracking-tight flex items-center gap-2">
+              <h3 className="text-sm font-bold text-slate-900 tracking-tight">
                 Execution Audit &amp; Positions Center
-                <span className="text-[11px] font-mono px-2 py-0.5 rounded-full bg-slate-200/80 text-slate-700 font-bold">
-                  {filteredLogs.length} {tab === 'holding' ? 'holding' : tab === 'closed' ? 'closed' : 'total'}
-                </span>
               </h3>
               <span className="text-[11px] text-slate-500 font-mono font-semibold">
                 Real-time mark-to-market positions, order execution logs &amp; quadratic taker fee audits

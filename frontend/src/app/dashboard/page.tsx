@@ -72,9 +72,16 @@ export default function DashboardPage() {
   const livePnlPct = portfolio?.totalPnlPct ?? 0.0;
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#F8F9FB] text-slate-900 selection:bg-slate-900 selection:text-white">
+    <div className="min-h-screen flex flex-col bg-[#F8F9FB] text-slate-900 selection:bg-slate-900 selection:text-white relative overflow-x-hidden">
+      {/* Ambient Optical Glassmorphism Depth Layer */}
+      <div className="fixed inset-0 pointer-events-none overflow-hidden z-0">
+        <div className="absolute -top-40 -right-40 w-[650px] h-[650px] bg-gradient-to-br from-indigo-200/35 via-sky-200/20 to-transparent rounded-full blur-3xl opacity-75" />
+        <div className="absolute top-[35%] -left-32 w-[550px] h-[550px] bg-gradient-to-tr from-emerald-100/40 via-teal-100/25 to-transparent rounded-full blur-3xl opacity-60" />
+        <div className="absolute bottom-10 right-[15%] w-[600px] h-[600px] bg-gradient-to-tl from-slate-200/50 via-indigo-100/20 to-transparent rounded-full blur-3xl opacity-70" />
+      </div>
+
       {/* Top Navigation */}
-      <nav className="flex items-center justify-between py-4 px-6 lg:px-12 border-b border-black/[0.06] bg-white/80 backdrop-blur-2xl sticky top-0 z-40 shadow-[0_1px_2px_rgba(0,0,0,0.02)]">
+      <nav className="flex items-center justify-between py-4 px-6 lg:px-12 border-b border-black/[0.06] bg-white/70 backdrop-blur-2xl sticky top-0 z-40 shadow-[0_1px_2px_rgba(0,0,0,0.02)]">
         <BrandLogo href="/" subtitle="Control Plane" />
         <div className="flex items-center gap-3">
           <div className="hidden sm:flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold text-emerald-800 bg-emerald-50 border border-emerald-200 shadow-[inset_0_1px_0_rgba(255,255,255,0.8)]">
@@ -114,7 +121,7 @@ export default function DashboardPage() {
         </div>
       </nav>
 
-      <main className="flex-1 p-6 lg:p-12 max-w-7xl mx-auto w-full flex flex-col gap-8">
+      <main className="flex-1 p-6 lg:p-12 max-w-7xl mx-auto w-full flex flex-col gap-8 relative z-10">
         {/* Header Section with Balance & Regime */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-6 pb-2">
           <BalanceCounter 
