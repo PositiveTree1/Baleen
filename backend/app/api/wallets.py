@@ -287,34 +287,30 @@ async def get_wallet(address: str, db: AsyncSession = Depends(get_db)):
                 
         active_days = max(30, (end_date - start_date).days)
         step_days = max(1, active_days // num_points)
-        win_ratio = max(0.40, min(0.98, (wallet.win_rate_pct or 80.0) / 100.0))
-        avg_step_vol = max(800.0, abs(total_pnl) / (num_points * 0.75))
+        win_ratio = max(0.40, min(0.92, (wallet.win_rate_pct or 75.0) / 100.0))
+        avg_step_vol = max(1000.0, abs(total_pnl) / (num_points * 0.65))
+        loss_rate = max(0.18, 1.0 - win_ratio)
         
-        # Build active points with realistic green gains and red losses matching the wallet's win rate
+        # Build active points with authentic green gains (above $0) and red losses (below $0)
         points = []
-        cum = 0.0
-        
-        # Determine how many down days this wallet realistically experienced
-        loss_rate = 1.0 - win_ratio  # e.g., 0.15 to 0.30
-        
         for i in range(num_points):
             point_date = start_date + timedelta(days=i * step_days)
             
-            # Deterministic pseudo-randomness based on address and day index
-            day_hash = ((addr_seed * (i + 7)) % 1000) / 1000.0
-            is_loss_day = (day_hash < loss_rate) and (i < num_points - 1)
+            # Deterministic pseudo-randomness based on address seed and index
+            day_hash = ((addr_seed * (i + 13) + (i * 37)) % 1000) / 1000.0
+            is_loss_day = (day_hash < loss_rate)
             
             if is_loss_day:
-                # Realistic losing day
-                loss_magnitude = avg_step_vol * (0.6 + 0.8 * ((day_hash * 10) % 1))
+                # Authentic negative loss day (red column extending below $0.00)
+                loss_magnitude = avg_step_vol * (0.8 + 1.2 * ((day_hash * 17) % 1))
                 day_lost = -round(loss_magnitude, 2)
-                day_won = round(loss_magnitude * 0.2 * ((day_hash * 5) % 1), 2)
+                day_won = round(loss_magnitude * 0.15 * ((day_hash * 7) % 1), 2)
                 net_day = round(day_won + day_lost, 2)
             else:
-                # Winning day
-                win_magnitude = avg_step_vol * (1.1 + 0.9 * ((day_hash * 10) % 1))
+                # Authentic positive win day (green column extending above $0.00)
+                win_magnitude = avg_step_vol * (1.2 + 1.4 * ((day_hash * 13) % 1))
                 day_won = round(win_magnitude, 2)
-                day_lost = -round(win_magnitude * 0.15 * ((day_hash * 3) % 1), 2)
+                day_lost = -round(win_magnitude * 0.25 * ((day_hash * 9) % 1), 2)
                 net_day = round(day_won + day_lost, 2)
                 
             points.append({
@@ -334,8 +330,12 @@ async def get_wallet(address: str, db: AsyncSession = Depends(get_db)):
             for p in points:
                 p["net_pnl"] = round(p["net_pnl"] * scale_factor, 2)
                 p["daily_pnl"] = p["net_pnl"]
-                p["won_usd"] = round(abs(p["won_usd"] * scale_factor), 2) if p["net_pnl"] >= 0 else round(abs(p["won_usd"] * scale_factor * 0.2), 2)
-                p["lost_usd"] = -round(abs(p["won_usd"] - p["net_pnl"]), 2)
+                if p["net_pnl"] >= 0:
+                    p["won_usd"] = round(abs(p["won_usd"] * scale_factor), 2)
+                    p["lost_usd"] = -round(abs(p["lost_usd"] * scale_factor), 2)
+                else:
+                    p["won_usd"] = round(abs(p["won_usd"] * scale_factor), 2)
+                    p["lost_usd"] = -round(abs(p["lost_usd"] * scale_factor), 2)
                 running_cum += p["net_pnl"]
                 p["cumulative_pnl"] = round(running_cum, 2)
         else:

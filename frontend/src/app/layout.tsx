@@ -1,5 +1,5 @@
 import type { Metadata } from 'next'
-import { Plus_Jakarta_Sans, Space_Grotesk, Inter } from 'next/font/google'
+import { Plus_Jakarta_Sans, Space_Grotesk, Inter, Syne } from 'next/font/google'
 import { Providers } from './providers'
 import './globals.css'
 
@@ -7,6 +7,11 @@ const jakarta = Plus_Jakarta_Sans({
   subsets: ['latin'], 
   variable: '--font-jakarta',
   weight: ['400', '500', '600', '700', '800']
+})
+const syne = Syne({
+  subsets: ['latin'],
+  variable: '--font-syne',
+  weight: ['600', '700', '800']
 })
 const spaceGrotesk = Space_Grotesk({ subsets: ['latin'], variable: '--font-space' })
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter' })
@@ -23,7 +28,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className={`${jakarta.variable} ${inter.variable} ${spaceGrotesk.variable} font-sans antialiased bg-[#F8F9FB] text-slate-900 min-h-screen flex flex-col`}>
+      <body className={`${jakarta.variable} ${syne.variable} ${inter.variable} ${spaceGrotesk.variable} font-sans antialiased bg-[#F8F9FB] text-slate-900 min-h-screen flex flex-col`}>
         <Providers>{children}</Providers>
       </body>
     </html>

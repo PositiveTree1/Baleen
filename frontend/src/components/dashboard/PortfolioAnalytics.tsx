@@ -212,8 +212,14 @@ export function PortfolioAnalytics({
           };
         });
 
+        // If currentBalance is still initial default (10000.0) while timeline already has real balance (> 10050),
+        // use the latest snapshot's balance to avoid a false 10k plunge on initial load
+        const lastSnapshotBal = timeline.length > 0 ? timeline[timeline.length - 1].balance : 10000.0;
+        const isDefaultFallback = (currentBalance === 10000.0 && Math.abs(lastSnapshotBal - 10000.0) > 50.0);
+        const resolvedCurrentBalance = isDefaultFallback ? lastSnapshotBal : currentBalance;
+
         // Always ensure the timeline culminates at the present moment with the authoritative current balance
-        if (currentBalance > 0) {
+        if (resolvedCurrentBalance > 0) {
           const now = new Date();
           const nowTimeStr = formatFrenchTime(now);
           const nowDateStr = formatFrenchDate(now);
@@ -221,8 +227,8 @@ export function PortfolioAnalytics({
             displayTime: isMultiDay && nowDateStr ? `${nowDateStr} ${nowTimeStr}` : nowTimeStr,
             time: nowTimeStr,
             date: nowDateStr,
-            balance: Math.round(currentBalance * 100) / 100,
-            pnl: Math.round((currentBalance - startingBalance) * 100) / 100,
+            balance: Math.round(resolvedCurrentBalance * 100) / 100,
+            pnl: Math.round((resolvedCurrentBalance - startingBalance) * 100) / 100,
             rawTimestamp: now.getTime(),
           };
 
@@ -234,8 +240,8 @@ export function PortfolioAnalytics({
             if ((now.getTime() - lastPoint.rawTimestamp) > 180000) {
               timeline.push(livePoint);
             } else {
-              lastPoint.balance = Math.round(currentBalance * 100) / 100;
-              lastPoint.pnl = Math.round((currentBalance - startingBalance) * 100) / 100;
+              lastPoint.balance = Math.round(resolvedCurrentBalance * 100) / 100;
+              lastPoint.pnl = Math.round((resolvedCurrentBalance - startingBalance) * 100) / 100;
               lastPoint.displayTime = livePoint.displayTime;
               lastPoint.time = livePoint.time;
               lastPoint.date = livePoint.date;
@@ -548,19 +554,22 @@ export function PortfolioAnalytics({
         </div>
       )}
 
-      {/* Raw Snapshot Data Modal */}
+      {/* Raw Snapshot Data Modal (Apple Acrylic Sheet) */}
       {showRawDataModal && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/75 backdrop-blur-md">
-          <div className="w-full max-w-3xl max-h-[85vh] bg-white rounded-3xl p-6 shadow-2xl border border-black/[0.08] flex flex-col space-y-4 relative z-[101]">
-            <div className="flex items-center justify-between border-b border-black/[0.06] pb-3">
-              <div className="flex items-center gap-2.5">
-                <div className="p-2 rounded-xl bg-indigo-50 text-indigo-600 border border-indigo-200">
+        <div className="fixed inset-0 z-[999] flex items-center justify-center p-4 sm:p-6 bg-black/60 backdrop-blur-md animate-in fade-in duration-200">
+          <div 
+            className="w-full max-w-2xl max-h-[85vh] bg-white rounded-3xl p-6 shadow-2xl border border-black/[0.08] flex flex-col space-y-4 relative animate-in zoom-in-95 duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between border-b border-black/[0.06] pb-3.5">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-2xl bg-indigo-50 text-indigo-600 border border-indigo-200/80">
                   <Database size={16} />
                 </div>
                 <div>
-                  <h3 className="text-sm font-bold text-slate-900">Received Chart Snapshot Data</h3>
+                  <h3 className="text-sm font-bold text-slate-900 tracking-tight">Chart Ledger Snapshots</h3>
                   <p className="text-[11px] text-slate-500 font-mono">
-                    Timeframe: <span className="font-bold text-slate-800">{timeframe}</span> • {pnlTimeline.length} points received from server
+                    Timeframe: <span className="font-bold text-slate-800 uppercase">{timeframe}</span> • {pnlTimeline.length} points
                   </p>
                 </div>
               </div>
@@ -575,7 +584,7 @@ export function PortfolioAnalytics({
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-xs font-semibold text-slate-700 transition-colors cursor-pointer"
                 >
                   {copied ? <Check size={13} className="text-emerald-600" /> : <Copy size={13} />}
-                  <span>{copied ? 'Copied!' : 'Copy JSON'}</span>
+                  <span>{copied ? 'Copied' : 'Copy JSON'}</span>
                 </button>
                 <button
                   onClick={() => setShowRawDataModal(false)}
@@ -587,13 +596,13 @@ export function PortfolioAnalytics({
             </div>
 
             {/* Code / JSON Viewer */}
-            <div className="flex-1 overflow-auto bg-slate-950 text-emerald-400 p-4 rounded-2xl font-mono text-xs leading-relaxed border border-white/10 shadow-inner max-h-[60vh]">
+            <div className="flex-1 overflow-auto bg-slate-950 text-emerald-400 p-4 rounded-2xl font-mono text-xs leading-relaxed border border-white/10 shadow-inner max-h-[55vh] selection:bg-emerald-500 selection:text-black">
               <pre>{JSON.stringify(pnlTimeline, null, 2)}</pre>
             </div>
 
-            <div className="flex justify-between items-center text-[11px] text-slate-400 pt-1">
-              <span>Endpoint: <code className="text-slate-600 font-mono">/api/executions/snapshots?timeframe={timeframe.toLowerCase()}</code></span>
-              <span>Latest Balance: <strong className="text-slate-800">${(pnlTimeline[pnlTimeline.length - 1]?.balance ?? currentBalance).toLocaleString(undefined, { minimumFractionDigits: 2 })}</strong></span>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 text-[11px] text-slate-400 pt-1">
+              <span className="truncate">Endpoint: <code className="text-slate-600 font-mono">/api/executions/snapshots?timeframe={timeframe.toLowerCase()}</code></span>
+              <span className="shrink-0">Latest Balance: <strong className="text-slate-900 font-mono">${(pnlTimeline[pnlTimeline.length - 1]?.balance ?? currentBalance).toLocaleString(undefined, { minimumFractionDigits: 2 })}</strong></span>
             </div>
           </div>
         </div>
