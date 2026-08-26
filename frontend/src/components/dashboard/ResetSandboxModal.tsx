@@ -10,7 +10,8 @@ interface ResetSandboxModalProps {
   onClose: () => void;
   userId?: string;
   currentBalance: number;
-  onResetComplete: () => void;
+  onResetComplete?: () => void;
+  onComplete?: () => void;
 }
 
 const PRESETS = [500, 1000, 5000, 10000, 25000];
@@ -20,7 +21,8 @@ export function ResetSandboxModal({
   onClose,
   userId,
   currentBalance,
-  onResetComplete
+  onResetComplete,
+  onComplete
 }: ResetSandboxModalProps) {
   const [selectedAmount, setSelectedAmount] = useState<number>(10000);
   const [customAmount, setCustomAmount] = useState<string>('10000');
@@ -55,7 +57,8 @@ export function ResetSandboxModal({
       setSuccess(true);
       setTimeout(() => {
         setSuccess(false);
-        onResetComplete();
+        if (onResetComplete) onResetComplete();
+        if (onComplete) onComplete();
         onClose();
         window.location.reload();
       }, 500);

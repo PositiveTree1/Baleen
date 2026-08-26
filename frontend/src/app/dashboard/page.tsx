@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import { motion, Reorder, AnimatePresence } from 'framer-motion';
@@ -474,7 +474,7 @@ export default function DashboardPage() {
         onClose={() => setIsResetOpen(false)}
         userId={session?.user?.id}
         currentBalance={liveBalance}
-        onComplete={loadData}
+        onResetComplete={loadData}
       />
 
       {/* Activity Feed / Notification Panel */}
