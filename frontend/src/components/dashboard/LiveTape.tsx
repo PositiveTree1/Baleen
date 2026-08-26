@@ -44,15 +44,10 @@ export function LiveTape({ userId, onSelectTrade }: LiveTapeProps) {
         <div className="flex items-center gap-2.5">
           <Activity size={16} className="text-slate-900" />
           <h3 className="text-sm font-bold text-slate-900 tracking-tight">Live Execution Tape</h3>
-          <div className="flex items-center gap-1.5 ml-2">
-            <span className="relative flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-500 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-            </span>
-            <span className="text-[10px] font-mono text-emerald-700 font-bold bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
-              Polygon CTF
-            </span>
-          </div>
+          <span className="relative flex h-2 w-2 ml-1">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-500 opacity-75"></span>
+            <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+          </span>
         </div>
 
         {/* Filter Pills */}

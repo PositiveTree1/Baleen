@@ -304,12 +304,7 @@ export function PortfolioAnalytics({
         <div className="lg:col-span-2 p-6 rounded-3xl apple-glass light-refraction relative overflow-hidden space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Sandbox Capital Curve</span>
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
-                  <Zap size={10} /> Real-Time MTM
-                </span>
-              </div>
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Sandbox Capital Curve</span>
               <div className="flex items-baseline gap-2.5 sm:gap-3 mt-1 flex-wrap sm:flex-nowrap">
                 <span className="text-2xl sm:text-3xl font-extrabold font-mono text-slate-950 tabular-nums whitespace-nowrap">
                   ${currentBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
@@ -641,8 +636,8 @@ export function PortfolioAnalytics({
 
       {/* Raw Snapshot Data Modal */}
       {showRawDataModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm">
-          <div className="w-full max-w-3xl max-h-[85vh] bg-white rounded-3xl p-6 shadow-2xl border border-black/[0.08] flex flex-col space-y-4">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/75 backdrop-blur-md">
+          <div className="w-full max-w-3xl max-h-[85vh] bg-white rounded-3xl p-6 shadow-2xl border border-black/[0.08] flex flex-col space-y-4 relative z-[101]">
             <div className="flex items-center justify-between border-b border-black/[0.06] pb-3">
               <div className="flex items-center gap-2.5">
                 <div className="p-2 rounded-xl bg-indigo-50 text-indigo-600 border border-indigo-200">

@@ -84,10 +84,6 @@ export default function DashboardPage() {
       <nav className="flex items-center justify-between py-4 px-6 lg:px-12 border-b border-black/[0.06] bg-white/70 backdrop-blur-2xl sticky top-0 z-40 shadow-[0_1px_2px_rgba(0,0,0,0.02)]">
         <BrandLogo href="/" subtitle="Control Plane" />
         <div className="flex items-center gap-3">
-          <div className="hidden sm:flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold text-emerald-800 bg-emerald-50 border border-emerald-200 shadow-[inset_0_1px_0_rgba(255,255,255,0.8)]">
-            <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-            <span>HyperSync Live</span>
-          </div>
 
           <button
             onClick={() => setActivityOpen(true)}

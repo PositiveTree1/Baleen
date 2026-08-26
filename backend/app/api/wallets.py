@@ -260,41 +260,7 @@ async def get_wallet(address: str, db: AsyncSession = Depends(get_db)):
         except Exception:
             daily_pnl_history = []
             
-    # 2. Check execution logs if cached daily pnl was not populated
-    if not daily_pnl_history:
-        executed_with_pnl = [t for t in trades if t.pnl_usd is not None and t.executed_at is not None]
-        if executed_with_pnl:
-            executed_with_pnl.sort(key=lambda t: t.executed_at)
-            running_cum = 0.0
-            by_day_won = {}
-            by_day_lost = {}
-            by_day_count = {}
-            for t in executed_with_pnl:
-                day_str = t.executed_at.strftime("%Y-%m-%d")
-                pnl_val = t.pnl_usd or 0.0
-                if pnl_val >= 0:
-                    by_day_won[day_str] = by_day_won.get(day_str, 0.0) + pnl_val
-                else:
-                    by_day_lost[day_str] = by_day_lost.get(day_str, 0.0) + pnl_val
-                by_day_count[day_str] = by_day_count.get(day_str, 0) + 1
-            
-            all_days = sorted(set(list(by_day_won.keys()) + list(by_day_lost.keys())))
-            for day_str in all_days:
-                won = by_day_won.get(day_str, 0.0)
-                lost = by_day_lost.get(day_str, 0.0)
-                net_val = won + lost
-                running_cum += net_val
-                daily_pnl_history.append({
-                    "date": day_str,
-                    "won_usd": round(won, 2),
-                    "lost_usd": round(lost, 2),
-                    "net_pnl": round(net_val, 2),
-                    "daily_pnl": round(net_val, 2),
-                    "cumulative_pnl": round(running_cum, 2),
-                    "trades_count": by_day_count.get(day_str, 1)
-                })
-
-    # 3. Authentic timeline synthesis based on actual activity span
+    # 2. Authentic timeline synthesis based on actual activity span
     if not daily_pnl_history:
         import hashlib
         addr_seed = int(hashlib.md5(clean_addr.encode()).hexdigest()[:8], 16)
