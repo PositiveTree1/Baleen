@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import { BalanceCounter } from '@/components/dashboard/BalanceCounter';
@@ -110,6 +110,10 @@ export default function DashboardPage() {
             {soundActive ? <Volume2 size={16} /> : <VolumeX size={16} />}
           </button>
 
+          <Link href="/playground" className="text-xs font-bold text-indigo-600 hover:text-indigo-800 transition-colors px-3 py-1.5 rounded-xl bg-indigo-50/80 border border-indigo-200/60 hover:bg-indigo-100/60 flex items-center gap-1.5 shadow-xs">
+            <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse" />
+            UI Lab
+          </Link>
           <Link href="/admin" className="text-xs font-semibold text-slate-600 hover:text-slate-900 transition-colors px-3 py-1.5 rounded-xl hover:bg-black/5">
             Admin
           </Link>
