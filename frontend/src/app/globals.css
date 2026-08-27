@@ -31,45 +31,71 @@
     letter-spacing: 0.08em;
   }
 
-  /* Revolut Dark FinTech Design System Tokens */
+  /* Revolut FinTech Design System Tokens (Light Default & Dark Mode) */
   .revolut-canvas {
+    background-color: #F8F9FB;
+    color: #0F172A;
+  }
+  .dark .revolut-canvas {
     background-color: #000000;
     color: #FFFFFF;
   }
 
   .revolut-card {
+    background-color: #FFFFFF;
+    border: 1px solid rgba(0, 0, 0, 0.06);
+    border-radius: 26px;
+    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.02), 0 4px 16px -2px rgba(15, 23, 42, 0.04);
+  }
+  .dark .revolut-card {
     background-color: #16171B;
     border: 1px solid rgba(255, 255, 255, 0.08);
-    border-radius: 26px;
     box-shadow: 0 4px 24px -4px rgba(0, 0, 0, 0.5);
   }
 
   .revolut-card-sub {
+    background-color: #F1F3F5;
+    border: 1px solid rgba(0, 0, 0, 0.04);
+    border-radius: 22px;
+  }
+  .dark .revolut-card-sub {
     background-color: #1C1D22;
     border: 1px solid rgba(255, 255, 255, 0.06);
-    border-radius: 22px;
   }
 
   .revolut-pill {
+    background-color: #E9ECEF;
+    color: #0F172A;
+    border-radius: 9999px;
+  }
+  .dark .revolut-pill {
     background-color: #2C2D35;
     color: #FFFFFF;
-    border-radius: 9999px;
   }
 
   .revolut-circle-btn {
     width: 3.5rem;
     height: 3.5rem;
     border-radius: 9999px;
-    background-color: #1C1D22;
-    border: 1px solid rgba(255, 255, 255, 0.10);
+    background-color: #F1F3F5;
+    border: 1px solid rgba(0, 0, 0, 0.08);
     display: flex;
     align-items: center;
     justify-content: center;
-    color: #FFFFFF;
+    color: #0F172A;
     transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .dark .revolut-circle-btn {
+    background-color: #1C1D22;
+    border: 1px solid rgba(255, 255, 255, 0.10);
+    color: #FFFFFF;
   }
 
   .revolut-circle-btn:hover {
+    background-color: #E2E6EA;
+    transform: scale(1.04);
+  }
+  .dark .revolut-circle-btn:hover {
     background-color: #2C2D35;
     border-color: rgba(255, 255, 255, 0.20);
     transform: scale(1.04);

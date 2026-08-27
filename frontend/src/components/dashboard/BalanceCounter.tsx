@@ -50,17 +50,17 @@ export function BalanceCounter({
   return (
     <div className="flex flex-col items-center sm:items-start gap-4 select-none w-full">
       {/* Subtitle & Badge */}
-      <div className="flex items-center gap-2 text-xs font-semibold text-[#8E8F99]">
+      <div className="flex items-center gap-2 text-xs font-semibold text-slate-500 dark:text-[#8E8F99]">
         <span>Personal · USD</span>
-        <span className="w-1 h-1 rounded-full bg-[#8E8F99]" />
-        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold text-white bg-[#2C2D35]">
+        <span className="w-1 h-1 rounded-full bg-slate-400 dark:bg-[#8E8F99]" />
+        <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold text-slate-700 dark:text-white bg-slate-200/80 dark:bg-[#2C2D35] border border-black/[0.04] dark:border-white/5 shadow-2xs">
           Sandbox
         </span>
       </div>
 
       {/* Main Authoritative Balance */}
       <div className="flex flex-col sm:flex-row sm:items-baseline gap-3">
-        <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight text-white font-outfit">
+        <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight text-slate-950 dark:text-white font-outfit">
           {isClient ? (
             <motion.span>{displayValue}</motion.span>
           ) : (
@@ -72,8 +72,8 @@ export function BalanceCounter({
         {hasPnl && (
           <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold font-mono ${
             isPositive 
-              ? 'text-[#00D09C] bg-[#00D09C]/10 border border-[#00D09C]/20' 
-              : 'text-[#FF453A] bg-[#FF453A]/10 border border-[#FF453A]/20'
+              ? 'text-emerald-700 dark:text-[#00D09C] bg-emerald-50 dark:bg-[#00D09C]/10 border border-emerald-200 dark:border-[#00D09C]/20' 
+              : 'text-rose-700 dark:text-[#FF453A] bg-rose-50 dark:bg-[#FF453A]/10 border border-rose-200 dark:border-[#FF453A]/20'
           }`}>
             {isPositive ? <TrendingUp size={13} /> : <TrendingDown size={13} />}
             <span>
@@ -89,36 +89,36 @@ export function BalanceCounter({
         <div className="flex flex-col items-center gap-1.5">
           <button
             onClick={onMirrorClick}
-            className="revolut-circle-btn cursor-pointer shadow-lg"
+            className="revolut-circle-btn cursor-pointer shadow-xs dark:shadow-lg"
             title="Mirror Top Polymarket Whales"
           >
-            <Plus size={22} className="text-white" />
+            <Plus size={22} className="text-slate-800 dark:text-white" />
           </button>
-          <span className="text-xs font-semibold text-white/90">Mirror</span>
+          <span className="text-xs font-semibold text-slate-700 dark:text-white/90">Mirror</span>
         </div>
 
         {/* Action 2: Move / Rebalance */}
         <div className="flex flex-col items-center gap-1.5">
           <button
             onClick={onRebalanceClick}
-            className="revolut-circle-btn cursor-pointer shadow-lg"
+            className="revolut-circle-btn cursor-pointer shadow-xs dark:shadow-lg"
             title="Rebalance Basket Allocation"
           >
-            <ArrowLeftRight size={20} className="text-white" />
+            <ArrowLeftRight size={20} className="text-slate-800 dark:text-white" />
           </button>
-          <span className="text-xs font-semibold text-white/90">Rebalance</span>
+          <span className="text-xs font-semibold text-slate-700 dark:text-white/90">Rebalance</span>
         </div>
 
         {/* Action 3: Analytics */}
         <div className="flex flex-col items-center gap-1.5">
           <button
             onClick={onAnalyticsClick}
-            className="revolut-circle-btn cursor-pointer shadow-lg"
+            className="revolut-circle-btn cursor-pointer shadow-xs dark:shadow-lg"
             title="View Portfolio Analytics"
           >
-            <BarChart2 size={20} className="text-white" />
+            <BarChart2 size={20} className="text-slate-800 dark:text-white" />
           </button>
-          <span className="text-xs font-semibold text-white/90">Analytics</span>
+          <span className="text-xs font-semibold text-slate-700 dark:text-white/90">Analytics</span>
         </div>
 
         {/* Action 4: Reset */}
@@ -126,12 +126,12 @@ export function BalanceCounter({
           <div className="flex flex-col items-center gap-1.5">
             <button
               onClick={onResetClick}
-              className="revolut-circle-btn cursor-pointer shadow-lg hover:border-rose-500/40"
+              className="revolut-circle-btn cursor-pointer shadow-xs dark:shadow-lg hover:border-rose-500/40"
               title="Reset Sandbox Balance"
             >
-              <RotateCcw size={19} className="text-white/80" />
+              <RotateCcw size={19} className="text-slate-600 dark:text-white/80" />
             </button>
-            <span className="text-xs font-semibold text-white/90">Reset</span>
+            <span className="text-xs font-semibold text-slate-700 dark:text-white/90">Reset</span>
           </div>
         )}
       </div>

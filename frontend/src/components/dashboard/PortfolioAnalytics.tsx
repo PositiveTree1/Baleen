@@ -293,20 +293,20 @@ export function PortfolioAnalytics({
   return (
     <div className="flex flex-col gap-6 w-full">
       {/* ========================================================= */}
-      {/* 1. REVOLUT DARK LINE CHART CARD */}
+      {/* 1. REVOLUT LINE CHART CARD */}
       {/* ========================================================= */}
-      <div className="revolut-card bg-[#16171B] border border-white/[0.08] p-6 sm:p-8 space-y-6 rounded-[26px]">
+      <div className="revolut-card p-6 sm:p-8 space-y-6 rounded-[26px]">
         {/* Asset Header & Price */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="space-y-1">
-            <span className="text-xs font-semibold text-[#8E8F99] uppercase tracking-wider">
+            <span className="text-xs font-semibold text-slate-500 dark:text-[#8E8F99] uppercase tracking-wider">
               Polymarket Copy Portfolio · Balance
             </span>
             <div className="flex items-baseline gap-3">
-              <span className="text-3xl sm:text-4xl lg:text-5xl font-bold font-outfit text-white tracking-tight">
+              <span className="text-3xl sm:text-4xl lg:text-5xl font-bold font-outfit text-slate-950 dark:text-white tracking-tight">
                 ${(pnlTimeline[pnlTimeline.length - 1]?.balance ?? currentBalance).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </span>
-              <div className={`inline-flex items-center gap-1 text-xs font-mono font-bold ${isPositive ? 'text-[#00D09C]' : 'text-[#FF453A]'}`}>
+              <div className={`inline-flex items-center gap-1 text-xs font-mono font-bold ${isPositive ? 'text-emerald-600 dark:text-[#00D09C]' : 'text-rose-600 dark:text-[#FF453A]'}`}>
                 {isPositive ? <TrendingUp size={13} /> : <TrendingDown size={13} />}
                 <span>
                   {isPositive ? '+' : ''}${periodPnL.toFixed(2)} ({isPositive ? '+' : ''}{periodPnLPct.toFixed(2)}%) · {timeframe}
@@ -316,7 +316,7 @@ export function PortfolioAnalytics({
           </div>
 
           {/* Revolut Timeframe Pills */}
-          <div className="flex items-center gap-1 bg-[#1C1D22] p-1 rounded-full border border-white/5 shrink-0 overflow-x-auto">
+          <div className="flex items-center gap-1 bg-[#F1F3F5] dark:bg-[#1C1D22] p-1 rounded-full border border-black/[0.04] dark:border-white/5 shrink-0 overflow-x-auto">
             {(['1H', '6H', '1D', '1W', '1M', 'YTD', 'ALL'] as const).map((tf) => {
               const isActive = timeframe === tf;
               return (
@@ -324,7 +324,7 @@ export function PortfolioAnalytics({
                   key={tf}
                   onClick={() => setTimeframe(tf)}
                   className={`px-3 py-1 rounded-full text-xs font-bold transition-all cursor-pointer ${
-                    isActive ? 'bg-[#2C2D35] text-white shadow-sm' : 'text-[#8E8F99] hover:text-white'
+                    isActive ? 'bg-white dark:bg-[#2C2D35] text-slate-950 dark:text-white shadow-2xs' : 'text-slate-500 dark:text-[#8E8F99] hover:text-slate-900 dark:hover:text-white'
                   }`}
                 >
                   {tf}
@@ -340,21 +340,21 @@ export function PortfolioAnalytics({
             <AreaChart data={pnlTimeline} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
               <defs>
                 <linearGradient id="revolutGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor={isPositive ? '#00D09C' : '#FF453A'} stopOpacity={0.28} />
+                  <stop offset="5%" stopColor={isPositive ? '#00D09C' : '#FF453A'} stopOpacity={0.25} />
                   <stop offset="95%" stopColor={isPositive ? '#00D09C' : '#FF453A'} stopOpacity={0.0} />
                 </linearGradient>
               </defs>
-              <XAxis dataKey="displayTime" stroke="#4B4C56" tick={{ fill: '#8E8F99', fontSize: 9, fontWeight: 600 }} tickLine={false} axisLine={false} minTickGap={35} />
-              <YAxis domain={['auto', 'auto']} stroke="#4B4C56" tick={{ fill: '#8E8F99', fontSize: 10, fontWeight: 600 }} tickLine={false} axisLine={false} tickFormatter={(val) => `$${Math.round(val).toLocaleString()}`} />
+              <XAxis dataKey="displayTime" stroke="#94A3B8" tick={{ fill: '#94A3B8', fontSize: 9, fontWeight: 600 }} tickLine={false} axisLine={false} minTickGap={35} />
+              <YAxis domain={['auto', 'auto']} stroke="#94A3B8" tick={{ fill: '#94A3B8', fontSize: 10, fontWeight: 600 }} tickLine={false} axisLine={false} tickFormatter={(val) => `$${Math.round(val).toLocaleString()}`} />
               <Tooltip 
                 content={({ active, payload }) => {
                   if (active && payload && payload.length) {
                     const d = payload[0].payload;
                     return (
-                      <div className="bg-[#1C1D22]/95 backdrop-blur-md text-white px-4 py-3 rounded-2xl text-xs font-mono shadow-2xl border border-white/10 space-y-1">
-                        <div className="text-[10px] text-[#8E8F99] font-bold">{d.date} • {d.time || d.displayTime}</div>
-                        <div className="text-sm font-extrabold text-white">${d.balance.toLocaleString(undefined, { minimumFractionDigits: 2 })}</div>
-                        <div className={`font-bold ${d.pnl >= 0 ? 'text-[#00D09C]' : 'text-[#FF453A]'}`}>
+                      <div className="bg-white dark:bg-[#1C1D22] text-slate-900 dark:text-white px-4 py-3 rounded-2xl text-xs font-mono shadow-xl border border-black/[0.08] dark:border-white/10 space-y-1">
+                        <div className="text-[10px] text-slate-500 dark:text-[#8E8F99] font-bold">{d.date} • {d.time || d.displayTime}</div>
+                        <div className="text-sm font-extrabold text-slate-950 dark:text-white">${d.balance.toLocaleString(undefined, { minimumFractionDigits: 2 })}</div>
+                        <div className={`font-bold ${d.pnl >= 0 ? 'text-emerald-600 dark:text-[#00D09C]' : 'text-rose-600 dark:text-[#FF453A]'}`}>
                           {d.pnl >= 0 ? '+' : ''}${d.pnl.toFixed(2)} Mark-to-Market
                         </div>
                       </div>
@@ -376,21 +376,21 @@ export function PortfolioAnalytics({
         </div>
 
         {/* Revolut Informational Caption */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-3 border-t border-white/5 text-[11px] text-[#8E8F99]">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-3 border-t border-black/[0.04] dark:border-white/5 text-[11px] text-slate-500 dark:text-[#8E8F99]">
           <p>
             Mark-to-market valuations reflect real-time Polymarket CLOB midpoint orderbook prices and execution fills.
           </p>
           <div className="flex items-center gap-2">
             <button
               onClick={() => setShowResetModal(true)}
-              className="text-xs text-[#8E8F99] hover:text-white transition-colors cursor-pointer flex items-center gap-1 font-semibold"
+              className="text-xs text-slate-500 dark:text-[#8E8F99] hover:text-slate-950 dark:hover:text-white transition-colors cursor-pointer flex items-center gap-1 font-semibold"
             >
               <RefreshCw size={12} />
               Reset Ledger
             </button>
             <button
               onClick={() => setShowRawDataModal(true)}
-              className="text-xs text-[#8E8F99] hover:text-white transition-colors cursor-pointer flex items-center gap-1 font-semibold ml-2"
+              className="text-xs text-slate-500 dark:text-[#8E8F99] hover:text-slate-950 dark:hover:text-white transition-colors cursor-pointer flex items-center gap-1 font-semibold ml-2"
             >
               <Code2 size={12} />
               Raw Data
@@ -405,61 +405,61 @@ export function PortfolioAnalytics({
       <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
         
         {/* Card 1: Active Capital Allocation (Multi-Segment Bar) */}
-        <div className="revolut-card bg-[#16171B] border border-white/[0.08] p-5 space-y-4 rounded-[26px]">
+        <div className="revolut-card p-5 space-y-4 rounded-[26px]">
           <div className="space-y-1">
-            <span className="text-xs font-semibold text-[#8E8F99]">Capital Allocation</span>
-            <div className="text-2xl font-bold text-white font-outfit">
+            <span className="text-xs font-semibold text-slate-500 dark:text-[#8E8F99]">Capital Allocation</span>
+            <div className="text-2xl font-bold text-slate-950 dark:text-white font-outfit">
               ${totalNotionalInvested.toLocaleString(undefined, { maximumFractionDigits: 0 })}
             </div>
           </div>
 
           {/* Segmented Progress Bar */}
-          <div className="h-2.5 w-full rounded-full bg-[#1C1D22] overflow-hidden flex gap-1">
+          <div className="h-2.5 w-full rounded-full bg-slate-100 dark:bg-[#1C1D22] overflow-hidden flex gap-1">
             <div className="h-full bg-[#00D09C] rounded-full" style={{ width: '42%' }} />
             <div className="h-full bg-[#FF7A00] rounded-full" style={{ width: '28%' }} />
             <div className="h-full bg-[#FF2D78] rounded-full" style={{ width: '18%' }} />
-            <div className="h-full bg-[#787985] rounded-full" style={{ width: '12%' }} />
+            <div className="h-full bg-slate-300 dark:bg-[#787985] rounded-full" style={{ width: '12%' }} />
           </div>
 
           {/* Legend */}
-          <div className="grid grid-cols-2 gap-2 text-[11px] font-semibold text-[#8E8F99]">
+          <div className="grid grid-cols-2 gap-2 text-[11px] font-semibold text-slate-600 dark:text-[#8E8F99]">
             <div className="flex items-center gap-1.5">
               <span className="w-2 h-2 rounded-full bg-[#00D09C]" />
-              <span className="text-white">hoodr</span> (42%)
+              <span className="text-slate-900 dark:text-white">hoodr</span> (42%)
             </div>
             <div className="flex items-center gap-1.5">
               <span className="w-2 h-2 rounded-full bg-[#FF7A00]" />
-              <span className="text-white">Kracken</span> (28%)
+              <span className="text-slate-900 dark:text-white">Kracken</span> (28%)
             </div>
             <div className="flex items-center gap-1.5">
               <span className="w-2 h-2 rounded-full bg-[#FF2D78]" />
-              <span className="text-white">bloodmaster</span> (18%)
+              <span className="text-slate-900 dark:text-white">bloodmaster</span> (18%)
             </div>
             <div className="flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-[#787985]" />
+              <span className="w-2 h-2 rounded-full bg-slate-400 dark:bg-[#787985]" />
               <span>Others</span> (12%)
             </div>
           </div>
         </div>
 
         {/* Card 2: Execution Win Rate & Micro Dual-Bars */}
-        <div className="revolut-card bg-[#16171B] border border-white/[0.08] p-5 space-y-4 rounded-[26px]">
+        <div className="revolut-card p-5 space-y-4 rounded-[26px]">
           <div className="space-y-1">
-            <span className="text-xs font-semibold text-[#8E8F99]">Execution Win Rate</span>
-            <div className="text-2xl font-bold text-white font-outfit">
-              {winRate.toFixed(1)}% <span className="text-xs text-[#8E8F99] font-normal">({totalWins}W / {totalLosses}L)</span>
+            <span className="text-xs font-semibold text-slate-500 dark:text-[#8E8F99]">Execution Win Rate</span>
+            <div className="text-2xl font-bold text-slate-950 dark:text-white font-outfit">
+              {winRate.toFixed(1)}% <span className="text-xs text-slate-500 dark:text-[#8E8F99] font-normal">({totalWins}W / {totalLosses}L)</span>
             </div>
           </div>
 
           {/* Dual Progress Bars */}
           <div className="space-y-2">
-            <div className="h-2 w-full rounded-full bg-[#1C1D22] overflow-hidden">
+            <div className="h-2 w-full rounded-full bg-slate-100 dark:bg-[#1C1D22] overflow-hidden">
               <div 
                 className="h-full bg-[#00D09C] rounded-full transition-all" 
                 style={{ width: `${Math.min(100, Math.max(5, winRate))}%` }} 
               />
             </div>
-            <div className="h-2 w-full rounded-full bg-[#1C1D22] overflow-hidden">
+            <div className="h-2 w-full rounded-full bg-slate-100 dark:bg-[#1C1D22] overflow-hidden">
               <div 
                 className="h-full bg-[#FF453A] rounded-full transition-all" 
                 style={{ width: `${Math.min(100, Math.max(5, 100 - winRate))}%` }} 
@@ -468,32 +468,32 @@ export function PortfolioAnalytics({
           </div>
 
           <div className="flex justify-between text-[11px] font-semibold">
-            <span className="text-[#00D09C]">{totalWins} Profitable Fills</span>
-            <span className="text-[#FF453A]">{totalLosses} Unprofitable Fills</span>
+            <span className="text-emerald-600 dark:text-[#00D09C]">{totalWins} Profitable Fills</span>
+            <span className="text-rose-600 dark:text-[#FF453A]">{totalLosses} Unprofitable Fills</span>
           </div>
         </div>
 
         {/* Card 3: Taker Fee & Cashflow Efficiency */}
-        <div className="revolut-card bg-[#16171B] border border-white/[0.08] p-5 space-y-4 rounded-[26px]">
+        <div className="revolut-card p-5 space-y-4 rounded-[26px]">
           <div className="space-y-1">
-            <span className="text-xs font-semibold text-[#8E8F99]">Quadratic Fee Rate</span>
-            <div className="text-2xl font-bold text-white font-outfit">
-              {feeRatePct.toFixed(2)}% <span className="text-xs text-[#00D09C] font-semibold">● On track</span>
+            <span className="text-xs font-semibold text-slate-500 dark:text-[#8E8F99]">Quadratic Fee Rate</span>
+            <div className="text-2xl font-bold text-slate-950 dark:text-white font-outfit">
+              {feeRatePct.toFixed(2)}% <span className="text-xs text-emerald-600 dark:text-[#00D09C] font-semibold">● On track</span>
             </div>
           </div>
 
           {/* Micro Vertical Indicator Bars */}
           <div className="flex items-end gap-1.5 h-6">
-            <div className="w-2.5 h-3 bg-[#2C2D35] rounded-full" />
-            <div className="w-2.5 h-5 bg-[#2C2D35] rounded-full" />
+            <div className="w-2.5 h-3 bg-slate-200 dark:bg-[#2C2D35] rounded-full" />
+            <div className="w-2.5 h-5 bg-slate-200 dark:bg-[#2C2D35] rounded-full" />
             <div className="w-2.5 h-6 bg-[#00D09C] rounded-full" />
-            <div className="w-2.5 h-4 bg-[#2C2D35] rounded-full" />
+            <div className="w-2.5 h-4 bg-slate-200 dark:bg-[#2C2D35] rounded-full" />
             <div className="w-2.5 h-5 bg-[#00D09C] rounded-full" />
           </div>
 
-          <div className="flex justify-between text-[11px] text-[#8E8F99]">
+          <div className="flex justify-between text-[11px] text-slate-500 dark:text-[#8E8F99]">
             <span>Dynamic Polymarket Taker Gate</span>
-            <span className="text-white font-mono font-bold">EV &gt; 2.5× Fee</span>
+            <span className="text-slate-950 dark:text-white font-mono font-bold">EV &gt; 2.5× Fee</span>
           </div>
         </div>
 
@@ -505,33 +505,33 @@ export function PortfolioAnalytics({
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
         
         {/* Top Alpha Generators */}
-        <div className="revolut-card bg-[#16171B] border border-white/[0.08] p-5 sm:p-6 space-y-4 rounded-[26px]">
+        <div className="revolut-card p-5 sm:p-6 space-y-4 rounded-[26px]">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <div className="w-7 h-7 rounded-full bg-[#00D09C]/10 border border-[#00D09C]/20 flex items-center justify-center text-[#00D09C]">
+              <div className="w-7 h-7 rounded-full bg-emerald-50 dark:bg-[#00D09C]/10 border border-emerald-200 dark:border-[#00D09C]/20 flex items-center justify-center text-emerald-600 dark:text-[#00D09C]">
                 <ArrowUpRight size={15} />
               </div>
-              <h4 className="text-sm font-bold text-white">Top Alpha Generators</h4>
+              <h4 className="text-sm font-bold text-slate-950 dark:text-white">Top Alpha Generators</h4>
             </div>
-            <span className="text-[11px] font-mono text-[#8E8F99]">Closed &amp; Open</span>
+            <span className="text-[11px] font-mono text-slate-400 dark:text-[#8E8F99]">Closed &amp; Open</span>
           </div>
 
           <div className="space-y-2">
             {topAlpha.length === 0 ? (
-              <p className="text-xs text-[#8E8F99] py-4 text-center">No profitable positions recorded yet</p>
+              <p className="text-xs text-slate-400 dark:text-[#8E8F99] py-4 text-center">No profitable positions recorded yet</p>
             ) : (
               topAlpha.map((m) => (
                 <div
                   key={m.key}
                   onClick={() => m.sampleTrade && onSelectTrade && onSelectTrade(m.sampleTrade)}
-                  className="p-3 rounded-2xl bg-[#1C1D22] hover:bg-[#24262E] border border-white/5 transition-all cursor-pointer flex items-center justify-between"
+                  className="p-3 rounded-2xl bg-slate-50 dark:bg-[#1C1D22] hover:bg-slate-100 dark:hover:bg-[#24262E] border border-black/[0.04] dark:border-white/5 transition-all cursor-pointer flex items-center justify-between"
                 >
                   <div className="min-w-0 pr-3">
-                    <p className="text-xs font-semibold text-white truncate">{m.question}</p>
-                    <span className="text-[10px] text-[#8E8F99] font-mono">{m.whaleName} • {m.outcome}</span>
+                    <p className="text-xs font-semibold text-slate-900 dark:text-white truncate">{m.question}</p>
+                    <span className="text-[10px] text-slate-500 dark:text-[#8E8F99] font-mono">{m.whaleName} • {m.outcome}</span>
                   </div>
                   <div className="text-right shrink-0">
-                    <span className="text-xs font-mono font-bold text-[#00D09C]">
+                    <span className="text-xs font-mono font-bold text-emerald-600 dark:text-[#00D09C]">
                       +${m.totalPnl.toFixed(2)}
                     </span>
                   </div>
@@ -542,33 +542,33 @@ export function PortfolioAnalytics({
         </div>
 
         {/* Top Drawdowns */}
-        <div className="revolut-card bg-[#16171B] border border-white/[0.08] p-5 sm:p-6 space-y-4 rounded-[26px]">
+        <div className="revolut-card p-5 sm:p-6 space-y-4 rounded-[26px]">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <div className="w-7 h-7 rounded-full bg-[#FF453A]/10 border border-[#FF453A]/20 flex items-center justify-center text-[#FF453A]">
+              <div className="w-7 h-7 rounded-full bg-rose-50 dark:bg-[#FF453A]/10 border border-rose-200 dark:border-[#FF453A]/20 flex items-center justify-center text-rose-600 dark:text-[#FF453A]">
                 <ArrowDownRight size={15} />
               </div>
-              <h4 className="text-sm font-bold text-white">Top Drawdowns</h4>
+              <h4 className="text-sm font-bold text-slate-950 dark:text-white">Top Drawdowns</h4>
             </div>
-            <span className="text-[11px] font-mono text-[#8E8F99]">Risk Audit</span>
+            <span className="text-[11px] font-mono text-slate-400 dark:text-[#8E8F99]">Risk Audit</span>
           </div>
 
           <div className="space-y-2">
             {topDrawdown.length === 0 ? (
-              <p className="text-xs text-[#8E8F99] py-4 text-center">No drawdown positions recorded</p>
+              <p className="text-xs text-slate-400 dark:text-[#8E8F99] py-4 text-center">No drawdown positions recorded</p>
             ) : (
               topDrawdown.map((m) => (
                 <div
                   key={m.key}
                   onClick={() => m.sampleTrade && onSelectTrade && onSelectTrade(m.sampleTrade)}
-                  className="p-3 rounded-2xl bg-[#1C1D22] hover:bg-[#24262E] border border-white/5 transition-all cursor-pointer flex items-center justify-between"
+                  className="p-3 rounded-2xl bg-slate-50 dark:bg-[#1C1D22] hover:bg-slate-100 dark:hover:bg-[#24262E] border border-black/[0.04] dark:border-white/5 transition-all cursor-pointer flex items-center justify-between"
                 >
                   <div className="min-w-0 pr-3">
-                    <p className="text-xs font-semibold text-white truncate">{m.question}</p>
-                    <span className="text-[10px] text-[#8E8F99] font-mono">{m.whaleName} • {m.outcome}</span>
+                    <p className="text-xs font-semibold text-slate-900 dark:text-white truncate">{m.question}</p>
+                    <span className="text-[10px] text-slate-500 dark:text-[#8E8F99] font-mono">{m.whaleName} • {m.outcome}</span>
                   </div>
                   <div className="text-right shrink-0">
-                    <span className="text-xs font-mono font-bold text-[#FF453A]">
+                    <span className="text-xs font-mono font-bold text-rose-600 dark:text-[#FF453A]">
                       -${Math.abs(m.totalPnl).toFixed(2)}
                     </span>
                   </div>
@@ -584,23 +584,23 @@ export function PortfolioAnalytics({
       {/* RESET SANDBOX MODAL */}
       {/* ========================================================= */}
       {showResetModal && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
-          <div className="revolut-card bg-[#16171B] border border-white/10 p-6 rounded-[28px] max-w-sm w-full space-y-4 shadow-2xl">
-            <h3 className="text-base font-bold text-white">Reset Sandbox to $10,000?</h3>
-            <p className="text-xs text-[#8E8F99]">
+        <div className="fixed inset-0 bg-black/60 dark:bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
+          <div className="revolut-card bg-white dark:bg-[#16171B] border border-black/10 dark:border-white/10 p-6 rounded-[28px] max-w-sm w-full space-y-4 shadow-2xl">
+            <h3 className="text-base font-bold text-slate-950 dark:text-white">Reset Sandbox to $10,000?</h3>
+            <p className="text-xs text-slate-500 dark:text-[#8E8F99]">
               This will clear historical simulation trade logs and reset your balance back to pristine $10,000.00 baseline.
             </p>
             <div className="flex gap-3 pt-2">
               <button
                 onClick={() => setShowResetModal(false)}
-                className="flex-1 py-3 rounded-full bg-[#1C1D22] hover:bg-[#24262E] text-white text-xs font-semibold border border-white/5 transition-all cursor-pointer"
+                className="flex-1 py-3 rounded-full bg-slate-100 dark:bg-[#1C1D22] hover:bg-slate-200 dark:hover:bg-[#24262E] text-slate-800 dark:text-white text-xs font-semibold border border-black/5 dark:border-white/5 transition-all cursor-pointer"
               >
                 Cancel
               </button>
               <button
                 onClick={handleResetExecute}
                 disabled={isResetting}
-                className="flex-1 py-3 rounded-full bg-white hover:bg-slate-200 text-black text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5"
+                className="flex-1 py-3 rounded-full bg-slate-950 dark:bg-white hover:bg-slate-800 dark:hover:bg-slate-200 text-white dark:text-black text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5"
               >
                 {isResetting && <Loader2 size={13} className="animate-spin" />}
                 Confirm Reset
@@ -614,15 +614,15 @@ export function PortfolioAnalytics({
       {/* RAW DATA CODE MODAL */}
       {/* ========================================================= */}
       {showRawDataModal && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
-          <div className="revolut-card bg-[#16171B] border border-white/10 p-6 rounded-[28px] max-w-xl w-full space-y-4 shadow-2xl">
-            <div className="flex items-center justify-between border-b border-white/10 pb-3">
-              <h3 className="text-sm font-bold text-white">Raw Snapshot Data Payload</h3>
-              <button onClick={() => setShowRawDataModal(false)} className="p-1 rounded-full text-[#8E8F99] hover:text-white">
+        <div className="fixed inset-0 bg-black/60 dark:bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
+          <div className="revolut-card bg-white dark:bg-[#16171B] border border-black/10 dark:border-white/10 p-6 rounded-[28px] max-w-xl w-full space-y-4 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-black/10 dark:border-white/10 pb-3">
+              <h3 className="text-sm font-bold text-slate-950 dark:text-white">Raw Snapshot Data Payload</h3>
+              <button onClick={() => setShowRawDataModal(false)} className="p-1 rounded-full text-slate-400 dark:text-[#8E8F99] hover:text-slate-800 dark:hover:text-white">
                 <X size={16} />
               </button>
             </div>
-            <pre className="bg-[#0B0C0E] p-4 rounded-2xl text-[11px] font-mono text-[#00D09C] overflow-x-auto max-h-80 border border-white/5">
+            <pre className="bg-slate-950 p-4 rounded-2xl text-[11px] font-mono text-[#00D09C] overflow-x-auto max-h-80 border border-white/5">
               {JSON.stringify(pnlTimeline, null, 2)}
             </pre>
             <button
@@ -631,7 +631,7 @@ export function PortfolioAnalytics({
                 setCopied(true);
                 setTimeout(() => setCopied(false), 2000);
               }}
-              className="w-full py-3 rounded-full bg-[#1C1D22] hover:bg-[#24262E] text-white text-xs font-bold border border-white/5 transition-all flex items-center justify-center gap-1.5"
+              className="w-full py-3 rounded-full bg-slate-100 dark:bg-[#1C1D22] hover:bg-slate-200 dark:hover:bg-[#24262E] text-slate-800 dark:text-white text-xs font-bold border border-black/5 dark:border-white/5 transition-all flex items-center justify-center gap-1.5"
             >
               {copied ? <Check size={14} className="text-[#00D09C]" /> : <Copy size={14} />}
               {copied ? 'Copied to Clipboard' : 'Copy JSON'}

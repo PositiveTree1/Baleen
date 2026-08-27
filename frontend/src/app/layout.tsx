@@ -33,7 +33,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className={`${jakarta.variable} ${outfit.variable} ${cinzel.variable} ${inter.variable} ${spaceGrotesk.variable} font-sans antialiased bg-[#000000] text-white min-h-screen flex flex-col`}>
+      <body className={`${jakarta.variable} ${outfit.variable} ${cinzel.variable} ${inter.variable} ${spaceGrotesk.variable} font-sans antialiased bg-[#F8F9FB] dark:bg-[#000000] text-slate-900 dark:text-white min-h-screen flex flex-col transition-colors duration-150`}>
         <Providers>{children}</Providers>
       </body>
     </html>

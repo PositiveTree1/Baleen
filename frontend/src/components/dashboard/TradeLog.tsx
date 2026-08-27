@@ -60,25 +60,25 @@ export function TradeLog({
 
   return (
     <>
-      <div className="revolut-card bg-[#16171B] border border-white/[0.08] rounded-[26px] p-5 sm:p-7 space-y-5">
+      <div className="revolut-card rounded-[26px] p-5 sm:p-7 space-y-5">
         {/* Header & Tabs */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-white/5 pb-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-black/[0.04] dark:border-white/5 pb-4">
           <div>
-            <h3 className="text-base font-bold text-white tracking-tight">
+            <h3 className="text-base font-bold text-slate-950 dark:text-white tracking-tight">
               Execution Audit &amp; Transactions Feed
             </h3>
-            <p className="text-xs text-[#8E8F99]">
+            <p className="text-xs text-slate-500 dark:text-[#8E8F99]">
               Live Polymarket CLOB positions, fill audits &amp; PnL tracking
             </p>
           </div>
 
           <div className="flex items-center gap-2">
             {/* Revolut Segmented Pill Filter */}
-            <div className="flex rounded-full bg-[#1C1D22] p-0.5 border border-white/5 text-xs font-bold">
+            <div className="flex rounded-full bg-[#F1F3F5] dark:bg-[#1C1D22] p-0.5 border border-black/[0.04] dark:border-white/5 text-xs font-bold">
               <button
                 onClick={() => setTab('holding')}
                 className={`px-3.5 py-1.5 rounded-full transition-all cursor-pointer ${
-                  tab === 'holding' ? 'bg-[#2C2D35] text-white shadow-sm' : 'text-[#8E8F99] hover:text-white'
+                  tab === 'holding' ? 'bg-white dark:bg-[#2C2D35] text-slate-950 dark:text-white shadow-2xs' : 'text-slate-500 dark:text-[#8E8F99] hover:text-slate-900 dark:hover:text-white'
                 }`}
               >
                 Holding ({totalHoldingCount ?? holdingLogs.length})
@@ -86,7 +86,7 @@ export function TradeLog({
               <button
                 onClick={() => setTab('closed')}
                 className={`px-3.5 py-1.5 rounded-full transition-all cursor-pointer ${
-                  tab === 'closed' ? 'bg-[#2C2D35] text-white shadow-sm' : 'text-[#8E8F99] hover:text-white'
+                  tab === 'closed' ? 'bg-white dark:bg-[#2C2D35] text-slate-950 dark:text-white shadow-2xs' : 'text-slate-500 dark:text-[#8E8F99] hover:text-slate-900 dark:hover:text-white'
                 }`}
               >
                 Closed ({totalClosedCount ?? closedLogs.length})
@@ -95,7 +95,7 @@ export function TradeLog({
 
             <button
               onClick={() => setIsSpreadsheetOpen(true)}
-              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-[#1C1D22] hover:bg-[#2C2D35] text-white text-xs font-semibold border border-white/10 transition-all cursor-pointer"
+              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-[#F1F3F5] dark:bg-[#1C1D22] hover:bg-[#E2E6EA] dark:hover:bg-[#2C2D35] text-slate-800 dark:text-white text-xs font-semibold border border-black/[0.04] dark:border-white/10 transition-all cursor-pointer shadow-2xs"
               title="Open full execution history modal"
             >
               <FileSpreadsheet size={13} className="text-[#00D09C]" />
@@ -105,13 +105,13 @@ export function TradeLog({
         </div>
 
         {/* Transactions Feed (Revolut transaction list style) */}
-        <div className="divide-y divide-white/5 space-y-1">
+        <div className="divide-y divide-black/[0.04] dark:divide-white/5 space-y-1">
           {loading ? (
-            <div className="py-12 text-center text-xs text-[#8E8F99]">
+            <div className="py-12 text-center text-xs text-slate-400 dark:text-[#8E8F99]">
               Loading authoritative execution logs...
             </div>
           ) : displayedLogs.length === 0 ? (
-            <div className="py-12 text-center text-xs text-[#8E8F99]">
+            <div className="py-12 text-center text-xs text-slate-400 dark:text-[#8E8F99]">
               No transactions recorded for this view
             </div>
           ) : (
@@ -128,45 +128,45 @@ export function TradeLog({
                 <div
                   key={trade.id}
                   onClick={() => onSelectTrade && onSelectTrade(trade)}
-                  className="pt-2.5 pb-2.5 px-2 rounded-2xl hover:bg-[#1C1D22] transition-colors cursor-pointer flex items-center justify-between gap-3 group"
+                  className="pt-2.5 pb-2.5 px-2 rounded-2xl hover:bg-slate-50 dark:hover:bg-[#1C1D22] transition-colors cursor-pointer flex items-center justify-between gap-3 group"
                 >
                   {/* Left: Outcome Badge & Title */}
                   <div className="flex items-center gap-3 min-w-0">
                     <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-xs shrink-0 ${
                       isYes 
-                        ? 'bg-[#00D09C]/10 text-[#00D09C] border border-[#00D09C]/20' 
-                        : 'bg-[#FF453A]/10 text-[#FF453A] border border-[#FF453A]/20'
+                        ? 'bg-emerald-50 dark:bg-[#00D09C]/10 text-emerald-700 dark:text-[#00D09C] border border-emerald-200 dark:border-[#00D09C]/20' 
+                        : 'bg-rose-50 dark:bg-[#FF453A]/10 text-rose-700 dark:text-[#FF453A] border border-rose-200 dark:border-[#FF453A]/20'
                     }`}>
                       {trade.outcome || 'Yes'}
                     </div>
 
                     <div className="min-w-0">
                       <div className="flex items-center gap-2">
-                        <p className="text-xs font-bold text-white truncate max-w-xs sm:max-w-md">
+                        <p className="text-xs font-bold text-slate-900 dark:text-white truncate max-w-xs sm:max-w-md">
                           {trade.marketQuestion || 'Prediction Market Contract'}
                         </p>
                         {trade.consensus?.is_consensus && (
-                          <span className="text-[9px] font-bold bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 px-1.5 py-0.2 rounded-full">
+                          <span className="text-[9px] font-bold bg-indigo-50 dark:bg-indigo-500/10 text-indigo-700 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-500/20 px-1.5 py-0.2 rounded-full">
                             Consensus
                           </span>
                         )}
                       </div>
-                      <div className="flex items-center gap-2 text-[11px] text-[#8E8F99] font-mono mt-0.5">
+                      <div className="flex items-center gap-2 text-[11px] text-slate-500 dark:text-[#8E8F99] font-mono mt-0.5">
                         <span>{whaleDisplay}</span>
                         <span>•</span>
                         <span>Fill: ${fillPrice.toFixed(3)}</span>
                         <span>•</span>
-                        <span className="text-white font-bold">Live: ${livePrice.toFixed(3)}</span>
+                        <span className="text-slate-900 dark:text-white font-bold">Live: ${livePrice.toFixed(3)}</span>
                       </div>
                     </div>
                   </div>
 
                   {/* Right: Notional Size & Net PnL */}
                   <div className="text-right shrink-0">
-                    <div className="text-xs font-bold font-mono text-white">
+                    <div className="text-xs font-bold font-mono text-slate-950 dark:text-white">
                       ${notional.toFixed(2)}
                     </div>
-                    <div className={`text-[11px] font-bold font-mono ${isProfit ? 'text-[#00D09C]' : 'text-[#FF453A]'}`}>
+                    <div className={`text-[11px] font-bold font-mono ${isProfit ? 'text-emerald-600 dark:text-[#00D09C]' : 'text-rose-600 dark:text-[#FF453A]'}`}>
                       {isProfit ? '+' : ''}${pnl.toFixed(2)}
                     </div>
                   </div>

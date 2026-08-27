@@ -13,6 +13,7 @@ import { ActivityFeed } from '@/components/dashboard/ActivityFeed';
 import { CommandPalette } from '@/components/ui/CommandPalette';
 import { fetchUserSettings, fetchPortfolioSummary, fetchExecutionLogs, getCachedExecutionLogs, getCachedPortfolioSummary } from '@/lib/api-client';
 import { User, ExecutionLog, PortfolioSummary } from '@/types';
+import { useTheme } from '@/context/ThemeContext';
 import Link from 'next/link';
 import { 
   Settings, 
@@ -21,8 +22,8 @@ import {
   VolumeX, 
   Bell,
   Search,
-  Sliders,
-  ShieldCheck
+  Sun,
+  Moon
 } from 'lucide-react';
 import { signOut } from 'next-auth/react';
 import { BrandLogo } from '@/components/ui/BrandLogo';
@@ -30,6 +31,7 @@ import { soundFx } from '@/lib/sound';
 
 export default function DashboardPage() {
   const { data: session, status } = useSession();
+  const { theme, toggleTheme } = useTheme();
   const [selectedWallet, setSelectedWallet] = useState<string | null>(null);
   const [selectedTrade, setSelectedTrade] = useState<ExecutionLog | null>(null);
   const [isResetOpen, setIsResetOpen] = useState(false);
@@ -67,7 +69,7 @@ export default function DashboardPage() {
 
   if (status === 'loading') {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#000000] text-white">
+      <div className="min-h-screen flex items-center justify-center bg-[#F8F9FB] dark:bg-[#000000] text-slate-900 dark:text-white">
         <div className="flex flex-col items-center gap-3">
           <div className="w-8 h-8 rounded-full border-2 border-[#00D09C] border-t-transparent animate-spin" />
           <span className="text-xs font-mono text-[#8E8F99]">Connecting to Revolut Control Plane...</span>
@@ -82,31 +84,40 @@ export default function DashboardPage() {
   const userInitial = session?.user?.name ? session.user.name.slice(0, 2).toUpperCase() : 'BL';
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#000000] text-white selection:bg-[#00D09C] selection:text-black relative overflow-x-hidden font-sans">
+    <div className="min-h-screen flex flex-col bg-[#F8F9FB] dark:bg-[#000000] text-slate-900 dark:text-white selection:bg-[#00D09C] selection:text-black relative overflow-x-hidden font-sans transition-colors duration-200">
       
       {/* Revolut Top Bar Navigation */}
-      <nav className="flex items-center justify-between py-4 px-6 lg:px-12 border-b border-white/[0.08] bg-[#000000]/90 backdrop-blur-2xl sticky top-0 z-40">
+      <nav className="flex items-center justify-between py-4 px-6 lg:px-12 border-b border-black/[0.06] dark:border-white/[0.08] bg-white/80 dark:bg-[#000000]/90 backdrop-blur-2xl sticky top-0 z-40">
         
         {/* Left: User Avatar Circle & Brand Logo */}
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full bg-[#FF7A00] text-black font-bold flex items-center justify-center text-sm shadow-md">
+          <div className="w-10 h-10 rounded-full bg-[#FF7A00] text-white font-bold flex items-center justify-center text-sm shadow-md">
             {userInitial}
           </div>
           <BrandLogo href="/" subtitle="Revolut Control" />
         </div>
 
         {/* Center: Search Command Bar (Revolut pill style) */}
-        <div className="hidden md:flex items-center gap-2 px-4 py-2 rounded-full bg-[#1C1D22] border border-white/5 text-xs text-[#8E8F99] w-64 hover:border-white/15 transition-all cursor-pointer">
+        <div className="hidden md:flex items-center gap-2 px-4 py-2 rounded-full bg-[#F1F3F5] dark:bg-[#1C1D22] border border-black/[0.06] dark:border-white/5 text-xs text-[#8E8F99] w-64 hover:border-black/15 dark:hover:border-white/15 transition-all cursor-pointer">
           <Search size={14} className="text-[#8E8F99]" />
-          <span>Search markets, whales...</span>
-          <span className="ml-auto text-[10px] font-mono bg-[#2C2D35] px-1.5 py-0.5 rounded text-white">⌘K</span>
+          <span className="text-slate-600 dark:text-[#8E8F99]">Search markets, whales...</span>
+          <span className="ml-auto text-[10px] font-mono bg-white dark:bg-[#2C2D35] px-1.5 py-0.5 rounded text-slate-700 dark:text-white shadow-2xs">⌘K</span>
         </div>
 
         {/* Right: Circular Icon Actions */}
         <div className="flex items-center gap-2.5">
+          {/* Light / Dark Mode Toggle */}
+          <button
+            onClick={toggleTheme}
+            className="w-10 h-10 rounded-full bg-[#F1F3F5] dark:bg-[#1C1D22] hover:bg-[#E2E6EA] dark:hover:bg-[#2C2D35] border border-black/[0.08] dark:border-white/10 text-slate-700 dark:text-white flex items-center justify-center transition-all cursor-pointer shadow-2xs"
+            title={theme === 'light' ? 'Switch to Dark Mode' : 'Switch to Light Mode'}
+          >
+            {theme === 'light' ? <Moon size={16} /> : <Sun size={16} className="text-amber-400" />}
+          </button>
+
           <button
             onClick={() => setActivityOpen(true)}
-            className="w-10 h-10 rounded-full bg-[#1C1D22] hover:bg-[#2C2D35] border border-white/10 text-white flex items-center justify-center transition-all cursor-pointer"
+            className="w-10 h-10 rounded-full bg-[#F1F3F5] dark:bg-[#1C1D22] hover:bg-[#E2E6EA] dark:hover:bg-[#2C2D35] border border-black/[0.08] dark:border-white/10 text-slate-700 dark:text-white flex items-center justify-center transition-all cursor-pointer shadow-2xs"
             title="Activity Feed & Notifications"
           >
             <Bell size={16} />
@@ -117,22 +128,22 @@ export default function DashboardPage() {
             className={`w-10 h-10 rounded-full border transition-all cursor-pointer flex items-center justify-center ${
               soundActive 
                 ? 'bg-[#00D09C]/10 text-[#00D09C] border-[#00D09C]/30' 
-                : 'bg-[#1C1D22] hover:bg-[#2C2D35] border-white/10 text-[#8E8F99]'
+                : 'bg-[#F1F3F5] dark:bg-[#1C1D22] hover:bg-[#E2E6EA] dark:hover:bg-[#2C2D35] border-black/[0.08] dark:border-white/10 text-slate-700 dark:text-[#8E8F99]'
             }`}
             title={soundActive ? 'Mute Trade Signal Chimes' : 'Enable Real-time Sound Chimes'}
           >
             {soundActive ? <Volume2 size={16} /> : <VolumeX size={16} />}
           </button>
 
-          <Link href="/admin" className="text-xs font-bold text-white px-3.5 py-2 rounded-full bg-[#1C1D22] hover:bg-[#2C2D35] border border-white/10 transition-all">
+          <Link href="/admin" className="text-xs font-bold text-slate-900 dark:text-white px-3.5 py-2 rounded-full bg-[#F1F3F5] dark:bg-[#1C1D22] hover:bg-[#E2E6EA] dark:hover:bg-[#2C2D35] border border-black/[0.08] dark:border-white/10 transition-all">
             Admin
           </Link>
           
-          <Link href="/settings" className="w-10 h-10 rounded-full bg-[#1C1D22] hover:bg-[#2C2D35] border border-white/10 text-white flex items-center justify-center transition-all">
+          <Link href="/settings" className="w-10 h-10 rounded-full bg-[#F1F3F5] dark:bg-[#1C1D22] hover:bg-[#E2E6EA] dark:hover:bg-[#2C2D35] border border-black/[0.08] dark:border-white/10 text-slate-700 dark:text-white flex items-center justify-center transition-all">
             <Settings size={16} />
           </Link>
           
-          <button onClick={() => signOut()} className="w-10 h-10 rounded-full bg-[#1C1D22] hover:bg-rose-950/60 border border-white/10 text-[#8E8F99] hover:text-[#FF453A] flex items-center justify-center transition-all cursor-pointer">
+          <button onClick={() => signOut()} className="w-10 h-10 rounded-full bg-[#F1F3F5] dark:bg-[#1C1D22] hover:bg-rose-50 dark:hover:bg-rose-950/60 border border-black/[0.08] dark:border-white/10 text-slate-700 dark:text-[#8E8F99] hover:text-[#FF453A] flex items-center justify-center transition-all cursor-pointer">
             <LogOut size={16} />
           </button>
         </div>
@@ -157,9 +168,9 @@ export default function DashboardPage() {
           />
 
           <div className="flex items-center gap-2.5">
-            <div className="revolut-card-sub bg-[#1C1D22] px-4 py-2 rounded-full flex items-center gap-2 text-xs font-medium text-[#8E8F99] border border-white/5">
+            <div className="revolut-card-sub bg-[#F1F3F5] dark:bg-[#1C1D22] px-4 py-2 rounded-full flex items-center gap-2 text-xs font-medium text-slate-600 dark:text-[#8E8F99] border border-black/[0.04] dark:border-white/5 shadow-2xs">
               <span>Risk Regime:</span>
-              <span className="font-bold text-white font-mono px-2 py-0.5 rounded-full bg-[#2C2D35]">
+              <span className="font-bold text-slate-900 dark:text-white font-mono px-2 py-0.5 rounded-full bg-white dark:bg-[#2C2D35] shadow-2xs">
                 {user?.riskProfile || 'Balanced'}
               </span>
             </div>
