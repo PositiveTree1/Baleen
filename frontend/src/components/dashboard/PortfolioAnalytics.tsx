@@ -1,28 +1,20 @@
 'use client';
-import { useMemo, useState, useEffect, useCallback, useRef } from 'react';
+import { useMemo, useState, useEffect, useCallback } from 'react';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import { ExecutionLog } from '@/types';
 import { 
   TrendingUp, 
   TrendingDown, 
-  Sparkles, 
-  Layers, 
   ArrowUpRight, 
   ArrowDownRight, 
-  CheckCircle2, 
-  RefreshCw,
-  HelpCircle,
-  Zap,
-  Code2,
-  Database,
-  Copy,
-  Check,
-  X,
-  Loader2,
-  PieChart,
-  ShieldCheck
+  RefreshCw, 
+  Code2, 
+  Copy, 
+  Check, 
+  X, 
+  Loader2 
 } from 'lucide-react';
-import { formatCompactPnL, formatFrenchTime, formatFrenchDate } from '@/lib/formatters';
+import { formatFrenchTime, formatFrenchDate } from '@/lib/formatters';
 import { resetSandboxLedger, clearAllCache, fetchPortfolioSnapshots } from '@/lib/api-client';
 
 interface PortfolioAnalyticsProps {
@@ -57,8 +49,6 @@ export function PortfolioAnalytics({
   onResetComplete
 }: PortfolioAnalyticsProps) {
   const [timeframe, setTimeframe] = useState<'1H' | '6H' | '1D' | '1W' | '1M' | 'YTD' | 'ALL'>('ALL');
-  const [scorecardScope, setScorecardScope] = useState<'stream' | 'allTime'>('allTime');
-  const [attributionTab, setAttributionTab] = useState<'both' | 'alpha' | 'drawdown'>('both');
   const [showResetModal, setShowResetModal] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
   const [showRawDataModal, setShowRawDataModal] = useState(false);
@@ -113,11 +103,12 @@ export function PortfolioAnalytics({
 
     const marketMap = new Map<string, MarketSummary>();
     targetLogs.forEach((l) => {
-      if (l.side === 'SELL' && l.realizedPnl === undefined) return;
+      if (l.side === 'SELL' && l.pnl === undefined) return;
       const key = l.marketQuestion || l.marketConditionId || l.id;
-      const notional = l.notionalUsd || (l.size && l.fillPrice ? l.size * l.fillPrice : 10.0);
-      const pnl = l.realizedPnl ?? 0.0;
+      const notional = l.size ?? 10.0;
+      const pnl = l.pnl ?? 0.0;
       const fillP = l.fillPrice || l.entryPrice || 0.5;
+      const whaleName = l.whaleName || l.whalePseudonym || (l.walletAddress ? `${l.walletAddress.slice(0, 6)}...${l.walletAddress.slice(-4)}` : 'Whale');
 
       if (!marketMap.has(key)) {
         marketMap.set(key, {
@@ -129,7 +120,7 @@ export function PortfolioAnalytics({
           totalNotional: 0,
           fillsCount: 0,
           avgFillPrice: fillP,
-          whaleName: l.whale || (l.sourceWallet ? `${l.sourceWallet.slice(0, 6)}...${l.sourceWallet.slice(-4)}` : 'Whale'),
+          whaleName,
           sampleTrade: l
         });
       }
@@ -148,10 +139,10 @@ export function PortfolioAnalytics({
 
   // 3. Execution Scorecard Metrics
   const { totalWins, totalLosses, winRate, feeRatePct, totalNotionalInvested } = useMemo(() => {
-    if (scorecardScope === 'allTime' && allTimeWins !== undefined && allTimeLosses !== undefined) {
+    if (allTimeWins !== undefined && allTimeLosses !== undefined) {
       const totalEval = allTimeWins + allTimeLosses;
       const wr = allTimeWinRate ?? (totalEval > 0 ? (allTimeWins / totalEval) * 100 : 0.0);
-      const totalNotional = logs.reduce((acc, l) => acc + (l.notionalUsd || 10.0), 0);
+      const totalNotional = logs.reduce((acc, l) => acc + (l.size ?? 10.0), 0);
       const totalFees = logs.reduce((acc, l) => acc + (l.feeUsd || 0.0), 0);
       const feeRate = totalNotional > 0 ? (totalFees / totalNotional) * 100 : 0.0;
 
@@ -170,8 +161,8 @@ export function PortfolioAnalytics({
     let totalFees = 0;
 
     targetLogs.forEach((l) => {
-      const pnl = l.realizedPnl ?? 0.0;
-      const notional = l.notionalUsd || 10.0;
+      const pnl = l.pnl ?? 0.0;
+      const notional = l.size ?? 10.0;
       const fee = l.feeUsd || 0.0;
       totalNotional += notional;
       totalFees += fee;
@@ -190,7 +181,7 @@ export function PortfolioAnalytics({
       feeRatePct: feeRate,
       totalNotionalInvested: totalNotional
     };
-  }, [targetLogs, scorecardScope, allTimeWins, allTimeLosses, allTimeWinRate, logs]);
+  }, [targetLogs, allTimeWins, allTimeLosses, allTimeWinRate, logs]);
 
   // 4. Portfolio Snapshots Timeline
   const [serverSnapshots, setServerSnapshots] = useState<any[]>(snapshots);

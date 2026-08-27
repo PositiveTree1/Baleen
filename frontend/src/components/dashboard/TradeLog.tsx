@@ -2,8 +2,7 @@
 import { useEffect, useState, useMemo } from 'react';
 import { fetchExecutionLogs, getCachedExecutionLogs } from '@/lib/api-client';
 import { ExecutionLog } from '@/types';
-import { FileSpreadsheet, ExternalLink, ArrowUpRight, ArrowDownRight } from 'lucide-react';
-import { formatFrenchDateTime } from '@/lib/formatters';
+import { FileSpreadsheet } from 'lucide-react';
 import { FullHistorySpreadsheetModal } from './FullHistorySpreadsheetModal';
 
 interface TradeLogProps {
@@ -117,12 +116,13 @@ export function TradeLog({
             </div>
           ) : (
             displayedLogs.map((trade) => {
-              const notional = trade.notionalUsd || (trade.size && trade.fillPrice ? trade.size * trade.fillPrice : 10.0);
-              const pnl = trade.realizedPnl ?? trade.pnl ?? 0.0;
+              const notional = trade.size ?? 10.0;
+              const pnl = trade.pnl ?? 0.0;
               const fillPrice = trade.fillPrice || trade.entryPrice || 0.5;
-              const livePrice = trade.currentPrice || trade.exitPrice || fillPrice;
+              const livePrice = trade.currentPrice || fillPrice;
               const isProfit = pnl >= 0;
               const isYes = (trade.outcome || 'Yes').toLowerCase() === 'yes';
+              const whaleDisplay = trade.whaleName || trade.whalePseudonym || (trade.walletAddress ? `${trade.walletAddress.slice(0, 6)}...${trade.walletAddress.slice(-4)}` : 'Whale');
 
               return (
                 <div
@@ -145,14 +145,14 @@ export function TradeLog({
                         <p className="text-xs font-bold text-white truncate max-w-xs sm:max-w-md">
                           {trade.marketQuestion || 'Prediction Market Contract'}
                         </p>
-                        {trade.isConsensus && (
+                        {trade.consensus?.is_consensus && (
                           <span className="text-[9px] font-bold bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 px-1.5 py-0.2 rounded-full">
                             Consensus
                           </span>
                         )}
                       </div>
                       <div className="flex items-center gap-2 text-[11px] text-[#8E8F99] font-mono mt-0.5">
-                        <span>{trade.whale || 'Whale'}</span>
+                        <span>{whaleDisplay}</span>
                         <span>•</span>
                         <span>Fill: ${fillPrice.toFixed(3)}</span>
                         <span>•</span>
@@ -181,7 +181,8 @@ export function TradeLog({
         <FullHistorySpreadsheetModal 
           isOpen={isSpreadsheetOpen}
           onClose={() => setIsSpreadsheetOpen(false)}
-          userId={userId}
+          logs={logs}
+          onSelectTrade={onSelectTrade}
         />
       )}
     </>
