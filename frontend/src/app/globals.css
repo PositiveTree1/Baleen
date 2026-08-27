@@ -31,40 +31,60 @@
     letter-spacing: 0.08em;
   }
 
-  /* Dark Obsidian / Midnight Sapphire Metallic Glass Card */
-  .dark-metallic-glass {
-    background: radial-gradient(120% 120% at 50% 0%, rgba(15, 23, 42, 0.96) 0%, rgba(2, 6, 23, 0.98) 100%);
-    backdrop-filter: blur(28px);
-    -webkit-backdrop-filter: blur(28px);
-    border: 1px solid rgba(255, 255, 255, 0.12);
-    box-shadow: 
-      inset 0 1px 1px 0 rgba(255, 255, 255, 0.25),
-      inset 0 -1px 1px 0 rgba(0, 0, 0, 0.4),
-      0 4px 20px -2px rgba(0, 0, 0, 0.35),
-      0 20px 40px -10px rgba(2, 6, 23, 0.5);
+  /* Revolut Dark FinTech Design System Tokens */
+  .revolut-canvas {
+    background-color: #000000;
+    color: #FFFFFF;
   }
 
-  /* Liquid Glassmorphic Specular Refraction */
-  .liquid-glass {
-    background: linear-gradient(135deg, rgba(255, 255, 255, 0.85) 0%, rgba(248, 250, 252, 0.65) 100%);
-    backdrop-filter: blur(32px) saturate(180%);
-    -webkit-backdrop-filter: blur(32px) saturate(180%);
-    border: 1px solid rgba(255, 255, 255, 0.9);
-    box-shadow: 
-      inset 0 1px 2px 0 rgba(255, 255, 255, 1),
-      inset 0 -1px 2px 0 rgba(0, 0, 0, 0.03),
-      0 4px 16px -2px rgba(15, 23, 42, 0.04),
-      0 16px 36px -8px rgba(15, 23, 42, 0.06);
+  .revolut-card {
+    background-color: #16171B;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 26px;
+    box-shadow: 0 4px 24px -4px rgba(0, 0, 0, 0.5);
   }
 
-  .liquid-glass-dark {
-    background: linear-gradient(135deg, rgba(15, 23, 42, 0.85) 0%, rgba(2, 6, 23, 0.9) 100%);
-    backdrop-filter: blur(32px) saturate(190%);
-    -webkit-backdrop-filter: blur(32px) saturate(190%);
-    border: 1px solid rgba(255, 255, 255, 0.15);
-    box-shadow: 
-      inset 0 1px 1px 0 rgba(255, 255, 255, 0.3),
-      0 12px 32px -6px rgba(0, 0, 0, 0.4);
+  .revolut-card-sub {
+    background-color: #1C1D22;
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 22px;
+  }
+
+  .revolut-pill {
+    background-color: #2C2D35;
+    color: #FFFFFF;
+    border-radius: 9999px;
+  }
+
+  .revolut-circle-btn {
+    width: 3.5rem;
+    height: 3.5rem;
+    border-radius: 9999px;
+    background-color: #1C1D22;
+    border: 1px solid rgba(255, 255, 255, 0.10);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #FFFFFF;
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .revolut-circle-btn:hover {
+    background-color: #2C2D35;
+    border-color: rgba(255, 255, 255, 0.20);
+    transform: scale(1.04);
+  }
+
+  .revolut-circle-btn:active {
+    transform: scale(0.96);
+  }
+
+  .revolut-green {
+    color: #00D09C;
+  }
+
+  .revolut-red {
+    color: #FF453A;
   }
 
   /* Razor-sharp 3D transform rendering (prevents blurriness) */

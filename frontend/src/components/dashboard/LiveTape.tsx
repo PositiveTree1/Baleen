@@ -1,10 +1,9 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { fetchExecutionLogs, getCachedExecutionLogs } from '@/lib/api-client';
-import { formatFrenchTime, formatFrenchTimeWithSeconds } from '@/lib/formatters';
+import { formatFrenchTimeWithSeconds } from '@/lib/formatters';
 import { ExecutionLog } from '@/types';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Activity, Flame, Filter, Search, Zap } from 'lucide-react';
+import { Activity, Search, Flame } from 'lucide-react';
 
 interface LiveTapeProps {
   userId?: string;
@@ -39,97 +38,98 @@ export function LiveTape({ userId, onSelectTrade }: LiveTapeProps) {
   });
 
   return (
-    <div className="rounded-3xl overflow-hidden h-[460px] flex flex-col apple-glass light-refraction relative">
-      <div className="p-4 px-6 border-b border-black/[0.06] flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-50/50">
+    <div className="revolut-card bg-[#16171B] border border-white/[0.08] rounded-[26px] p-5 sm:p-6 flex flex-col h-[480px] space-y-4">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="flex items-center gap-2.5">
-          <Activity size={16} className="text-slate-900" />
-          <h3 className="text-sm font-bold text-slate-900 tracking-tight">Live Execution Tape</h3>
-          <span className="relative flex h-2 w-2 ml-1">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-500 opacity-75"></span>
-            <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-          </span>
+          <div className="w-2.5 h-2.5 rounded-full bg-[#00D09C] animate-pulse" />
+          <h3 className="text-base font-bold text-white tracking-tight">Live Execution Tape</h3>
+          <span className="text-xs text-[#8E8F99] font-mono">Polymarket Fills</span>
         </div>
 
         {/* Filter Pills */}
-        <div className="flex items-center gap-2">
-          <div className="flex rounded-xl bg-slate-200/60 p-0.5 border border-black/[0.04] text-[11px]">
-            {(['ALL', 'BUY', 'SELL', 'CONSENSUS'] as const).map((side) => (
-              <button
-                key={side}
-                onClick={() => setSideFilter(side)}
-                className={`px-2.5 py-0.5 rounded-lg font-semibold transition-all cursor-pointer ${
-                  sideFilter === side 
-                    ? 'bg-white text-slate-950 shadow-sm border border-black/[0.04]' 
-                    : 'text-slate-500 hover:text-slate-900'
-                }`}
-              >
-                {side === 'CONSENSUS' ? '🔥 Consensus' : side}
-              </button>
-            ))}
-          </div>
+        <div className="flex rounded-full bg-[#1C1D22] p-0.5 border border-white/5 text-[11px] font-bold">
+          {(['ALL', 'BUY', 'SELL', 'CONSENSUS'] as const).map((side) => (
+            <button
+              key={side}
+              onClick={() => setSideFilter(side)}
+              className={`px-3 py-1 rounded-full transition-all cursor-pointer ${
+                sideFilter === side ? 'bg-[#2C2D35] text-white shadow-xs' : 'text-[#8E8F99] hover:text-white'
+              }`}
+            >
+              {side === 'CONSENSUS' ? '🔥 Consensus' : side}
+            </button>
+          ))}
         </div>
       </div>
-      
-      <div className="flex-1 overflow-y-auto p-3.5 scroll-smooth">
+
+      {/* Search Input */}
+      <div className="relative">
+        <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#8E8F99]" />
+        <input
+          type="text"
+          placeholder="Filter live order executions..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="w-full pl-9 pr-3 py-2 bg-[#1C1D22] border border-white/5 rounded-full text-xs text-white placeholder-[#8E8F99] focus:outline-none focus:border-white/20"
+        />
+      </div>
+
+      {/* Execution Feed */}
+      <div className="flex-1 overflow-y-auto space-y-1.5 pr-1 divide-y divide-white/5">
         {loading ? (
-          <div className="p-8 text-center text-xs text-slate-400 font-medium">Connecting to signal stream...</div>
-        ) : filteredLogs.length > 0 ? (
-          <div className="space-y-1.5">
-            <AnimatePresence initial={false}>
-              {filteredLogs.map((log) => (
-                <motion.div
-                  key={log.id}
-                  initial={{ opacity: 0, y: -6 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, scale: 0.96 }}
-                  transition={{ duration: 0.18 }}
-                  onClick={() => onSelectTrade && onSelectTrade(log)}
-                  className="flex items-center justify-between p-2.5 px-3.5 rounded-2xl bg-slate-50/80 hover:bg-indigo-50/70 hover:border-indigo-200 border border-black/[0.04] text-xs font-mono transition-all shadow-[0_1px_2px_rgba(0,0,0,0.02)] cursor-pointer group"
-                >
-                  <div className="flex items-center gap-2.5 w-1/3">
-                    <span className="text-slate-500 text-[11px]">
-                      {formatFrenchTimeWithSeconds(log.timestamp)}
-                    </span>
-                    <div className="flex items-center gap-1.5 truncate">
-                      {log.whaleAvatar ? (
-                        <img src={log.whaleAvatar} alt="" className="w-4 h-4 rounded-full object-cover shrink-0 border border-black/10 shadow-2xs" />
-                      ) : null}
-                      <span className="text-slate-800 font-bold truncate group-hover:text-indigo-600 transition-colors">
-                        {log.whaleName || log.whalePseudonym || (log.walletAddress ? `${log.walletAddress.slice(0, 6)}...` : '0x...')}
-                      </span>
-                    </div>
-                  </div>
-                  <div className="w-1/3 truncate px-2 flex items-center gap-1.5 text-slate-600 font-sans text-xs font-medium" title={log.marketQuestion}>
-                    {log.icon ? (
-                      <img src={log.icon} alt="" className="w-4 h-4 rounded-md object-cover shrink-0 border border-black/10 shadow-2xs" />
-                    ) : null}
-                    <span className="truncate">{log.marketQuestion || 'Market Order'}</span>
-                  </div>
-                  <div className="w-1/3 flex justify-end items-center gap-2">
-                    {log.consensus?.is_consensus && (
-                      <span className="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold bg-indigo-100 text-indigo-800 border border-indigo-200">
-                        <Flame size={10} className="text-indigo-600" />
-                        {log.consensus.whale_count} Whales
-                      </span>
-                    )}
-                    <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold border shadow-[inset_0_1px_0_rgba(255,255,255,0.8)] ${
-                      log.side === 'BUY' ? 'text-emerald-800 bg-emerald-50 border-emerald-200' : 'text-rose-800 bg-rose-50 border-rose-200'
-                    }`}>
-                      {log.side} {log.outcome ? log.outcome.slice(0, 3).toUpperCase() : 'YES'}
-                    </span>
-                    <span className="text-slate-900 font-bold w-14 text-right font-mono">
-                      ${(log.fillPrice ?? log.entryPrice ?? 0).toFixed(3)}
-                    </span>
-                  </div>
-                </motion.div>
-              ))}
-            </AnimatePresence>
+          <div className="py-12 text-center text-xs text-[#8E8F99]">
+            Streaming live fills...
+          </div>
+        ) : filteredLogs.length === 0 ? (
+          <div className="py-12 text-center text-xs text-[#8E8F99]">
+            No live trades match filter
           </div>
         ) : (
-          <div className="flex flex-col items-center justify-center h-full text-slate-400 text-xs gap-2">
-            <Activity size={24} className="opacity-30 text-slate-400" />
-            <span className="font-medium">Listening for Polymarket contract fills...</span>
-          </div>
+          filteredLogs.map((log) => {
+            const isBuy = log.side === 'BUY';
+            const notional = log.notionalUsd || (log.size && log.fillPrice ? log.size * log.fillPrice : 10.0);
+            const fillPrice = log.fillPrice || log.entryPrice || 0.5;
+            const timeStr = log.timestamp ? formatFrenchTimeWithSeconds(new Date(log.timestamp)) : '';
+
+            return (
+              <div
+                key={log.id}
+                onClick={() => onSelectTrade && onSelectTrade(log)}
+                className="pt-2 flex items-center justify-between p-2 rounded-2xl hover:bg-[#1C1D22] transition-colors cursor-pointer group"
+              >
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-xs shrink-0 ${
+                    isBuy 
+                      ? 'bg-[#00D09C]/10 text-[#00D09C] border border-[#00D09C]/20' 
+                      : 'bg-[#FF453A]/10 text-[#FF453A] border border-[#FF453A]/20'
+                  }`}>
+                    {isBuy ? 'BUY' : 'SELL'}
+                  </div>
+
+                  <div className="min-w-0">
+                    <p className="text-xs font-bold text-white truncate max-w-xs sm:max-w-sm">
+                      {log.marketQuestion || 'Prediction Market'}
+                    </p>
+                    <div className="flex items-center gap-1.5 text-[10px] text-[#8E8F99] font-mono mt-0.5">
+                      <span className="text-white font-bold">{log.outcome || 'Yes'}</span>
+                      <span>•</span>
+                      <span>${fillPrice.toFixed(3)}</span>
+                      <span>•</span>
+                      <span>{log.whale || 'Whale'}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="text-right shrink-0">
+                  <div className="text-xs font-bold font-mono text-white">
+                    ${notional.toFixed(2)}
+                  </div>
+                  <span className="text-[10px] text-[#8E8F99] font-mono">{timeStr}</span>
+                </div>
+              </div>
+            );
+          })
         )}
       </div>
     </div>

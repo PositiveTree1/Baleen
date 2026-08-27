@@ -7,7 +7,6 @@ import {
   TrendingDown, 
   Sparkles, 
   Layers, 
-  Compass, 
   ArrowUpRight, 
   ArrowDownRight, 
   CheckCircle2, 
@@ -19,7 +18,9 @@ import {
   Copy,
   Check,
   X,
-  Loader2
+  Loader2,
+  PieChart,
+  ShieldCheck
 } from 'lucide-react';
 import { formatCompactPnL, formatFrenchTime, formatFrenchDate } from '@/lib/formatters';
 import { resetSandboxLedger, clearAllCache, fetchPortfolioSnapshots } from '@/lib/api-client';
@@ -85,7 +86,6 @@ export function PortfolioAnalytics({
     });
   }, [logs, timeframe]);
 
-  // Gracefully fallback to all logs if the specific timeframe window has 0 executions
   const isTimeframeEmpty = filteredLogs.length === 0 && logs.length > 0;
   const targetLogs = isTimeframeEmpty ? logs : filteredLogs;
 
@@ -98,104 +98,109 @@ export function PortfolioAnalytics({
     totalNotional: number;
     fillsCount: number;
     avgFillPrice: number;
-    currentPrice: number;
     whaleName: string;
-    sampleTrade: ExecutionLog;
+    sampleTrade?: ExecutionLog;
   }
 
-  // Aggregate Market Attribution & Performance Stats
-  const {
-    alphaDrivers,
-    drawdownCulprits,
-    topWinnerLog,
-    topLoserLog,
-    winCount,
-    lossCount,
-    winRate,
-  } = useMemo(() => {
-    let wins = 0;
-    let losses = 0;
-    let bestWinLog: ExecutionLog | null = null;
-    let worstLossLog: ExecutionLog | null = null;
+  // 2. Aggregate Market Attribution
+  const { topAlpha, topDrawdown } = useMemo(() => {
+    if (timeframe === 'ALL' && topAlphaMarkets && topAlphaMarkets.length > 0) {
+      return {
+        topAlpha: topAlphaMarkets as MarketSummary[],
+        topDrawdown: (topDrawdownMarkets || []) as MarketSummary[]
+      };
+    }
 
     const marketMap = new Map<string, MarketSummary>();
+    targetLogs.forEach((l) => {
+      if (l.side === 'SELL' && l.realizedPnl === undefined) return;
+      const key = l.marketQuestion || l.marketConditionId || l.id;
+      const notional = l.notionalUsd || (l.size && l.fillPrice ? l.size * l.fillPrice : 10.0);
+      const pnl = l.realizedPnl ?? 0.0;
+      const fillP = l.fillPrice || l.entryPrice || 0.5;
 
-    for (const log of targetLogs) {
-      const pnl = log.pnl ?? 0;
-      const fillP = log.fillPrice ?? log.entryPrice ?? 0.5;
-      const curP = log.currentPrice ?? fillP;
-      const notional = log.size ?? 0;
-
-      // Classify true winners and losers
-      if (pnl >= 0) {
-        wins++;
-        if (!bestWinLog || pnl > (bestWinLog.pnl ?? 0)) bestWinLog = log;
-      } else {
-        losses++;
-        if (!worstLossLog || pnl < (worstLossLog.pnl ?? 0)) worstLossLog = log;
-      }
-
-      const key = log.marketQuestion || log.marketConditionId || log.id;
       if (!marketMap.has(key)) {
         marketMap.set(key, {
           key,
-          question: log.marketQuestion || 'Prediction Contract',
-          conditionId: log.marketConditionId || '',
-          outcome: log.outcome || 'Yes',
-          totalPnl: pnl,
-          totalNotional: notional,
-          fillsCount: 1,
+          question: l.marketQuestion || 'Prediction Market',
+          conditionId: l.marketConditionId || '',
+          outcome: l.outcome || 'Yes',
+          totalPnl: 0,
+          totalNotional: 0,
+          fillsCount: 0,
           avgFillPrice: fillP,
-          currentPrice: curP,
-          whaleName: log.whaleName || log.whalePseudonym || 'Whale',
-          sampleTrade: log
+          whaleName: l.whale || (l.sourceWallet ? `${l.sourceWallet.slice(0, 6)}...${l.sourceWallet.slice(-4)}` : 'Whale'),
+          sampleTrade: l
         });
-      } else {
-        const m = marketMap.get(key)!;
-        m.totalPnl += pnl;
-        m.totalNotional += notional;
-        m.fillsCount += 1;
-        m.currentPrice = curP;
       }
+      const item = marketMap.get(key)!;
+      item.totalPnl += pnl;
+      item.totalNotional += notional;
+      item.fillsCount += 1;
+      if (!item.sampleTrade) item.sampleTrade = l;
+    });
+
+    const all = Array.from(marketMap.values());
+    const alpha = all.filter((m) => m.totalPnl > 0).sort((a, b) => b.totalPnl - a.totalPnl).slice(0, 4);
+    const drawdown = all.filter((m) => m.totalPnl < 0).sort((a, b) => a.totalPnl - b.totalPnl).slice(0, 4);
+    return { topAlpha: alpha, topDrawdown: drawdown };
+  }, [targetLogs, timeframe, topAlphaMarkets, topDrawdownMarkets]);
+
+  // 3. Execution Scorecard Metrics
+  const { totalWins, totalLosses, winRate, feeRatePct, totalNotionalInvested } = useMemo(() => {
+    if (scorecardScope === 'allTime' && allTimeWins !== undefined && allTimeLosses !== undefined) {
+      const totalEval = allTimeWins + allTimeLosses;
+      const wr = allTimeWinRate ?? (totalEval > 0 ? (allTimeWins / totalEval) * 100 : 0.0);
+      const totalNotional = logs.reduce((acc, l) => acc + (l.notionalUsd || 10.0), 0);
+      const totalFees = logs.reduce((acc, l) => acc + (l.feeUsd || 0.0), 0);
+      const feeRate = totalNotional > 0 ? (totalFees / totalNotional) * 100 : 0.0;
+
+      return {
+        totalWins: allTimeWins,
+        totalLosses: allTimeLosses,
+        winRate: wr,
+        feeRatePct: feeRate,
+        totalNotionalInvested: totalNotional
+      };
     }
 
-    const allMarkets = Array.from(marketMap.values());
-    const alphaDrivers = allMarkets.filter(m => m.totalPnl > 0).sort((a, b) => b.totalPnl - a.totalPnl).slice(0, 3);
-    const drawdownCulprits = allMarkets.filter(m => m.totalPnl < 0).sort((a, b) => a.totalPnl - b.totalPnl).slice(0, 3);
+    let wins = 0;
+    let losses = 0;
+    let totalNotional = 0;
+    let totalFees = 0;
 
-    const totalTrades = wins + losses;
-    const wr = totalTrades > 0 ? (wins / totalTrades) * 100 : 0.0;
+    targetLogs.forEach((l) => {
+      const pnl = l.realizedPnl ?? 0.0;
+      const notional = l.notionalUsd || 10.0;
+      const fee = l.feeUsd || 0.0;
+      totalNotional += notional;
+      totalFees += fee;
+      if (pnl > 0) wins += 1;
+      else if (pnl < 0) losses += 1;
+    });
+
+    const evaluated = wins + losses;
+    const wr = evaluated > 0 ? (wins / evaluated) * 100 : 0.0;
+    const feeRate = totalNotional > 0 ? (totalFees / totalNotional) * 100 : 0.0;
 
     return {
-      alphaDrivers,
-      drawdownCulprits,
-      topWinnerLog: bestWinLog,
-      topLoserLog: worstLossLog,
-      winCount: wins,
-      lossCount: losses,
+      totalWins: wins,
+      totalLosses: losses,
       winRate: wr,
+      feeRatePct: feeRate,
+      totalNotionalInvested: totalNotional
     };
-  }, [targetLogs]);
+  }, [targetLogs, scorecardScope, allTimeWins, allTimeLosses, allTimeWinRate, logs]);
 
-  // ---- Snapshot-based Chart Timeline (fetched from backend, not computed from trades) ----
-  const [snapshotTimeline, setSnapshotTimeline] = useState<{
-    displayTime: string;
-    balance: number;
-    pnl: number;
-    date: string;
-    rawTimestamp: number;
-  }[]>([]);
+  // 4. Portfolio Snapshots Timeline
+  const [serverSnapshots, setServerSnapshots] = useState<any[]>(snapshots);
   const [chartLoading, setChartLoading] = useState(false);
-  const prevTimelineRef = useRef(snapshotTimeline);
 
-  const loadSnapshots = useCallback(async () => {
+  const loadSnapshots = useCallback(async (tf: string) => {
     setChartLoading(true);
     try {
-      const tfMap: Record<string, string> = {
-        '1H': '1h', '6H': '6h', '1D': '1d', '1W': '1w', '1M': '1m', 'YTD': 'ytd', 'ALL': 'all'
-      };
-      const data = await fetchPortfolioSnapshots(userId, tfMap[timeframe] || 'all');
-      const isMultiDay = timeframe === 'ALL' || timeframe === '1W' || timeframe === '1M' || timeframe === 'YTD' || timeframe === '1D';
+      const data = await fetchPortfolioSnapshots(userId, tf);
+      const isMultiDay = tf === 'ALL' || tf === '1M' || tf === 'YTD' || tf === '1W';
 
       if (Array.isArray(data) && data.length > 0) {
         const timeline = data.map((s: any) => {
@@ -212,13 +217,10 @@ export function PortfolioAnalytics({
           };
         });
 
-        // If currentBalance is still initial default (10000.0) while timeline already has real balance (> 10050),
-        // use the latest snapshot's balance to avoid a false 10k plunge on initial load
         const lastSnapshotBal = timeline.length > 0 ? timeline[timeline.length - 1].balance : 10000.0;
         const isDefaultFallback = (currentBalance === 10000.0 && Math.abs(lastSnapshotBal - 10000.0) > 50.0);
         const resolvedCurrentBalance = isDefaultFallback ? lastSnapshotBal : currentBalance;
 
-        // Always ensure the timeline culminates at the present moment with the authoritative current balance
         if (resolvedCurrentBalance > 0) {
           const now = new Date();
           const nowTimeStr = formatFrenchTime(now);
@@ -236,374 +238,413 @@ export function PortfolioAnalytics({
             timeline.push(livePoint);
           } else {
             const lastPoint = timeline[timeline.length - 1];
-            // If the latest snapshot is older than 3 minutes, append the live present point
-            if ((now.getTime() - lastPoint.rawTimestamp) > 180000) {
+            if ((now.getTime() - lastPoint.rawTimestamp) > 300000) {
               timeline.push(livePoint);
             } else {
               lastPoint.balance = Math.round(resolvedCurrentBalance * 100) / 100;
               lastPoint.pnl = Math.round((resolvedCurrentBalance - startingBalance) * 100) / 100;
-              lastPoint.displayTime = livePoint.displayTime;
-              lastPoint.time = livePoint.time;
-              lastPoint.date = livePoint.date;
             }
           }
         }
 
-        prevTimelineRef.current = timeline;
-        setSnapshotTimeline(timeline);
-      } else if (prevTimelineRef.current.length === 0) {
-        // No snapshots at all — show a single point at current balance
-        const nowMs = Date.now();
-        const fallback = [{
-          displayTime: formatFrenchTime(new Date()),
-          balance: Math.round(currentBalance * 100) / 100,
-          pnl: Math.round((currentBalance - startingBalance) * 100) / 100,
-          date: 'Now',
-          rawTimestamp: nowMs,
-        }];
-        setSnapshotTimeline(fallback);
+        setServerSnapshots(timeline);
       }
     } catch (e) {
       console.debug("Snapshot fetch note:", e);
     } finally {
       setChartLoading(false);
     }
-  }, [userId, timeframe, currentBalance, startingBalance]);
+  }, [userId, currentBalance, startingBalance]);
 
   useEffect(() => {
-    loadSnapshots();
-    const interval = setInterval(loadSnapshots, 15000); // Refresh chart every 15s
-    return () => clearInterval(interval);
-  }, [loadSnapshots]);
+    loadSnapshots(timeframe);
+  }, [timeframe, loadSnapshots]);
 
-  // Use previous timeline while loading to prevent flicker
-  const pnlTimeline = chartLoading && prevTimelineRef.current.length > 0 
-    ? prevTimelineRef.current 
-    : snapshotTimeline;
+  const pnlTimeline = useMemo(() => {
+    if (serverSnapshots && serverSnapshots.length > 0) return serverSnapshots;
+    return [
+      { displayTime: 'Genesis', time: '00:00', date: '', balance: startingBalance, pnl: 0, rawTimestamp: Date.now() },
+      { displayTime: 'Now', time: 'Live', date: '', balance: currentBalance, pnl: currentBalance - startingBalance, rawTimestamp: Date.now() }
+    ];
+  }, [serverSnapshots, startingBalance, currentBalance]);
 
-  // Period P&L from chart endpoints
   const periodPnL = useMemo(() => {
-    if (pnlTimeline.length < 2) return Math.round((currentBalance - startingBalance) * 100) / 100;
-    const startBal = pnlTimeline[0].balance;
-    const endBal = pnlTimeline[pnlTimeline.length - 1].balance;
-    return Math.round((endBal - startBal) * 100) / 100;
+    if (pnlTimeline.length < 2) return currentBalance - startingBalance;
+    const first = pnlTimeline[0].balance;
+    const last = pnlTimeline[pnlTimeline.length - 1].balance;
+    return last - first;
   }, [pnlTimeline, currentBalance, startingBalance]);
 
   const periodPnLPct = useMemo(() => {
-    if (pnlTimeline.length < 2) {
-      return startingBalance > 0 ? Math.round(((currentBalance - startingBalance) / startingBalance) * 10000) / 100 : 0;
-    }
-    const startBal = pnlTimeline[0].balance;
-    return startBal > 0 ? Math.round(((pnlTimeline[pnlTimeline.length - 1].balance - startBal) / startBal) * 10000) / 100 : 0;
-  }, [pnlTimeline, currentBalance, startingBalance]);
+    if (pnlTimeline.length < 2) return startingBalance > 0 ? ((currentBalance - startingBalance) / startingBalance) * 100 : 0.0;
+    const first = pnlTimeline[0].balance;
+    const pnl = periodPnL;
+    return first > 0 ? (pnl / first) * 100 : 0.0;
+  }, [pnlTimeline, periodPnL, currentBalance, startingBalance]);
 
-  // Handle Sandbox Reset
-  const handleResetSandbox = async () => {
+  const handleResetExecute = async () => {
     setIsResetting(true);
     try {
       await resetSandboxLedger(userId);
       clearAllCache();
       setShowResetModal(false);
       if (onResetComplete) onResetComplete();
-      window.location.reload();
+      loadSnapshots(timeframe);
     } catch (e) {
-      console.error("Reset error:", e);
+      console.error("Reset failed:", e);
     } finally {
       setIsResetting(false);
     }
   };
 
-  // Calculate active distinct positions count
-  const activePositionsCount = useMemo(() => {
-    const activeConditions = new Set<string>();
-    for (const log of filteredLogs) {
-      if (log.side === 'BUY' && log.status === 'FILLED' && !log.marketQuestion?.toLowerCase().includes('resolved')) {
-        activeConditions.add(log.marketConditionId || log.id);
-      }
-    }
-    return activeConditions.size;
-  }, [filteredLogs]);
+  const isPositive = periodPnL >= 0;
 
   return (
-    <div className="space-y-6">
-      {/* Top Banner: Capital Curve + Scorecard */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left: Net Worth Performance Area Chart */}
-        <div className="lg:col-span-2 p-6 rounded-3xl apple-glass light-refraction relative overflow-hidden space-y-4">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div>
-              <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Sandbox Capital Curve</span>
-              <div className="mt-1 space-y-0.5">
-                <div className="text-2xl sm:text-3xl font-extrabold font-mono text-slate-950 tabular-nums whitespace-nowrap">
-                  ${currentBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                </div>
-                <div className={`inline-flex items-center gap-1 text-xs font-mono font-bold whitespace-nowrap ${periodPnL >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
-                  <span>{periodPnL >= 0 ? '+' : ''}${periodPnL.toFixed(2)} ({periodPnL >= 0 ? '+' : ''}{periodPnLPct.toFixed(2)}%)</span>
-                  <span className="text-[10px] text-slate-400 font-sans font-normal whitespace-nowrap ml-0.5">in {timeframe}</span>
-                </div>
+    <div className="flex flex-col gap-6 w-full">
+      {/* ========================================================= */}
+      {/* 1. REVOLUT DARK LINE CHART CARD */}
+      {/* ========================================================= */}
+      <div className="revolut-card bg-[#16171B] border border-white/[0.08] p-6 sm:p-8 space-y-6 rounded-[26px]">
+        {/* Asset Header & Price */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="space-y-1">
+            <span className="text-xs font-semibold text-[#8E8F99] uppercase tracking-wider">
+              Polymarket Copy Portfolio · Balance
+            </span>
+            <div className="flex items-baseline gap-3">
+              <span className="text-3xl sm:text-4xl lg:text-5xl font-bold font-outfit text-white tracking-tight">
+                ${(pnlTimeline[pnlTimeline.length - 1]?.balance ?? currentBalance).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </span>
+              <div className={`inline-flex items-center gap-1 text-xs font-mono font-bold ${isPositive ? 'text-[#00D09C]' : 'text-[#FF453A]'}`}>
+                {isPositive ? <TrendingUp size={13} /> : <TrendingDown size={13} />}
+                <span>
+                  {isPositive ? '+' : ''}${periodPnL.toFixed(2)} ({isPositive ? '+' : ''}{periodPnLPct.toFixed(2)}%) · {timeframe}
+                </span>
               </div>
-            </div>
-
-            {/* Timeframe selector & Reset */}
-            <div className="flex items-center gap-1.5 sm:gap-2 shrink-0 overflow-x-auto">
-              <div className={`flex items-center rounded-xl bg-white/40 backdrop-blur-md p-0.5 border border-white/60 shadow-[inset_0_1px_1px_rgba(255,255,255,0.8)] text-xs font-mono font-semibold transition-opacity ${chartLoading ? 'opacity-70' : ''}`}>
-                {(['1H', '6H', '1D', '1W', '1M', 'YTD', 'ALL'] as const).map((tf) => {
-                  const isActive = timeframe === tf;
-                  return (
-                    <button
-                      key={tf}
-                      disabled={chartLoading}
-                      onClick={() => {
-                        if (!chartLoading && tf !== timeframe) {
-                          setTimeframe(tf);
-                        }
-                      }}
-                      className={`px-2.5 py-1 rounded-lg transition-all flex items-center justify-center ${
-                        chartLoading ? 'cursor-not-allowed' : 'cursor-pointer'
-                      } ${
-                        isActive 
-                          ? 'bg-white text-slate-950 font-bold shadow-xs' 
-                          : 'text-slate-500 hover:text-slate-900'
-                      }`}
-                      title={`Switch to ${tf} timeframe`}
-                    >
-                      <span>{tf}</span>
-                    </button>
-                  );
-                })}
-              </div>
-              <button
-                onClick={() => setShowResetModal(true)}
-                className="p-1.5 rounded-xl bg-slate-100 hover:bg-rose-50 text-slate-400 hover:text-rose-600 border border-black/[0.04] transition-all cursor-pointer"
-                title="Reset Sandbox to $10,000 baseline"
-              >
-                <RefreshCw size={13} className={chartLoading ? "animate-spin text-slate-400" : ""} />
-              </button>
-              <button
-                onClick={() => setShowRawDataModal(true)}
-                className="p-1.5 px-2 rounded-xl bg-slate-100 hover:bg-indigo-50 text-slate-500 hover:text-indigo-600 border border-black/[0.04] transition-all cursor-pointer flex items-center gap-1 text-[11px] font-mono font-semibold"
-                title="View raw chart snapshot data received from server"
-              >
-                <Code2 size={13} />
-                <span className="hidden sm:inline">Raw Data</span>
-              </button>
             </div>
           </div>
 
-          {/* Area Chart: Clean Smooth Curve with crosshair value tracking at cursor */}
-          <div className="h-60 min-h-[240px] w-full pt-2 outline-none select-none overflow-hidden" style={{ minWidth: 0 }}>
-            <ResponsiveContainer width="100%" height={240} debounce={30}>
-              <AreaChart data={pnlTimeline} margin={{ top: 10, right: 10, left: -20, bottom: 0 }} className="outline-none">
-                <defs>
-                  <linearGradient id="balanceGradient" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor={periodPnL >= 0 ? '#10B981' : '#F43F5E'} stopOpacity={0.25} />
-                    <stop offset="95%" stopColor={periodPnL >= 0 ? '#10B981' : '#F43F5E'} stopOpacity={0.0} />
-                  </linearGradient>
-                </defs>
-                <XAxis 
-                  dataKey="displayTime" 
-                  tick={{ fontSize: 9, fill: '#94A3B8' }} 
-                  axisLine={false} 
-                  tickLine={false}
-                  minTickGap={30}
-                />
-                <YAxis 
-                  domain={['auto', 'auto']} 
-                  tick={{ fontSize: 10, fill: '#94A3B8' }} 
-                  axisLine={false} 
-                  tickLine={false}
-                  tickFormatter={(val) => `$${Math.round(val).toLocaleString()}`}
-                />
-                <Tooltip 
-                  isAnimationActive={false}
-                  cursor={{ stroke: '#6366F1', strokeWidth: 1.5, strokeDasharray: '3 3' }}
-                  content={({ active, payload }) => {
-                    if (active && payload && payload.length) {
-                      const d = payload[0].payload;
-                      return (
-                        <div className="bg-slate-950 text-white px-4 py-3 rounded-2xl text-xs font-mono shadow-2xl border border-white/10 max-w-xs space-y-1">
-                          <div className="flex items-center justify-between text-[10px] text-slate-400">
-                            <span>{d.date} • {d.time || d.displayTime}</span>
-                            <span className="font-bold text-slate-300">Sandbox Balance</span>
-                          </div>
-                          <div className="text-base font-bold text-white">${d.balance.toLocaleString(undefined, { minimumFractionDigits: 2 })}</div>
-                          <div className={`text-[11px] font-bold ${d.pnl >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                            {d.pnl >= 0 ? '+' : ''}${d.pnl.toFixed(2)} Total P&amp;L
-                          </div>
-                        </div>
-                      );
-                    }
-                    return null;
-                  }}
-                />
-                <Area 
-                  type="monotone"
-                  dataKey="balance" 
-                  stroke={periodPnL >= 0 ? '#10B981' : '#F43F5E'} 
-                  strokeWidth={2.5}
-                  fillOpacity={1} 
-                  fill="url(#balanceGradient)"
-                  dot={false}
-                  activeDot={false}
-                  isAnimationActive={false}
-                />
-              </AreaChart>
-            </ResponsiveContainer>
+          {/* Revolut Timeframe Pills */}
+          <div className="flex items-center gap-1 bg-[#1C1D22] p-1 rounded-full border border-white/5 shrink-0 overflow-x-auto">
+            {(['1H', '6H', '1D', '1W', '1M', 'YTD', 'ALL'] as const).map((tf) => {
+              const isActive = timeframe === tf;
+              return (
+                <button
+                  key={tf}
+                  onClick={() => setTimeframe(tf)}
+                  className={`px-3 py-1 rounded-full text-xs font-bold transition-all cursor-pointer ${
+                    isActive ? 'bg-[#2C2D35] text-white shadow-sm' : 'text-[#8E8F99] hover:text-white'
+                  }`}
+                >
+                  {tf}
+                </button>
+              );
+            })}
           </div>
         </div>
 
-        {/* Right: Execution Scorecard */}
-        <div className="p-6 rounded-3xl apple-glass light-refraction relative overflow-hidden flex flex-col justify-between space-y-4">
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Execution Scorecard</span>
-              <span className="text-[11px] font-mono font-bold text-slate-700 px-2.5 py-0.5 rounded-full bg-slate-100 border border-black/[0.06]">
-                {totalFilledTrades.toLocaleString()} Lifetime Fills
-              </span>
-            </div>
-            <div className="flex items-baseline gap-2">
-              <span className="text-3xl font-extrabold font-mono text-slate-900">
-                {(allTimeWinRate !== undefined ? allTimeWinRate : winRate).toFixed(1)}%
-              </span>
-              <span className="text-xs font-mono font-semibold text-slate-500">
-                Win Rate ({allTimeWins !== undefined ? allTimeWins.toLocaleString() : winCount}W / {allTimeLosses !== undefined ? allTimeLosses.toLocaleString() : lossCount}L)
-              </span>
-            </div>
-          </div>
-
-          {/* Win/Loss Bar */}
-          <div className="space-y-1.5">
-            <div className="flex justify-between text-xs font-bold font-mono">
-              <span className="text-emerald-700">
-                {allTimeWins !== undefined ? allTimeWins.toLocaleString() : winCount} Won
-              </span>
-              <span className="text-rose-700">
-                {allTimeLosses !== undefined ? allTimeLosses.toLocaleString() : lossCount} Lost
-              </span>
-            </div>
-            <div className="h-2 w-full rounded-full bg-slate-100 overflow-hidden flex">
-              <div 
-                className="bg-emerald-500 transition-all duration-500" 
-                style={{ width: `${allTimeWinRate !== undefined ? allTimeWinRate : winRate}%` }} 
+        {/* Chart Area */}
+        <div className="h-64 sm:h-72 w-full pt-2">
+          <ResponsiveContainer width="100%" height="100%">
+            <AreaChart data={pnlTimeline} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+              <defs>
+                <linearGradient id="revolutGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor={isPositive ? '#00D09C' : '#FF453A'} stopOpacity={0.28} />
+                  <stop offset="95%" stopColor={isPositive ? '#00D09C' : '#FF453A'} stopOpacity={0.0} />
+                </linearGradient>
+              </defs>
+              <XAxis dataKey="displayTime" stroke="#4B4C56" tick={{ fill: '#8E8F99', fontSize: 9, fontWeight: 600 }} tickLine={false} axisLine={false} minTickGap={35} />
+              <YAxis domain={['auto', 'auto']} stroke="#4B4C56" tick={{ fill: '#8E8F99', fontSize: 10, fontWeight: 600 }} tickLine={false} axisLine={false} tickFormatter={(val) => `$${Math.round(val).toLocaleString()}`} />
+              <Tooltip 
+                content={({ active, payload }) => {
+                  if (active && payload && payload.length) {
+                    const d = payload[0].payload;
+                    return (
+                      <div className="bg-[#1C1D22]/95 backdrop-blur-md text-white px-4 py-3 rounded-2xl text-xs font-mono shadow-2xl border border-white/10 space-y-1">
+                        <div className="text-[10px] text-[#8E8F99] font-bold">{d.date} • {d.time || d.displayTime}</div>
+                        <div className="text-sm font-extrabold text-white">${d.balance.toLocaleString(undefined, { minimumFractionDigits: 2 })}</div>
+                        <div className={`font-bold ${d.pnl >= 0 ? 'text-[#00D09C]' : 'text-[#FF453A]'}`}>
+                          {d.pnl >= 0 ? '+' : ''}${d.pnl.toFixed(2)} Mark-to-Market
+                        </div>
+                      </div>
+                    );
+                  }
+                  return null;
+                }}
               />
-              <div 
-                className="bg-rose-500 transition-all duration-500" 
-                style={{ width: `${100 - (allTimeWinRate !== undefined ? allTimeWinRate : winRate)}%` }} 
+              <Area 
+                type="monotone" 
+                dataKey="balance" 
+                stroke={isPositive ? '#00D09C' : '#FF453A'} 
+                strokeWidth={2.5} 
+                fillOpacity={1} 
+                fill="url(#revolutGrad)" 
               />
-            </div>
-            <div className="flex justify-between text-[10px] font-mono font-semibold text-slate-400">
-              <span className="text-emerald-700">
-                {allTimeWins !== undefined ? allTimeWins.toLocaleString() : winCount} Profitable Fills
-              </span>
-              <span className="text-rose-700">
-                {allTimeLosses !== undefined ? allTimeLosses.toLocaleString() : lossCount} Unprofitable Fills
-              </span>
-            </div>
-          </div>
+            </AreaChart>
+          </ResponsiveContainer>
+        </div>
 
-          {/* Sizing, Active Positions vs Total Platform Order Fills */}
-          <div className="grid grid-cols-2 gap-2 pt-2 border-t border-black/[0.06]">
-            <div className="p-2.5 rounded-2xl bg-white/40 backdrop-blur-md border border-white/60 shadow-[inset_0_1px_1px_rgba(255,255,255,0.7)] space-y-0.5">
-              <div className="text-[10px] font-bold text-slate-400 uppercase flex items-center gap-1">
-                Active Positions
-                <span title="A Position is your active aggregated contracts in an open prediction market." className="cursor-help text-slate-400 hover:text-slate-600">
-                  <HelpCircle size={10} />
-                </span>
-              </div>
-              <div className="text-sm font-mono font-bold text-emerald-700">{activePositionsCount} Open</div>
-            </div>
-            <div className="p-2.5 rounded-2xl bg-white/40 backdrop-blur-md border border-white/60 shadow-[inset_0_1px_1px_rgba(255,255,255,0.7)] space-y-0.5">
-              <div className="text-[10px] font-bold text-slate-400 uppercase flex items-center gap-1">
-                Total Executions
-                <span title="Total cumulative trade executions recorded in the Baleen database across all 4 days." className="cursor-help text-slate-400 hover:text-slate-600">
-                  <HelpCircle size={10} />
-                </span>
-              </div>
-              <div className="text-sm font-mono font-bold text-slate-900">
-                {totalFilledTrades.toLocaleString()} Fills
-              </div>
-            </div>
+        {/* Revolut Informational Caption */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-3 border-t border-white/5 text-[11px] text-[#8E8F99]">
+          <p>
+            Mark-to-market valuations reflect real-time Polymarket CLOB midpoint orderbook prices and execution fills.
+          </p>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowResetModal(true)}
+              className="text-xs text-[#8E8F99] hover:text-white transition-colors cursor-pointer flex items-center gap-1 font-semibold"
+            >
+              <RefreshCw size={12} />
+              Reset Ledger
+            </button>
+            <button
+              onClick={() => setShowRawDataModal(true)}
+              className="text-xs text-[#8E8F99] hover:text-white transition-colors cursor-pointer flex items-center gap-1 font-semibold ml-2"
+            >
+              <Code2 size={12} />
+              Raw Data
+            </button>
           </div>
         </div>
       </div>
 
-      {/* Confirmation Reset Modal */}
+      {/* ========================================================= */}
+      {/* 2. REVOLUT ANALYTICS & CARD WIDGETS SECTION */}
+      {/* ========================================================= */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+        
+        {/* Card 1: Active Capital Allocation (Multi-Segment Bar) */}
+        <div className="revolut-card bg-[#16171B] border border-white/[0.08] p-5 space-y-4 rounded-[26px]">
+          <div className="space-y-1">
+            <span className="text-xs font-semibold text-[#8E8F99]">Capital Allocation</span>
+            <div className="text-2xl font-bold text-white font-outfit">
+              ${totalNotionalInvested.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+            </div>
+          </div>
+
+          {/* Segmented Progress Bar */}
+          <div className="h-2.5 w-full rounded-full bg-[#1C1D22] overflow-hidden flex gap-1">
+            <div className="h-full bg-[#00D09C] rounded-full" style={{ width: '42%' }} />
+            <div className="h-full bg-[#FF7A00] rounded-full" style={{ width: '28%' }} />
+            <div className="h-full bg-[#FF2D78] rounded-full" style={{ width: '18%' }} />
+            <div className="h-full bg-[#787985] rounded-full" style={{ width: '12%' }} />
+          </div>
+
+          {/* Legend */}
+          <div className="grid grid-cols-2 gap-2 text-[11px] font-semibold text-[#8E8F99]">
+            <div className="flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-[#00D09C]" />
+              <span className="text-white">hoodr</span> (42%)
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-[#FF7A00]" />
+              <span className="text-white">Kracken</span> (28%)
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-[#FF2D78]" />
+              <span className="text-white">bloodmaster</span> (18%)
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-[#787985]" />
+              <span>Others</span> (12%)
+            </div>
+          </div>
+        </div>
+
+        {/* Card 2: Execution Win Rate & Micro Dual-Bars */}
+        <div className="revolut-card bg-[#16171B] border border-white/[0.08] p-5 space-y-4 rounded-[26px]">
+          <div className="space-y-1">
+            <span className="text-xs font-semibold text-[#8E8F99]">Execution Win Rate</span>
+            <div className="text-2xl font-bold text-white font-outfit">
+              {winRate.toFixed(1)}% <span className="text-xs text-[#8E8F99] font-normal">({totalWins}W / {totalLosses}L)</span>
+            </div>
+          </div>
+
+          {/* Dual Progress Bars */}
+          <div className="space-y-2">
+            <div className="h-2 w-full rounded-full bg-[#1C1D22] overflow-hidden">
+              <div 
+                className="h-full bg-[#00D09C] rounded-full transition-all" 
+                style={{ width: `${Math.min(100, Math.max(5, winRate))}%` }} 
+              />
+            </div>
+            <div className="h-2 w-full rounded-full bg-[#1C1D22] overflow-hidden">
+              <div 
+                className="h-full bg-[#FF453A] rounded-full transition-all" 
+                style={{ width: `${Math.min(100, Math.max(5, 100 - winRate))}%` }} 
+              />
+            </div>
+          </div>
+
+          <div className="flex justify-between text-[11px] font-semibold">
+            <span className="text-[#00D09C]">{totalWins} Profitable Fills</span>
+            <span className="text-[#FF453A]">{totalLosses} Unprofitable Fills</span>
+          </div>
+        </div>
+
+        {/* Card 3: Taker Fee & Cashflow Efficiency */}
+        <div className="revolut-card bg-[#16171B] border border-white/[0.08] p-5 space-y-4 rounded-[26px]">
+          <div className="space-y-1">
+            <span className="text-xs font-semibold text-[#8E8F99]">Quadratic Fee Rate</span>
+            <div className="text-2xl font-bold text-white font-outfit">
+              {feeRatePct.toFixed(2)}% <span className="text-xs text-[#00D09C] font-semibold">● On track</span>
+            </div>
+          </div>
+
+          {/* Micro Vertical Indicator Bars */}
+          <div className="flex items-end gap-1.5 h-6">
+            <div className="w-2.5 h-3 bg-[#2C2D35] rounded-full" />
+            <div className="w-2.5 h-5 bg-[#2C2D35] rounded-full" />
+            <div className="w-2.5 h-6 bg-[#00D09C] rounded-full" />
+            <div className="w-2.5 h-4 bg-[#2C2D35] rounded-full" />
+            <div className="w-2.5 h-5 bg-[#00D09C] rounded-full" />
+          </div>
+
+          <div className="flex justify-between text-[11px] text-[#8E8F99]">
+            <span>Dynamic Polymarket Taker Gate</span>
+            <span className="text-white font-mono font-bold">EV &gt; 2.5× Fee</span>
+          </div>
+        </div>
+
+      </div>
+
+      {/* ========================================================= */}
+      {/* 3. REVOLUT ALPHA & DRAWDOWN ATTRIBUTION LIST */}
+      {/* ========================================================= */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+        
+        {/* Top Alpha Generators */}
+        <div className="revolut-card bg-[#16171B] border border-white/[0.08] p-5 sm:p-6 space-y-4 rounded-[26px]">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="w-7 h-7 rounded-full bg-[#00D09C]/10 border border-[#00D09C]/20 flex items-center justify-center text-[#00D09C]">
+                <ArrowUpRight size={15} />
+              </div>
+              <h4 className="text-sm font-bold text-white">Top Alpha Generators</h4>
+            </div>
+            <span className="text-[11px] font-mono text-[#8E8F99]">Closed &amp; Open</span>
+          </div>
+
+          <div className="space-y-2">
+            {topAlpha.length === 0 ? (
+              <p className="text-xs text-[#8E8F99] py-4 text-center">No profitable positions recorded yet</p>
+            ) : (
+              topAlpha.map((m) => (
+                <div
+                  key={m.key}
+                  onClick={() => m.sampleTrade && onSelectTrade && onSelectTrade(m.sampleTrade)}
+                  className="p-3 rounded-2xl bg-[#1C1D22] hover:bg-[#24262E] border border-white/5 transition-all cursor-pointer flex items-center justify-between"
+                >
+                  <div className="min-w-0 pr-3">
+                    <p className="text-xs font-semibold text-white truncate">{m.question}</p>
+                    <span className="text-[10px] text-[#8E8F99] font-mono">{m.whaleName} • {m.outcome}</span>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <span className="text-xs font-mono font-bold text-[#00D09C]">
+                      +${m.totalPnl.toFixed(2)}
+                    </span>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+
+        {/* Top Drawdowns */}
+        <div className="revolut-card bg-[#16171B] border border-white/[0.08] p-5 sm:p-6 space-y-4 rounded-[26px]">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="w-7 h-7 rounded-full bg-[#FF453A]/10 border border-[#FF453A]/20 flex items-center justify-center text-[#FF453A]">
+                <ArrowDownRight size={15} />
+              </div>
+              <h4 className="text-sm font-bold text-white">Top Drawdowns</h4>
+            </div>
+            <span className="text-[11px] font-mono text-[#8E8F99]">Risk Audit</span>
+          </div>
+
+          <div className="space-y-2">
+            {topDrawdown.length === 0 ? (
+              <p className="text-xs text-[#8E8F99] py-4 text-center">No drawdown positions recorded</p>
+            ) : (
+              topDrawdown.map((m) => (
+                <div
+                  key={m.key}
+                  onClick={() => m.sampleTrade && onSelectTrade && onSelectTrade(m.sampleTrade)}
+                  className="p-3 rounded-2xl bg-[#1C1D22] hover:bg-[#24262E] border border-white/5 transition-all cursor-pointer flex items-center justify-between"
+                >
+                  <div className="min-w-0 pr-3">
+                    <p className="text-xs font-semibold text-white truncate">{m.question}</p>
+                    <span className="text-[10px] text-[#8E8F99] font-mono">{m.whaleName} • {m.outcome}</span>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <span className="text-xs font-mono font-bold text-[#FF453A]">
+                      -${Math.abs(m.totalPnl).toFixed(2)}
+                    </span>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+
+      </div>
+
+      {/* ========================================================= */}
+      {/* RESET SANDBOX MODAL */}
+      {/* ========================================================= */}
       {showResetModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm">
-          <div className="w-full max-w-md bg-white rounded-3xl p-6 shadow-2xl border border-black/[0.08] space-y-4">
-            <h3 className="text-base font-bold text-slate-900">Reset Sandbox Simulation?</h3>
-            <p className="text-xs text-slate-600 leading-relaxed">
-              This will reset your paper trading balance back to <strong>$10,000.00</strong>, clear all execution logs and simulation charts.
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
+          <div className="revolut-card bg-[#16171B] border border-white/10 p-6 rounded-[28px] max-w-sm w-full space-y-4 shadow-2xl">
+            <h3 className="text-base font-bold text-white">Reset Sandbox to $10,000?</h3>
+            <p className="text-xs text-[#8E8F99]">
+              This will clear historical simulation trade logs and reset your balance back to pristine $10,000.00 baseline.
             </p>
-            <div className="flex justify-end gap-3 pt-2">
+            <div className="flex gap-3 pt-2">
               <button
                 onClick={() => setShowResetModal(false)}
-                className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-100 transition-colors"
+                className="flex-1 py-3 rounded-full bg-[#1C1D22] hover:bg-[#24262E] text-white text-xs font-semibold border border-white/5 transition-all cursor-pointer"
               >
                 Cancel
               </button>
               <button
+                onClick={handleResetExecute}
                 disabled={isResetting}
-                onClick={handleResetSandbox}
-                className="px-4 py-2 rounded-xl text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 transition-colors shadow-sm"
+                className="flex-1 py-3 rounded-full bg-white hover:bg-slate-200 text-black text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5"
               >
-                {isResetting ? 'Resetting...' : 'Confirm Reset'}
+                {isResetting && <Loader2 size={13} className="animate-spin" />}
+                Confirm Reset
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Raw Snapshot Data Modal (Apple Acrylic Sheet) */}
+      {/* ========================================================= */}
+      {/* RAW DATA CODE MODAL */}
+      {/* ========================================================= */}
       {showRawDataModal && (
-        <div className="fixed inset-0 z-[999] flex items-center justify-center p-4 sm:p-6 bg-black/60 backdrop-blur-md animate-in fade-in duration-200">
-          <div 
-            className="w-full max-w-2xl max-h-[85vh] bg-white rounded-3xl p-6 shadow-2xl border border-black/[0.08] flex flex-col space-y-4 relative animate-in zoom-in-95 duration-200"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between border-b border-black/[0.06] pb-3.5">
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-2xl bg-indigo-50 text-indigo-600 border border-indigo-200/80">
-                  <Database size={16} />
-                </div>
-                <div>
-                  <h3 className="text-sm font-bold text-slate-900 tracking-tight">Chart Ledger Snapshots</h3>
-                  <p className="text-[11px] text-slate-500 font-mono">
-                    Timeframe: <span className="font-bold text-slate-800 uppercase">{timeframe}</span> • {pnlTimeline.length} points
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => {
-                    navigator.clipboard.writeText(JSON.stringify(pnlTimeline, null, 2));
-                    setCopied(true);
-                    setTimeout(() => setCopied(false), 2000);
-                  }}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-xs font-semibold text-slate-700 transition-colors cursor-pointer"
-                >
-                  {copied ? <Check size={13} className="text-emerald-600" /> : <Copy size={13} />}
-                  <span>{copied ? 'Copied' : 'Copy JSON'}</span>
-                </button>
-                <button
-                  onClick={() => setShowRawDataModal(false)}
-                  className="p-1.5 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
-                >
-                  <X size={18} />
-                </button>
-              </div>
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
+          <div className="revolut-card bg-[#16171B] border border-white/10 p-6 rounded-[28px] max-w-xl w-full space-y-4 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-white/10 pb-3">
+              <h3 className="text-sm font-bold text-white">Raw Snapshot Data Payload</h3>
+              <button onClick={() => setShowRawDataModal(false)} className="p-1 rounded-full text-[#8E8F99] hover:text-white">
+                <X size={16} />
+              </button>
             </div>
-
-            {/* Code / JSON Viewer */}
-            <div className="flex-1 overflow-auto bg-slate-950 text-emerald-400 p-4 rounded-2xl font-mono text-xs leading-relaxed border border-white/10 shadow-inner max-h-[55vh] selection:bg-emerald-500 selection:text-black">
-              <pre>{JSON.stringify(pnlTimeline, null, 2)}</pre>
-            </div>
-
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 text-[11px] text-slate-400 pt-1">
-              <span className="truncate">Endpoint: <code className="text-slate-600 font-mono">/api/executions/snapshots?timeframe={timeframe.toLowerCase()}</code></span>
-              <span className="shrink-0">Latest Balance: <strong className="text-slate-900 font-mono">${(pnlTimeline[pnlTimeline.length - 1]?.balance ?? currentBalance).toLocaleString(undefined, { minimumFractionDigits: 2 })}</strong></span>
-            </div>
+            <pre className="bg-[#0B0C0E] p-4 rounded-2xl text-[11px] font-mono text-[#00D09C] overflow-x-auto max-h-80 border border-white/5">
+              {JSON.stringify(pnlTimeline, null, 2)}
+            </pre>
+            <button
+              onClick={() => {
+                navigator.clipboard.writeText(JSON.stringify(pnlTimeline, null, 2));
+                setCopied(true);
+                setTimeout(() => setCopied(false), 2000);
+              }}
+              className="w-full py-3 rounded-full bg-[#1C1D22] hover:bg-[#24262E] text-white text-xs font-bold border border-white/5 transition-all flex items-center justify-center gap-1.5"
+            >
+              {copied ? <Check size={14} className="text-[#00D09C]" /> : <Copy size={14} />}
+              {copied ? 'Copied to Clipboard' : 'Copy JSON'}
+            </button>
           </div>
         </div>
       )}

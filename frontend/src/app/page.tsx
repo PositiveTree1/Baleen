@@ -20,9 +20,8 @@ export default function LandingPage() {
           <Link href="#advantage" className="hover:text-slate-950 transition-colors">
             How it works
           </Link>
-          <Link href="/playground" className="text-indigo-600 hover:text-indigo-800 transition-colors font-bold flex items-center gap-1.5 bg-indigo-50/80 px-2.5 py-1 rounded-full border border-indigo-200/60">
-            <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse" />
-            UI Playground
+          <Link href="#infrastructure" className="hover:text-slate-950 transition-colors">
+            Architecture
           </Link>
         </div>
 
