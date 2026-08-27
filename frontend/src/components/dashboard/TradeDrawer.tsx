@@ -2,7 +2,6 @@
 import { ExecutionLog } from '@/types';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, ExternalLink, Activity, ArrowUpRight, ArrowDownRight, Users, ShieldCheck, Clock, DollarSign, Wallet, CheckCircle2 } from 'lucide-react';
-import { Button } from '@/components/ui/Button';
 import { TradePriceChart } from './TradePriceChart';
 import { formatFrenchDateTime } from '@/lib/formatters';
 
@@ -18,15 +17,13 @@ export function TradeDrawer({ trade, onClose, onSelectWallet }: TradeDrawerProps
   const isBuy = trade.side === 'BUY';
   const fillP = trade.fillPrice || trade.entryPrice || 0.5;
   const curP = trade.currentPrice || fillP;
-  const pnl = trade.pnl ?? (isBuy ? trade.size * ((curP - fillP) / fillP) : trade.size * ((fillP - curP) / fillP));
+  const pnl = trade.pnl ?? (isBuy ? (trade.size ?? 10) * ((curP - fillP) / fillP) : (trade.size ?? 10) * ((fillP - curP) / fillP));
   const pnlPct = trade.pnlPct ?? (((curP - fillP) / fillP) * 100.0 * (isBuy ? 1 : -1));
   const isProfit = pnl >= 0;
   const consensus = trade.consensus;
-  const shares = fillP > 0 ? (trade.size / fillP) : 0;
+  const shares = fillP > 0 ? ((trade.size ?? 10) / fillP) : 0;
   const outcomeLabel = trade.outcome || 'Yes';
-  const isYes = outcomeLabel.toLowerCase() === 'yes' || outcomeLabel.toLowerCase() === 'true';
 
-  // Guaranteed working Polymarket URL
   const polyUrl = trade.polymarketUrl || (trade.eventSlug ? `https://polymarket.com/event/${trade.eventSlug}` : (trade.marketConditionId ? `https://polymarket.com/market/${trade.marketConditionId}` : 'https://polymarket.com'));
 
   return (
@@ -38,7 +35,7 @@ export function TradeDrawer({ trade, onClose, onSelectWallet }: TradeDrawerProps
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           onClick={onClose}
-          className="fixed inset-0 bg-slate-900/20 backdrop-blur-xs transition-opacity"
+          className="fixed inset-0 bg-black/60 dark:bg-black/80 backdrop-blur-xs transition-opacity"
         />
 
         {/* Slide-out Panel */}
@@ -47,247 +44,146 @@ export function TradeDrawer({ trade, onClose, onSelectWallet }: TradeDrawerProps
           animate={{ x: 0 }}
           exit={{ x: '100%' }}
           transition={{ type: 'spring', damping: 28, stiffness: 280 }}
-          className="relative w-full max-w-lg bg-white shadow-2xl z-10 flex flex-col h-full border-l border-black/[0.08]"
+          className="relative w-full max-w-lg bg-white dark:bg-[#16171B] text-slate-900 dark:text-white shadow-2xl z-10 flex flex-col h-full border-l border-black/[0.08] dark:border-white/10"
         >
-            {/* Header */}
-            <div className="p-6 border-b border-black/[0.06] bg-slate-50/50 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className={`p-2.5 rounded-2xl border ${isBuy ? 'bg-emerald-50 border-emerald-200 text-emerald-600' : 'bg-rose-50 border-rose-200 text-rose-600'}`}>
-                  {isBuy ? <ArrowUpRight size={20} /> : <ArrowDownRight size={20} />}
-                </div>
-                <div>
-                  <h2 className="text-sm font-bold text-slate-900 tracking-tight flex items-center gap-2">
-                    Trade Execution Details
-                  </h2>
-                  <p className="text-[11px] font-mono text-slate-500 flex items-center gap-1">
-                    <Clock size={12} />
-                    {formatFrenchDateTime(trade.timestamp, true)}
-                  </p>
-                </div>
+          {/* Header */}
+          <div className="p-6 border-b border-black/[0.06] dark:border-white/10 bg-slate-50 dark:bg-[#1C1D22] flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className={`p-2.5 rounded-2xl border ${isBuy ? 'bg-emerald-50 dark:bg-[#00D09C]/10 border-emerald-200 dark:border-[#00D09C]/20 text-emerald-600 dark:text-[#00D09C]' : 'bg-rose-50 dark:bg-[#FF453A]/10 border-rose-200 dark:border-[#FF453A]/20 text-rose-600 dark:text-[#FF453A]'}`}>
+                {isBuy ? <ArrowUpRight size={20} /> : <ArrowDownRight size={20} />}
               </div>
-              <button
-                onClick={onClose}
-                className="p-2 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-black/5 transition-colors cursor-pointer"
-              >
-                <X size={18} />
-              </button>
+              <div>
+                <h2 className="text-sm font-bold text-slate-900 dark:text-white tracking-tight flex items-center gap-2">
+                  Trade Execution Details
+                </h2>
+                <p className="text-[11px] font-mono text-slate-500 dark:text-[#8E8F99] flex items-center gap-1">
+                  <Clock size={12} />
+                  {formatFrenchDateTime(trade.timestamp, true)}
+                </p>
+              </div>
             </div>
+            <button
+              onClick={onClose}
+              className="p-2 rounded-xl text-slate-400 dark:text-[#8E8F99] hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-[#24262E] transition-colors cursor-pointer"
+            >
+              <X size={18} />
+            </button>
+          </div>
 
-            {/* Content Body */}
-            <div className="flex-1 overflow-y-auto p-6 space-y-5">
-              {/* Prediction Market Card */}
-              <div className="p-4 rounded-2xl bg-slate-50 border border-black/[0.06] space-y-2.5 shadow-[inset_0_1px_2px_rgba(0,0,0,0.02)]">
-                <div className="flex items-center justify-between">
-                  <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Prediction Market</div>
-                  <span className="text-[10px] font-mono font-bold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-200">
-                    {trade.marketCategory || 'General'}
-                  </span>
-                </div>
-                <div className="flex items-center gap-3">
-                  {trade.icon ? (
-                    <img 
-                      src={trade.icon} 
-                      alt="" 
-                      className="w-10 h-10 rounded-xl object-cover border border-black/10 shrink-0 shadow-2xs" 
-                    />
-                  ) : null}
-                  <div className="text-sm font-bold text-slate-900 leading-snug">
-                    {trade.marketQuestion || 'Polymarket Event Prediction'}
-                  </div>
-                </div>
-                {trade.marketConditionId && (
-                  <div className="text-[11px] font-mono text-slate-400 truncate pt-1">
-                    CID: {trade.marketConditionId}
-                  </div>
-                )}
+          {/* Content Body */}
+          <div className="flex-1 overflow-y-auto p-6 space-y-5">
+            {/* Prediction Market Card */}
+            <div className="p-4 rounded-2xl bg-slate-50 dark:bg-[#1C1D22] border border-black/[0.06] dark:border-white/5 space-y-2.5">
+              <div className="flex items-center justify-between">
+                <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-[#8E8F99]">Prediction Market</div>
+                <span className="text-[10px] font-mono font-bold text-indigo-700 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-500/10 px-2 py-0.5 rounded-full border border-indigo-200 dark:border-indigo-500/20">
+                  {trade.marketCategory || 'General'}
+                </span>
               </div>
-
-              {/* Source Whale Profile Card */}
-              <div className="p-4 rounded-2xl bg-white border border-black/[0.08] shadow-sm space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Source Whale Audit</span>
-                  <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
-                    <ShieldCheck size={12} /> {trade.whaleTier === 'gold_sniper' ? 'Gold Sniper' : 'Verified Whale'}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2.5">
-                    {trade.whaleAvatar ? (
-                      <img 
-                        src={trade.whaleAvatar} 
-                        alt="" 
-                        className="w-8 h-8 rounded-full object-cover border border-black/10 shrink-0" 
-                      />
-                    ) : (
-                      <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center font-bold text-xs text-slate-600 border border-black/10">
-                        {trade.walletAddress ? trade.walletAddress.slice(2, 4).toUpperCase() : '0x'}
-                      </div>
-                    )}
-                    <div>
-                      <div className="text-xs font-bold text-slate-900">
-                        {trade.whaleName || trade.whalePseudonym || `${trade.walletAddress.slice(0, 8)}...${trade.walletAddress.slice(-4)}`}
-                      </div>
-                      {trade.whalePseudonym && trade.whaleName && trade.whalePseudonym !== trade.whaleName && (
-                        <div className="text-[11px] font-mono text-slate-400">@{trade.whalePseudonym}</div>
-                      )}
-                    </div>
-                  </div>
-                  {onSelectWallet && trade.walletAddress && (
-                    <button
-                      onClick={() => onSelectWallet(trade.walletAddress)}
-                      className="text-xs font-semibold text-indigo-600 hover:text-indigo-800 flex items-center gap-1 hover:underline cursor-pointer"
-                    >
-                      <Wallet size={12} /> View Full Audit
-                    </button>
-                  )}
-                </div>
-
-                {/* Whale Stake & Bankroll Allocation */}
-                <div className="pt-2 border-t border-black/[0.04] grid grid-cols-2 gap-2 text-xs font-mono">
-                  <div className="bg-slate-50 p-2 rounded-xl border border-black/[0.04]">
-                    <div className="text-[10px] text-slate-400 font-sans font-semibold">Whale Order Stake</div>
-                    <div className="font-bold text-slate-800">${(trade.whaleStakeUsd ?? (trade.size * 10)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
-                  </div>
-                  <div className="bg-slate-50 p-2 rounded-xl border border-black/[0.04]">
-                    <div className="text-[10px] text-slate-400 font-sans font-semibold">Whale Bankroll %</div>
-                    <div className="font-bold text-indigo-700">{trade.whaleBankrollPct ? `${trade.whaleBankrollPct.toFixed(1)}%` : '1.8%'} of portfolio</div>
-                  </div>
+              <div className="flex items-center gap-3">
+                {trade.icon ? (
+                  <img 
+                    src={trade.icon} 
+                    alt="" 
+                    className="w-10 h-10 rounded-xl object-cover border border-black/10 dark:border-white/10 shrink-0 shadow-2xs" 
+                  />
+                ) : null}
+                <div className="text-sm font-bold text-slate-900 dark:text-white leading-snug">
+                  {trade.marketQuestion || 'Polymarket Event Prediction'}
                 </div>
               </div>
-
-              {/* Consensus Transparency Panel with All Aligned Whales */}
-              {consensus && consensus.is_consensus && (
-                <div className="p-4 rounded-2xl bg-indigo-50/80 border border-indigo-200 text-indigo-900 space-y-3">
-                  <div className="flex items-center gap-2">
-                    <Users size={16} className="text-indigo-600 shrink-0" />
-                    <span className="text-xs font-bold uppercase tracking-wider text-indigo-950">Cohort Consensus Active</span>
-                    <span className="ml-auto text-[10px] font-mono font-bold bg-indigo-200/60 text-indigo-900 px-2 py-0.5 rounded-full">
-                      {(consensus.multiplier || 1.5)}x Sizing Boost
-                    </span>
-                  </div>
-                  <p className="text-xs leading-relaxed text-indigo-800">
-                    {consensus.detail || `${consensus.whale_count} distinct tracked whales took aligned ${outcomeLabel} positions with $${(consensus.total_cash || 0).toLocaleString()} aggregate allocation.`}
-                  </p>
-
-                  {/* List of Participating Whales */}
-                  {consensus.whale_details && consensus.whale_details.length > 0 && (
-                    <div className="pt-2 border-t border-indigo-200/60 space-y-1.5">
-                      <div className="text-[10px] font-bold uppercase tracking-wider text-indigo-700">Aligned Whales in this Trade:</div>
-                      <div className="flex flex-wrap gap-2">
-                        {consensus.whale_details.map((w, idx) => (
-                          <div 
-                            key={idx}
-                            onClick={() => onSelectWallet && onSelectWallet(w.address)}
-                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-white border border-indigo-200 shadow-2xs text-xs font-semibold cursor-pointer hover:border-indigo-400 transition-colors"
-                          >
-                            {w.profileImage ? (
-                              <img src={w.profileImage} alt="" className="w-4 h-4 rounded-full object-cover shrink-0" />
-                            ) : (
-                              <div className="w-4 h-4 rounded-full bg-indigo-100 flex items-center justify-center text-[9px] font-bold text-indigo-700">
-                                {w.address.slice(2, 4).toUpperCase()}
-                              </div>
-                            )}
-                            <span className="text-slate-900">{w.name || w.pseudonym || `${w.address.slice(0, 6)}...`}</span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
+              {trade.marketConditionId && (
+                <div className="text-[11px] font-mono text-slate-400 dark:text-[#8E8F99] truncate pt-1">
+                  CID: {trade.marketConditionId}
                 </div>
               )}
+            </div>
 
-              {/* Trade Metrics Grid */}
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
-                <div className="p-3.5 rounded-2xl bg-slate-50 border border-black/[0.06] space-y-1">
-                  <div className="text-[10px] uppercase font-bold text-slate-400">Action & Outcome</div>
-                  <div className="flex items-center gap-1.5">
-                    <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold font-mono border ${isBuy ? 'text-emerald-800 bg-emerald-50 border-emerald-200' : 'text-rose-800 bg-rose-50 border-rose-200'}`}>
-                      {trade.side}
-                    </span>
-                    <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold font-mono border ${isYes ? 'text-emerald-700 bg-emerald-100/50 border-emerald-300' : 'text-rose-700 bg-rose-100/50 border-rose-300'}`}>
-                      {outcomeLabel}
-                    </span>
-                  </div>
+            {/* Pricing & Execution Grid */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-[#1C1D22] border border-black/[0.06] dark:border-white/5 space-y-1">
+                <span className="text-[10px] uppercase font-bold text-slate-400 dark:text-[#8E8F99]">Entry Fill Price</span>
+                <div className="text-base font-bold font-mono text-slate-900 dark:text-white">
+                  ${fillP.toFixed(3)}
                 </div>
-
-                <div className="p-3.5 rounded-2xl bg-white border border-black/[0.08] shadow-sm space-y-1">
-                  <div className="text-[10px] uppercase font-bold text-slate-400">Notional Sizing</div>
-                  <div className="text-sm font-mono font-bold text-slate-900">
-                    ${(trade.size ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                  </div>
-                  <div className="text-[10px] font-mono text-slate-400">{shares.toFixed(1)} contracts</div>
-                </div>
-
-                <div className="p-3.5 rounded-2xl bg-white border border-black/[0.08] shadow-sm space-y-1 col-span-2 sm:col-span-1">
-                  <div className="text-[10px] uppercase font-bold text-slate-400">Trade Status</div>
-                  <div className="flex items-center gap-1 text-xs font-bold text-emerald-700">
-                    <CheckCircle2 size={13} /> {trade.status || 'FILLED'}
-                  </div>
-                  <div className="text-[10px] text-slate-400 font-mono">Mark-to-Market</div>
-                </div>
-
-                <div className="p-3.5 rounded-2xl bg-white border border-black/[0.08] shadow-sm space-y-1">
-                  <div className="text-[10px] uppercase font-bold text-slate-400">Entry Fill Price</div>
-                  <div className="text-sm font-mono font-bold text-slate-800">
-                    ${fillP.toFixed(4)}
-                  </div>
-                  <div className="text-[10px] text-slate-400 font-mono">{(fillP * 100).toFixed(1)}¢</div>
-                </div>
-
-                <div className="p-3.5 rounded-2xl bg-white border border-black/[0.08] shadow-sm space-y-1">
-                  <div className="text-[10px] uppercase font-bold text-slate-400">Live Market Price</div>
-                  <div className="text-sm font-mono font-bold text-indigo-600">
-                    ${curP.toFixed(4)}
-                  </div>
-                  <div className="text-[10px] text-indigo-500 font-mono">{(curP * 100).toFixed(1)}¢</div>
-                </div>
-
-                <div className="p-3.5 rounded-2xl bg-white border border-black/[0.08] shadow-sm space-y-1 col-span-2 sm:col-span-1">
-                  <div className="text-[10px] uppercase font-bold text-slate-400">Polymarket Taker Fee</div>
-                  <div className="text-sm font-mono font-bold text-slate-700">
-                    {trade.feeUsd ? `-$${trade.feeUsd.toFixed(4)}` : '$0.00'}
-                  </div>
-                  <div className="text-[10px] text-slate-400 font-mono">{((trade.categoryRate || 0.05) * 100).toFixed(0)}% quadratic</div>
-                </div>
+                <span className="text-[10px] text-slate-400 dark:text-[#8E8F99] font-mono">{shares.toFixed(1)} Shares</span>
               </div>
 
-              {/* Interactive Polymarket CLOB Price Trajectory */}
-              <TradePriceChart 
-                tradeId={trade.id} 
-                fillPrice={fillP} 
-                currentPrice={curP} 
-                side={trade.side} 
-              />
+              <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-[#1C1D22] border border-black/[0.06] dark:border-white/5 space-y-1">
+                <span className="text-[10px] uppercase font-bold text-slate-400 dark:text-[#8E8F99]">Live Market Price</span>
+                <div className="text-base font-bold font-mono text-slate-900 dark:text-white">
+                  ${curP.toFixed(3)}
+                </div>
+                <span className="text-[10px] text-slate-400 dark:text-[#8E8F99] font-mono">Midpoint Orderbook</span>
+              </div>
 
-              {/* Live Net PnL Card */}
-              <div className={`p-4 rounded-2xl border ${isProfit ? 'bg-emerald-50/60 border-emerald-200' : 'bg-rose-50/60 border-rose-200'} space-y-1`}>
-                <div className="flex justify-between items-center">
-                  <span className="text-[11px] font-bold uppercase text-slate-500">Live Net P&L (After Quadratic PM Fees)</span>
-                  <span className={`text-xs font-mono font-bold ${isProfit ? 'text-emerald-700' : 'text-rose-700'}`}>
-                    {isProfit ? '+' : ''}{pnlPct.toFixed(1)}%
+              <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-[#1C1D22] border border-black/[0.06] dark:border-white/5 space-y-1">
+                <span className="text-[10px] uppercase font-bold text-slate-400 dark:text-[#8E8F99]">Notional Size</span>
+                <div className="text-base font-bold font-mono text-slate-900 dark:text-white">
+                  ${(trade.size ?? 10).toFixed(2)}
+                </div>
+                <span className="text-[10px] text-slate-400 dark:text-[#8E8F99] font-mono">Sandbox USD</span>
+              </div>
+
+              <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-[#1C1D22] border border-black/[0.06] dark:border-white/5 space-y-1">
+                <span className="text-[10px] uppercase font-bold text-slate-400 dark:text-[#8E8F99]">Net Realized PnL</span>
+                <div className={`text-base font-bold font-mono ${isProfit ? 'text-emerald-600 dark:text-[#00D09C]' : 'text-rose-600 dark:text-[#FF453A]'}`}>
+                  {isProfit ? '+' : ''}${pnl.toFixed(2)} ({isProfit ? '+' : ''}{pnlPct.toFixed(1)}%)
+                </div>
+                <span className="text-[10px] text-slate-400 dark:text-[#8E8F99] font-mono">Fee: -${(trade.feeUsd || 0).toFixed(2)}</span>
+              </div>
+            </div>
+
+            {/* Price Chart */}
+            <div className="p-4 rounded-2xl bg-slate-50 dark:bg-[#1C1D22] border border-black/[0.06] dark:border-white/5 space-y-2">
+              <span className="text-[10px] uppercase font-bold text-slate-400 dark:text-[#8E8F99]">Trajectory Chart</span>
+              <div className="h-44 w-full">
+                <TradePriceChart 
+                  fillPrice={fillP} 
+                  currentPrice={curP} 
+                  isProfit={isProfit} 
+                />
+              </div>
+            </div>
+
+            {/* Mirrored Source Whale Card */}
+            <div className="p-4 rounded-2xl bg-slate-50 dark:bg-[#1C1D22] border border-black/[0.06] dark:border-white/5 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-slate-200 dark:bg-[#2C2D35] flex items-center justify-center font-bold text-sm text-slate-800 dark:text-white shrink-0">
+                  <Wallet size={16} />
+                </div>
+                <div>
+                  <span className="text-xs font-bold text-slate-900 dark:text-white block">
+                    {trade.whaleName || trade.whalePseudonym || 'Whale Signal'}
+                  </span>
+                  <span className="text-[10px] font-mono text-slate-400 dark:text-[#8E8F99]">
+                    {trade.walletAddress ? `${trade.walletAddress.slice(0, 6)}...${trade.walletAddress.slice(-4)}` : 'On-chain Whale'}
                   </span>
                 </div>
-                <div 
-                  className={`text-2xl font-mono font-bold truncate tabular-nums tracking-tight ${isProfit ? 'text-emerald-700' : 'text-rose-700'}`}
-                  title={`${isProfit ? '+' : '-'}$${Math.abs(pnl).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
-                >
-                  {isProfit ? '+' : '-'}${Math.abs(pnl).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                </div>
               </div>
+
+              {trade.walletAddress && onSelectWallet && (
+                <button
+                  onClick={() => onSelectWallet(trade.walletAddress!)}
+                  className="px-3 py-1.5 rounded-full bg-slate-200 dark:bg-[#2C2D35] hover:bg-slate-300 dark:hover:bg-[#3C3E48] text-xs font-bold text-slate-900 dark:text-white transition-all cursor-pointer"
+                >
+                  View Whale
+                </button>
+              )}
             </div>
 
-            {/* Footer Action */}
-            <div className="p-6 border-t border-black/[0.06] bg-slate-50/50 flex gap-3">
-              <a
-                href={polyUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="w-full inline-flex items-center justify-center gap-2 py-3 px-4 rounded-2xl bg-slate-900 text-white hover:bg-black font-semibold text-xs transition-colors shadow-sm cursor-pointer"
-              >
-                <ExternalLink size={14} /> Open Event on Polymarket
-              </a>
-            </div>
-          </motion.div>
+            {/* Polymarket Link CTA */}
+            <a
+              href={polyUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="w-full py-3 rounded-full bg-slate-950 dark:bg-white text-white dark:text-black text-xs font-bold flex items-center justify-center gap-2 hover:bg-slate-800 dark:hover:bg-slate-200 transition-all cursor-pointer shadow-sm"
+            >
+              <span>Inspect on Polymarket Orderbook</span>
+              <ExternalLink size={14} />
+            </a>
+          </div>
+        </motion.div>
       </div>
     </AnimatePresence>
   );

@@ -6,7 +6,8 @@ import { Button } from '@/components/ui/Button';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { BrandLogo } from '@/components/ui/BrandLogo';
 import Link from 'next/link';
-import { ArrowLeft, Activity, Database, Users, Wallet, CheckCircle, AlertTriangle, RefreshCw, Sparkles, Filter, RotateCw, Trash2, Search, ExternalLink } from 'lucide-react';
+import { ArrowLeft, Activity, Database, Users, Wallet, CheckCircle, AlertTriangle, RefreshCw, Sparkles, Filter, RotateCw, Trash2, Search, ExternalLink, Sun, Moon } from 'lucide-react';
+import { useTheme } from '@/context/ThemeContext';
 import { motion, AnimatePresence } from 'framer-motion';
 
 export default function AdminPage() {
@@ -18,6 +19,8 @@ export default function AdminPage() {
   const [evaluating, setEvaluating] = useState(false);
   const [progress, setProgress] = useState<any>(null);
   const [filter, setFilter] = useState<'all' | 'active' | 'pending' | 'rejected'>('all');
+  const { theme, toggleTheme } = useTheme();
+  const [wipingAll, setWipingAll] = useState(false);
   const [search, setSearch] = useState('');
 
   const loadData = async (isManual = false) => {
@@ -63,7 +66,7 @@ export default function AdminPage() {
             setEvaluating(false);
             setProgress(null);
             loadData();
-          }, 1000);
+          }, 1200);
         }
       }
     }, 800);
@@ -80,9 +83,7 @@ export default function AdminPage() {
   };
 
   const handlePurgeAndRescan = async () => {
-    if (!confirm("Are you sure you want to PURGE all database records and start scraping Polymarket fresh from scratch?")) {
-      return;
-    }
+    if (!window.confirm("Purge all active/rejected wallets and re-scan top leaderboard?")) return;
     setEvaluating(true);
     try {
       await purgeAndRescanWallets();
@@ -92,21 +93,25 @@ export default function AdminPage() {
     }
   };
 
-  const [wipingAll, setWipingAll] = useState(false);
   const handleHardWipeAll = async () => {
-    const confirmation = prompt("⚠️ FACTORY RESET: Type 'RESET' to permanently delete all wallets, execution logs, snapshots, and restore clean $10k sandbox balances:");
-    if (confirmation !== 'RESET') {
-      if (confirmation !== null) alert("Reset cancelled. You must type 'RESET' exactly.");
-      return;
-    }
+    const conf = window.prompt("Type 'RESET' to completely wipe all database tables, reset portfolios to $10k, and restart engine discovery:");
+    if (conf !== 'RESET') return;
+
     setWipingAll(true);
     try {
-      const { hardWipeAllDatabase } = await import('@/lib/api-client');
-      await hardWipeAllDatabase();
-      alert("✅ Complete factory reset successful! All database tables wiped.");
-      window.location.reload();
+      const backendUrl = (
+        process.env.NEXT_PUBLIC_API_URL || 
+        'http://localhost:8000'
+      ).replace(/\/$/, '');
+      const res = await fetch(`${backendUrl}/api/admin/hard-wipe-all`, { method: 'POST' });
+      if (res.ok) {
+        alert("Database successfully wiped and reset to clean genesis state!");
+        window.location.reload();
+      } else {
+        alert("Wipe failed: check backend logs.");
+      }
     } catch (e) {
-      alert("Error executing wipeout: " + String(e));
+      alert(`Wipe error: ${e}`);
     } finally {
       setWipingAll(false);
     }
@@ -158,19 +163,26 @@ export default function AdminPage() {
   const isPostgres = !status?.database?.using_sqlite_fallback && !dbType.includes('SQLite');
 
   return (
-    <div className="min-h-screen bg-[#F8F9FB] text-slate-900 p-6 lg:p-12 selection:bg-slate-900 selection:text-white">
+    <div className="min-h-screen bg-[#F8F9FB] dark:bg-[#000000] text-slate-900 dark:text-white p-6 lg:p-12 selection:bg-[#00D09C] selection:text-black transition-colors duration-150">
       <div className="max-w-7xl mx-auto">
         {/* Top Header */}
-        <div className="flex flex-wrap items-center justify-between gap-4 mb-8 pb-4 border-b border-black/[0.06]">
+        <div className="flex flex-wrap items-center justify-between gap-4 mb-8 pb-4 border-b border-black/[0.06] dark:border-white/10">
           <div className="flex items-center gap-4">
             <BrandLogo size="sm" subtitle="Admin Console" />
-            <span className="text-slate-300">|</span>
-            <Link href="/dashboard" className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-600 hover:text-slate-900 transition-colors">
+            <span className="text-slate-300 dark:text-slate-700">|</span>
+            <Link href="/dashboard" className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-600 dark:text-[#8E8F99] hover:text-slate-900 dark:hover:text-white transition-colors">
               <ArrowLeft size={14} /> Back to Dashboard
             </Link>
           </div>
 
           <div className="flex flex-wrap items-center gap-2.5">
+            <button
+              onClick={toggleTheme}
+              className="w-9 h-9 rounded-full bg-[#F1F3F5] dark:bg-[#1C1D22] hover:bg-[#E2E6EA] dark:hover:bg-[#2C2D35] border border-black/[0.08] dark:border-white/10 text-slate-700 dark:text-white flex items-center justify-center transition-all cursor-pointer shadow-2xs mr-1"
+              title={theme === 'light' ? 'Switch to Dark Mode' : 'Switch to Light Mode'}
+            >
+              {theme === 'light' ? <Moon size={15} /> : <Sun size={15} className="text-amber-400" />}
+            </button>
             <Button 
               variant="secondary" 
               onClick={() => loadData(true)} 

@@ -3,11 +3,21 @@
 @tailwind utilities;
 
 @layer base {
+  html {
+    background-color: #F8F9FB;
+  }
+  html.dark {
+    background-color: #000000;
+  }
   body {
     background-color: #F8F9FB;
     color: #0F172A;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+  }
+  html.dark body {
+    background-color: #000000;
+    color: #FFFFFF;
   }
 }
 

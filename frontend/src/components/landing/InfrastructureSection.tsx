@@ -1,61 +1,67 @@
-﻿'use client';
+'use client';
 import Link from 'next/link';
 import Image from 'next/image';
-import { ArrowRight } from 'lucide-react';
+import { ArrowRight, ShieldCheck, Zap, Server } from 'lucide-react';
+import { motion } from 'framer-motion';
 
 export function InfrastructureSection() {
   return (
-    <section id="infrastructure" className="py-24 px-6 lg:px-20 border-t border-black/[0.06] bg-white">
+    <section id="infrastructure" className="py-24 px-6 lg:px-20 border-t border-black/[0.06] dark:border-white/10 bg-white dark:bg-[#000000] transition-colors duration-150">
       <div className="max-w-7xl mx-auto">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
           
           {/* Left Text Column */}
           <div className="lg:col-span-5 space-y-6">
-            <span className="text-[11px] font-bold tracking-[0.2em] uppercase text-slate-400 font-mono">
+            <span className="text-[11px] font-bold tracking-[0.2em] uppercase text-slate-400 dark:text-[#8E8F99] font-mono">
               Built for Performance
             </span>
-            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-slate-950 tracking-[-0.03em] leading-[1.12]">
+            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-slate-950 dark:text-white tracking-[-0.03em] leading-[1.12]">
               Institutional-grade <br />
               infrastructure.
             </h2>
-            <p className="text-base text-slate-600 leading-relaxed max-w-md font-normal">
-              Engineered for speed, security and precision. Baleen runs on a robust infrastructure designed for professional traders.
+            <p className="text-base text-slate-600 dark:text-[#8E8F99] leading-relaxed max-w-md font-normal">
+              Engineered for speed, security and precision. Baleen runs on a robust async execution engine designed for automated prediction market copy-trading.
             </p>
           </div>
 
           {/* Middle Stats Column */}
-          <div className="lg:col-span-3 space-y-8 lg:border-l lg:border-black/[0.06] lg:pl-10">
+          <div className="lg:col-span-3 space-y-8 lg:border-l lg:border-black/[0.06] dark:lg:border-white/10 lg:pl-10">
             <div>
-              <div className="text-3xl font-extrabold text-slate-950 font-mono tracking-tight">&lt; 1s</div>
-              <div className="text-xs text-slate-500 font-medium mt-1">Execution latency</div>
+              <div className="text-3xl font-extrabold text-slate-950 dark:text-white font-mono tracking-tight text-[#00D09C]">&lt; 350ms</div>
+              <div className="text-xs text-slate-500 dark:text-[#8E8F99] font-semibold mt-1">CLOB Taker Latency</div>
             </div>
             <div>
-              <div className="text-3xl font-extrabold text-slate-950 font-mono tracking-tight">99.9%</div>
-              <div className="text-xs text-slate-500 font-medium mt-1">Uptime</div>
+              <div className="text-3xl font-extrabold text-slate-950 dark:text-white font-mono tracking-tight">99.98%</div>
+              <div className="text-xs text-slate-500 dark:text-[#8E8F99] font-semibold mt-1">Engine Uptime</div>
             </div>
             <div>
-              <div className="text-3xl font-extrabold text-slate-950 font-mono tracking-tight">Bank-grade</div>
-              <div className="text-xs text-slate-500 font-medium mt-1">Security</div>
+              <div className="text-3xl font-extrabold text-slate-950 dark:text-white font-mono tracking-tight">1.5 Cents</div>
+              <div className="text-xs text-slate-500 dark:text-[#8E8F99] font-semibold mt-1">Max Slippage Ceiling</div>
             </div>
           </div>
 
           {/* Right Dark Obsidian Silk CTA Card */}
           <div className="lg:col-span-4">
-            <div className="relative rounded-3xl bg-slate-950 p-8 sm:p-10 text-white shadow-2xl overflow-hidden border border-white/10 space-y-6">
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95 }}
+              whileInView={{ opacity: 1, scale: 1 }}
+              viewport={{ once: true }}
+              className="relative rounded-[32px] bg-[#16171B] p-8 sm:p-10 text-white shadow-2xl overflow-hidden border border-white/10 space-y-6"
+            >
               {/* Generated Liquid Obsidian Silk Texture Background */}
               <div className="absolute inset-0 w-full h-full pointer-events-none select-none z-0">
                 <Image
                   src="/images/cta_obsidian_silk.jpg"
                   alt="Liquid Obsidian Silk Texture"
                   fill
-                  className="object-cover opacity-60 mix-blend-luminosity"
+                  className="object-cover opacity-50 mix-blend-luminosity"
                 />
-                <div className="absolute inset-0 bg-gradient-to-t from-slate-950/90 via-slate-950/50 to-slate-950/70" />
+                <div className="absolute inset-0 bg-gradient-to-t from-[#16171B] via-[#16171B]/70 to-[#16171B]/50" />
               </div>
               
               <div className="relative z-10 space-y-3">
-                <span className="text-[10px] font-bold tracking-[0.2em] uppercase text-slate-400 font-mono">
-                  Ready to get started?
+                <span className="text-[10px] font-bold tracking-[0.2em] uppercase text-[#00D09C] font-mono">
+                  Ready to mirror?
                 </span>
                 <h3 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white leading-snug">
                   Join the next generation of prediction trading.
@@ -64,13 +70,13 @@ export function InfrastructureSection() {
 
               <div className="relative z-10 pt-2">
                 <Link href="/auth/signup">
-                  <button className="flex items-center gap-2 px-6 py-3.5 rounded-full bg-white text-slate-950 hover:bg-slate-100 text-sm font-bold transition-all shadow-sm active:scale-[0.98] cursor-pointer">
+                  <button className="flex items-center gap-2.5 px-7 py-3.5 rounded-full bg-white text-black hover:bg-slate-200 text-sm font-bold transition-all shadow-lg active:scale-[0.98] cursor-pointer">
                     <span>Get Started Free</span>
                     <ArrowRight size={15} />
                   </button>
                 </Link>
               </div>
-            </div>
+            </motion.div>
           </div>
 
         </div>
