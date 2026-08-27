@@ -198,9 +198,7 @@ class MarkToMarketService:
                         elog.fee_usd = fee_info["fee_usd"]
                         elog.market_category = fee_info["category"]
 
-                    fee = float(elog.fee_usd or 0.0)
-
-                    # Detect if we have a fresh price (from cache, within 60s)
+                    # Detect if we have a valid cached price (within last hour)
                     cache_key = f"{cid.lower().strip()}:{outc.lower().strip()}"
                     price_entry = None
                     if asset_id and asset_id in _live_price_cache:
@@ -208,7 +206,7 @@ class MarkToMarketService:
                     elif cid and cache_key in _live_price_cache:
                         price_entry = _live_price_cache.get(cache_key)
 
-                    price_is_fresh = (price_entry is not None and (time.time() - price_entry.get("ts", 0)) < 60.0)
+                    price_is_fresh = (price_entry is not None and (time.time() - price_entry.get("ts", 0)) < 3600.0)
 
                     if price_is_fresh:
                         cur_p = price_entry["price"]
@@ -225,7 +223,8 @@ class MarkToMarketService:
                         last_pnl = _last_known_pnl.get(str(elog.id))
                         if last_pnl is not None:
                             elog.realized_pnl_usd = last_pnl
-                        # else leave elog.realized_pnl_usd as-is (its DB value)
+                        elif elog.realized_pnl_usd is None:
+                            elog.realized_pnl_usd = round(-fee, 2)
 
                 # 4. Synchronize authoritative sandbox balance & snapshots
                 from app.models import PortfolioSnapshot
