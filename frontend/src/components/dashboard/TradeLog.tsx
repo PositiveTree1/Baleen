@@ -2,7 +2,7 @@
 import { useEffect, useState, useMemo } from 'react';
 import { fetchExecutionLogs, getCachedExecutionLogs } from '@/lib/api-client';
 import { ExecutionLog } from '@/types';
-import { FileSpreadsheet } from 'lucide-react';
+import { FileSpreadsheet, Coins, Landmark, Trophy } from 'lucide-react';
 import { FullHistorySpreadsheetModal } from './FullHistorySpreadsheetModal';
 
 interface TradeLogProps {
@@ -57,6 +57,50 @@ export function TradeLog({
   const displayedLogs = useMemo(() => {
     return filteredLogs.slice(0, MAX_DISPLAY_TRADES);
   }, [filteredLogs]);
+
+  const getMarketIcon = (trade: ExecutionLog) => {
+    if (trade.icon) {
+      return (
+        <img
+          src={trade.icon}
+          alt="Market"
+          className="w-10 h-10 rounded-full object-cover border border-black/[0.08] dark:border-white/10 shrink-0"
+        />
+      );
+    }
+    const q = (trade.marketQuestion || '').toLowerCase();
+    if (q.includes('fed') || q.includes('rate') || q.includes('cpi') || q.includes('trump') || q.includes('biden') || q.includes('election')) {
+      return (
+        <div className="w-10 h-10 rounded-full bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-500/20 flex items-center justify-center shrink-0">
+          <Landmark size={16} />
+        </div>
+      );
+    }
+    if (q.includes('btc') || q.includes('eth') || q.includes('crypto') || q.includes('sol')) {
+      return (
+        <div className="w-10 h-10 rounded-full bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-200 dark:border-amber-500/20 flex items-center justify-center shrink-0">
+          <Coins size={16} />
+        </div>
+      );
+    }
+    if (q.includes('vs') || q.includes('cup') || q.includes('nfl') || q.includes('nba') || q.includes('win') || q.includes('points')) {
+      return (
+        <div className="w-10 h-10 rounded-full bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-[#00D09C] border border-emerald-200 dark:border-[#00D09C]/20 flex items-center justify-center shrink-0">
+          <Trophy size={16} />
+        </div>
+      );
+    }
+    const isYes = (trade.outcome || 'Yes').toLowerCase() === 'yes';
+    return (
+      <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-xs shrink-0 ${
+        isYes 
+          ? 'bg-emerald-50 dark:bg-[#00D09C]/10 text-emerald-700 dark:text-[#00D09C] border border-emerald-200 dark:border-[#00D09C]/20' 
+          : 'bg-rose-50 dark:bg-[#FF453A]/10 text-rose-700 dark:text-[#FF453A] border border-rose-200 dark:border-[#FF453A]/20'
+      }`}>
+        {trade.outcome || 'Yes'}
+      </div>
+    );
+  };
 
   return (
     <>
@@ -121,7 +165,6 @@ export function TradeLog({
               const fillPrice = trade.fillPrice || trade.entryPrice || 0.5;
               const livePrice = trade.currentPrice || fillPrice;
               const isProfit = pnl >= 0;
-              const isYes = (trade.outcome || 'Yes').toLowerCase() === 'yes';
               const whaleDisplay = trade.whaleName || trade.whalePseudonym || (trade.walletAddress ? `${trade.walletAddress.slice(0, 6)}...${trade.walletAddress.slice(-4)}` : 'Whale');
 
               return (
@@ -130,19 +173,13 @@ export function TradeLog({
                   onClick={() => onSelectTrade && onSelectTrade(trade)}
                   className="pt-2.5 pb-2.5 px-2 rounded-2xl hover:bg-slate-50 dark:hover:bg-[#1C1D22] transition-colors cursor-pointer flex items-center justify-between gap-3 group"
                 >
-                  {/* Left: Outcome Badge & Title */}
+                  {/* Left: Outcome / Market Icon & Title */}
                   <div className="flex items-center gap-3 min-w-0">
-                    <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-xs shrink-0 ${
-                      isYes 
-                        ? 'bg-emerald-50 dark:bg-[#00D09C]/10 text-emerald-700 dark:text-[#00D09C] border border-emerald-200 dark:border-[#00D09C]/20' 
-                        : 'bg-rose-50 dark:bg-[#FF453A]/10 text-rose-700 dark:text-[#FF453A] border border-rose-200 dark:border-[#FF453A]/20'
-                    }`}>
-                      {trade.outcome || 'Yes'}
-                    </div>
+                    {getMarketIcon(trade)}
 
                     <div className="min-w-0">
                       <div className="flex items-center gap-2">
-                        <p className="text-xs font-bold text-slate-900 dark:text-white truncate max-w-xs sm:max-w-md">
+                        <p className="text-xs font-bold text-slate-900 dark:text-white truncate max-w-xs sm:max-w-md group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
                           {trade.marketQuestion || 'Prediction Market Contract'}
                         </p>
                         {trade.consensus?.is_consensus && (

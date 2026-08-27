@@ -9,6 +9,9 @@ import { PortfolioAnalytics } from '@/components/dashboard/PortfolioAnalytics';
 import { WalletDrawer } from '@/components/dashboard/WalletDrawer';
 import { TradeDrawer } from '@/components/dashboard/TradeDrawer';
 import { ResetSandboxModal } from '@/components/dashboard/ResetSandboxModal';
+import { MirrorStrategyModal } from '@/components/dashboard/MirrorStrategyModal';
+import { RebalanceModal } from '@/components/dashboard/RebalanceModal';
+import { DeepAnalyticsModal } from '@/components/dashboard/DeepAnalyticsModal';
 import { ActivityFeed } from '@/components/dashboard/ActivityFeed';
 import { CommandPalette } from '@/components/ui/CommandPalette';
 import { fetchUserSettings, fetchPortfolioSummary, fetchExecutionLogs, getCachedExecutionLogs, getCachedPortfolioSummary } from '@/lib/api-client';
@@ -34,7 +37,14 @@ export default function DashboardPage() {
   const { theme, toggleTheme } = useTheme();
   const [selectedWallet, setSelectedWallet] = useState<string | null>(null);
   const [selectedTrade, setSelectedTrade] = useState<ExecutionLog | null>(null);
+  
+  // 4 Action Modals
   const [isResetOpen, setIsResetOpen] = useState(false);
+  const [isMirrorOpen, setIsMirrorOpen] = useState(false);
+  const [isRebalanceOpen, setIsRebalanceOpen] = useState(false);
+  const [isAnalyticsOpen, setIsAnalyticsOpen] = useState(false);
+  const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
+
   const [activityOpen, setActivityOpen] = useState(false);
   const [soundActive, setSoundActive] = useState(false);
   const [logs, setLogs] = useState<ExecutionLog[]>(() => getCachedExecutionLogs(session?.user?.id) || []);
@@ -72,7 +82,7 @@ export default function DashboardPage() {
       <div className="min-h-screen flex items-center justify-center bg-[#F8F9FB] dark:bg-[#000000] text-slate-900 dark:text-white">
         <div className="flex flex-col items-center gap-3">
           <div className="w-8 h-8 rounded-full border-2 border-[#00D09C] border-t-transparent animate-spin" />
-          <span className="text-xs font-mono text-[#8E8F99]">Connecting to Revolut Control Plane...</span>
+          <span className="text-xs font-mono text-[#8E8F99]">Connecting to Baleen Control Plane...</span>
         </div>
       </div>
     );
@@ -81,24 +91,23 @@ export default function DashboardPage() {
   const liveBalance = portfolio?.currentBalance ?? user?.currentBalance ?? 10000.0;
   const livePnl = portfolio?.totalPnlUsd ?? 0.0;
   const livePnlPct = portfolio?.totalPnlPct ?? 0.0;
-  const userInitial = session?.user?.name ? session.user.name.slice(0, 2).toUpperCase() : 'BL';
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#F8F9FB] dark:bg-[#000000] text-slate-900 dark:text-white selection:bg-[#00D09C] selection:text-black relative overflow-x-hidden font-sans transition-colors duration-200">
+    <div className="min-h-screen flex flex-col bg-[#F8F9FB] dark:bg-[#000000] text-slate-900 dark:text-white selection:bg-[#00D09C] selection:text-black relative overflow-x-hidden font-sans transition-colors duration-150">
       
-      {/* Revolut Top Bar Navigation */}
+      {/* Top Bar Navigation (Clean Baleen Brand) */}
       <nav className="flex items-center justify-between py-4 px-6 lg:px-12 border-b border-black/[0.06] dark:border-white/[0.08] bg-white/80 dark:bg-[#000000]/90 backdrop-blur-2xl sticky top-0 z-40">
         
-        {/* Left: User Avatar Circle & Brand Logo */}
+        {/* Left: Baleen Brand Logo */}
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full bg-[#FF7A00] text-white font-bold flex items-center justify-center text-sm shadow-md">
-            {userInitial}
-          </div>
-          <BrandLogo href="/" subtitle="Revolut Control" />
+          <BrandLogo href="/" subtitle="Control Plane" />
         </div>
 
-        {/* Center: Search Command Bar (Revolut pill style) */}
-        <div className="hidden md:flex items-center gap-2 px-4 py-2 rounded-full bg-[#F1F3F5] dark:bg-[#1C1D22] border border-black/[0.06] dark:border-white/5 text-xs text-[#8E8F99] w-64 hover:border-black/15 dark:hover:border-white/15 transition-all cursor-pointer">
+        {/* Center: Search Command Bar (Clickable) */}
+        <div 
+          onClick={() => setCommandPaletteOpen(true)}
+          className="hidden md:flex items-center gap-2 px-4 py-2 rounded-full bg-[#F1F3F5] dark:bg-[#1C1D22] border border-black/[0.06] dark:border-white/5 text-xs text-[#8E8F99] w-64 hover:border-black/20 dark:hover:border-white/20 transition-all cursor-pointer shadow-2xs"
+        >
           <Search size={14} className="text-[#8E8F99]" />
           <span className="text-slate-600 dark:text-[#8E8F99]">Search markets, whales...</span>
           <span className="ml-auto text-[10px] font-mono bg-white dark:bg-[#2C2D35] px-1.5 py-0.5 rounded text-slate-700 dark:text-white shadow-2xs">⌘K</span>
@@ -149,22 +158,19 @@ export default function DashboardPage() {
         </div>
       </nav>
 
-      {/* Main Revolut Container */}
+      {/* Main Container */}
       <main className="flex-1 p-4 sm:p-6 lg:p-12 max-w-7xl mx-auto w-full flex flex-col gap-8 relative z-10">
         
-        {/* Hero Section: Revolut Balance & 4-Action Row */}
+        {/* Hero Section: Balance & 4-Action Row (Fully Functional) */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-6 pt-2">
           <BalanceCounter 
             balance={liveBalance} 
             pnl={livePnl} 
             pnlPct={livePnlPct} 
+            onMirrorClick={() => setIsMirrorOpen(true)}
+            onRebalanceClick={() => setIsRebalanceOpen(true)}
+            onAnalyticsClick={() => setIsAnalyticsOpen(true)}
             onResetClick={() => setIsResetOpen(true)}
-            onAnalyticsClick={() => {
-              window.scrollTo({ top: 350, behavior: 'smooth' });
-            }}
-            onMirrorClick={() => {
-              window.scrollTo({ top: 900, behavior: 'smooth' });
-            }}
           />
 
           <div className="flex items-center gap-2.5">
@@ -177,7 +183,7 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* Section 1: Revolut Dark Line Chart & Analytics Cards */}
+        {/* Section 1: Line Chart & Analytics Cards */}
         <PortfolioAnalytics
           logs={logs}
           userId={session?.user?.id}
@@ -203,7 +209,7 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* Section 3: Revolut Execution Audit & Transactions Feed */}
+        {/* Section 3: Execution Audit & Transactions Feed */}
         <TradeLog 
           userId={session?.user?.id} 
           totalHoldingCount={portfolio?.holdingTradesCount}
@@ -213,8 +219,43 @@ export default function DashboardPage() {
         />
       </main>
 
-      {/* Quick Command Palette (CMD+K) */}
-      <CommandPalette onSelectWallet={setSelectedWallet} />
+      {/* Quick Command Palette (CMD+K or Navbar click) */}
+      <CommandPalette 
+        isOpen={commandPaletteOpen}
+        onClose={() => setCommandPaletteOpen(false)}
+        onSelectWallet={setSelectedWallet} 
+      />
+
+      {/* 1. Mirror Strategy Modal */}
+      <MirrorStrategyModal
+        isOpen={isMirrorOpen}
+        onClose={() => setIsMirrorOpen(false)}
+        onSelectWallet={setSelectedWallet}
+      />
+
+      {/* 2. Rebalance Modal */}
+      <RebalanceModal
+        isOpen={isRebalanceOpen}
+        onClose={() => setIsRebalanceOpen(false)}
+        onRebalanceExecute={loadData}
+      />
+
+      {/* 3. Deep Portfolio Analytics Modal */}
+      <DeepAnalyticsModal
+        isOpen={isAnalyticsOpen}
+        onClose={() => setIsAnalyticsOpen(false)}
+        portfolio={portfolio}
+        logs={logs}
+      />
+
+      {/* 4. Reset Sandbox Modal */}
+      <ResetSandboxModal
+        isOpen={isResetOpen}
+        onClose={() => setIsResetOpen(false)}
+        userId={session?.user?.id}
+        currentBalance={liveBalance}
+        onResetComplete={loadData}
+      />
 
       {/* Wallet Drawer */}
       <WalletDrawer 
@@ -230,15 +271,6 @@ export default function DashboardPage() {
           setSelectedTrade(null);
           setSelectedWallet(addr);
         }}
-      />
-
-      {/* Reset Sandbox Modal */}
-      <ResetSandboxModal
-        isOpen={isResetOpen}
-        onClose={() => setIsResetOpen(false)}
-        userId={session?.user?.id}
-        currentBalance={liveBalance}
-        onResetComplete={loadData}
       />
 
       {/* Activity Feed / Notification Panel */}

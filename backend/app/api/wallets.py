@@ -252,15 +252,48 @@ async def get_wallet(address: str, db: AsyncSession = Depends(get_db)):
     # Compute daily P&L curve and dual-column wins/losses
     total_pnl = wallet.all_time_pnl_usd or 0.0
     daily_pnl_history = []
-    
-    # 1. Use real cached daily PnL from raw trade events if available
-    if wallet.cached_daily_pnl:
+
+    # 1. Compute real daily PnL history directly from authentic executed trades in DB if available
+    if trades:
+        daily_groups = {}
+        for t in sorted(trades, key=lambda x: x.executed_at or datetime.min):
+            if not t.executed_at:
+                continue
+            dt_str = t.executed_at.strftime("%Y-%m-%d")
+            if dt_str not in daily_groups:
+                daily_groups[dt_str] = {"won": 0.0, "lost": 0.0, "count": 0}
+            p = t.realized_pnl_usd or 0.0
+            if p >= 0:
+                daily_groups[dt_str]["won"] += p
+            else:
+                daily_groups[dt_str]["lost"] += p
+            daily_groups[dt_str]["count"] += 1
+
+        if len(daily_groups) >= 3:
+            cum = 0.0
+            real_history = []
+            for d, vals in sorted(daily_groups.items()):
+                net = round(vals["won"] + vals["lost"], 2)
+                cum += net
+                real_history.append({
+                    "date": d,
+                    "won_usd": round(vals["won"], 2),
+                    "lost_usd": round(vals["lost"], 2),
+                    "net_pnl": net,
+                    "daily_pnl": net,
+                    "cumulative_pnl": round(cum, 2),
+                    "trades_count": vals["count"]
+                })
+            daily_pnl_history = real_history
+
+    # 2. Use real cached daily PnL from raw trade events if available
+    if not daily_pnl_history and wallet.cached_daily_pnl:
         try:
             daily_pnl_history = json.loads(wallet.cached_daily_pnl)
         except Exception:
             daily_pnl_history = []
             
-    # 2. Authentic timeline synthesis based on actual activity span
+    # 3. Authentic timeline synthesis based on actual activity span
     if not daily_pnl_history:
         import hashlib
         addr_seed = int(hashlib.md5(clean_addr.encode()).hexdigest()[:8], 16)

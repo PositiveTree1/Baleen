@@ -1,7 +1,7 @@
 'use client';
-import { useEffect, useState } from 'react';
-import { fetchWallets, getCachedWallets, reEvaluateWallets, fetchDiscoveryProgress, fetchCopiedWalletStats } from '@/lib/api-client';
-import { Wallet } from '@/types';
+import { useEffect, useState, useMemo } from 'react';
+import { fetchWallets, getCachedWallets, reEvaluateWallets, fetchDiscoveryProgress, fetchCopiedWalletStats, fetchExecutionLogs } from '@/lib/api-client';
+import { Wallet, ExecutionLog } from '@/types';
 import { RotateCw, Search, ChevronRight } from 'lucide-react';
 
 interface WalletLeaderboardProps {
@@ -11,7 +11,7 @@ interface WalletLeaderboardProps {
 
 export function WalletLeaderboard({ userId, onSelectWallet }: WalletLeaderboardProps) {
   const [wallets, setWallets] = useState<Wallet[]>(() => getCachedWallets() || []);
-  const [copiedStats, setCopiedStats] = useState<any[]>([]);
+  const [logs, setLogs] = useState<ExecutionLog[]>([]);
   const [loading, setLoading] = useState(() => (getCachedWallets()?.length || 0) === 0);
   const [evaluating, setEvaluating] = useState(false);
   const [progress, setProgress] = useState<any>(null);
@@ -19,12 +19,12 @@ export function WalletLeaderboard({ userId, onSelectWallet }: WalletLeaderboardP
   const [tab, setTab] = useState<'copied' | 'all' | 'gold'>('copied');
 
   const load = async () => {
-    const [walletsData, copiedData] = await Promise.all([
+    const [walletsData, logsData] = await Promise.all([
       fetchWallets(),
-      fetchCopiedWalletStats(userId)
+      fetchExecutionLogs(userId, { limit: '200' })
     ]);
     if (walletsData && walletsData.length > 0) setWallets(walletsData);
-    if (copiedData && copiedData.length > 0) setCopiedStats(copiedData);
+    if (Array.isArray(logsData)) setLogs(logsData);
     setLoading(false);
   };
 
@@ -62,13 +62,47 @@ export function WalletLeaderboard({ userId, onSelectWallet }: WalletLeaderboardP
     return `${val.toFixed(0)}%`;
   };
 
+  // Compute mirrored PnL per whale directly from the user's authentic execution logs
+  const copiedWhalesWithPnL = useMemo(() => {
+    const map = new Map<string, {
+      address: string;
+      name: string;
+      mirroredPnl: number;
+      fillsCount: number;
+      winRate: number;
+      tier: string;
+      lastTradeAt?: string;
+    }>();
+
+    logs.forEach((l) => {
+      const addr = (l.walletAddress || '').toLowerCase();
+      if (!addr) return;
+      if (!map.has(addr)) {
+        map.set(addr, {
+          address: l.walletAddress,
+          name: l.whaleName || l.whalePseudonym || `${l.walletAddress.slice(0, 6)}...${l.walletAddress.slice(-4)}`,
+          mirroredPnl: 0,
+          fillsCount: 0,
+          winRate: 74.0,
+          tier: l.whaleTier || 'standard',
+          lastTradeAt: l.timestamp
+        });
+      }
+      const item = map.get(addr)!;
+      item.mirroredPnl += (l.pnl ?? 0.0);
+      item.fillsCount += 1;
+    });
+
+    return Array.from(map.values()).sort((a, b) => b.mirroredPnl - a.mirroredPnl);
+  }, [logs]);
+
   const filteredWallets = wallets.filter((w) => {
     if (search && !w.address.toLowerCase().includes(search.toLowerCase()) && !(w.name || '').toLowerCase().includes(search.toLowerCase())) return false;
     if (tab === 'gold') return w.tier === 'gold_sniper';
     return true;
   });
 
-  const filteredCopied = copiedStats.filter((c) => {
+  const filteredCopied = copiedWhalesWithPnL.filter((c) => {
     if (search && !c.address.toLowerCase().includes(search.toLowerCase()) && !(c.name || '').toLowerCase().includes(search.toLowerCase())) return false;
     return true;
   });
@@ -141,10 +175,11 @@ export function WalletLeaderboard({ userId, onSelectWallet }: WalletLeaderboardP
         ) : (
           displayList.map((w: any) => {
             const name = w.name || w.pseudonym || `${w.address.slice(0, 6)}...${w.address.slice(-4)}`;
-            const pnl = w.allTimePnl ?? w.all_time_pnl_usd ?? w.totalPnl ?? 0.0;
+            const isCopiedTab = (tab === 'copied');
+            const pnl = isCopiedTab && w.mirroredPnl !== undefined ? w.mirroredPnl : (w.allTimePnl ?? w.all_time_pnl_usd ?? w.totalPnl ?? 0.0);
             const winRate = w.winRatePct ?? w.win_rate_pct ?? w.winRate ?? 70.0;
             const isGold = (w.tier === 'gold_sniper');
-            const positions = w.activePositionsCount ?? w.positions_count ?? 12;
+            const fillsCount = w.fillsCount ?? w.activePositionsCount ?? w.positions_count ?? 12;
 
             return (
               <div
@@ -171,7 +206,7 @@ export function WalletLeaderboard({ userId, onSelectWallet }: WalletLeaderboardP
                       )}
                     </div>
                     <span className="text-[11px] text-slate-500 dark:text-[#8E8F99] font-mono block truncate">
-                      {formatWinRate(winRate)} Win Rate • {positions} Open
+                      {isCopiedTab ? `${fillsCount} Copied Fills` : `${formatWinRate(winRate)} Win Rate • ${fillsCount} Open`}
                     </span>
                   </div>
                 </div>
@@ -180,9 +215,11 @@ export function WalletLeaderboard({ userId, onSelectWallet }: WalletLeaderboardP
                 <div className="flex items-center gap-2 shrink-0">
                   <div className="text-right">
                     <div className={`text-xs font-bold font-mono ${pnl >= 0 ? 'text-emerald-600 dark:text-[#00D09C]' : 'text-rose-600 dark:text-[#FF453A]'}`}>
-                      {pnl >= 0 ? '+' : ''}${Math.abs(pnl).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                      {pnl >= 0 ? '+' : ''}${Math.abs(pnl).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </div>
-                    <span className="text-[10px] text-slate-400 dark:text-[#8E8F99]">Mirrored</span>
+                    <span className="text-[10px] text-slate-400 dark:text-[#8E8F99]">
+                      {isCopiedTab ? 'Mirrored PnL' : 'All-time PnL'}
+                    </span>
                   </div>
                   <ChevronRight size={14} className="text-slate-400 dark:text-[#8E8F99] group-hover:text-slate-900 dark:group-hover:text-white transition-colors" />
                 </div>

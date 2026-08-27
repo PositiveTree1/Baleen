@@ -89,21 +89,13 @@ export function PortfolioAnalytics({
     fillsCount: number;
     avgFillPrice: number;
     whaleName: string;
-    sampleTrade?: ExecutionLog;
+    sampleTrade: ExecutionLog;
   }
 
-  // 2. Aggregate Market Attribution
+  // 2. Aggregate Market Attribution (Top Alpha & Top Drawdown)
   const { topAlpha, topDrawdown } = useMemo(() => {
-    if (timeframe === 'ALL' && topAlphaMarkets && topAlphaMarkets.length > 0) {
-      return {
-        topAlpha: topAlphaMarkets as MarketSummary[],
-        topDrawdown: (topDrawdownMarkets || []) as MarketSummary[]
-      };
-    }
-
     const marketMap = new Map<string, MarketSummary>();
     targetLogs.forEach((l) => {
-      if (l.side === 'SELL' && l.pnl === undefined) return;
       const key = l.marketQuestion || l.marketConditionId || l.id;
       const notional = l.size ?? 10.0;
       const pnl = l.pnl ?? 0.0;
@@ -135,7 +127,7 @@ export function PortfolioAnalytics({
     const alpha = all.filter((m) => m.totalPnl > 0).sort((a, b) => b.totalPnl - a.totalPnl).slice(0, 4);
     const drawdown = all.filter((m) => m.totalPnl < 0).sort((a, b) => a.totalPnl - b.totalPnl).slice(0, 4);
     return { topAlpha: alpha, topDrawdown: drawdown };
-  }, [targetLogs, timeframe, topAlphaMarkets, topDrawdownMarkets]);
+  }, [targetLogs]);
 
   // 3. Execution Scorecard Metrics
   const { totalWins, totalLosses, winRate, feeRatePct, totalNotionalInvested } = useMemo(() => {
@@ -183,7 +175,57 @@ export function PortfolioAnalytics({
     };
   }, [targetLogs, allTimeWins, allTimeLosses, allTimeWinRate, logs]);
 
-  // 4. Portfolio Snapshots Timeline
+  // 4. Authentic Capital Allocation (100% Real Live Trades)
+  const allocationStats = useMemo(() => {
+    const whaleMap = new Map<string, number>();
+    let totalNotional = 0;
+
+    logs.forEach((l) => {
+      const name = l.whaleName || l.whalePseudonym || (l.walletAddress ? `${l.walletAddress.slice(0, 6)}...${l.walletAddress.slice(-4)}` : 'Whale');
+      const size = l.size ?? 10.0;
+      whaleMap.set(name, (whaleMap.get(name) || 0) + size);
+      totalNotional += size;
+    });
+
+    const sorted = Array.from(whaleMap.entries())
+      .map(([name, notional]) => ({
+        name,
+        notional,
+        pct: totalNotional > 0 ? (notional / totalNotional) * 100 : 0
+      }))
+      .sort((a, b) => b.notional - a.notional);
+
+    const top3 = sorted.slice(0, 3);
+    const top3PctSum = top3.reduce((acc, x) => acc + x.pct, 0);
+    const othersPct = Math.max(0, 100 - top3PctSum);
+
+    const colors = ['#00D09C', '#FF7A00', '#FF2D78', '#787985'];
+
+    const segments = top3.map((item, idx) => ({
+      name: item.name,
+      pct: Math.max(1, Math.round(item.pct)),
+      color: colors[idx]
+    }));
+
+    if (sorted.length > 3 && othersPct > 0) {
+      segments.push({
+        name: 'Others',
+        pct: Math.max(1, Math.round(othersPct)),
+        color: colors[3]
+      });
+    }
+
+    if (segments.length === 0) {
+      segments.push({ name: 'Active Whales', pct: 100, color: '#00D09C' });
+    }
+
+    return {
+      segments,
+      totalNotional
+    };
+  }, [logs]);
+
+  // 5. Portfolio Snapshots Timeline
   const [serverSnapshots, setServerSnapshots] = useState<any[]>(snapshots);
   const [chartLoading, setChartLoading] = useState(false);
 
@@ -404,7 +446,7 @@ export function PortfolioAnalytics({
       {/* ========================================================= */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
         
-        {/* Card 1: Active Capital Allocation (Multi-Segment Bar) */}
+        {/* Card 1: Active Capital Allocation (Dynamic Real Data) */}
         <div className="revolut-card p-5 space-y-4 rounded-[26px]">
           <div className="space-y-1">
             <span className="text-xs font-semibold text-slate-500 dark:text-[#8E8F99]">Capital Allocation</span>
@@ -413,32 +455,26 @@ export function PortfolioAnalytics({
             </div>
           </div>
 
-          {/* Segmented Progress Bar */}
+          {/* Dynamic Segmented Progress Bar */}
           <div className="h-2.5 w-full rounded-full bg-slate-100 dark:bg-[#1C1D22] overflow-hidden flex gap-1">
-            <div className="h-full bg-[#00D09C] rounded-full" style={{ width: '42%' }} />
-            <div className="h-full bg-[#FF7A00] rounded-full" style={{ width: '28%' }} />
-            <div className="h-full bg-[#FF2D78] rounded-full" style={{ width: '18%' }} />
-            <div className="h-full bg-slate-300 dark:bg-[#787985] rounded-full" style={{ width: '12%' }} />
+            {allocationStats.segments.map((seg, idx) => (
+              <div 
+                key={seg.name} 
+                className="h-full rounded-full transition-all"
+                style={{ width: `${seg.pct}%`, backgroundColor: seg.color }} 
+              />
+            ))}
           </div>
 
-          {/* Legend */}
+          {/* Dynamic Legend */}
           <div className="grid grid-cols-2 gap-2 text-[11px] font-semibold text-slate-600 dark:text-[#8E8F99]">
-            <div className="flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-[#00D09C]" />
-              <span className="text-slate-900 dark:text-white">hoodr</span> (42%)
-            </div>
-            <div className="flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-[#FF7A00]" />
-              <span className="text-slate-900 dark:text-white">Kracken</span> (28%)
-            </div>
-            <div className="flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-[#FF2D78]" />
-              <span className="text-slate-900 dark:text-white">bloodmaster</span> (18%)
-            </div>
-            <div className="flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-slate-400 dark:bg-[#787985]" />
-              <span>Others</span> (12%)
-            </div>
+            {allocationStats.segments.map((seg) => (
+              <div key={seg.name} className="flex items-center gap-1.5 truncate">
+                <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: seg.color }} />
+                <span className="text-slate-900 dark:text-white truncate">{seg.name}</span>
+                <span className="shrink-0">({seg.pct}%)</span>
+              </div>
+            ))}
           </div>
         </div>
 
@@ -500,7 +536,7 @@ export function PortfolioAnalytics({
       </div>
 
       {/* ========================================================= */}
-      {/* 3. REVOLUT ALPHA & DRAWDOWN ATTRIBUTION LIST */}
+      {/* 3. REVOLUT ALPHA & DRAWDOWN ATTRIBUTION LIST (CLICKABLE) */}
       {/* ========================================================= */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
         
@@ -513,7 +549,7 @@ export function PortfolioAnalytics({
               </div>
               <h4 className="text-sm font-bold text-slate-950 dark:text-white">Top Alpha Generators</h4>
             </div>
-            <span className="text-[11px] font-mono text-slate-400 dark:text-[#8E8F99]">Closed &amp; Open</span>
+            <span className="text-[11px] font-mono text-slate-400 dark:text-[#8E8F99]">Click to inspect</span>
           </div>
 
           <div className="space-y-2">
@@ -523,12 +559,12 @@ export function PortfolioAnalytics({
               topAlpha.map((m) => (
                 <div
                   key={m.key}
-                  onClick={() => m.sampleTrade && onSelectTrade && onSelectTrade(m.sampleTrade)}
-                  className="p-3 rounded-2xl bg-slate-50 dark:bg-[#1C1D22] hover:bg-slate-100 dark:hover:bg-[#24262E] border border-black/[0.04] dark:border-white/5 transition-all cursor-pointer flex items-center justify-between"
+                  onClick={() => onSelectTrade && onSelectTrade(m.sampleTrade)}
+                  className="p-3 rounded-2xl bg-slate-50 dark:bg-[#1C1D22] hover:bg-slate-100 dark:hover:bg-[#24262E] border border-black/[0.04] dark:border-white/5 transition-all cursor-pointer flex items-center justify-between group"
                 >
                   <div className="min-w-0 pr-3">
-                    <p className="text-xs font-semibold text-slate-900 dark:text-white truncate">{m.question}</p>
-                    <span className="text-[10px] text-slate-500 dark:text-[#8E8F99] font-mono">{m.whaleName} • {m.outcome}</span>
+                    <p className="text-xs font-semibold text-slate-900 dark:text-white truncate group-hover:text-emerald-600 dark:group-hover:text-[#00D09C] transition-colors">{m.question}</p>
+                    <span className="text-[10px] text-slate-500 dark:text-[#8E8F99] font-mono">{m.whaleName} • {m.outcome} • {m.fillsCount} fills</span>
                   </div>
                   <div className="text-right shrink-0">
                     <span className="text-xs font-mono font-bold text-emerald-600 dark:text-[#00D09C]">
@@ -550,7 +586,7 @@ export function PortfolioAnalytics({
               </div>
               <h4 className="text-sm font-bold text-slate-950 dark:text-white">Top Drawdowns</h4>
             </div>
-            <span className="text-[11px] font-mono text-slate-400 dark:text-[#8E8F99]">Risk Audit</span>
+            <span className="text-[11px] font-mono text-slate-400 dark:text-[#8E8F99]">Click to inspect</span>
           </div>
 
           <div className="space-y-2">
@@ -560,12 +596,12 @@ export function PortfolioAnalytics({
               topDrawdown.map((m) => (
                 <div
                   key={m.key}
-                  onClick={() => m.sampleTrade && onSelectTrade && onSelectTrade(m.sampleTrade)}
-                  className="p-3 rounded-2xl bg-slate-50 dark:bg-[#1C1D22] hover:bg-slate-100 dark:hover:bg-[#24262E] border border-black/[0.04] dark:border-white/5 transition-all cursor-pointer flex items-center justify-between"
+                  onClick={() => onSelectTrade && onSelectTrade(m.sampleTrade)}
+                  className="p-3 rounded-2xl bg-slate-50 dark:bg-[#1C1D22] hover:bg-slate-100 dark:hover:bg-[#24262E] border border-black/[0.04] dark:border-white/5 transition-all cursor-pointer flex items-center justify-between group"
                 >
                   <div className="min-w-0 pr-3">
-                    <p className="text-xs font-semibold text-slate-900 dark:text-white truncate">{m.question}</p>
-                    <span className="text-[10px] text-slate-500 dark:text-[#8E8F99] font-mono">{m.whaleName} • {m.outcome}</span>
+                    <p className="text-xs font-semibold text-slate-900 dark:text-white truncate group-hover:text-rose-600 dark:group-hover:text-[#FF453A] transition-colors">{m.question}</p>
+                    <span className="text-[10px] text-slate-500 dark:text-[#8E8F99] font-mono">{m.whaleName} • {m.outcome} • {m.fillsCount} fills</span>
                   </div>
                   <div className="text-right shrink-0">
                     <span className="text-xs font-mono font-bold text-rose-600 dark:text-[#FF453A]">
