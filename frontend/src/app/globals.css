@@ -313,7 +313,11 @@
 }
 
 .animate-shimmer {
-  animation: shimmer 2s infinite linear;
-  background: linear-gradient(to right, #F1F3F5 4%, #E9ECEF 25%, #F1F3F5 36%);
+  animation: shimmer 1.8s infinite linear;
+  background: linear-gradient(to right, #F1F3F5 4%, #E2E6EA 25%, #F1F3F5 36%);
+  background-size: 1000px 100%;
+}
+.dark .animate-shimmer {
+  background: linear-gradient(to right, #16171B 4%, #24262E 25%, #16171B 36%);
   background-size: 1000px 100%;
 }

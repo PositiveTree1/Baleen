@@ -118,8 +118,22 @@ export function LiveTape({ userId, onSelectTrade }: LiveTapeProps) {
       {/* Execution Feed */}
       <div className="flex-1 overflow-y-auto space-y-1.5 pr-1 divide-y divide-black/[0.04] dark:divide-white/5">
         {loading ? (
-          <div className="py-12 text-center text-xs text-slate-400 dark:text-[#8E8F99]">
-            Streaming live fills...
+          <div className="space-y-3 pt-1">
+            {[1, 2, 3, 4, 5, 6].map((i) => (
+              <div key={i} className="flex items-center justify-between p-2">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-full animate-shimmer shrink-0" />
+                  <div className="space-y-1.5">
+                    <div className="w-44 sm:w-56 h-3 rounded-md animate-shimmer" />
+                    <div className="w-24 h-2.5 rounded-md animate-shimmer" />
+                  </div>
+                </div>
+                <div className="space-y-1.5 text-right flex flex-col items-end">
+                  <div className="w-12 h-3 rounded-md animate-shimmer" />
+                  <div className="w-8 h-2.5 rounded-md animate-shimmer" />
+                </div>
+              </div>
+            ))}
           </div>
         ) : filteredLogs.length === 0 ? (
           <div className="py-12 text-center text-xs text-slate-400 dark:text-[#8E8F99]">

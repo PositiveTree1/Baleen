@@ -40,11 +40,13 @@ function timeAgo(dateStr: string): string {
 
 export function ActivityFeed({ isOpen, onClose }: ActivityFeedProps) {
   const [events, setEvents] = useState<SystemEvent[]>([]);
+  const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<string>('all');
 
   const loadEvents = useCallback(async () => {
     const data = await fetchSystemEvents(200, filter === 'all' ? undefined : filter);
     if (data && data.length > 0) setEvents(data as any);
+    setLoading(false);
   }, [filter]);
 
   useEffect(() => {
@@ -112,7 +114,20 @@ export function ActivityFeed({ isOpen, onClose }: ActivityFeedProps) {
 
         {/* Events List */}
         <div className="flex-1 overflow-y-auto px-4 py-3 space-y-2">
-          {events.length === 0 ? (
+          {loading ? (
+            <div className="space-y-2.5">
+              {[1, 2, 3, 4, 5].map((i) => (
+                <div key={i} className="p-3.5 rounded-2xl bg-white dark:bg-[#1C1D22] border border-black/[0.06] dark:border-white/5 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div className="w-36 h-3.5 rounded-md animate-shimmer" />
+                    <div className="w-12 h-2.5 rounded-md animate-shimmer" />
+                  </div>
+                  <div className="w-full h-2.5 rounded-md animate-shimmer" />
+                  <div className="w-20 h-2 rounded-md animate-shimmer" />
+                </div>
+              ))}
+            </div>
+          ) : events.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-48 text-slate-400 dark:text-[#8E8F99]">
               <Bell size={28} className="mb-3 opacity-40" />
               <p className="text-sm font-medium">No events yet</p>

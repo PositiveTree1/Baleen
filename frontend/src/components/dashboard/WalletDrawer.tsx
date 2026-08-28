@@ -308,10 +308,15 @@ export function WalletDrawer({ address, onClose }: WalletDrawerProps) {
                   </div>
                 </div>
               ) : (
-                <div className="py-20 flex flex-col items-center justify-center text-slate-400 dark:text-[#8E8F99]">
-                  <Skeleton className="w-16 h-16 rounded-full mb-4" />
-                  <Skeleton className="w-48 h-5 rounded-md mb-2" />
-                  <Skeleton className="w-32 h-4 rounded-md" />
+                <div className="space-y-6">
+                  <div className="w-full h-12 rounded-2xl animate-shimmer" />
+                  <div className="w-full h-20 rounded-2xl animate-shimmer" />
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    {[1, 2, 3, 4].map(i => (
+                      <div key={i} className="h-20 rounded-2xl animate-shimmer" />
+                    ))}
+                  </div>
+                  <div className="w-full h-56 rounded-2xl animate-shimmer" />
                 </div>
               )}
             </div>

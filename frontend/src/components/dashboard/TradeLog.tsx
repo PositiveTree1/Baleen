@@ -151,8 +151,22 @@ export function TradeLog({
         {/* Transactions Feed (Revolut transaction list style) */}
         <div className="divide-y divide-black/[0.04] dark:divide-white/5 space-y-1">
           {loading ? (
-            <div className="py-12 text-center text-xs text-slate-400 dark:text-[#8E8F99]">
-              Loading authoritative execution logs...
+            <div className="space-y-3 pt-2">
+              {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
+                <div key={i} className="pt-2.5 pb-2.5 px-2 flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full animate-shimmer shrink-0" />
+                    <div className="space-y-1.5">
+                      <div className="w-56 sm:w-80 h-3.5 rounded-md animate-shimmer" />
+                      <div className="w-36 h-2.5 rounded-md animate-shimmer" />
+                    </div>
+                  </div>
+                  <div className="space-y-1.5 text-right flex flex-col items-end shrink-0">
+                    <div className="w-16 h-3.5 rounded-md animate-shimmer" />
+                    <div className="w-10 h-2.5 rounded-md animate-shimmer" />
+                  </div>
+                </div>
+              ))}
             </div>
           ) : displayedLogs.length === 0 ? (
             <div className="py-12 text-center text-xs text-slate-400 dark:text-[#8E8F99]">

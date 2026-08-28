@@ -585,7 +585,17 @@ export function PortfolioAnalytics({
 
           <div className="space-y-2">
             {topAlpha.length === 0 ? (
-              <p className="text-xs text-slate-400 dark:text-[#8E8F99] py-4 text-center">No profitable positions recorded yet</p>
+              <div className="space-y-2">
+                {[1, 2, 3].map((i) => (
+                  <div key={i} className="p-3 rounded-2xl bg-slate-50 dark:bg-[#1C1D22] border border-black/[0.04] dark:border-white/5 flex items-center justify-between">
+                    <div className="space-y-1.5">
+                      <div className="w-48 h-3 rounded-md animate-shimmer" />
+                      <div className="w-28 h-2 rounded-md animate-shimmer" />
+                    </div>
+                    <div className="w-12 h-3 rounded-md animate-shimmer" />
+                  </div>
+                ))}
+              </div>
             ) : (
               topAlpha.map((m) => (
                 <div
@@ -622,7 +632,17 @@ export function PortfolioAnalytics({
 
           <div className="space-y-2">
             {topDrawdown.length === 0 ? (
-              <p className="text-xs text-slate-400 dark:text-[#8E8F99] py-4 text-center">No drawdown positions recorded</p>
+              <div className="space-y-2">
+                {[1, 2, 3].map((i) => (
+                  <div key={i} className="p-3 rounded-2xl bg-slate-50 dark:bg-[#1C1D22] border border-black/[0.04] dark:border-white/5 flex items-center justify-between">
+                    <div className="space-y-1.5">
+                      <div className="w-48 h-3 rounded-md animate-shimmer" />
+                      <div className="w-28 h-2 rounded-md animate-shimmer" />
+                    </div>
+                    <div className="w-12 h-3 rounded-md animate-shimmer" />
+                  </div>
+                ))}
+              </div>
             ) : (
               topDrawdown.map((m) => (
                 <div
