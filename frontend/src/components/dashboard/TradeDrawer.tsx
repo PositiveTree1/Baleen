@@ -139,9 +139,10 @@ export function TradeDrawer({ trade, onClose, onSelectWallet }: TradeDrawerProps
               <span className="text-[10px] uppercase font-bold text-slate-400 dark:text-[#8E8F99]">Trajectory Chart</span>
               <div className="h-44 w-full">
                 <TradePriceChart 
+                  tradeId={trade.id}
                   fillPrice={fillP} 
                   currentPrice={curP} 
-                  isProfit={isProfit} 
+                  side={trade.side} 
                 />
               </div>
             </div>

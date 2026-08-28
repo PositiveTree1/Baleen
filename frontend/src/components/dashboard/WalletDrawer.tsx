@@ -296,7 +296,8 @@ export function WalletDrawer({ address, onClose }: WalletDrawerProps) {
                         <CumulativePnLChart 
                           data={(wallet.dailyPnLHistory || []).map(p => ({
                             date: p.date,
-                            pnl: p.cumulativePnL ?? p.dailyPnL ?? 0
+                            dailyPnL: p.dailyPnL ?? p.netPnL ?? 0,
+                            cumulativePnL: p.cumulativePnL ?? p.dailyPnL ?? 0
                           }))} 
                         />
                       )}
