@@ -152,9 +152,9 @@ export function LiveTape({ userId, onSelectTrade }: LiveTapeProps) {
               <div
                 key={log.id}
                 onClick={() => onSelectTrade && onSelectTrade(log)}
-                className="pt-2 flex items-center justify-between p-2 rounded-2xl hover:bg-slate-50 dark:hover:bg-[#1C1D22] transition-colors cursor-pointer group"
+                className="py-2 px-2 flex items-center justify-between gap-2.5 rounded-2xl hover:bg-slate-50 dark:hover:bg-[#1C1D22] transition-colors cursor-pointer group min-w-0"
               >
-                <div className="flex items-center gap-3 min-w-0">
+                <div className="flex items-center gap-2.5 min-w-0 flex-1">
                   {/* Side Indicator Badge & Market Icon */}
                   <div className="relative shrink-0">
                     {getMarketIcon(log)}
@@ -165,13 +165,13 @@ export function LiveTape({ userId, onSelectTrade }: LiveTapeProps) {
                     </div>
                   </div>
 
-                  <div className="min-w-0">
-                    <p className="text-xs font-bold text-slate-900 dark:text-white truncate max-w-xs sm:max-w-sm group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-bold text-slate-900 dark:text-white truncate group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
                       {log.marketQuestion || 'Prediction Market'}
                     </p>
-                    <div className="flex items-center gap-1.5 text-[10px] text-slate-500 dark:text-[#8E8F99] font-mono mt-0.5">
+                    <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[10px] text-slate-500 dark:text-[#8E8F99] font-mono mt-0.5 min-w-0">
                       {/* Explicit BUY / SELL badge */}
-                      <span className={`font-extrabold px-1.5 py-0.2 rounded-md ${
+                      <span className={`font-extrabold px-1.5 py-0.2 rounded-md shrink-0 ${
                         isBuy
                           ? 'bg-emerald-100 dark:bg-[#00D09C]/20 text-emerald-800 dark:text-[#00D09C]'
                           : 'bg-rose-100 dark:bg-[#FF453A]/20 text-rose-800 dark:text-[#FF453A]'
@@ -179,18 +179,18 @@ export function LiveTape({ userId, onSelectTrade }: LiveTapeProps) {
                         {isBuy ? 'BUY' : 'SELL'}
                       </span>
                       {/* Outcome Badge */}
-                      <span className="font-bold px-1.5 py-0.2 rounded-md bg-slate-200 dark:bg-[#2C2D35] text-slate-700 dark:text-[#E2E3E8]">
+                      <span className="font-bold px-1.5 py-0.2 rounded-md bg-slate-200 dark:bg-[#2C2D35] text-slate-700 dark:text-[#E2E3E8] shrink-0">
                         {outcomeText}
                       </span>
-                      <span>•</span>
-                      <span>${fillPrice.toFixed(3)}</span>
-                      <span>•</span>
-                      <span>{whaleDisplay}</span>
+                      <span className="opacity-40">•</span>
+                      <span className="shrink-0 font-medium">${fillPrice.toFixed(3)}</span>
+                      <span className="opacity-40">•</span>
+                      <span className="truncate max-w-[80px] sm:max-w-[120px]">{whaleDisplay}</span>
                     </div>
                   </div>
                 </div>
 
-                <div className="text-right shrink-0">
+                <div className="text-right shrink-0 pl-1.5">
                   <div className="text-xs font-bold font-mono text-slate-950 dark:text-white">
                     ${notional.toFixed(2)}
                   </div>

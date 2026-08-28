@@ -158,7 +158,7 @@ async def get_execution_logs(
                     cur_p = round(implied_p, 4)
         else:
             gross_pnl = 0.0
-            net_pnl = round(-fee_usd, 2)
+            net_pnl = 0.0
 
         pnl_pct = round((net_pnl / notional) * 100.0, 2) if notional > 0 else 0.0
 

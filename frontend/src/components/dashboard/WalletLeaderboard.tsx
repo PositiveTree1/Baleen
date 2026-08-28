@@ -148,7 +148,7 @@ export function WalletLeaderboard({ userId, onSelectWallet }: WalletLeaderboardP
       </div>
 
       {/* Search & Tabs */}
-      <div className="flex items-center gap-2">
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
         <div className="relative flex-1">
           <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 dark:text-[#8E8F99]" />
           <input
@@ -159,22 +159,22 @@ export function WalletLeaderboard({ userId, onSelectWallet }: WalletLeaderboardP
             className="w-full pl-9 pr-3 py-2 bg-[#F1F3F5] dark:bg-[#1C1D22] border border-black/[0.04] dark:border-white/5 rounded-full text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-[#8E8F99] focus:outline-none focus:border-black/20 dark:focus:border-white/20"
           />
         </div>
-        <div className="flex rounded-full bg-[#F1F3F5] dark:bg-[#1C1D22] p-0.5 border border-black/[0.04] dark:border-white/5 text-[11px] font-bold">
+        <div className="flex rounded-full bg-[#F1F3F5] dark:bg-[#1C1D22] p-0.5 border border-black/[0.04] dark:border-white/5 text-[11px] font-bold justify-between sm:justify-start shrink-0">
           <button
             onClick={() => setTab('copied')}
-            className={`px-3 py-1 rounded-full transition-all ${tab === 'copied' ? 'bg-white dark:bg-[#2C2D35] text-slate-950 dark:text-white shadow-2xs' : 'text-slate-500 dark:text-[#8E8F99]'}`}
+            className={`flex-1 sm:flex-initial px-3.5 py-1.5 rounded-full transition-all text-center ${tab === 'copied' ? 'bg-white dark:bg-[#2C2D35] text-slate-950 dark:text-white shadow-2xs' : 'text-slate-500 dark:text-[#8E8F99]'}`}
           >
             Copied
           </button>
           <button
             onClick={() => setTab('gold')}
-            className={`px-3 py-1 rounded-full transition-all ${tab === 'gold' ? 'bg-white dark:bg-[#2C2D35] text-slate-950 dark:text-white shadow-2xs' : 'text-slate-500 dark:text-[#8E8F99]'}`}
+            className={`flex-1 sm:flex-initial px-3.5 py-1.5 rounded-full transition-all text-center ${tab === 'gold' ? 'bg-white dark:bg-[#2C2D35] text-slate-950 dark:text-white shadow-2xs' : 'text-slate-500 dark:text-[#8E8F99]'}`}
           >
             Gold
           </button>
           <button
             onClick={() => setTab('all')}
-            className={`px-3 py-1 rounded-full transition-all ${tab === 'all' ? 'bg-white dark:bg-[#2C2D35] text-slate-950 dark:text-white shadow-2xs' : 'text-slate-500 dark:text-[#8E8F99]'}`}
+            className={`flex-1 sm:flex-initial px-3.5 py-1.5 rounded-full transition-all text-center ${tab === 'all' ? 'bg-white dark:bg-[#2C2D35] text-slate-950 dark:text-white shadow-2xs' : 'text-slate-500 dark:text-[#8E8F99]'}`}
           >
             All
           </button>

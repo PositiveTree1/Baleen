@@ -114,46 +114,46 @@ export default function DashboardPage() {
         </div>
 
         {/* Right: Circular Icon Actions */}
-        <div className="flex items-center gap-1.5 sm:gap-2.5">
+        <div className="flex items-center gap-1 sm:gap-2 lg:gap-2.5 shrink-0">
           {/* Light / Dark Mode Toggle */}
           <button
             onClick={toggleTheme}
-            className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-[#F1F3F5] dark:bg-[#1C1D22] hover:bg-[#E2E6EA] dark:hover:bg-[#2C2D35] border border-black/[0.08] dark:border-white/10 text-slate-700 dark:text-white flex items-center justify-center transition-all cursor-pointer shadow-2xs"
+            className="w-8 h-8 sm:w-9 sm:h-9 md:w-10 md:h-10 rounded-full bg-[#F1F3F5] dark:bg-[#1C1D22] hover:bg-[#E2E6EA] dark:hover:bg-[#2C2D35] border border-black/[0.08] dark:border-white/10 text-slate-700 dark:text-white flex items-center justify-center transition-all cursor-pointer shadow-2xs shrink-0"
             title={theme === 'light' ? 'Switch to Dark Mode' : 'Switch to Light Mode'}
           >
-            {theme === 'light' ? <Moon size={15} /> : <Sun size={15} className="text-amber-400" />}
+            {theme === 'light' ? <Moon size={14} className="sm:w-[15px] sm:h-[15px]" /> : <Sun size={14} className="text-amber-400 sm:w-[15px] sm:h-[15px]" />}
           </button>
 
           <button
             onClick={() => setActivityOpen(true)}
-            className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-[#F1F3F5] dark:bg-[#1C1D22] hover:bg-[#E2E6EA] dark:hover:bg-[#2C2D35] border border-black/[0.08] dark:border-white/10 text-slate-700 dark:text-white flex items-center justify-center transition-all cursor-pointer shadow-2xs"
+            className="w-8 h-8 sm:w-9 sm:h-9 md:w-10 md:h-10 rounded-full bg-[#F1F3F5] dark:bg-[#1C1D22] hover:bg-[#E2E6EA] dark:hover:bg-[#2C2D35] border border-black/[0.08] dark:border-white/10 text-slate-700 dark:text-white flex items-center justify-center transition-all cursor-pointer shadow-2xs shrink-0"
             title="Activity Feed & Notifications"
           >
-            <Bell size={15} />
+            <Bell size={14} className="sm:w-[15px] sm:h-[15px]" />
           </button>
 
           <button
             onClick={toggleSound}
-            className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full border transition-all cursor-pointer flex items-center justify-center ${
+            className={`w-8 h-8 sm:w-9 sm:h-9 md:w-10 md:h-10 rounded-full border transition-all cursor-pointer flex items-center justify-center shrink-0 ${
               soundActive 
                 ? 'bg-[#00D09C]/10 text-[#00D09C] border-[#00D09C]/30' 
                 : 'bg-[#F1F3F5] dark:bg-[#1C1D22] hover:bg-[#E2E6EA] dark:hover:bg-[#2C2D35] border-black/[0.08] dark:border-white/10 text-slate-700 dark:text-[#8E8F99]'
             }`}
             title={soundActive ? 'Mute Trade Signal Chimes' : 'Enable Real-time Sound Chimes'}
           >
-            {soundActive ? <Volume2 size={15} /> : <VolumeX size={15} />}
+            {soundActive ? <Volume2 size={14} className="sm:w-[15px] sm:h-[15px]" /> : <VolumeX size={14} className="sm:w-[15px] sm:h-[15px]" />}
           </button>
 
-          <Link href="/admin" className="text-[11px] sm:text-xs font-bold text-slate-900 dark:text-white px-2.5 sm:px-3.5 py-1.5 sm:py-2 rounded-full bg-[#F1F3F5] dark:bg-[#1C1D22] hover:bg-[#E2E6EA] dark:hover:bg-[#2C2D35] border border-black/[0.08] dark:border-white/10 transition-all">
+          <Link href="/admin" className="text-[10px] sm:text-xs font-bold text-slate-900 dark:text-white px-2 sm:px-3 py-1 sm:py-1.5 rounded-full bg-[#F1F3F5] dark:bg-[#1C1D22] hover:bg-[#E2E6EA] dark:hover:bg-[#2C2D35] border border-black/[0.08] dark:border-white/10 transition-all shrink-0">
             Admin
           </Link>
           
-          <Link href="/settings" className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-[#F1F3F5] dark:bg-[#1C1D22] hover:bg-[#E2E6EA] dark:hover:bg-[#2C2D35] border border-black/[0.08] dark:border-white/10 text-slate-700 dark:text-white flex items-center justify-center transition-all">
-            <Settings size={15} />
+          <Link href="/settings" className="w-8 h-8 sm:w-9 sm:h-9 md:w-10 md:h-10 rounded-full bg-[#F1F3F5] dark:bg-[#1C1D22] hover:bg-[#E2E6EA] dark:hover:bg-[#2C2D35] border border-black/[0.08] dark:border-white/10 text-slate-700 dark:text-white flex items-center justify-center transition-all shrink-0">
+            <Settings size={14} className="sm:w-[15px] sm:h-[15px]" />
           </Link>
           
-          <button onClick={() => signOut()} className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-[#F1F3F5] dark:bg-[#1C1D22] hover:bg-rose-50 dark:hover:bg-rose-950/60 border border-black/[0.08] dark:border-white/10 text-slate-700 dark:text-[#8E8F99] hover:text-[#FF453A] flex items-center justify-center transition-all cursor-pointer">
-            <LogOut size={15} />
+          <button onClick={() => signOut()} className="w-8 h-8 sm:w-9 sm:h-9 md:w-10 md:h-10 rounded-full bg-[#F1F3F5] dark:bg-[#1C1D22] hover:bg-rose-50 dark:hover:bg-rose-950/60 border border-black/[0.08] dark:border-white/10 text-slate-700 dark:text-[#8E8F99] hover:text-[#FF453A] flex items-center justify-center transition-all cursor-pointer shrink-0">
+            <LogOut size={14} className="sm:w-[15px] sm:h-[15px]" />
           </button>
         </div>
       </nav>

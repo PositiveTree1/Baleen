@@ -437,31 +437,31 @@ class PolymarketClient:
             except Exception:
                 pass
 
-        # ── Stage 2: Data API recent trades strictly filtered by conditionId or asset ──
+        # ── Stage 2: Data API recent trades strictly filtered by market (condition ID) or asset ──
         if dec_asset:
             try:
-                t_recent = await self._fetch_with_retry(f"{self.data_api_url}/trades", params={"asset": dec_asset, "limit": 2})
+                t_recent = await self._fetch_with_retry(f"{self.data_api_url}/trades", params={"asset": dec_asset, "limit": 4})
                 if isinstance(t_recent, list) and t_recent:
                     for tr in t_recent:
                         if _to_decimal_token(tr.get("asset") or "") == dec_asset:
                             p_val = float(tr.get("price") or 0.0)
-                            if 0.005 <= p_val <= 0.995:
+                            if 0.001 <= p_val <= 0.999:
                                 return round(p_val, 4)
             except Exception:
                 pass
 
         if condition_id:
             try:
-                t_recent = await self._fetch_with_retry(f"{self.data_api_url}/trades", params={"conditionId": condition_id, "limit": 4})
+                t_recent = await self._fetch_with_retry(f"{self.data_api_url}/trades", params={"market": condition_id, "limit": 8})
                 if isinstance(t_recent, list) and t_recent:
                     for tr in t_recent:
-                        tr_cid = str(tr.get("conditionId") or tr.get("condition_id") or "").lower()
-                        if tr_cid == condition_id.lower():
-                            tr_outc = str(tr.get("outcome") or "")
-                            if not outcome or tr_outc.lower() == outcome.lower():
-                                p_val = float(tr.get("price") or 0.0)
-                                if 0.005 <= p_val <= 0.995:
-                                    return round(p_val, 4)
+                        tr_outc = str(tr.get("outcome") or "").strip().lower()
+                        p_val = float(tr.get("price") or 0.0)
+                        if 0.001 <= p_val <= 0.999:
+                            if not outcome or tr_outc == outcome.strip().lower():
+                                return round(p_val, 4)
+                            elif outcome.strip().lower() in ("yes", "no") and tr_outc in ("yes", "no"):
+                                return round(1.0 - p_val, 4)
             except Exception:
                 pass
 
@@ -469,7 +469,7 @@ class PolymarketClient:
 
     async def fetch_batch_live_prices(self, condition_ids: List[str]) -> Dict[str, Dict[str, float]]:
         """
-        Batch fetches live prices for a list of condition IDs from Polymarket Gamma API in single requests.
+        Batch fetches live prices for a list of condition IDs concurrently via Polymarket Data API.
         Returns mapping: { condition_id_lower: { outcome_lower: price } }
         """
         if not condition_ids:
@@ -480,62 +480,41 @@ class PolymarketClient:
             return {}
 
         results: Dict[str, Dict[str, float]] = {}
-        chunk_size = 30
+        sem = asyncio.Semaphore(8)
 
-        for i in range(0, len(clean_cids), chunk_size):
-            chunk = clean_cids[i:i + chunk_size]
-            cids_param = ",".join(chunk)
-            try:
-                data = await self._fetch_with_retry(
-                    f"{self.gamma_api_url}/markets",
-                    params={"condition_ids": cids_param, "limit": len(chunk) * 2}
-                )
-                rows = data if isinstance(data, list) else ([data] if isinstance(data, dict) else [])
-                for m in rows:
-                    if not isinstance(m, dict):
-                        continue
-                    m_cid = str(m.get("conditionId") or m.get("condition_id") or "").lower().strip()
-                    if not m_cid:
-                        continue
-
-                    try:
-                        raw_prices = m.get("outcomePrices") or "[]"
-                        prices = json.loads(raw_prices) if isinstance(raw_prices, str) else list(raw_prices)
-                        prices = [float(p) for p in prices]
-
-                        raw_outcomes = m.get("outcomes") or "[]"
-                        outcomes = json.loads(raw_outcomes) if isinstance(raw_outcomes, str) else list(raw_outcomes)
-
-                        raw_tokens = m.get("clobTokenIds") or m.get("clob_token_ids") or "[]"
-                        tokens = json.loads(raw_tokens) if isinstance(raw_tokens, str) else list(raw_tokens)
-
+        async def _fetch_single_market(cid: str):
+            async with sem:
+                try:
+                    data = await self._fetch_with_retry(
+                        f"{self.data_api_url}/trades",
+                        params={"market": cid, "limit": 6}
+                    )
+                    if isinstance(data, list) and data:
                         outcome_map: Dict[str, float] = {}
-                        for idx, outc in enumerate(outcomes):
-                            if idx < len(prices):
-                                p = prices[idx]
-                                if 0.001 <= p <= 0.999:
-                                    outcome_map[str(outc).lower().strip()] = round(p, 4)
-
-                        if len(prices) >= 1 and "yes" not in outcome_map:
-                            outcome_map["yes"] = round(prices[0], 4)
-                        if len(prices) >= 2 and "no" not in outcome_map:
-                            outcome_map["no"] = round(prices[1], 4)
+                        for tr in data:
+                            if isinstance(tr, dict):
+                                outc = str(tr.get("outcome") or "").lower().strip()
+                                p_val = float(tr.get("price") or 0.0)
+                                if 0.001 <= p_val <= 0.999 and outc and outc not in outcome_map:
+                                    outcome_map[outc] = round(p_val, 4)
+                                    if outc == "yes" and "no" not in outcome_map:
+                                        outcome_map["no"] = round(1.0 - p_val, 4)
+                                    elif outc == "no" and "yes" not in outcome_map:
+                                        outcome_map["yes"] = round(1.0 - p_val, 4)
+                                    
+                                    asset_id = str(tr.get("asset") or "")
+                                    if asset_id:
+                                        results[f"token:{asset_id}"] = {"price": round(p_val, 4)}
 
                         if outcome_map:
-                            results[m_cid] = outcome_map
+                            results[cid] = outcome_map
+                except Exception as e:
+                    logger.debug(f"Data API fetch note for {cid}: {e}")
 
-                            # Map tokens
-                            for idx, tok in enumerate(tokens):
-                                if idx < len(prices):
-                                    dec_t = _to_decimal_token(str(tok))
-                                    if dec_t:
-                                        results[f"token:{dec_t}"] = {"price": round(prices[idx], 4)}
-                    except Exception as e:
-                        logger.debug(f"Batch parse note for {m_cid}: {e}")
-            except Exception as e:
-                logger.debug(f"Batch fetch note: {e}")
-            
-            await asyncio.sleep(0.02)
+        tasks = [_fetch_single_market(cid) for cid in clean_cids[:50]]
+        if tasks:
+            await asyncio.gather(*tasks, return_exceptions=True)
 
         return results
+
 

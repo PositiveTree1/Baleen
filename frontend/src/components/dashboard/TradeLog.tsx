@@ -186,35 +186,41 @@ export function TradeLog({
                 <div
                   key={trade.id}
                   onClick={() => onSelectTrade && onSelectTrade(trade)}
-                  className="pt-2.5 pb-2.5 px-2 rounded-2xl hover:bg-slate-50 dark:hover:bg-[#1C1D22] transition-colors cursor-pointer flex items-center justify-between gap-3 group"
+                  className="py-2.5 px-2 rounded-2xl hover:bg-slate-50 dark:hover:bg-[#1C1D22] transition-colors cursor-pointer flex items-center justify-between gap-2.5 group min-w-0"
                 >
                   {/* Left: Outcome / Market Icon & Title */}
-                  <div className="flex items-center gap-3 min-w-0">
+                  <div className="flex items-center gap-2.5 min-w-0 flex-1">
                     {getMarketIcon(trade)}
 
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2">
-                        <p className="text-xs font-bold text-slate-900 dark:text-white truncate max-w-xs sm:max-w-md group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <p className="text-xs font-bold text-slate-900 dark:text-white truncate group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
                           {trade.marketQuestion || 'Prediction Market Contract'}
                         </p>
                         {trade.consensus?.is_consensus && (
-                          <span className="text-[9px] font-bold bg-indigo-50 dark:bg-indigo-500/10 text-indigo-700 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-500/20 px-1.5 py-0.2 rounded-full">
+                          <span className="text-[9px] font-bold bg-indigo-50 dark:bg-indigo-500/10 text-indigo-700 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-500/20 px-1.5 py-0.2 rounded-full shrink-0">
                             Consensus
                           </span>
                         )}
                       </div>
-                      <div className="flex items-center gap-2 text-[11px] text-slate-500 dark:text-[#8E8F99] font-mono mt-0.5">
-                        <span>{whaleDisplay}</span>
-                        <span>•</span>
-                        <span>Fill: ${fillPrice.toFixed(3)}</span>
-                        <span>•</span>
-                        <span className="text-slate-900 dark:text-white font-bold">{isClosed ? 'Exit' : 'Live'}: ${livePrice.toFixed(3)}</span>
+                      
+                      {/* Responsive Metadata Subtitle (Never overlaps) */}
+                      <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[10px] sm:text-[11px] text-slate-500 dark:text-[#8E8F99] font-mono mt-0.5 min-w-0">
+                        <span className="truncate max-w-[85px] sm:max-w-[130px] font-medium text-slate-700 dark:text-slate-300">
+                          {whaleDisplay}
+                        </span>
+                        <span className="opacity-40">•</span>
+                        <span className="shrink-0">Fill ${fillPrice.toFixed(3)}</span>
+                        <span className="opacity-40">•</span>
+                        <span className="shrink-0 font-bold text-slate-900 dark:text-white">
+                          {isClosed ? 'Exit' : 'Live'} ${livePrice.toFixed(3)}
+                        </span>
                       </div>
                     </div>
                   </div>
 
                   {/* Right: Notional Size & Net PnL */}
-                  <div className="text-right shrink-0">
+                  <div className="text-right shrink-0 pl-1.5">
                     <div className="text-xs font-bold font-mono text-slate-950 dark:text-white">
                       ${notional.toFixed(2)}
                     </div>
