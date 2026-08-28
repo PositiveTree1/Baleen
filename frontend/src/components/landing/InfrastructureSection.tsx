@@ -1,7 +1,7 @@
 'use client';
 import Link from 'next/link';
 import Image from 'next/image';
-import { ArrowRight, ShieldCheck, Zap, Server } from 'lucide-react';
+import { ArrowRight } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 export function InfrastructureSection() {
@@ -27,7 +27,7 @@ export function InfrastructureSection() {
           {/* Middle Stats Column */}
           <div className="lg:col-span-3 space-y-8 lg:border-l lg:border-black/[0.06] dark:lg:border-white/10 lg:pl-10">
             <div>
-              <div className="text-3xl font-extrabold text-slate-950 dark:text-white font-mono tracking-tight text-[#00D09C]">&lt; 350ms</div>
+              <div className="text-3xl font-extrabold text-slate-950 dark:text-white font-mono tracking-tight">&lt; 350ms</div>
               <div className="text-xs text-slate-500 dark:text-[#8E8F99] font-semibold mt-1">CLOB Taker Latency</div>
             </div>
             <div>
@@ -36,32 +36,32 @@ export function InfrastructureSection() {
             </div>
             <div>
               <div className="text-3xl font-extrabold text-slate-950 dark:text-white font-mono tracking-tight">1.5 Cents</div>
-              <div className="text-xs text-slate-500 dark:text-[#8E8F99] font-semibold mt-1">Max Slippage Ceiling</div>
+              <div className="text-xs text-slate-500 dark:text-[#8E8F99] font-semibold mt-1">Max Slippage Limit</div>
             </div>
           </div>
 
-          {/* Right Dark Obsidian Silk CTA Card */}
+          {/* Right Obsidian CTA Card */}
           <div className="lg:col-span-4">
             <motion.div 
-              initial={{ opacity: 0, scale: 0.95 }}
+              initial={{ opacity: 0, scale: 0.96 }}
               whileInView={{ opacity: 1, scale: 1 }}
               viewport={{ once: true }}
-              className="relative rounded-[32px] bg-[#16171B] p-8 sm:p-10 text-white shadow-2xl overflow-hidden border border-white/10 space-y-6"
+              className="relative rounded-[28px] bg-[#16171B] p-8 sm:p-10 text-white shadow-2xl overflow-hidden border border-white/10 space-y-6"
             >
-              {/* Generated Liquid Obsidian Silk Texture Background */}
+              {/* Obsidian Texture Background */}
               <div className="absolute inset-0 w-full h-full pointer-events-none select-none z-0">
                 <Image
                   src="/images/cta_obsidian_silk.jpg"
                   alt="Liquid Obsidian Silk Texture"
                   fill
-                  className="object-cover opacity-50 mix-blend-luminosity"
+                  className="object-cover opacity-45 mix-blend-luminosity"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-[#16171B] via-[#16171B]/70 to-[#16171B]/50" />
               </div>
               
               <div className="relative z-10 space-y-3">
-                <span className="text-[10px] font-bold tracking-[0.2em] uppercase text-[#00D09C] font-mono">
-                  Ready to mirror?
+                <span className="text-[10px] font-bold tracking-[0.2em] uppercase text-slate-400 font-mono">
+                  Ready to start?
                 </span>
                 <h3 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white leading-snug">
                   Join the next generation of prediction trading.
@@ -70,7 +70,7 @@ export function InfrastructureSection() {
 
               <div className="relative z-10 pt-2">
                 <Link href="/auth/signup">
-                  <button className="flex items-center gap-2.5 px-7 py-3.5 rounded-full bg-white text-black hover:bg-slate-200 text-sm font-bold transition-all shadow-lg active:scale-[0.98] cursor-pointer">
+                  <button className="flex items-center gap-2.5 px-7 py-3.5 rounded-full bg-white text-black hover:bg-slate-200 text-sm font-bold transition-all shadow-md active:scale-[0.98] cursor-pointer">
                     <span>Get Started Free</span>
                     <ArrowRight size={15} />
                   </button>

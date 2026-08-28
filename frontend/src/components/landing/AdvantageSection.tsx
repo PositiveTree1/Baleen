@@ -11,7 +11,6 @@ export function AdvantageSection() {
       tag: 'On-Chain Scoring',
       desc: 'Find verified, hyper-consistent prediction traders with audited Wilson score confidence bounds and clean PnL histories.',
       icon: Search,
-      color: '#00D09C'
     },
     {
       num: '02',
@@ -19,7 +18,6 @@ export function AdvantageSection() {
       tag: 'Risk Management',
       desc: 'Set your portfolio risk regime, sizing multipliers (1.0x - 2.0x), and category tolerances with quantitative precision.',
       icon: Sliders,
-      color: '#FF7A00'
     },
     {
       num: '03',
@@ -27,7 +25,6 @@ export function AdvantageSection() {
       tag: 'HyperSync Engine',
       desc: 'Let Baleen automatically mirror smart money fills on Polymarket CLOB with sub-second execution speed.',
       icon: Zap,
-      color: '#FF2D78'
     },
     {
       num: '04',
@@ -35,7 +32,6 @@ export function AdvantageSection() {
       tag: 'MTM Rebalancing',
       desc: 'Track live portfolio performance in real-time, inspect daily win/loss attribution, and compound returns on autopilot.',
       icon: TrendingUp,
-      color: '#6366F1'
     },
   ];
 
@@ -57,7 +53,7 @@ export function AdvantageSection() {
           </p>
         </div>
 
-        {/* 4 Step Process Grid with Revolut Cards */}
+        {/* 4 Step Process Grid with Revolut Matte Monochrome Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
           {steps.map((s, idx) => (
             <motion.div 
@@ -65,17 +61,14 @@ export function AdvantageSection() {
               initial={{ opacity: 0, y: 15 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
-              transition={{ duration: 0.4, delay: idx * 0.1 }}
-              className="p-8 rounded-[28px] bg-white dark:bg-[#16171B] border border-black/[0.06] dark:border-white/10 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 space-y-5 flex flex-col justify-between group"
+              transition={{ duration: 0.4, delay: idx * 0.08 }}
+              className="p-8 rounded-[26px] bg-white dark:bg-[#16171B] border border-black/[0.06] dark:border-white/10 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 space-y-5 flex flex-col justify-between group"
             >
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-bold font-mono text-slate-400 dark:text-[#8E8F99] tracking-wider">{s.num}</span>
-                  <div 
-                    className="w-10 h-10 rounded-2xl flex items-center justify-center transition-colors border border-black/[0.06] dark:border-white/10 bg-slate-50 dark:bg-[#1C1D22]"
-                    style={{ color: s.color }}
-                  >
-                    <s.icon size={18} />
+                  <div className="w-10 h-10 rounded-2xl flex items-center justify-center border border-black/[0.06] dark:border-white/10 bg-slate-100 dark:bg-[#1C1D22] text-slate-900 dark:text-white">
+                    <s.icon size={17} />
                   </div>
                 </div>
 
@@ -87,7 +80,7 @@ export function AdvantageSection() {
                 <p className="text-sm text-slate-600 dark:text-[#8E8F99] leading-relaxed font-normal">{s.desc}</p>
               </div>
 
-              <div className="pt-4 border-t border-black/[0.04] dark:border-white/5 flex items-center gap-1.5 text-xs font-bold text-slate-950 dark:text-white group-hover:text-[#00D09C] transition-colors">
+              <div className="pt-4 border-t border-black/[0.04] dark:border-white/5 flex items-center gap-1.5 text-xs font-bold text-slate-950 dark:text-white group-hover:text-slate-600 dark:group-hover:text-slate-300 transition-colors">
                 <span>View Methodology</span>
                 <ArrowRight size={13} />
               </div>
