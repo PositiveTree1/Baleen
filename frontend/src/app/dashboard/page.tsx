@@ -11,10 +11,16 @@ import { TradeDrawer } from '@/components/dashboard/TradeDrawer';
 import { ResetSandboxModal } from '@/components/dashboard/ResetSandboxModal';
 import { MirrorStrategyModal } from '@/components/dashboard/MirrorStrategyModal';
 import { RebalanceModal } from '@/components/dashboard/RebalanceModal';
-import { DeepAnalyticsModal } from '@/components/dashboard/DeepAnalyticsModal';
 import { ActivityFeed } from '@/components/dashboard/ActivityFeed';
 import { CommandPalette } from '@/components/ui/CommandPalette';
-import { fetchUserSettings, fetchPortfolioSummary, fetchExecutionLogs, getCachedExecutionLogs, getCachedPortfolioSummary } from '@/lib/api-client';
+import { 
+  fetchUserSettings, 
+  fetchPortfolioSummary, 
+  fetchExecutionLogs, 
+  getCachedExecutionLogs, 
+  getCachedPortfolioSummary,
+  getCachedPortfolioSnapshots 
+} from '@/lib/api-client';
 import { User, ExecutionLog, PortfolioSummary } from '@/types';
 import { useTheme } from '@/context/ThemeContext';
 import Link from 'next/link';
