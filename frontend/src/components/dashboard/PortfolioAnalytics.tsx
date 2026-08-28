@@ -444,19 +444,22 @@ export function PortfolioAnalytics({
     if (match) {
       onSelectTrade(match);
     } else {
+      const avgP = m.avgFillPrice || 0.5;
       onSelectTrade({
-        id: m.conditionId || m.key,
+        id: m.conditionId || m.key || `mkt-${Date.now()}`,
         timestamp: new Date().toISOString(),
-        marketQuestion: m.question,
-        marketConditionId: m.conditionId,
+        walletAddress: m.walletAddress || '0x0000000000000000000000000000000000000000',
+        marketQuestion: m.question || 'Prediction Market Contract',
+        marketConditionId: m.conditionId || '',
         outcome: m.outcome || 'Yes',
-        side: m.totalPnl >= 0 ? 'BUY' : 'SELL',
-        fillPrice: m.avgFillPrice || 0.5,
-        currentPrice: m.avgFillPrice || 0.5,
+        side: (m.totalPnl ?? 0) >= 0 ? 'BUY' : 'SELL',
+        entryPrice: avgP,
+        fillPrice: avgP,
+        currentPrice: avgP,
         size: m.totalNotional || 10.0,
-        pnl: m.totalPnl,
-        pnlPct: m.totalNotional > 0 ? (m.totalPnl / m.totalNotional) * 100 : 0,
-        whaleName: m.whaleName,
+        pnl: m.totalPnl ?? 0.0,
+        pnlPct: (m.totalNotional && m.totalNotional > 0) ? ((m.totalPnl ?? 0) / m.totalNotional) * 100 : 0.0,
+        whaleName: m.whaleName || 'Whale',
         status: 'RESOLVED',
       });
     }
