@@ -130,16 +130,20 @@ async def get_execution_logs(
         pnl_pct = round((net_pnl / notional) * 100.0, 2) if notional > 0 else 0.0
 
         whale_info = whale_meta_map.get((log.source_wallet_address or "").lower(), {})
+        whale_disp_name = whale_info.get("name") or log.whale_name or (f"{log.source_wallet_address[:6]}...{log.source_wallet_address[-4:]}" if log.source_wallet_address else "Whale")
 
         response_list.append({
             "id": str(log.id),
             "timestamp": log.executed_at.isoformat() if log.executed_at else None,
+            "walletAddress": log.source_wallet_address,
             "source_wallet_address": log.source_wallet_address,
-            "whaleName": whale_info.get("name"),
-            "whalePseudonym": whale_info.get("pseudonym"),
+            "whaleName": whale_disp_name,
+            "whalePseudonym": whale_info.get("pseudonym") or log.whale_pseudonym,
             "whaleAvatar": whale_info.get("profileImage"),
             "whaleTier": whale_info.get("tier"),
-            "market_question": log.market_question,
+            "marketQuestion": log.market_question or "Polymarket Event Prediction",
+            "market_question": log.market_question or "Polymarket Event Prediction",
+            "marketConditionId": log.market_condition_id,
             "market_condition_id": log.market_condition_id,
             "eventSlug": log.event_slug,
             "icon": log.icon,
@@ -157,9 +161,7 @@ async def get_execution_logs(
             "marketCategory": category,
             "categoryRate": fee_info["category_rate"],
             "consensus": consensus,
-            "polymarketUrl": f"https://polymarket.com/event/{log.event_slug}" if log.event_slug else (
-                f"https://polymarket.com/market/{cid}" if cid else "https://polymarket.com"
-            )
+            "polymarketUrl": make_polymarket_url(log.event_slug, log.market_question, cid)
         })
 
     return response_list
@@ -191,9 +193,9 @@ async def get_portfolio_summary(
         elif tf == "ytd":
             stmt = stmt.where(ExecutionLog.executed_at >= datetime(now.year, 1, 1))
 
-    logs = (await db.execute(stmt)).scalars().all()
+    logs = (await db.execute(stmt.order_by(ExecutionLog.executed_at.desc()))).scalars().all()
+    
     starting_balance = 10000.0
-
     total_pnl = 0.0
     total_notional = 0.0
     total_fees = 0.0
@@ -203,25 +205,19 @@ async def get_portfolio_summary(
         total_notional += notional
         total_fees += float(log.fee_usd or 0.0)
         
-        # In the execution architecture, position PnL is tracked strictly on the BUY order
-        # (which holds the open mark-to-market and closed realized returns).
-        # SELL orders serve as the audit exit execution log.
         if log.side == "SELL" and log.realized_pnl_usd is None:
             continue
             
         trade_pnl = log.realized_pnl_usd
         if trade_pnl is None and log.side == "BUY" and log.status == "FILLED":
-            # For FILLED (open) trades with no stored PnL, only compute unrealized
-            # PnL if we have a REAL live price (different from the entry).
             cid = log.market_condition_id or ""
             outc = log.resolution_outcome or "Yes"
             fill_p = float(log.user_fill_price or log.whale_entry_price or 0.5)
             cur_p = get_live_price(cid, outcome=outc, asset=log.onchain_tx_hash or "", fallback=fill_p)
-            if abs(cur_p - fill_p) > 0.001:  # Only count if we have a real price change
+            if abs(cur_p - fill_p) > 0.001 and fill_p > 0:
                 fee = float(log.fee_usd or 0.0)
-                if fill_p > 0:
-                    gross_pnl = notional * ((cur_p - fill_p) / fill_p)
-                    trade_pnl = gross_pnl - fee
+                gross_pnl = notional * ((cur_p - fill_p) / fill_p)
+                trade_pnl = gross_pnl - fee
         if trade_pnl is not None:
             total_pnl += float(trade_pnl)
 
@@ -234,9 +230,22 @@ async def get_portfolio_summary(
             continue
             
         key = log.market_question or log.market_condition_id or str(log.id)
-        pnl_val = float(log.realized_pnl_usd or 0.0)
         notional_val = float(log.notional_usd or 0.0)
         fill_p = float(log.user_fill_price or log.whale_entry_price or 0.5)
+        
+        pnl_val = log.realized_pnl_usd
+        if pnl_val is None:
+            cid = log.market_condition_id or ""
+            outc = log.resolution_outcome or "Yes"
+            cur_p = get_live_price(cid, outcome=outc, asset=log.onchain_tx_hash or "", fallback=fill_p)
+            if fill_p > 0 and abs(cur_p - fill_p) > 0.001:
+                fee = float(log.fee_usd or 0.0)
+                gross = notional_val * ((cur_p - fill_p) / fill_p) if log.side == "BUY" else notional_val * ((fill_p - cur_p) / fill_p)
+                pnl_val = round(gross - fee, 2)
+            else:
+                pnl_val = 0.0
+        else:
+            pnl_val = float(pnl_val)
         
         if pnl_val > 0:
             wins_count += 1

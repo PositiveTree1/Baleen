@@ -22,21 +22,22 @@ export function BalanceCounter({
   onRebalanceClick,
   onMirrorClick
 }: BalanceCounterProps) {
-  const motionVal = useMotionValue(10000.0);
-  const [isClient, setIsClient] = useState(false);
-  const prevBalanceRef = useRef<number>(10000.0);
+  const initialVal = balance ?? 10000.0;
+  const motionVal = useMotionValue(initialVal);
+  const isFirstMount = useRef(true);
 
   useEffect(() => {
-    setIsClient(true);
     if (balance !== null && balance !== undefined) {
-      const target = balance;
-      prevBalanceRef.current = target;
-      
-      const controls = animate(motionVal, target, {
-        duration: 0.65,
-        ease: [0.16, 1, 0.3, 1]
-      });
-      return () => controls.stop();
+      if (isFirstMount.current) {
+        motionVal.set(balance);
+        isFirstMount.current = false;
+      } else {
+        const controls = animate(motionVal, balance, {
+          duration: 0.4,
+          ease: [0.16, 1, 0.3, 1]
+        });
+        return () => controls.stop();
+      }
     }
   }, [balance, motionVal]);
 
@@ -61,11 +62,7 @@ export function BalanceCounter({
       {/* Main Authoritative Balance */}
       <div className="flex flex-col sm:flex-row sm:items-baseline gap-3">
         <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight text-slate-950 dark:text-white font-outfit">
-          {isClient ? (
-            <motion.span>{displayValue}</motion.span>
-          ) : (
-            `$${(balance ?? 10000).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-          )}
+          <motion.span>{displayValue}</motion.span>
         </h1>
 
         {/* PnL Pill Badge */}

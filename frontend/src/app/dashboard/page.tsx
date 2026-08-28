@@ -56,7 +56,7 @@ export default function DashboardPage() {
       const [userData, portfolioData, logsData] = await Promise.all([
         session?.user?.id ? fetchUserSettings(session.user.id) : null,
         fetchPortfolioSummary(session?.user?.id),
-        fetchExecutionLogs(session?.user?.id, { limit: '100' })
+        fetchExecutionLogs(session?.user?.id, { limit: '500' })
       ]);
       if (userData) setUser(userData);
       if (portfolioData) setPortfolio(portfolioData);
