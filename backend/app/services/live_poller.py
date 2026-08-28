@@ -226,6 +226,40 @@ class LiveTradeMirrorService:
                 return
 
             sys_notional = round(min(max(10.0, cash_usd * 0.1 * sizing_multiplier), 350.0), 2)
+
+            # Rule 3: Strict Cash Ceiling Guard (Max Active Open Exposure <= Portfolio Balance)
+            if side == "BUY":
+                stmt_active_notional = select(func.sum(ExecutionLog.notional_usd)).where(
+                    ExecutionLog.user_id.is_(None),
+                    ExecutionLog.status == "FILLED",
+                    ExecutionLog.side == "BUY"
+                )
+                current_open_notional = float((await db.execute(stmt_active_notional)).scalar() or 0.0)
+                
+                # Fetch latest portfolio balance
+                stmt_latest_snap = select(PortfolioSnapshot.balance).where(
+                    PortfolioSnapshot.user_id.is_(None)
+                ).order_by(PortfolioSnapshot.timestamp.desc()).limit(1)
+                total_portfolio_equity = float((await db.execute(stmt_latest_snap)).scalar() or 10000.0)
+                
+                free_cash = max(0.0, total_portfolio_equity - current_open_notional)
+                
+                if free_cash < 10.0:
+                    logger.info(f"🛑 Cash Limit Guard: Skipping BUY on '{title[:25]}' - Active exposure ${current_open_notional:,.2f} >= Portfolio Equity ${total_portfolio_equity:,.2f} (Free cash: ${free_cash:,.2f}).")
+                    from app.services.event_logger import log_event
+                    asyncio.create_task(log_event(
+                        "TRADE_SKIPPED_CASH_LIMIT",
+                        f"Cash limit: {title[:50]}",
+                        detail=f"Active capital deployed (${current_open_notional:,.2f}) at 100% capacity of portfolio equity (${total_portfolio_equity:,.2f}). Free cash: ${free_cash:,.2f}.",
+                        severity="warning",
+                        related_address=wallet_address,
+                        related_market=title,
+                    ))
+                    return
+                
+                # Adjust sizing to not exceed available free cash
+                sys_notional = round(min(sys_notional, free_cash), 2)
+
             fee_calc = calculate_polymarket_fee(
                 notional_usd=sys_notional,
                 price=effective_fill_price,

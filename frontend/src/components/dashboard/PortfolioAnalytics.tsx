@@ -287,12 +287,19 @@ export function PortfolioAnalytics({
       segments.push({ name: '100% Cash Balance', pct: 100, color: '#00D09C' });
     }
 
+    const effectiveInvested = currentBalance > 0 ? Math.min(totalNotional, currentBalance) : totalNotional;
+    const freeCash = currentBalance > 0 ? Math.max(0, currentBalance - effectiveInvested) : 0;
+    const allocatedPct = currentBalance > 0 ? Math.min(100, Math.round((effectiveInvested / currentBalance) * 100)) : 0;
+
     return {
       segments,
-      totalNotional,
+      totalNotional: effectiveInvested,
+      grossNotional: totalNotional,
+      freeCash,
+      allocatedPct,
       count: activeHoldingLogs.length
     };
-  }, [activeHoldingLogs]);
+  }, [activeHoldingLogs, currentBalance]);
 
   // 5. Portfolio Snapshots Timeline
   const [serverSnapshots, setServerSnapshots] = useState<any[]>(snapshots);
@@ -686,8 +693,13 @@ export function PortfolioAnalytics({
                 {activeAllocationStats.count} Live Position{activeAllocationStats.count === 1 ? '' : 's'}
               </span>
             </div>
-            <div className="text-2xl font-bold text-slate-950 dark:text-white font-outfit">
-              ${activeAllocationStats.totalNotional.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            <div className="flex items-baseline justify-between">
+              <div className="text-2xl font-bold text-slate-950 dark:text-white font-outfit">
+                ${activeAllocationStats.totalNotional.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </div>
+              <span className="text-[11px] font-mono font-medium text-slate-500 dark:text-[#8E8F99]">
+                {activeAllocationStats.allocatedPct}% of Equity
+              </span>
             </div>
           </div>
 
