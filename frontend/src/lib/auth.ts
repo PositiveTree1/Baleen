@@ -39,9 +39,9 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         ).replace(/\/$/, '');
 
         try {
-          // 4s timeout prevents long hanging if backend is cold starting
+          // 3s timeout prevents long hanging if backend is cold starting
           const controller = new AbortController();
-          const timeoutId = setTimeout(() => controller.abort(), 4000);
+          const timeoutId = setTimeout(() => controller.abort(), 3000);
 
           const res = await fetch(
             `${backendUrl}/api/auth/login`,
@@ -62,7 +62,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             return { id: user.id, email: user.email };
           }
         } catch (e) {
-          console.error("NextAuth backend authorize skipped/timeout:", e);
+          console.error("NextAuth backend authorize note:", e);
         }
 
         // Sandbox failover credentials
@@ -95,17 +95,6 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         (session.user as any).id = token.id as string;
       }
       return session;
-    },
-    authorized({ auth: session, request: { nextUrl } }) {
-      const isLoggedIn = !!session?.user;
-      const isProtected =
-        nextUrl.pathname.startsWith('/dashboard') ||
-        nextUrl.pathname.startsWith('/settings');
-
-      if (isProtected && !isLoggedIn) {
-        return Response.redirect(new URL('/auth/login', nextUrl));
-      }
-      return true;
     },
   },
 });

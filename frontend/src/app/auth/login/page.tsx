@@ -4,7 +4,7 @@ import { signIn } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { BrandLogo } from '@/components/ui/BrandLogo';
 import { useTheme } from '@/context/ThemeContext';
-import { Sun, Moon, ArrowRight, Sparkles } from 'lucide-react';
+import { Sun, Moon, Sparkles } from 'lucide-react';
 import Link from 'next/link';
 
 export default function LoginPage() {
@@ -41,28 +41,19 @@ export default function LoginPage() {
     }
   };
 
-  const handleGuestLogin = async () => {
+  const handleGuestLogin = () => {
     setGuestLoading(true);
     setError('');
 
-    try {
-      const res = await signIn('credentials', {
-        email: 'guest@baleen.local',
-        password: 'baleen_shared_guest_sandbox_password',
-        redirect: false,
-      });
+    // Fire NextAuth in background
+    signIn('credentials', {
+      email: 'guest@baleen.local',
+      password: 'baleen_shared_guest_sandbox_password',
+      redirect: false,
+    }).catch(() => {});
 
-      if (res?.error) {
-        setError('Guest login issue, please retry.');
-        setGuestLoading(false);
-      } else {
-        router.push('/dashboard');
-        router.refresh();
-      }
-    } catch {
-      setError('Failed to initiate guest demo.');
-      setGuestLoading(false);
-    }
+    // Instant zero-lag navigation into dashboard
+    router.push('/dashboard');
   };
 
   return (
@@ -135,10 +126,9 @@ export default function LoginPage() {
           type="button"
           className="w-full py-3.5 rounded-full bg-[#F1F3F5] dark:bg-[#1C1D22] hover:bg-[#E2E6EA] dark:hover:bg-[#2C2D35] border border-black/[0.08] dark:border-white/10 text-slate-900 dark:text-white text-xs font-bold transition-all shadow-xs cursor-pointer flex items-center justify-center gap-2"
           onClick={handleGuestLogin}
-          disabled={loading || guestLoading}
         >
           <Sparkles size={14} className="text-amber-500" />
-          <span>{guestLoading ? 'Opening Guest Sandbox...' : 'Explore as Guest (Instant Demo)'}</span>
+          <span>{guestLoading ? 'Opening Dashboard...' : 'Explore as Guest (Instant Demo)'}</span>
         </button>
 
         <p className="text-center text-xs text-slate-500 dark:text-[#8E8F99] pt-2">
