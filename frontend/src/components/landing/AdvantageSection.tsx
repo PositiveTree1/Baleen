@@ -36,8 +36,8 @@ export function AdvantageSection() {
   ];
 
   return (
-    <section id="advantage" className="py-24 px-6 lg:px-20 border-t border-black/[0.06] dark:border-white/10 bg-[#FAFAFC] dark:bg-[#0A0B0E] transition-colors duration-150">
-      <div className="max-w-7xl mx-auto space-y-16">
+    <section id="advantage" className="py-14 sm:py-24 px-4 sm:px-6 lg:px-20 border-t border-black/[0.06] dark:border-white/10 bg-[#FAFAFC] dark:bg-[#0A0B0E] transition-colors duration-150">
+      <div className="max-w-7xl mx-auto space-y-10 sm:space-y-16">
         
         {/* Header Title */}
         <div className="max-w-2xl space-y-4">

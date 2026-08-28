@@ -470,19 +470,19 @@ export function PortfolioAnalytics({
       {/* ========================================================= */}
       {/* 1. REVOLUT LINE / CANDLESTICK CHART CARD */}
       {/* ========================================================= */}
-      <div className="revolut-card p-6 sm:p-8 space-y-6 rounded-[26px]">
+      <div className="revolut-card p-4 sm:p-8 space-y-4 sm:space-y-6 rounded-[22px] sm:rounded-[26px]">
         {/* Asset Header & Price */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="space-y-1">
-            <span className="text-xs font-semibold text-slate-500 dark:text-[#8E8F99] uppercase tracking-wider">
+            <span className="text-[11px] sm:text-xs font-semibold text-slate-500 dark:text-[#8E8F99] uppercase tracking-wider">
               Polymarket Copy Portfolio · Balance
             </span>
-            <div className="flex items-baseline gap-3">
-              <span className="text-3xl sm:text-4xl lg:text-5xl font-bold font-outfit text-slate-950 dark:text-white tracking-tight">
+            <div className="flex flex-wrap items-baseline gap-2 sm:gap-3">
+              <span className="text-2xl sm:text-4xl lg:text-5xl font-bold font-outfit text-slate-950 dark:text-white tracking-tight">
                 ${(pnlTimeline[pnlTimeline.length - 1]?.balance ?? currentBalance).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </span>
-              <div className={`inline-flex items-center gap-1 text-xs font-mono font-bold ${isPositive ? 'text-emerald-600 dark:text-[#00D09C]' : 'text-rose-600 dark:text-[#FF453A]'}`}>
-                {isPositive ? <TrendingUp size={13} /> : <TrendingDown size={13} />}
+              <div className={`inline-flex items-center gap-1 text-[11px] sm:text-xs font-mono font-bold ${isPositive ? 'text-emerald-600 dark:text-[#00D09C]' : 'text-rose-600 dark:text-[#FF453A]'}`}>
+                {isPositive ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
                 <span>
                   {isPositive ? '+' : ''}${periodPnL.toFixed(2)} ({isPositive ? '+' : ''}{periodPnLPct.toFixed(2)}%) · {timeframe}
                 </span>
@@ -491,9 +491,9 @@ export function PortfolioAnalytics({
           </div>
 
           {/* Controls: Chart Type Toggle & Revolut Timeframe Pills */}
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap sm:flex-nowrap items-center justify-between sm:justify-end gap-2 w-full sm:w-auto">
             {/* Area vs Candle Toggle */}
-            <div className="flex items-center bg-[#F1F3F5] dark:bg-[#1C1D22] p-1 rounded-full border border-black/[0.04] dark:border-white/5">
+            <div className="flex items-center bg-[#F1F3F5] dark:bg-[#1C1D22] p-0.5 sm:p-1 rounded-full border border-black/[0.04] dark:border-white/5">
               <button
                 onClick={() => setChartType('area')}
                 className={`p-1.5 rounded-full text-xs font-bold transition-all cursor-pointer ${
@@ -501,7 +501,7 @@ export function PortfolioAnalytics({
                 }`}
                 title="Line / Area View"
               >
-                <Activity size={14} />
+                <Activity size={13} />
               </button>
               <button
                 onClick={() => setChartType('candles')}
@@ -510,19 +510,19 @@ export function PortfolioAnalytics({
                 }`}
                 title="Candlestick (OHLC) Trader View"
               >
-                <CandlestickChart size={14} />
+                <CandlestickChart size={13} />
               </button>
             </div>
 
             {/* Revolut Timeframe Pills */}
-            <div className="flex items-center gap-1 bg-[#F1F3F5] dark:bg-[#1C1D22] p-1 rounded-full border border-black/[0.04] dark:border-white/5 shrink-0 overflow-x-auto">
+            <div className="flex items-center gap-0.5 sm:gap-1 bg-[#F1F3F5] dark:bg-[#1C1D22] p-0.5 sm:p-1 rounded-full border border-black/[0.04] dark:border-white/5 overflow-x-auto max-w-full no-scrollbar">
               {(['1H', '6H', '1D', '1W', '1M', 'YTD', 'ALL'] as const).map((tf) => {
                 const isActive = timeframe === tf;
                 return (
                   <button
                     key={tf}
                     onClick={() => setTimeframe(tf)}
-                    className={`px-3 py-1 rounded-full text-xs font-bold transition-all cursor-pointer ${
+                    className={`px-2 sm:px-3 py-1 rounded-full text-[11px] sm:text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
                       isActive ? 'bg-white dark:bg-[#2C2D35] text-slate-950 dark:text-white shadow-2xs' : 'text-slate-500 dark:text-[#8E8F99] hover:text-slate-900 dark:hover:text-white'
                     }`}
                   >

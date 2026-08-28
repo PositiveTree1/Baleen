@@ -215,7 +215,7 @@ export function FullHistorySpreadsheetModal({
 
   return (
     <AnimatePresence>
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 overflow-hidden">
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-6 overflow-hidden">
         {/* Backdrop */}
         <motion.div
           initial={{ opacity: 0 }}
@@ -231,25 +231,25 @@ export function FullHistorySpreadsheetModal({
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.95, y: 15 }}
           transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-          className="relative w-full max-w-7xl max-h-[92vh] bg-white dark:bg-[#16171B] text-slate-900 dark:text-white rounded-3xl border border-black/[0.08] dark:border-white/10 shadow-2xl flex flex-col overflow-hidden z-10"
+          className="relative w-full max-w-7xl max-h-[94vh] bg-white dark:bg-[#16171B] text-slate-900 dark:text-white rounded-[22px] sm:rounded-3xl border border-black/[0.08] dark:border-white/10 shadow-2xl flex flex-col overflow-hidden z-10"
         >
           {/* Header */}
-          <div className="flex items-center justify-between p-6 border-b border-black/[0.06] dark:border-white/10 bg-slate-50/80 dark:bg-[#1C1D22]">
-            <div className="flex items-center gap-3">
-              <div className="p-2.5 rounded-2xl bg-indigo-50 dark:bg-indigo-500/10 text-indigo-700 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-500/20 shadow-2xs">
-                <FileSpreadsheet size={20} />
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between p-4 sm:p-6 gap-3 border-b border-black/[0.06] dark:border-white/10 bg-slate-50/80 dark:bg-[#1C1D22]">
+            <div className="flex items-center gap-2.5 sm:gap-3">
+              <div className="p-2 sm:p-2.5 rounded-2xl bg-indigo-50 dark:bg-indigo-500/10 text-indigo-700 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-500/20 shadow-2xs shrink-0">
+                <FileSpreadsheet size={18} />
               </div>
               <div>
-                <h3 className="text-base font-bold text-slate-950 dark:text-white tracking-tight">
-                  Master Execution Spreadsheet &amp; Trade Archive
+                <h3 className="text-sm sm:text-base font-bold text-slate-950 dark:text-white tracking-tight">
+                  Master Execution Spreadsheet &amp; Archive
                 </h3>
-                <p className="text-xs text-slate-500 dark:text-[#8E8F99] font-medium">
-                  Full institutional audit logs, order books fills, fee breakdowns, and mark-to-market positions
+                <p className="text-[11px] sm:text-xs text-slate-500 dark:text-[#8E8F99] font-medium line-clamp-1">
+                  Institutional audit logs, fills &amp; mark-to-market positions
                 </p>
               </div>
             </div>
 
-            <div className="flex items-center gap-2.5 flex-wrap">
+            <div className="flex items-center gap-2 sm:gap-2.5 flex-wrap">
               <button
                 onClick={() => exportToCSV()}
                 className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold shadow-sm transition-all cursor-pointer"

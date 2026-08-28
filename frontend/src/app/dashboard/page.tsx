@@ -96,10 +96,10 @@ export default function DashboardPage() {
     <div className="min-h-screen flex flex-col bg-[#F8F9FB] dark:bg-[#000000] text-slate-900 dark:text-white selection:bg-[#00D09C] selection:text-black relative overflow-x-hidden font-sans transition-colors duration-150">
       
       {/* Top Bar Navigation (Clean Baleen Brand) */}
-      <nav className="flex items-center justify-between py-4 px-6 lg:px-12 border-b border-black/[0.06] dark:border-white/[0.08] bg-white/80 dark:bg-[#000000]/90 backdrop-blur-2xl sticky top-0 z-40">
+      <nav className="flex items-center justify-between py-3 px-3.5 sm:px-6 lg:px-12 border-b border-black/[0.06] dark:border-white/[0.08] bg-white/80 dark:bg-[#000000]/90 backdrop-blur-2xl sticky top-0 z-40">
         
         {/* Left: Baleen Brand Logo */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-3 shrink-0">
           <BrandLogo href="/" />
         </div>
 
@@ -114,55 +114,55 @@ export default function DashboardPage() {
         </div>
 
         {/* Right: Circular Icon Actions */}
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-1.5 sm:gap-2.5">
           {/* Light / Dark Mode Toggle */}
           <button
             onClick={toggleTheme}
-            className="w-10 h-10 rounded-full bg-[#F1F3F5] dark:bg-[#1C1D22] hover:bg-[#E2E6EA] dark:hover:bg-[#2C2D35] border border-black/[0.08] dark:border-white/10 text-slate-700 dark:text-white flex items-center justify-center transition-all cursor-pointer shadow-2xs"
+            className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-[#F1F3F5] dark:bg-[#1C1D22] hover:bg-[#E2E6EA] dark:hover:bg-[#2C2D35] border border-black/[0.08] dark:border-white/10 text-slate-700 dark:text-white flex items-center justify-center transition-all cursor-pointer shadow-2xs"
             title={theme === 'light' ? 'Switch to Dark Mode' : 'Switch to Light Mode'}
           >
-            {theme === 'light' ? <Moon size={16} /> : <Sun size={16} className="text-amber-400" />}
+            {theme === 'light' ? <Moon size={15} /> : <Sun size={15} className="text-amber-400" />}
           </button>
 
           <button
             onClick={() => setActivityOpen(true)}
-            className="w-10 h-10 rounded-full bg-[#F1F3F5] dark:bg-[#1C1D22] hover:bg-[#E2E6EA] dark:hover:bg-[#2C2D35] border border-black/[0.08] dark:border-white/10 text-slate-700 dark:text-white flex items-center justify-center transition-all cursor-pointer shadow-2xs"
+            className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-[#F1F3F5] dark:bg-[#1C1D22] hover:bg-[#E2E6EA] dark:hover:bg-[#2C2D35] border border-black/[0.08] dark:border-white/10 text-slate-700 dark:text-white flex items-center justify-center transition-all cursor-pointer shadow-2xs"
             title="Activity Feed & Notifications"
           >
-            <Bell size={16} />
+            <Bell size={15} />
           </button>
 
           <button
             onClick={toggleSound}
-            className={`w-10 h-10 rounded-full border transition-all cursor-pointer flex items-center justify-center ${
+            className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full border transition-all cursor-pointer flex items-center justify-center ${
               soundActive 
                 ? 'bg-[#00D09C]/10 text-[#00D09C] border-[#00D09C]/30' 
                 : 'bg-[#F1F3F5] dark:bg-[#1C1D22] hover:bg-[#E2E6EA] dark:hover:bg-[#2C2D35] border-black/[0.08] dark:border-white/10 text-slate-700 dark:text-[#8E8F99]'
             }`}
             title={soundActive ? 'Mute Trade Signal Chimes' : 'Enable Real-time Sound Chimes'}
           >
-            {soundActive ? <Volume2 size={16} /> : <VolumeX size={16} />}
+            {soundActive ? <Volume2 size={15} /> : <VolumeX size={15} />}
           </button>
 
-          <Link href="/admin" className="text-xs font-bold text-slate-900 dark:text-white px-3.5 py-2 rounded-full bg-[#F1F3F5] dark:bg-[#1C1D22] hover:bg-[#E2E6EA] dark:hover:bg-[#2C2D35] border border-black/[0.08] dark:border-white/10 transition-all">
+          <Link href="/admin" className="text-[11px] sm:text-xs font-bold text-slate-900 dark:text-white px-2.5 sm:px-3.5 py-1.5 sm:py-2 rounded-full bg-[#F1F3F5] dark:bg-[#1C1D22] hover:bg-[#E2E6EA] dark:hover:bg-[#2C2D35] border border-black/[0.08] dark:border-white/10 transition-all">
             Admin
           </Link>
           
-          <Link href="/settings" className="w-10 h-10 rounded-full bg-[#F1F3F5] dark:bg-[#1C1D22] hover:bg-[#E2E6EA] dark:hover:bg-[#2C2D35] border border-black/[0.08] dark:border-white/10 text-slate-700 dark:text-white flex items-center justify-center transition-all">
-            <Settings size={16} />
+          <Link href="/settings" className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-[#F1F3F5] dark:bg-[#1C1D22] hover:bg-[#E2E6EA] dark:hover:bg-[#2C2D35] border border-black/[0.08] dark:border-white/10 text-slate-700 dark:text-white flex items-center justify-center transition-all">
+            <Settings size={15} />
           </Link>
           
-          <button onClick={() => signOut()} className="w-10 h-10 rounded-full bg-[#F1F3F5] dark:bg-[#1C1D22] hover:bg-rose-50 dark:hover:bg-rose-950/60 border border-black/[0.08] dark:border-white/10 text-slate-700 dark:text-[#8E8F99] hover:text-[#FF453A] flex items-center justify-center transition-all cursor-pointer">
-            <LogOut size={16} />
+          <button onClick={() => signOut()} className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-[#F1F3F5] dark:bg-[#1C1D22] hover:bg-rose-50 dark:hover:bg-rose-950/60 border border-black/[0.08] dark:border-white/10 text-slate-700 dark:text-[#8E8F99] hover:text-[#FF453A] flex items-center justify-center transition-all cursor-pointer">
+            <LogOut size={15} />
           </button>
         </div>
       </nav>
 
       {/* Main Container */}
-      <main className="flex-1 p-4 sm:p-6 lg:p-12 max-w-7xl mx-auto w-full flex flex-col gap-8 relative z-10">
+      <main className="flex-1 p-3.5 sm:p-6 lg:p-12 max-w-7xl mx-auto w-full flex flex-col gap-6 sm:gap-8 relative z-10">
         
         {/* Hero Section: Balance & 4-Action Row (Fully Functional) */}
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-6 pt-2">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-5 sm:gap-6 pt-1 sm:pt-2">
           <BalanceCounter 
             balance={liveBalance} 
             pnl={livePnl} 
@@ -174,9 +174,9 @@ export default function DashboardPage() {
           />
 
           <div className="flex items-center gap-2.5">
-            <div className="revolut-card-sub bg-[#F1F3F5] dark:bg-[#1C1D22] px-4 py-2 rounded-full flex items-center gap-2 text-xs font-medium text-slate-600 dark:text-[#8E8F99] border border-black/[0.04] dark:border-white/5 shadow-2xs">
+            <div className="revolut-card-sub bg-[#F1F3F5] dark:bg-[#1C1D22] px-3 sm:px-4 py-1.5 sm:py-2 rounded-full flex items-center gap-2 text-[11px] sm:text-xs font-medium text-slate-600 dark:text-[#8E8F99] border border-black/[0.04] dark:border-white/5 shadow-2xs">
               <span>Risk Regime:</span>
-              <span className="font-bold text-slate-900 dark:text-white font-mono px-2 py-0.5 rounded-full bg-white dark:bg-[#2C2D35] shadow-2xs">
+              <span className="font-bold text-slate-950 dark:text-white font-mono px-2 py-0.5 rounded-full bg-white dark:bg-[#2C2D35] shadow-2xs">
                 {user?.riskProfile || 'Balanced'}
               </span>
             </div>

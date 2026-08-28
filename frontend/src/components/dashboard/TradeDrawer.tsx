@@ -44,29 +44,29 @@ export function TradeDrawer({ trade, onClose, onSelectWallet }: TradeDrawerProps
           animate={{ x: 0 }}
           exit={{ x: '100%' }}
           transition={{ type: 'spring', damping: 28, stiffness: 280 }}
-          className="relative w-full max-w-lg bg-white dark:bg-[#16171B] text-slate-900 dark:text-white shadow-2xl z-10 flex flex-col h-full border-l border-black/[0.08] dark:border-white/10"
+          className="relative w-full max-w-full sm:max-w-lg bg-white dark:bg-[#16171B] text-slate-900 dark:text-white shadow-2xl z-10 flex flex-col h-full border-l border-black/[0.08] dark:border-white/10"
         >
           {/* Header */}
-          <div className="p-6 border-b border-black/[0.06] dark:border-white/10 bg-slate-50 dark:bg-[#1C1D22] flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className={`p-2.5 rounded-2xl border ${isBuy ? 'bg-emerald-50 dark:bg-[#00D09C]/10 border-emerald-200 dark:border-[#00D09C]/20 text-emerald-600 dark:text-[#00D09C]' : 'bg-rose-50 dark:bg-[#FF453A]/10 border-rose-200 dark:border-[#FF453A]/20 text-rose-600 dark:text-[#FF453A]'}`}>
-                {isBuy ? <ArrowUpRight size={20} /> : <ArrowDownRight size={20} />}
+          <div className="p-4 sm:p-6 border-b border-black/[0.06] dark:border-white/10 bg-slate-50 dark:bg-[#1C1D22] flex items-center justify-between">
+            <div className="flex items-center gap-2.5 sm:gap-3">
+              <div className={`p-2 sm:p-2.5 rounded-2xl border ${isBuy ? 'bg-emerald-50 dark:bg-[#00D09C]/10 border-emerald-200 dark:border-[#00D09C]/20 text-emerald-600 dark:text-[#00D09C]' : 'bg-rose-50 dark:bg-[#FF453A]/10 border-rose-200 dark:border-[#FF453A]/20 text-rose-600 dark:text-[#FF453A]'}`}>
+                {isBuy ? <ArrowUpRight size={18} /> : <ArrowDownRight size={18} />}
               </div>
               <div>
-                <div className="flex items-center gap-2">
-                  <span className={`text-[11px] font-extrabold uppercase px-2 py-0.5 rounded-full border ${
+                <div className="flex items-center gap-1.5 sm:gap-2">
+                  <span className={`text-[10px] sm:text-[11px] font-extrabold uppercase px-2 py-0.5 rounded-full border ${
                     isBuy 
                       ? 'bg-emerald-50 dark:bg-[#00D09C]/10 text-emerald-700 dark:text-[#00D09C] border-emerald-200 dark:border-[#00D09C]/30' 
                       : 'bg-rose-50 dark:bg-[#FF453A]/10 text-rose-700 dark:text-[#FF453A] border-rose-200 dark:border-[#FF453A]/30'
                   }`}>
                     {trade.side || 'BUY'} {outcomeLabel.toUpperCase()}
                   </span>
-                  <span className="text-[10px] font-mono font-bold text-slate-500 dark:text-[#8E8F99] bg-white dark:bg-[#2C2D35] px-2 py-0.5 rounded-full border border-black/[0.06] dark:border-white/5">
-                    {trade.status === 'FILLED' ? '🟢 OPEN POSITION' : '⚪ CLOSED'}
+                  <span className="text-[9px] sm:text-[10px] font-mono font-bold text-slate-500 dark:text-[#8E8F99] bg-white dark:bg-[#2C2D35] px-1.5 sm:px-2 py-0.5 rounded-full border border-black/[0.06] dark:border-white/5">
+                    {trade.status === 'FILLED' ? '🟢 OPEN' : '⚪ CLOSED'}
                   </span>
                 </div>
-                <p className="text-[11px] font-mono text-slate-500 dark:text-[#8E8F99] flex items-center gap-1 mt-1">
-                  <Clock size={12} />
+                <p className="text-[10px] sm:text-[11px] font-mono text-slate-500 dark:text-[#8E8F99] flex items-center gap-1 mt-0.5 sm:mt-1">
+                  <Clock size={11} />
                   {formatFrenchDateTime(trade.timestamp, true)}
                 </p>
               </div>
@@ -80,7 +80,7 @@ export function TradeDrawer({ trade, onClose, onSelectWallet }: TradeDrawerProps
           </div>
 
           {/* Content Body */}
-          <div className="flex-1 overflow-y-auto p-6 space-y-5">
+          <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 sm:space-y-5">
             {/* Prediction Market Card */}
             <div className="p-4 rounded-2xl bg-slate-50 dark:bg-[#1C1D22] border border-black/[0.06] dark:border-white/5 space-y-2.5">
               <div className="flex items-center justify-between">

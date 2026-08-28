@@ -26,12 +26,12 @@ export function DeepAnalyticsModal({ isOpen, onClose, portfolio, logs }: DeepAna
   const feeRate = notional > 0 ? (totalFees / notional) * 100 : 0.0;
 
   return (
-    <div className="fixed inset-0 bg-black/60 dark:bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 bg-black/60 dark:bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-3 sm:p-4">
       <motion.div
         initial={{ opacity: 0, scale: 0.95, y: 10 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.95, y: 10 }}
-        className="revolut-card bg-white dark:bg-[#16171B] border border-black/10 dark:border-white/10 p-6 sm:p-7 rounded-[28px] max-w-2xl w-full space-y-6 shadow-2xl max-h-[85vh] flex flex-col"
+        className="revolut-card bg-white dark:bg-[#16171B] border border-black/10 dark:border-white/10 p-4 sm:p-7 rounded-[22px] sm:rounded-[28px] max-w-2xl w-full space-y-4 sm:space-y-6 shadow-2xl max-h-[90vh] overflow-y-auto flex flex-col"
       >
         {/* Header */}
         <div className="flex items-center justify-between border-b border-black/[0.06] dark:border-white/10 pb-4">

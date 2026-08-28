@@ -6,7 +6,7 @@ import { motion } from 'framer-motion';
 
 export function InfrastructureSection() {
   return (
-    <section id="infrastructure" className="py-24 px-6 lg:px-20 border-t border-black/[0.06] dark:border-white/10 bg-white dark:bg-[#000000] transition-colors duration-150">
+    <section id="infrastructure" className="py-14 sm:py-24 px-4 sm:px-6 lg:px-20 border-t border-black/[0.06] dark:border-white/10 bg-white dark:bg-[#000000] transition-colors duration-150">
       <div className="max-w-7xl mx-auto">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
           

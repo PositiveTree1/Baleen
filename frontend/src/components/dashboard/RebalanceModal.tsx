@@ -30,12 +30,12 @@ export function RebalanceModal({ isOpen, onClose, onRebalanceExecute }: Rebalanc
   };
 
   return (
-    <div className="fixed inset-0 bg-black/60 dark:bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 bg-black/60 dark:bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-3 sm:p-4">
       <motion.div
         initial={{ opacity: 0, scale: 0.95, y: 10 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.95, y: 10 }}
-        className="revolut-card bg-white dark:bg-[#16171B] border border-black/10 dark:border-white/10 p-6 sm:p-7 rounded-[28px] max-w-lg w-full space-y-6 shadow-2xl"
+        className="revolut-card bg-white dark:bg-[#16171B] border border-black/10 dark:border-white/10 p-4 sm:p-7 rounded-[22px] sm:rounded-[28px] max-w-lg w-full space-y-4 sm:space-y-6 shadow-2xl max-h-[90vh] overflow-y-auto"
       >
         {/* Header */}
         <div className="flex items-center justify-between border-b border-black/[0.06] dark:border-white/10 pb-4">

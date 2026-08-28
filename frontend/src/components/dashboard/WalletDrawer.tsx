@@ -108,13 +108,13 @@ export function WalletDrawer({ address, onClose }: WalletDrawerProps) {
             animate={{ x: 0 }}
             exit={{ x: '100%' }}
             transition={{ type: 'spring', damping: 30, stiffness: 300 }}
-            className={`fixed inset-y-0 right-0 z-50 w-full max-w-xl bg-white dark:bg-[#16171B] border-l shadow-2xl overflow-y-auto ${
+            className={`fixed inset-y-0 right-0 z-50 w-full max-w-full sm:max-w-xl bg-white dark:bg-[#16171B] border-l shadow-2xl overflow-y-auto ${
               isGold ? 'border-amber-400/50 dark:border-amber-400/30' : 'border-black/[0.08] dark:border-white/10'
             }`}
           >
-            <div className="p-6 sm:p-8">
+            <div className="p-4 sm:p-8">
               {/* Header */}
-              <div className="flex items-center justify-between mb-6 pb-4 border-b border-black/[0.06] dark:border-white/10">
+              <div className="flex items-center justify-between mb-4 sm:mb-6 pb-3 sm:pb-4 border-b border-black/[0.06] dark:border-white/10">
                 <div className="flex items-center gap-3">
                   {wallet?.profileImage ? (
                     <img 

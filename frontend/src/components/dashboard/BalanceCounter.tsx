@@ -49,7 +49,7 @@ export function BalanceCounter({
   const isPositive = (pnl ?? 0) >= 0;
 
   return (
-    <div className="flex flex-col items-center sm:items-start gap-4 select-none w-full">
+    <div className="flex flex-col items-start gap-3 sm:gap-4 select-none w-full">
       {/* Subtitle & Badge */}
       <div className="flex items-center gap-2 text-xs font-semibold text-slate-500 dark:text-[#8E8F99]">
         <span>Personal · USD</span>
@@ -60,19 +60,19 @@ export function BalanceCounter({
       </div>
 
       {/* Main Authoritative Balance */}
-      <div className="flex flex-col sm:flex-row sm:items-baseline gap-3">
-        <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight text-slate-950 dark:text-white font-outfit">
+      <div className="flex flex-col sm:flex-row sm:items-baseline gap-2 sm:gap-3">
+        <h1 className="text-3xl sm:text-5xl lg:text-6xl font-bold tracking-tight text-slate-950 dark:text-white font-outfit">
           <motion.span>{displayValue}</motion.span>
         </h1>
 
         {/* PnL Pill Badge */}
         {hasPnl && (
-          <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold font-mono ${
+          <div className={`inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-0.5 sm:py-1 rounded-full text-[11px] sm:text-xs font-bold font-mono ${
             isPositive 
               ? 'text-emerald-700 dark:text-[#00D09C] bg-emerald-50 dark:bg-[#00D09C]/10 border border-emerald-200 dark:border-[#00D09C]/20' 
               : 'text-rose-700 dark:text-[#FF453A] bg-rose-50 dark:bg-[#FF453A]/10 border border-rose-200 dark:border-[#FF453A]/20'
           }`}>
-            {isPositive ? <TrendingUp size={13} /> : <TrendingDown size={13} />}
+            {isPositive ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
             <span>
               {isPositive ? '+' : ''}${pnl?.toFixed(2)} ({isPositive ? '+' : ''}{pnlPct?.toFixed(2)}%) · All time
             </span>
@@ -81,41 +81,41 @@ export function BalanceCounter({
       </div>
 
       {/* Revolut 4-Action Circular Button Row */}
-      <div className="flex items-center justify-center sm:justify-start gap-5 sm:gap-6 pt-2">
+      <div className="flex items-center justify-between sm:justify-start gap-3 sm:gap-6 pt-1 sm:pt-2 w-full max-w-sm sm:max-w-none">
         {/* Action 1: Mirror / Add */}
         <div className="flex flex-col items-center gap-1.5">
           <button
             onClick={onMirrorClick}
-            className="revolut-circle-btn cursor-pointer shadow-xs dark:shadow-lg"
+            className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-[#F1F3F5] dark:bg-[#1C1D22] hover:bg-[#E2E6EA] dark:hover:bg-[#2C2D35] border border-black/[0.08] dark:border-white/10 flex items-center justify-center transition-all cursor-pointer shadow-xs dark:shadow-lg active:scale-95"
             title="Mirror Top Polymarket Whales"
           >
-            <Plus size={22} className="text-slate-800 dark:text-white" />
+            <Plus size={20} className="text-slate-800 dark:text-white" />
           </button>
-          <span className="text-xs font-semibold text-slate-700 dark:text-white/90">Mirror</span>
+          <span className="text-[11px] sm:text-xs font-semibold text-slate-700 dark:text-white/90">Mirror</span>
         </div>
 
         {/* Action 2: Move / Rebalance */}
         <div className="flex flex-col items-center gap-1.5">
           <button
             onClick={onRebalanceClick}
-            className="revolut-circle-btn cursor-pointer shadow-xs dark:shadow-lg"
+            className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-[#F1F3F5] dark:bg-[#1C1D22] hover:bg-[#E2E6EA] dark:hover:bg-[#2C2D35] border border-black/[0.08] dark:border-white/10 flex items-center justify-center transition-all cursor-pointer shadow-xs dark:shadow-lg active:scale-95"
             title="Rebalance Basket Allocation"
           >
-            <ArrowLeftRight size={20} className="text-slate-800 dark:text-white" />
+            <ArrowLeftRight size={18} className="text-slate-800 dark:text-white" />
           </button>
-          <span className="text-xs font-semibold text-slate-700 dark:text-white/90">Rebalance</span>
+          <span className="text-[11px] sm:text-xs font-semibold text-slate-700 dark:text-white/90">Rebalance</span>
         </div>
 
         {/* Action 3: Analytics */}
         <div className="flex flex-col items-center gap-1.5">
           <button
             onClick={onAnalyticsClick}
-            className="revolut-circle-btn cursor-pointer shadow-xs dark:shadow-lg"
+            className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-[#F1F3F5] dark:bg-[#1C1D22] hover:bg-[#E2E6EA] dark:hover:bg-[#2C2D35] border border-black/[0.08] dark:border-white/10 flex items-center justify-center transition-all cursor-pointer shadow-xs dark:shadow-lg active:scale-95"
             title="View Portfolio Analytics"
           >
-            <BarChart2 size={20} className="text-slate-800 dark:text-white" />
+            <BarChart2 size={18} className="text-slate-800 dark:text-white" />
           </button>
-          <span className="text-xs font-semibold text-slate-700 dark:text-white/90">Analytics</span>
+          <span className="text-[11px] sm:text-xs font-semibold text-slate-700 dark:text-white/90">Analytics</span>
         </div>
 
         {/* Action 4: Reset */}
@@ -123,12 +123,12 @@ export function BalanceCounter({
           <div className="flex flex-col items-center gap-1.5">
             <button
               onClick={onResetClick}
-              className="revolut-circle-btn cursor-pointer shadow-xs dark:shadow-lg hover:border-rose-500/40"
+              className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-[#F1F3F5] dark:bg-[#1C1D22] hover:bg-rose-50 dark:hover:bg-rose-950/40 border border-black/[0.08] dark:border-white/10 flex items-center justify-center transition-all cursor-pointer shadow-xs dark:shadow-lg active:scale-95 hover:border-rose-500/40"
               title="Reset Sandbox Balance"
             >
-              <RotateCcw size={19} className="text-slate-600 dark:text-white/80" />
+              <RotateCcw size={17} className="text-slate-600 dark:text-white/80" />
             </button>
-            <span className="text-xs font-semibold text-slate-700 dark:text-white/90">Reset</span>
+            <span className="text-[11px] sm:text-xs font-semibold text-slate-700 dark:text-white/90">Reset</span>
           </div>
         )}
       </div>
