@@ -93,7 +93,7 @@ export function PortfolioAnalytics({
   // 2. Aggregate Market Attribution (Top Alpha & Top Drawdown)
   const { topAlpha, topDrawdown } = useMemo(() => {
     // When viewing all-time, prefer the full database attribution computed by the backend summary
-    if (selectedRange === 'ALL' && topAlphaMarkets && topAlphaMarkets.length > 0) {
+    if (timeframe === 'ALL' && topAlphaMarkets && topAlphaMarkets.length > 0) {
       const alpha = topAlphaMarkets.map((m: any) => ({
         key: m.key || m.conditionId || m.question,
         question: m.question || 'Prediction Market',
@@ -187,7 +187,7 @@ export function PortfolioAnalytics({
     }
 
     return { topAlpha: alpha, topDrawdown: drawdown };
-  }, [selectedRange, targetLogs, topAlphaMarkets, topDrawdownMarkets, logs]);
+  }, [timeframe, targetLogs, topAlphaMarkets, topDrawdownMarkets, logs]);
 
   // 3. Execution Scorecard Metrics
   const { totalWins, totalLosses, winRate, feeRatePct, totalNotionalInvested } = useMemo(() => {
