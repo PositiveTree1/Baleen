@@ -332,20 +332,24 @@ class LiveTradeMirrorService:
             try:
                 from app.models import PortfolioSnapshot
                 from sqlalchemy import func
-                stmt_pnl = select(
-                    func.sum(ExecutionLog.realized_pnl_usd),
-                    func.count(ExecutionLog.id)
-                ).where(ExecutionLog.user_id.is_(None))
-                res = (await db.execute(stmt_pnl)).first()
-                cur_pnl = float(res[0] or 0.0) if res else 0.0
-                cur_count = int(res[1] or 0) if res else 0
-                cur_bal = round(10000.0 + cur_pnl, 2)
+                stmt_latest = select(PortfolioSnapshot).where(PortfolioSnapshot.user_id.is_(None)).order_by(PortfolioSnapshot.timestamp.desc()).limit(1)
+                latest_snap = (await db.execute(stmt_latest)).scalar_one_or_none()
+                
+                cur_bal = float(latest_snap.balance) if latest_snap and latest_snap.balance else 10000.0
+                cur_pnl = float(latest_snap.total_pnl) if latest_snap and latest_snap.total_pnl is not None else 0.0
+                
+                if sys_realized_pnl_val is not None:
+                    cur_pnl = round(cur_pnl + float(sys_realized_pnl_val), 2)
+                    cur_bal = round(cur_bal + float(sys_realized_pnl_val), 2)
+                
+                stmt_count = select(func.count(ExecutionLog.id)).where(ExecutionLog.user_id.is_(None))
+                cur_count = int((await db.execute(stmt_count)).scalar() or 0)
 
                 db.add(PortfolioSnapshot(
                     user_id=None,
                     timestamp=dt,
                     balance=cur_bal,
-                    total_pnl=round(cur_pnl, 2),
+                    total_pnl=cur_pnl,
                     active_trades_count=cur_count
                 ))
                 await db.commit()
