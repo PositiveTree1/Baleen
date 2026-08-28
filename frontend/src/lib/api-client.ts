@@ -153,7 +153,7 @@ export async function fetchWallet(address: string): Promise<WalletDetail | null>
       maxDrawdown: w.max_drawdown_pct || 0,
       scoreHistory: (data.score_history || []).map((s: any) => ({ 
         date: s.snapshot_at || s.date || new Date().toISOString(), 
-        score: s.baleen_score ?? s.score ?? 75 
+        score: s.baleen_score ?? s.score ?? 0 
       })),
       dailyPnLHistory: (data.daily_pnl_history || []).map((d: any) => ({
         date: d.date,
@@ -162,7 +162,7 @@ export async function fetchWallet(address: string): Promise<WalletDetail | null>
         netPnL: d.net_pnl ?? d.daily_pnl ?? 0,
         dailyPnL: d.daily_pnl ?? 0,
         cumulativePnL: d.cumulative_pnl ?? 0,
-        tradesCount: d.trades_count ?? 1
+        tradesCount: d.trades_count ?? 0
       })),
       recentTrades: (data.recent_trades || []).map((t: any) => ({
         id: t.id,
@@ -171,8 +171,8 @@ export async function fetchWallet(address: string): Promise<WalletDetail | null>
         marketQuestion: t.market_id || 'Polymarket Condition',
         marketConditionId: t.market_id,
         side: t.side,
-        entryPrice: t.fill_price || 0.5,
-        fillPrice: t.fill_price || 0.5,
+        entryPrice: t.fill_price || 0.0,
+        fillPrice: t.fill_price || 0.0,
         size: t.size_usd || 0,
         status: t.status,
         pnl: t.pnl_usd || 0,

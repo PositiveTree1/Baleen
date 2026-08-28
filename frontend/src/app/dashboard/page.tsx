@@ -189,7 +189,7 @@ export default function DashboardPage() {
           userId={session?.user?.id}
           startingBalance={portfolio?.startingBalance ?? user?.startingBalance ?? 10000.0}
           currentBalance={liveBalance}
-          totalFilledTrades={portfolio?.filledTradesCount || 5049}
+          totalFilledTrades={portfolio?.filledTradesCount ?? logs.length}
           topAlphaMarkets={portfolio?.topAlphaMarkets}
           topDrawdownMarkets={portfolio?.topDrawdownMarkets}
           allTimeWinRate={portfolio?.allTimeWinRate}

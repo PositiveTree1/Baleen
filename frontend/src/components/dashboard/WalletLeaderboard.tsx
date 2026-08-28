@@ -110,7 +110,7 @@ export function WalletLeaderboard({ userId, onSelectWallet }: WalletLeaderboardP
     return true;
   });
 
-  const displayList = tab === 'copied' ? (filteredCopied.length > 0 ? filteredCopied : filteredWallets) : filteredWallets;
+  const displayList = tab === 'copied' ? filteredCopied : filteredWallets;
 
   return (
     <div className="revolut-card rounded-[26px] p-5 sm:p-6 flex flex-col h-[480px] space-y-4">
@@ -193,9 +193,9 @@ export function WalletLeaderboard({ userId, onSelectWallet }: WalletLeaderboardP
             const name = w.name || w.pseudonym || `${w.address.slice(0, 6)}...${w.address.slice(-4)}`;
             const isCopiedTab = (tab === 'copied');
             const pnl = isCopiedTab && w.mirroredPnl !== undefined ? w.mirroredPnl : (w.pnl ?? 0.0);
-            const winRate = w.winRate ?? 70.0;
+            const winRate = w.winRate ?? 0.0;
             const isGold = (w.tier === 'gold_sniper');
-            const fillsCount = w.fillsCount ?? 12;
+            const fillsCount = w.fillsCount ?? 0;
 
             return (
               <div
@@ -222,7 +222,9 @@ export function WalletLeaderboard({ userId, onSelectWallet }: WalletLeaderboardP
                       )}
                     </div>
                     <span className="text-[11px] text-slate-500 dark:text-[#8E8F99] font-mono block truncate">
-                      {isCopiedTab ? `${fillsCount} Copied Fills` : `${formatWinRate(winRate)} Win Rate • ${fillsCount} Open`}
+                      {isCopiedTab
+                        ? `${fillsCount} Copied Fill${fillsCount === 1 ? '' : 's'}`
+                        : `${formatWinRate(winRate)} Win Rate${fillsCount > 0 ? ` • ${fillsCount} Fills` : ''}`}
                     </span>
                   </div>
                 </div>
@@ -231,7 +233,7 @@ export function WalletLeaderboard({ userId, onSelectWallet }: WalletLeaderboardP
                 <div className="flex items-center gap-2 shrink-0">
                   <div className="text-right">
                     <div className={`text-xs font-bold font-mono ${pnl >= 0 ? 'text-emerald-600 dark:text-[#00D09C]' : 'text-rose-600 dark:text-[#FF453A]'}`}>
-                      {pnl >= 0 ? '+' : ''}${Math.abs(pnl).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      {pnl >= 0 ? '+' : '-'}${Math.abs(pnl).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </div>
                     <span className="text-[10px] text-slate-400 dark:text-[#8E8F99]">
                       {isCopiedTab ? 'Mirrored PnL' : 'All-time PnL'}

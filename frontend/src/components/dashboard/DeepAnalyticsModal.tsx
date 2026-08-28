@@ -13,14 +13,17 @@ interface DeepAnalyticsModalProps {
 export function DeepAnalyticsModal({ isOpen, onClose, portfolio, logs }: DeepAnalyticsModalProps) {
   if (!isOpen) return null;
 
-  const totalTrades = portfolio?.filledTradesCount || logs.length || 5049;
-  const winRate = portfolio?.allTimeWinRate ?? 33.0;
-  const wins = portfolio?.allTimeWins ?? 992;
-  const losses = portfolio?.allTimeLosses ?? 2011;
-  const totalPnL = portfolio?.totalPnlUsd ?? 4671.77;
-  const totalFees = portfolio?.totalFeesPaidUsd ?? 6095.21;
-  const notional = portfolio?.totalNotionalInvested ?? 48250.0;
-  const feeRate = notional > 0 ? (totalFees / notional) * 100 : 2.15;
+  const totalTrades = portfolio?.filledTradesCount ?? logs.length;
+  const wins = portfolio?.allTimeWins ?? logs.filter(l => (l.pnl ?? 0) > 0).length;
+  const losses = portfolio?.allTimeLosses ?? logs.filter(l => (l.pnl ?? 0) < 0).length;
+  const evaluated = wins + losses;
+  const winRate = portfolio?.allTimeWinRate ?? (evaluated > 0 ? (wins / evaluated) * 100 : 0.0);
+  const totalPnL = portfolio?.totalPnlUsd ?? logs.reduce((acc, l) => acc + (l.pnl ?? 0.0), 0.0);
+  const startBal = portfolio?.startingBalance ?? 10000.0;
+  const returnPct = startBal > 0 ? (totalPnL / startBal) * 100 : 0.0;
+  const totalFees = portfolio?.totalFeesPaidUsd ?? logs.reduce((acc, l) => acc + (l.feeUsd || 0.0), 0.0);
+  const notional = portfolio?.totalNotionalInvested ?? logs.reduce((acc, l) => acc + (l.size ?? 0.0), 0.0);
+  const feeRate = notional > 0 ? (totalFees / notional) * 100 : 0.0;
 
   return (
     <div className="fixed inset-0 bg-black/60 dark:bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
@@ -50,10 +53,12 @@ export function DeepAnalyticsModal({ isOpen, onClose, portfolio, logs }: DeepAna
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
           <div className="p-4 rounded-2xl bg-slate-50 dark:bg-[#1C1D22] border border-black/[0.04] dark:border-white/5 space-y-1">
             <span className="text-[10px] font-semibold text-slate-500 dark:text-[#8E8F99] uppercase">Net Return</span>
-            <div className="text-lg font-bold text-emerald-600 dark:text-[#00D09C] font-mono">
-              +${totalPnL.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+            <div className={`text-lg font-bold font-mono ${totalPnL >= 0 ? 'text-emerald-600 dark:text-[#00D09C]' : 'text-rose-600 dark:text-[#FF3B30]'}`}>
+              {totalPnL >= 0 ? '+' : ''}${totalPnL.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </div>
-            <span className="text-[10px] text-slate-400 font-mono">+46.72% on $10k</span>
+            <span className="text-[10px] text-slate-400 font-mono">
+              {returnPct >= 0 ? '+' : ''}{returnPct.toFixed(2)}% on ${startBal.toLocaleString()}
+            </span>
           </div>
 
           <div className="p-4 rounded-2xl bg-slate-50 dark:bg-[#1C1D22] border border-black/[0.04] dark:border-white/5 space-y-1">

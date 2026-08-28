@@ -39,7 +39,7 @@ export function PortfolioAnalytics({
   userId,
   startingBalance = 10000.0,
   currentBalance = 10000.0,
-  totalFilledTrades = 5049,
+  totalFilledTrades = 0,
   topAlphaMarkets,
   topDrawdownMarkets,
   allTimeWinRate,
@@ -48,36 +48,34 @@ export function PortfolioAnalytics({
   onSelectTrade,
   onResetComplete
 }: PortfolioAnalyticsProps) {
-  const [timeframe, setTimeframe] = useState<'1H' | '6H' | '1D' | '1W' | '1M' | 'YTD' | 'ALL'>('ALL');
+  const [timeframe, setTimeframe] = useState<string>('ALL');
+  const [selectedCategory, setSelectedCategory] = useState<string>('ALL');
+  const [showDeepAnalytics, setShowDeepAnalytics] = useState(false);
+  const [showStrategyModal, setShowStrategyModal] = useState(false);
+  const [showSpreadsheet, setShowSpreadsheet] = useState(false);
   const [showResetModal, setShowResetModal] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
   const [showRawDataModal, setShowRawDataModal] = useState(false);
   const [copied, setCopied] = useState(false);
 
-  // 1. Filter Logs by Timeframe
-  const filteredLogs = useMemo(() => {
-    if (!logs || logs.length === 0) return [];
+  // 1. Timeframe Filter on Execution Logs
+  const targetLogs = useMemo(() => {
     if (timeframe === 'ALL') return logs;
-
-    const now = new Date().getTime();
-    let cutoff = 0;
-
-    if (timeframe === '1H') cutoff = now - 60 * 60 * 1000;
-    else if (timeframe === '6H') cutoff = now - 6 * 60 * 60 * 1000;
-    else if (timeframe === '1D') cutoff = now - 24 * 60 * 60 * 1000;
-    else if (timeframe === '1W') cutoff = now - 7 * 24 * 60 * 60 * 1000;
-    else if (timeframe === '1M') cutoff = now - 30 * 24 * 60 * 60 * 1000;
-    else if (timeframe === 'YTD') cutoff = new Date(new Date().getFullYear(), 0, 1).getTime();
-
+    const now = Date.now();
+    const map: Record<string, number> = {
+      '1H': 60 * 60 * 1000,
+      '6H': 6 * 60 * 60 * 1000,
+      '1D': 24 * 60 * 60 * 1000,
+      '1W': 7 * 24 * 60 * 60 * 1000,
+      '1M': 30 * 24 * 60 * 60 * 1000,
+    };
+    const span = map[timeframe] || 0;
+    if (!span) return logs;
     return logs.filter((l) => {
-      if (!l.timestamp) return true;
       const t = new Date(l.timestamp).getTime();
-      return t >= cutoff;
+      return now - t <= span;
     });
   }, [logs, timeframe]);
-
-  const isTimeframeEmpty = filteredLogs.length === 0 && logs.length > 0;
-  const targetLogs = isTimeframeEmpty ? logs : filteredLogs;
 
   interface MarketSummary {
     key: string;
@@ -97,9 +95,9 @@ export function PortfolioAnalytics({
     const marketMap = new Map<string, MarketSummary>();
     targetLogs.forEach((l) => {
       const key = l.marketQuestion || l.marketConditionId || l.id;
-      const notional = l.size ?? 10.0;
+      const notional = l.size ?? 0.0;
       const pnl = l.pnl ?? 0.0;
-      const fillP = l.fillPrice || l.entryPrice || 0.5;
+      const fillP = l.fillPrice || l.entryPrice || 0.0;
       const whaleName = l.whaleName || l.whalePseudonym || (l.walletAddress ? `${l.walletAddress.slice(0, 6)}...${l.walletAddress.slice(-4)}` : 'Whale');
 
       if (!marketMap.has(key)) {
@@ -133,11 +131,11 @@ export function PortfolioAnalytics({
         question: m.question || 'Prediction Market',
         conditionId: m.conditionId || '',
         outcome: m.outcome || 'Yes',
-        totalPnl: m.totalPnl ?? 14.50,
-        totalNotional: m.totalNotional ?? 100.0,
-        fillsCount: m.fillsCount ?? 1,
-        avgFillPrice: m.avgFillPrice ?? 0.5,
-        whaleName: m.whaleName || 'Top Whale',
+        totalPnl: m.totalPnl ?? 0.0,
+        totalNotional: m.totalNotional ?? 0.0,
+        fillsCount: m.fillsCount ?? 0,
+        avgFillPrice: m.avgFillPrice ?? 0.0,
+        whaleName: m.whaleName || 'Whale',
         sampleTrade: m.sampleTrade || logs.find(l => (l.marketQuestion === m.question || l.marketConditionId === m.conditionId)) || logs[0]
       })).slice(0, 4);
     }
@@ -148,11 +146,11 @@ export function PortfolioAnalytics({
         question: m.question || 'Prediction Market',
         conditionId: m.conditionId || '',
         outcome: m.outcome || 'Yes',
-        totalPnl: m.totalPnl ?? -8.20,
-        totalNotional: m.totalNotional ?? 80.0,
-        fillsCount: m.fillsCount ?? 1,
-        avgFillPrice: m.avgFillPrice ?? 0.5,
-        whaleName: m.whaleName || 'Top Whale',
+        totalPnl: m.totalPnl ?? 0.0,
+        totalNotional: m.totalNotional ?? 0.0,
+        fillsCount: m.fillsCount ?? 0,
+        avgFillPrice: m.avgFillPrice ?? 0.0,
+        whaleName: m.whaleName || 'Whale',
         sampleTrade: m.sampleTrade || logs.find(l => (l.marketQuestion === m.question || l.marketConditionId === m.conditionId)) || logs[0]
       })).slice(0, 4);
     }
@@ -165,7 +163,7 @@ export function PortfolioAnalytics({
     if (allTimeWins !== undefined && allTimeLosses !== undefined) {
       const totalEval = allTimeWins + allTimeLosses;
       const wr = allTimeWinRate ?? (totalEval > 0 ? (allTimeWins / totalEval) * 100 : 0.0);
-      const totalNotional = logs.reduce((acc, l) => acc + (l.size ?? 10.0), 0);
+      const totalNotional = logs.reduce((acc, l) => acc + (l.size ?? 0.0), 0);
       const totalFees = logs.reduce((acc, l) => acc + (l.feeUsd || 0.0), 0);
       const feeRate = totalNotional > 0 ? (totalFees / totalNotional) * 100 : 0.0;
 
@@ -185,7 +183,7 @@ export function PortfolioAnalytics({
 
     targetLogs.forEach((l) => {
       const pnl = l.pnl ?? 0.0;
-      const notional = l.size ?? 10.0;
+      const notional = l.size ?? 0.0;
       const fee = l.feeUsd || 0.0;
       totalNotional += notional;
       totalFees += fee;
@@ -213,7 +211,7 @@ export function PortfolioAnalytics({
 
     logs.forEach((l) => {
       const name = l.whaleName || l.whalePseudonym || (l.walletAddress ? `${l.walletAddress.slice(0, 6)}...${l.walletAddress.slice(-4)}` : 'Whale');
-      const size = l.size ?? 10.0;
+      const size = l.size ?? 0.0;
       whaleMap.set(name, (whaleMap.get(name) || 0) + size);
       totalNotional += size;
     });

@@ -142,8 +142,8 @@ export function LiveTape({ userId, onSelectTrade }: LiveTapeProps) {
         ) : (
           filteredLogs.map((log) => {
             const isBuy = log.side === 'BUY';
-            const notional = log.size ?? 10.0;
-            const fillPrice = log.fillPrice || log.entryPrice || 0.5;
+            const notional = log.size ?? 0.0;
+            const fillPrice = log.fillPrice || log.entryPrice || 0.0;
             const timeStr = log.timestamp ? formatFrenchTimeWithSeconds(new Date(log.timestamp)) : '';
             const whaleDisplay = log.whaleName || log.whalePseudonym || (log.walletAddress ? `${log.walletAddress.slice(0, 6)}...${log.walletAddress.slice(-4)}` : 'Whale');
 

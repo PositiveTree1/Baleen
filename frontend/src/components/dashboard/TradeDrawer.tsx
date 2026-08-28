@@ -15,13 +15,13 @@ export function TradeDrawer({ trade, onClose, onSelectWallet }: TradeDrawerProps
   if (!trade) return null;
 
   const isBuy = trade.side === 'BUY';
-  const fillP = trade.fillPrice || trade.entryPrice || 0.5;
+  const fillP = trade.fillPrice || trade.entryPrice || 0.0;
   const curP = trade.currentPrice || fillP;
-  const pnl = trade.pnl ?? (isBuy ? (trade.size ?? 10) * ((curP - fillP) / fillP) : (trade.size ?? 10) * ((fillP - curP) / fillP));
-  const pnlPct = trade.pnlPct ?? (((curP - fillP) / fillP) * 100.0 * (isBuy ? 1 : -1));
+  const pnl = trade.pnl ?? (fillP > 0 ? (isBuy ? (trade.size ?? 0) * ((curP - fillP) / fillP) : (trade.size ?? 0) * ((fillP - curP) / fillP)) : 0.0);
+  const pnlPct = trade.pnlPct ?? (fillP > 0 ? (((curP - fillP) / fillP) * 100.0 * (isBuy ? 1 : -1)) : 0.0);
   const isProfit = pnl >= 0;
   const consensus = trade.consensus;
-  const shares = fillP > 0 ? ((trade.size ?? 10) / fillP) : 0;
+  const shares = fillP > 0 ? ((trade.size ?? 0) / fillP) : 0;
   const outcomeLabel = trade.outcome || 'Yes';
 
   const polyUrl = trade.polymarketUrl || (trade.eventSlug ? `https://polymarket.com/event/${trade.eventSlug}` : (trade.marketConditionId ? `https://polymarket.com/market/${trade.marketConditionId}` : 'https://polymarket.com'));
@@ -120,7 +120,7 @@ export function TradeDrawer({ trade, onClose, onSelectWallet }: TradeDrawerProps
               <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-[#1C1D22] border border-black/[0.06] dark:border-white/5 space-y-1">
                 <span className="text-[10px] uppercase font-bold text-slate-400 dark:text-[#8E8F99]">Notional Size</span>
                 <div className="text-base font-bold font-mono text-slate-900 dark:text-white">
-                  ${(trade.size ?? 10).toFixed(2)}
+                  ${(trade.size ?? 0).toFixed(2)}
                 </div>
                 <span className="text-[10px] text-slate-400 dark:text-[#8E8F99] font-mono">Sandbox USD</span>
               </div>

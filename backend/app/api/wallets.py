@@ -189,10 +189,10 @@ async def get_wallet(address: str, db: AsyncSession = Depends(get_db)):
             await db.refresh(wallet)
         except Exception as e:
             logger.warning(f"Failed or timed out generating summary: {e}")
-            win_r = wallet.win_rate_pct or 75.0
-            pnl_val = wallet.all_time_pnl_usd or 50000.0
-            vel = wallet.avg_trades_per_day or 3.5
-            if win_r >= 85.0 and vel <= 5.0:
+            win_r = wallet.win_rate_pct or 0.0
+            pnl_val = wallet.all_time_pnl_usd or 0.0
+            vel = wallet.avg_trades_per_day or 0.0
+            if win_r >= 85.0 and vel <= 5.0 and vel > 0:
                 wallet.ai_summary = f"Elite low-frequency sniper executing with surgical {win_r:.1f}% accuracy across selective prediction markets. Captures ${pnl_val:,.0f} net alpha with patient, asymmetric positioning and exceptional risk discipline."
                 wallet.ai_style_tag = "Surgical Sniper"
             elif win_r >= 80.0:

@@ -84,7 +84,7 @@ export function WalletDrawer({ address, onClose }: WalletDrawerProps) {
       if (parts.length > 1) {
         s = parts[1].split(/(?:TAG|Tag):/i)[0].trim();
       } else {
-        s = `High-precision tactical prediction trader with ${formatPct(wallet.winRate || 75)} accuracy and ${formatExactPnL(wallet.pnl)} net profit.`;
+        s = `Tactical prediction trader with ${formatPct(wallet.winRate || 0)} accuracy and ${formatExactPnL(wallet.pnl || 0)} net profit.`;
       }
     }
     return s.replace(/\*\*/g, '').replace(/<[^>]*>/g, '').trim();
@@ -198,27 +198,65 @@ export function WalletDrawer({ address, onClose }: WalletDrawerProps) {
                           <h4 className="text-xs font-bold uppercase tracking-wider text-slate-900 dark:text-white">
                             Quantitative Strategy Synopsis
                           </h4>
+                          <h2 className="text-base font-bold text-slate-950 dark:text-white truncate">{displayName}</h2>
+                          {isGold && (
+                            <span className="text-[10px] bg-amber-50 dark:bg-amber-400/10 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-400/20 px-2 py-0.5 rounded-full font-bold">
+                              Gold Sniper
+                            </span>
+                          )}
                         </div>
-                        <span className="text-[10px] font-mono font-semibold text-indigo-700 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-500/10 px-2.5 py-0.5 rounded-full border border-indigo-200/80 dark:border-indigo-500/20">
-                          Llama 3.1 70B
-                        </span>
+                        <div className="flex items-center gap-1.5 mt-0.5">
+                          <span className="text-xs font-mono text-slate-400 dark:text-[#8E8F99]">
+                            {wallet.address.slice(0, 6)}...{wallet.address.slice(-4)}
+                          </span>
+                          <button
+                            onClick={handleCopy}
+                            className="p-1 hover:bg-slate-100 dark:hover:bg-[#2C2D35] rounded text-slate-400 dark:text-[#8E8F99] transition-colors"
+                          >
+                            {copied ? <Check size={12} className="text-emerald-600 dark:text-[#00D09C]" /> : <Copy size={12} />}
+                          </button>
+                          <a
+                            href={`https://polymarket.com/profile/${wallet.address}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="p-1 hover:bg-slate-100 dark:hover:bg-[#2C2D35] rounded text-slate-400 dark:text-[#8E8F99] transition-colors"
+                          >
+                            <ExternalLink size={12} />
+                          </a>
+                        </div>
                       </div>
-                      <p className="text-sm text-slate-900 dark:text-white leading-relaxed font-medium min-h-[48px]">
-                        <TypewriterText 
-                          text={cleanSummary || 'Automated quantitative analysis computed via Groq Llama-3.1 engine based on on-chain trading behavior.'}
-                          speed={8}
+                    </div>
+                    <button
+                      onClick={onClose}
+                      className="p-2 rounded-full text-slate-400 dark:text-[#8E8F99] hover:bg-slate-100 dark:hover:bg-[#2C2D35] transition-colors"
+                    >
+                      <X size={18} />
+                    </button>
+                  </div>
+
+                  <div className="p-4 rounded-2xl bg-indigo-50/60 dark:bg-indigo-500/10 border border-indigo-100 dark:border-indigo-500/20 space-y-1.5">
+                    <div className="flex items-center gap-1.5">
+                      <Sparkles size={13} className="text-indigo-600 dark:text-indigo-400" />
+                      <span className="text-[11px] font-bold text-indigo-900 dark:text-indigo-300 uppercase tracking-wide">
+                        {wallet.aiStyleTag || (isGold ? 'Gold-Tier Sniper' : 'Systematic Alpha Trader')}
+                      </span>
+                    </div>
+                    <div className="text-xs text-slate-700 dark:text-[#E2E3E8] leading-relaxed">
+                      <p>
+                        <TextMorph
+                          text={cleanSummary || `Monitored Polymarket participant operating with ${(wallet.winRate || 0).toFixed(1)}% verified accuracy and ${formatExactPnL(wallet.pnl || 0)} realized alpha.`}
+                          stagger={8}
                           delay={150}
                         />
                       </p>
                     </div>
                   </div>
 
-                  {/* Key Metrics Grid */}
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                     <div className="p-4 bg-slate-50 dark:bg-[#1C1D22] border border-black/[0.04] dark:border-white/5 rounded-2xl">
                       <span className="text-[10px] uppercase font-bold text-slate-400 dark:text-[#8E8F99]">Baleen Score</span>
                       <div className="text-xl font-bold font-mono text-slate-950 dark:text-white mt-0.5">
-                        {wallet.score ? wallet.score.toFixed(1) : '85.0'}
+                        {wallet.score !== undefined && wallet.score !== null ? wallet.score.toFixed(1) : '—'}
                       </div>
                       <span className="text-[10px] text-slate-400 dark:text-[#8E8F99]">Out of 100</span>
                     </div>
@@ -226,7 +264,7 @@ export function WalletDrawer({ address, onClose }: WalletDrawerProps) {
                     <div className="p-4 bg-slate-50 dark:bg-[#1C1D22] border border-black/[0.04] dark:border-white/5 rounded-2xl">
                       <span className="text-[10px] uppercase font-bold text-slate-400 dark:text-[#8E8F99]">Win Rate</span>
                       <div className="text-xl font-bold font-mono text-emerald-600 dark:text-[#00D09C] mt-0.5">
-                        {formatPct(wallet.winRate || 75)}
+                        {formatPct(wallet.winRate || 0)}
                       </div>
                       <span className="text-[10px] text-slate-400 dark:text-[#8E8F99]">Resolved Outcomes</span>
                     </div>
@@ -242,13 +280,12 @@ export function WalletDrawer({ address, onClose }: WalletDrawerProps) {
                     <div className="p-4 bg-slate-50 dark:bg-[#1C1D22] border border-black/[0.04] dark:border-white/5 rounded-2xl">
                       <span className="text-[10px] uppercase font-bold text-slate-400 dark:text-[#8E8F99]">Trades / Day</span>
                       <div className="text-xl font-bold font-mono text-slate-950 dark:text-white mt-0.5">
-                        {wallet.tradesPerDay ? wallet.tradesPerDay.toFixed(1) : '3.5'}
+                        {wallet.tradesPerDay !== undefined && wallet.tradesPerDay !== null ? wallet.tradesPerDay.toFixed(1) : '—'}
                       </div>
                       <span className="text-[10px] text-slate-400 dark:text-[#8E8F99]">Average Velocity</span>
                     </div>
                   </div>
 
-                  {/* Chart Tabs (Daily Wins/Losses, PnL Curve, Score) */}
                   <div className="p-5 bg-slate-50 dark:bg-[#1C1D22] border border-black/[0.06] dark:border-white/5 rounded-3xl space-y-4">
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-black/[0.04] dark:border-white/5 pb-3">
                       {/* Sub-tabs */}

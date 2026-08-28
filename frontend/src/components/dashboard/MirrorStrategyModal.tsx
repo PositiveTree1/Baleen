@@ -13,23 +13,33 @@ interface MirrorStrategyModalProps {
 
 export function MirrorStrategyModal({ isOpen, onClose, onSelectWallet }: MirrorStrategyModalProps) {
   const [wallets, setWallets] = useState<Wallet[]>(() => getCachedWallets() || []);
-  const [multipliers, setMultipliers] = useState<Record<string, number>>({
-    '0x3eae57986be5e0ca435102ffe1f14206ffa2e2ed': 1.5,
-    '0xd44e974a3edb232aa4aedbdcc59792b76a5f67e2': 2.0,
-    '0x58f8f1138be2192696378629fc9aa23c7910dc70': 1.0,
-    '0xdf17f4a8dd01a4cfa6fc3da323a2baee5f8697d1': 1.0,
-  });
-  const [activeWhales, setActiveWhales] = useState<Record<string, boolean>>({
-    '0x3eae57986be5e0ca435102ffe1f14206ffa2e2ed': true,
-    '0xd44e974a3edb232aa4aedbdcc59792b76a5f67e2': true,
-    '0x58f8f1138be2192696378629fc9aa23c7910dc70': true,
-    '0xdf17f4a8dd01a4cfa6fc3da323a2baee5f8697d1': true,
-  });
+  const [multipliers, setMultipliers] = useState<Record<string, number>>({});
+  const [activeWhales, setActiveWhales] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     if (isOpen) {
       fetchWallets().then((data) => {
-        if (data && data.length > 0) setWallets(data);
+        if (data && data.length > 0) {
+          setWallets(data);
+          setActiveWhales((prev) => {
+            const next = { ...prev };
+            data.forEach((w) => {
+              if (next[w.address] === undefined) {
+                next[w.address] = !w.dormant;
+              }
+            });
+            return next;
+          });
+          setMultipliers((prev) => {
+            const next = { ...prev };
+            data.forEach((w) => {
+              if (next[w.address] === undefined) {
+                next[w.address] = w.tier === 'gold_sniper' ? 1.5 : 1.0;
+              }
+            });
+            return next;
+          });
+        }
       });
     }
   }, [isOpen]);

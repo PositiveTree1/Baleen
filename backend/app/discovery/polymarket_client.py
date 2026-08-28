@@ -74,14 +74,14 @@ class PolymarketClient:
             if large_trades and isinstance(large_trades, list):
                 for t in large_trades:
                     w = (t.get("proxyWallet") or t.get("maker_address") or t.get("user") or "").lower()
-                    if w and len(w) == 42 and w.startswith("0x"):
-                        if w not in candidates:
-                            candidates[w] = {
-                                "address": w,
-                                "source": "large_trade",
-                                "trade_cash": float(t.get("usdcSize") or t.get("size", 0) * t.get("price", 1)),
-                                "volume": float(t.get("usdcSize") or 50000) * 10
-                            }
+                    if w and len(w) == 42 and w.startswith("0x") and w not in candidates:
+                        trade_cash = float(t.get("usdcSize") or (float(t.get("size", 0)) * float(t.get("price", 1))))
+                        candidates[w] = {
+                            "address": w,
+                            "source": "large_trade",
+                            "trade_cash": trade_cash,
+                            "volume": trade_cash * 10
+                        }
         except Exception as e:
             logger.debug(f"Large trades discovery error: {e}")
 

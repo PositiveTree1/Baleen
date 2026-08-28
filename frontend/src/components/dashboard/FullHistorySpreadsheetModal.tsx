@@ -178,7 +178,7 @@ export function FullHistorySpreadsheetModal({
     ];
 
     const rows = listToExport.map(l => {
-      const fillP = l.fillPrice ?? l.entryPrice ?? 0.5;
+      const fillP = l.fillPrice ?? l.entryPrice ?? 0.0;
       const curP = l.currentPrice ?? fillP;
       const fee = l.feeUsd ?? 0;
       const pnl = l.pnl ?? 0;
@@ -430,7 +430,7 @@ export function FullHistorySpreadsheetModal({
                         ${curP.toFixed(3)}
                       </td>
                       <td className="p-3.5 text-right font-mono text-xs font-bold">
-                        ${(trade.size ?? 10).toFixed(2)}
+                        ${(trade.size ?? 0).toFixed(2)}
                       </td>
                       <td className={`p-3.5 text-right font-mono text-xs font-bold ${isProfit ? 'text-emerald-600 dark:text-[#00D09C]' : 'text-rose-600 dark:text-[#FF453A]'}`}>
                         {isProfit ? '+' : ''}${pnl.toFixed(2)}

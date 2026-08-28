@@ -174,9 +174,9 @@ export function TradeLog({
             </div>
           ) : (
             displayedLogs.map((trade) => {
-              const notional = trade.size ?? 10.0;
+              const notional = trade.size ?? 0.0;
               const pnl = trade.pnl ?? 0.0;
-              const fillPrice = trade.fillPrice || trade.entryPrice || 0.5;
+              const fillPrice = trade.fillPrice || trade.entryPrice || 0.0;
               const livePrice = trade.currentPrice || fillPrice;
               const isProfit = pnl >= 0;
               const whaleDisplay = trade.whaleName || trade.whalePseudonym || (trade.walletAddress ? `${trade.walletAddress.slice(0, 6)}...${trade.walletAddress.slice(-4)}` : 'Whale');

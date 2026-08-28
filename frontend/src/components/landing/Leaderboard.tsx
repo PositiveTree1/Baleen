@@ -205,7 +205,7 @@ export function Leaderboard() {
                           </div>
                         </td>
                         <td className="p-4 text-right font-mono font-bold text-blue-600">
-                          {(wallet.score || 85).toFixed(0)}
+                          {(wallet.score || 0).toFixed(0)}
                         </td>
                         <td className="p-4 text-right font-mono font-semibold text-slate-900">
                           {formatWinRate(wallet.winRate || 0)}
