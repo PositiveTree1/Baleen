@@ -14,7 +14,7 @@ export default function LandingPage() {
     <main className="flex-1 flex flex-col bg-[#F8F9FB] dark:bg-[#000000] text-slate-900 dark:text-white selection:bg-[#00D09C] selection:text-black min-h-screen transition-colors duration-150">
       {/* Minimalist Glass Navigation Header */}
       <nav className="flex items-center justify-between py-4 px-6 lg:px-20 border-b border-black/[0.06] dark:border-white/[0.08] bg-white/80 dark:bg-[#000000]/90 backdrop-blur-xl sticky top-0 z-50">
-        <BrandLogo href="/" size="md" subtitle="Whale Index" />
+        <BrandLogo href="/" size="md" />
         
         {/* Navigation Links */}
         <div className="hidden md:flex items-center gap-8 text-xs font-semibold text-slate-600 dark:text-[#8E8F99]">

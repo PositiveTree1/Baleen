@@ -69,7 +69,7 @@ export default function SettingsPage() {
       <div className="max-w-3xl mx-auto space-y-6">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-4">
-            <BrandLogo size="sm" subtitle="Settings" />
+            <BrandLogo size="sm" />
             <span className="text-slate-300 dark:text-slate-700">|</span>
             <Link href="/dashboard" className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-600 dark:text-[#8E8F99] hover:text-slate-950 dark:hover:text-white transition-colors">
               <ArrowLeft size={14} /> Back to Dashboard

@@ -100,7 +100,7 @@ export default function DashboardPage() {
         
         {/* Left: Baleen Brand Logo */}
         <div className="flex items-center gap-3">
-          <BrandLogo href="/" subtitle="Control Plane" />
+          <BrandLogo href="/" />
         </div>
 
         {/* Center: Search Command Bar (Clickable) */}

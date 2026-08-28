@@ -11,9 +11,9 @@ interface BrandLogoProps {
 
 export function BrandLogo({ size = 'md', href = '/', subtitle, className = '' }: BrandLogoProps) {
   const imgSizes = {
-    sm: { w: 20, h: 20, cls: 'w-5 h-5' },
-    md: { w: 26, h: 26, cls: 'w-6.5 h-6.5' },
-    lg: { w: 34, h: 34, cls: 'w-8.5 h-8.5' }
+    sm: { w: 22, h: 22, cls: 'w-5.5 h-5.5' },
+    md: { w: 28, h: 28, cls: 'w-7 h-7' },
+    lg: { w: 36, h: 36, cls: 'w-9 h-9' }
   };
 
   const textSizes = {
@@ -26,18 +26,18 @@ export function BrandLogo({ size = 'md', href = '/', subtitle, className = '' }:
     <div className={`inline-flex items-center gap-2.5 group select-none ${className}`}>
       <Image 
         src="/logo.png" 
-        alt="Baleen" 
+        alt="Baleen Logo" 
         width={imgSizes[size].w} 
         height={imgSizes[size].h} 
-        className={`${imgSizes[size].cls} object-contain group-hover:scale-105 transition-transform duration-200`}
+        className={`${imgSizes[size].cls} object-contain dark:brightness-0 dark:invert group-hover:scale-105 transition-all duration-200`}
       />
 
       <div className="flex flex-col">
-        <span className={`font-outfit font-black tracking-[0.10em] text-slate-950 ${textSizes[size]} transition-colors group-hover:text-slate-800`}>
+        <span className={`font-outfit font-black tracking-[0.12em] text-slate-950 dark:text-white ${textSizes[size]} transition-colors group-hover:text-slate-700 dark:group-hover:text-slate-200`}>
           BALEEN
         </span>
         {subtitle && (
-          <span className="text-[10px] font-mono text-slate-400 font-semibold tracking-wider -mt-0.5 uppercase">
+          <span className="text-[10px] font-mono text-slate-400 dark:text-[#8E8F99] font-semibold tracking-wider -mt-0.5 uppercase">
             {subtitle}
           </span>
         )}

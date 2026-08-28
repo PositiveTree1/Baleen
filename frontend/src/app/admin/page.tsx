@@ -168,7 +168,7 @@ export default function AdminPage() {
         {/* Top Header */}
         <div className="flex flex-wrap items-center justify-between gap-4 mb-8 pb-4 border-b border-black/[0.06] dark:border-white/10">
           <div className="flex items-center gap-4">
-            <BrandLogo size="sm" subtitle="Admin Console" />
+            <BrandLogo size="sm" />
             <span className="text-slate-300 dark:text-slate-700">|</span>
             <Link href="/dashboard" className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-600 dark:text-[#8E8F99] hover:text-slate-900 dark:hover:text-white transition-colors">
               <ArrowLeft size={14} /> Back to Dashboard
