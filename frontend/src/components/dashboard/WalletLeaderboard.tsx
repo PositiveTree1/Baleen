@@ -62,54 +62,42 @@ export function WalletLeaderboard({ userId, onSelectWallet }: WalletLeaderboardP
     return `${val.toFixed(0)}%`;
   };
 
-  // Compute mirrored PnL per whale directly from the user's authentic execution logs and active index basket
+  // Compute mirrored PnL per whale directly from the user's authentic execution logs
   const copiedWhalesWithPnL = useMemo(() => {
-    const logStatsMap = new Map<string, { pnl: number; count: number }>();
+    const map = new Map<string, {
+      address: string;
+      name: string;
+      mirroredPnl: number;
+      fillsCount: number;
+      wins: number;
+      losses: number;
+      tier: string;
+    }>();
+
     logs.forEach((l) => {
       const addr = (l.walletAddress || '').toLowerCase();
-      const name = (l.whaleName || l.whalePseudonym || '').toLowerCase();
+      if (!addr) return;
+      if (!map.has(addr)) {
+        map.set(addr, {
+          address: l.walletAddress,
+          name: l.whaleName || l.whalePseudonym || `${l.walletAddress.slice(0, 6)}...${l.walletAddress.slice(-4)}`,
+          mirroredPnl: 0,
+          fillsCount: 0,
+          wins: 0,
+          losses: 0,
+          tier: l.whaleTier || 'standard',
+        });
+      }
+      const item = map.get(addr)!;
       const pnl = l.pnl ?? 0.0;
-
-      if (addr) {
-        const cur = logStatsMap.get(addr) || { pnl: 0, count: 0 };
-        cur.pnl += pnl;
-        cur.count += 1;
-        logStatsMap.set(addr, cur);
-      }
-      if (name) {
-        const cur = logStatsMap.get(name) || { pnl: 0, count: 0 };
-        cur.pnl += pnl;
-        cur.count += 1;
-        logStatsMap.set(name, cur);
-      }
+      item.mirroredPnl += pnl;
+      item.fillsCount += 1;
+      if (pnl > 0) item.wins += 1;
+      else if (pnl < 0) item.losses += 1;
     });
 
-    return wallets
-      .filter((w) => !w.dormant)
-      .map((w) => {
-        const addrKey = (w.address || '').toLowerCase();
-        const nameKey = (w.name || w.pseudonym || '').toLowerCase();
-        const stats = logStatsMap.get(addrKey) || (nameKey ? logStatsMap.get(nameKey) : null) || { pnl: 0, count: 0 };
-        
-        const fillsCount = stats.count > 0 ? stats.count : Math.max(12, Math.round((w.score || 85) / 5));
-        const mirroredPnl = stats.count > 0 
-          ? stats.pnl 
-          : Math.round(((w.pnl || 2500) * 0.045) * 100) / 100;
-
-        return {
-          address: w.address,
-          name: w.name || w.pseudonym || `${w.address.slice(0, 6)}...${w.address.slice(-4)}`,
-          pseudonym: w.pseudonym,
-          tier: w.tier,
-          score: w.score,
-          winRate: w.winRate,
-          fillsCount,
-          mirroredPnl: Math.round(mirroredPnl * 100) / 100,
-          allTimePnl: w.pnl,
-        };
-      })
-      .sort((a, b) => b.mirroredPnl - a.mirroredPnl);
-  }, [wallets, logs]);
+    return Array.from(map.values()).sort((a, b) => b.mirroredPnl - a.mirroredPnl);
+  }, [logs]);
 
   const filteredWallets = wallets.filter((w) => {
     if (search && !w.address.toLowerCase().includes(search.toLowerCase()) && !(w.name || '').toLowerCase().includes(search.toLowerCase())) return false;
@@ -204,10 +192,10 @@ export function WalletLeaderboard({ userId, onSelectWallet }: WalletLeaderboardP
           displayList.map((w: any) => {
             const name = w.name || w.pseudonym || `${w.address.slice(0, 6)}...${w.address.slice(-4)}`;
             const isCopiedTab = (tab === 'copied');
-            const pnl = isCopiedTab && w.mirroredPnl !== undefined ? w.mirroredPnl : (w.allTimePnl ?? w.all_time_pnl_usd ?? w.totalPnl ?? 0.0);
-            const winRate = w.winRatePct ?? w.win_rate_pct ?? w.winRate ?? 70.0;
+            const pnl = isCopiedTab && w.mirroredPnl !== undefined ? w.mirroredPnl : (w.pnl ?? 0.0);
+            const winRate = w.winRate ?? 70.0;
             const isGold = (w.tier === 'gold_sniper');
-            const fillsCount = w.fillsCount ?? w.activePositionsCount ?? w.positions_count ?? 12;
+            const fillsCount = w.fillsCount ?? 12;
 
             return (
               <div

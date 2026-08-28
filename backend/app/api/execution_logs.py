@@ -130,7 +130,7 @@ async def get_execution_logs(
         pnl_pct = round((net_pnl / notional) * 100.0, 2) if notional > 0 else 0.0
 
         whale_info = whale_meta_map.get((log.source_wallet_address or "").lower(), {})
-        whale_disp_name = whale_info.get("name") or log.whale_name or (f"{log.source_wallet_address[:6]}...{log.source_wallet_address[-4:]}" if log.source_wallet_address else "Whale")
+        whale_disp_name = whale_info.get("name") or whale_info.get("pseudonym") or (f"{log.source_wallet_address[:6]}...{log.source_wallet_address[-4:]}" if log.source_wallet_address else "Whale")
 
         response_list.append({
             "id": str(log.id),
@@ -138,7 +138,7 @@ async def get_execution_logs(
             "walletAddress": log.source_wallet_address,
             "source_wallet_address": log.source_wallet_address,
             "whaleName": whale_disp_name,
-            "whalePseudonym": whale_info.get("pseudonym") or log.whale_pseudonym,
+            "whalePseudonym": whale_info.get("pseudonym"),
             "whaleAvatar": whale_info.get("profileImage"),
             "whaleTier": whale_info.get("tier"),
             "marketQuestion": log.market_question or "Polymarket Event Prediction",
