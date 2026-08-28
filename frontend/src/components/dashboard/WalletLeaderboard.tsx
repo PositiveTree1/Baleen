@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useState, useMemo } from 'react';
-import { fetchWallets, getCachedWallets, reEvaluateWallets, fetchDiscoveryProgress, fetchCopiedWalletStats, fetchExecutionLogs } from '@/lib/api-client';
+import { fetchWallets, getCachedWallets, reEvaluateWallets, fetchDiscoveryProgress, fetchExecutionLogs, fetchCopiedWhalesStats } from '@/lib/api-client';
 import { Wallet, ExecutionLog } from '@/types';
 import { RotateCw, Search, ChevronRight } from 'lucide-react';
 
@@ -12,6 +12,7 @@ interface WalletLeaderboardProps {
 export function WalletLeaderboard({ userId, onSelectWallet }: WalletLeaderboardProps) {
   const [wallets, setWallets] = useState<Wallet[]>(() => getCachedWallets() || []);
   const [logs, setLogs] = useState<ExecutionLog[]>([]);
+  const [copiedStats, setCopiedStats] = useState<any[]>([]);
   const [loading, setLoading] = useState(() => (getCachedWallets()?.length || 0) === 0);
   const [evaluating, setEvaluating] = useState(false);
   const [progress, setProgress] = useState<any>(null);
@@ -19,12 +20,14 @@ export function WalletLeaderboard({ userId, onSelectWallet }: WalletLeaderboardP
   const [tab, setTab] = useState<'copied' | 'all' | 'gold'>('copied');
 
   const load = async () => {
-    const [walletsData, logsData] = await Promise.all([
+    const [walletsData, logsData, copiedData] = await Promise.all([
       fetchWallets(),
-      fetchExecutionLogs(userId, { limit: '1000' })
+      fetchExecutionLogs(userId, { limit: '1000' }),
+      fetchCopiedWhalesStats(userId)
     ]);
     if (walletsData && walletsData.length > 0) setWallets(walletsData);
     if (Array.isArray(logsData)) setLogs(logsData);
+    if (Array.isArray(copiedData) && copiedData.length > 0) setCopiedStats(copiedData);
     setLoading(false);
   };
 
@@ -62,8 +65,22 @@ export function WalletLeaderboard({ userId, onSelectWallet }: WalletLeaderboardP
     return `${val.toFixed(0)}%`;
   };
 
-  // Compute mirrored PnL per whale directly from the user's authentic execution logs
+  // Compute mirrored PnL per whale (prioritize all-time database aggregation)
   const copiedWhalesWithPnL = useMemo(() => {
+    if (copiedStats && copiedStats.length > 0) {
+      return copiedStats.map((c) => ({
+        address: c.address,
+        name: c.name || c.pseudonym || `${c.address.slice(0, 6)}...${c.address.slice(-4)}`,
+        pseudonym: c.pseudonym,
+        profileImage: c.profileImage,
+        mirroredPnl: c.mirroredPnl ?? c.netPnl ?? 0,
+        fillsCount: c.fillsCount ?? c.tradesCopied ?? 0,
+        wins: c.wins ?? 0,
+        losses: c.losses ?? 0,
+        tier: c.tier || 'standard',
+      })).sort((a, b) => b.mirroredPnl - a.mirroredPnl);
+    }
+
     const map = new Map<string, {
       address: string;
       name: string;
@@ -97,7 +114,7 @@ export function WalletLeaderboard({ userId, onSelectWallet }: WalletLeaderboardP
     });
 
     return Array.from(map.values()).sort((a, b) => b.mirroredPnl - a.mirroredPnl);
-  }, [logs]);
+  }, [copiedStats, logs]);
 
   const filteredWallets = wallets.filter((w) => {
     if (search && !w.address.toLowerCase().includes(search.toLowerCase()) && !(w.name || '').toLowerCase().includes(search.toLowerCase())) return false;

@@ -135,17 +135,12 @@ export function TradeDrawer({ trade, onClose, onSelectWallet }: TradeDrawerProps
             </div>
 
             {/* Price Chart */}
-            <div className="p-4 rounded-2xl bg-slate-50 dark:bg-[#1C1D22] border border-black/[0.06] dark:border-white/5 space-y-2">
-              <span className="text-[10px] uppercase font-bold text-slate-400 dark:text-[#8E8F99]">Trajectory Chart</span>
-              <div className="h-44 w-full">
-                <TradePriceChart 
-                  tradeId={trade.id}
-                  fillPrice={fillP} 
-                  currentPrice={curP} 
-                  side={trade.side} 
-                />
-              </div>
-            </div>
+            <TradePriceChart 
+              tradeId={trade.id}
+              fillPrice={fillP} 
+              currentPrice={curP} 
+              side={trade.side} 
+            />
 
             {/* Mirrored Source Whale Card */}
             <div className="p-4 rounded-2xl bg-slate-50 dark:bg-[#1C1D22] border border-black/[0.06] dark:border-white/5 flex items-center justify-between">

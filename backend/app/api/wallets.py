@@ -77,24 +77,30 @@ async def get_copied_wallet_stats(
 ):
     from uuid import UUID
 
-    stmt = select(ExecutionLog).where(ExecutionLog.status == "FILLED")
+    stmt = select(ExecutionLog).where(ExecutionLog.status.in_(["FILLED", "CLOSED", "RESOLVED"]))
     if user_id:
         try:
             u_uuid = UUID(user_id)
-            stmt = stmt.where(ExecutionLog.user_id == u_uuid)
+            stmt_user = stmt.where(ExecutionLog.user_id == u_uuid)
+            user_logs = (await db.execute(stmt_user)).scalars().all()
+            if user_logs:
+                logs = user_logs
+            else:
+                stmt_global = stmt.where(ExecutionLog.user_id.is_(None))
+                logs = (await db.execute(stmt_global)).scalars().all()
         except Exception:
-            stmt = stmt.where(ExecutionLog.user_id.is_(None))
+            stmt_global = stmt.where(ExecutionLog.user_id.is_(None))
+            logs = (await db.execute(stmt_global)).scalars().all()
     else:
-        stmt = stmt.where(ExecutionLog.user_id.is_(None))
-
-    logs = (await db.execute(stmt)).scalars().all()
+        stmt_global = stmt.where(ExecutionLog.user_id.is_(None))
+        logs = (await db.execute(stmt_global)).scalars().all()
 
     wallet_stats = {}
     for log in logs:
         addr = (log.source_wallet_address or "unknown").lower()
         if addr not in wallet_stats:
             wallet_stats[addr] = {
-                "address": addr,
+                "address": log.source_wallet_address or addr,
                 "trades_copied": 0,
                 "total_notional": 0.0,
                 "net_pnl": 0.0,
@@ -120,27 +126,34 @@ async def get_copied_wallet_stats(
     addrs = list(wallet_stats.keys())
     w_meta_map = {}
     if addrs:
-        w_stmt = select(Wallet).where(Wallet.address.in_(addrs))
+        w_stmt = select(Wallet).where(func.lower(Wallet.address).in_([a.lower() for a in addrs]))
         w_rows = (await db.execute(w_stmt)).scalars().all()
         for w in w_rows:
             w_meta_map[w.address.lower()] = w
 
     results = []
     for addr, stats in wallet_stats.items():
-        w_obj = w_meta_map.get(addr)
+        w_obj = w_meta_map.get(addr.lower())
         total_resolved = stats["wins"] + stats["losses"]
         wr = (stats["wins"] / total_resolved * 100.0) if total_resolved > 0 else 0.0
         pf = (stats["gross_profit"] / stats["gross_loss"]) if stats["gross_loss"] > 0 else (10.0 if stats["gross_profit"] > 0 else 1.0)
         roi = (stats["net_pnl"] / stats["total_notional"] * 100.0) if stats["total_notional"] > 0 else 0.0
 
+        disp_name = (w_obj.name if w_obj and w_obj.name else (w_obj.pseudonym if w_obj and w_obj.pseudonym else None))
+
         results.append({
-            "address": addr,
-            "tier": w_obj.tier if w_obj else "gold_sniper",
-            "score": w_obj.baleen_score if w_obj else 90.0,
+            "address": stats["address"],
+            "name": disp_name or f"{stats['address'][:6]}...{stats['address'][-4:]}",
+            "pseudonym": w_obj.pseudonym if w_obj else None,
+            "profileImage": w_obj.profile_image if w_obj else None,
+            "tier": w_obj.tier if w_obj else "standard",
+            "score": w_obj.baleen_score if w_obj else None,
             "aiStyleTag": w_obj.ai_style_tag if w_obj else "Tactical Whale",
             "tradesCopied": stats["trades_copied"],
+            "fillsCount": stats["trades_copied"],
             "totalNotional": round(stats["total_notional"], 2),
             "netPnl": round(stats["net_pnl"], 2),
+            "mirroredPnl": round(stats["net_pnl"], 2),
             "roiPct": round(roi, 2),
             "winRateCopied": round(wr, 1),
             "profitFactor": round(pf, 2),

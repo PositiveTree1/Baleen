@@ -62,16 +62,16 @@ export function TradePriceChart({ tradeId, fillPrice, currentPrice, side }: Trad
   const maxP = Math.min(1.0, Math.ceil((rawMax + padding) * 100) / 100);
 
   return (
-    <div className="p-4 rounded-2xl bg-slate-50 border border-black/[0.06] space-y-3 shadow-[inset_0_1px_2px_rgba(0,0,0,0.02)]">
+    <div className="p-4 rounded-2xl bg-slate-50 dark:bg-[#1C1D22] border border-black/[0.06] dark:border-white/5 space-y-3 shadow-[inset_0_1px_2px_rgba(0,0,0,0.02)]">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <Activity size={14} className="text-indigo-600" />
-          <span className="text-[11px] font-bold uppercase tracking-wider text-slate-700">
+          <Activity size={14} className="text-indigo-600 dark:text-indigo-400" />
+          <span className="text-[11px] font-bold uppercase tracking-wider text-slate-700 dark:text-[#E2E3E8]">
             Polymarket CLOB Price Curve
           </span>
         </div>
         <div className="flex items-center gap-1.5 font-mono text-xs font-bold">
-          <span className={isProfitable ? 'text-emerald-700' : 'text-rose-700'}>
+          <span className={isProfitable ? 'text-emerald-700 dark:text-[#00D09C]' : 'text-rose-700 dark:text-[#FF453A]'}>
             {isProfitable ? '+' : ''}{priceMovePct.toFixed(1)}%
           </span>
         </div>

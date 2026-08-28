@@ -189,13 +189,15 @@ class MarkToMarketService:
                     notional = float(elog.notional_usd or 0.0)
 
                     # Ensure fee is calculated and cached
-                    if (elog.fee_usd is None or elog.fee_usd == 0.0) and notional > 0:
+                    fee = float(elog.fee_usd or 0.0)
+                    if fee == 0.0 and notional > 0:
                         fee_info = calculate_polymarket_fee(
                             notional_usd=notional,
                             price=fill_p,
                             market_title=elog.market_question or ""
                         )
-                        elog.fee_usd = fee_info["fee_usd"]
+                        fee = float(fee_info["fee_usd"])
+                        elog.fee_usd = fee
                         elog.market_category = fee_info["category"]
 
                     # Detect if we have a valid cached price (within last hour)

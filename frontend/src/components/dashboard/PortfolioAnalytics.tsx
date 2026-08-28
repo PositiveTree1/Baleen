@@ -92,6 +92,37 @@ export function PortfolioAnalytics({
 
   // 2. Aggregate Market Attribution (Top Alpha & Top Drawdown)
   const { topAlpha, topDrawdown } = useMemo(() => {
+    // When viewing all-time, prefer the full database attribution computed by the backend summary
+    if (selectedRange === 'ALL' && topAlphaMarkets && topAlphaMarkets.length > 0) {
+      const alpha = topAlphaMarkets.map((m: any) => ({
+        key: m.key || m.conditionId || m.question,
+        question: m.question || 'Prediction Market',
+        conditionId: m.conditionId || '',
+        outcome: m.outcome || 'Yes',
+        totalPnl: m.totalPnl ?? 0.0,
+        totalNotional: m.totalNotional ?? 0.0,
+        fillsCount: m.fillsCount ?? 0,
+        avgFillPrice: m.avgFillPrice ?? 0.0,
+        whaleName: m.whaleName || 'Whale',
+        sampleTrade: m.sampleTrade || logs.find(l => (l.marketQuestion === m.question || l.marketConditionId === m.conditionId)) || logs[0]
+      })).slice(0, 4);
+
+      const drawdown = (topDrawdownMarkets || []).map((m: any) => ({
+        key: m.key || m.conditionId || m.question,
+        question: m.question || 'Prediction Market',
+        conditionId: m.conditionId || '',
+        outcome: m.outcome || 'Yes',
+        totalPnl: m.totalPnl ?? 0.0,
+        totalNotional: m.totalNotional ?? 0.0,
+        fillsCount: m.fillsCount ?? 0,
+        avgFillPrice: m.avgFillPrice ?? 0.0,
+        whaleName: m.whaleName || 'Whale',
+        sampleTrade: m.sampleTrade || logs.find(l => (l.marketQuestion === m.question || l.marketConditionId === m.conditionId)) || logs[0]
+      })).slice(0, 4);
+
+      return { topAlpha: alpha, topDrawdown: drawdown };
+    }
+
     const marketMap = new Map<string, MarketSummary>();
     targetLogs.forEach((l) => {
       const key = l.marketQuestion || l.marketConditionId || l.id;
@@ -156,7 +187,7 @@ export function PortfolioAnalytics({
     }
 
     return { topAlpha: alpha, topDrawdown: drawdown };
-  }, [targetLogs, topAlphaMarkets, topDrawdownMarkets, logs]);
+  }, [selectedRange, targetLogs, topAlphaMarkets, topDrawdownMarkets, logs]);
 
   // 3. Execution Scorecard Metrics
   const { totalWins, totalLosses, winRate, feeRatePct, totalNotionalInvested } = useMemo(() => {
@@ -478,7 +509,7 @@ export function PortfolioAnalytics({
         {/* Card 1: Active Capital Allocation (Dynamic Real Data) */}
         <div className="revolut-card p-5 space-y-4 rounded-[26px]">
           <div className="space-y-1">
-            <span className="text-xs font-semibold text-slate-500 dark:text-[#8E8F99]">Capital Allocation</span>
+            <span className="text-xs font-semibold text-slate-500 dark:text-[#8E8F99]">Total Capital Deployed</span>
             <div className="text-2xl font-bold text-slate-950 dark:text-white font-outfit">
               ${totalNotionalInvested.toLocaleString(undefined, { maximumFractionDigits: 0 })}
             </div>

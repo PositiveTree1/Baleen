@@ -124,6 +124,36 @@ export async function fetchWallets(params?: Record<string, string>): Promise<Wal
   }
 }
 
+export async function fetchCopiedWhalesStats(userId?: string): Promise<{
+  address: string;
+  name: string;
+  pseudonym?: string;
+  profileImage?: string;
+  tier: string;
+  score?: number;
+  aiStyleTag?: string;
+  tradesCopied: number;
+  fillsCount: number;
+  totalNotional: number;
+  netPnl: number;
+  mirroredPnl: number;
+  roiPct: number;
+  winRateCopied: number;
+  profitFactor: number;
+  wins: number;
+  losses: number;
+}[]> {
+  try {
+    const url = new URL(`${API_BASE_URL}/api/wallets/copied-stats`);
+    if (userId) url.searchParams.append('user_id', userId);
+    const res = await fetch(url.toString());
+    if (!res.ok) return [];
+    return await res.json();
+  } catch (error) {
+    return [];
+  }
+}
+
 export async function fetchWallet(address: string): Promise<WalletDetail | null> {
   try {
     const res = await fetch(`${API_BASE_URL}/api/wallets/${address}`);
