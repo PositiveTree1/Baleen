@@ -53,10 +53,19 @@ export function TradeDrawer({ trade, onClose, onSelectWallet }: TradeDrawerProps
                 {isBuy ? <ArrowUpRight size={20} /> : <ArrowDownRight size={20} />}
               </div>
               <div>
-                <h2 className="text-sm font-bold text-slate-900 dark:text-white tracking-tight flex items-center gap-2">
-                  Trade Execution Details
-                </h2>
-                <p className="text-[11px] font-mono text-slate-500 dark:text-[#8E8F99] flex items-center gap-1">
+                <div className="flex items-center gap-2">
+                  <span className={`text-[11px] font-extrabold uppercase px-2 py-0.5 rounded-full border ${
+                    isBuy 
+                      ? 'bg-emerald-50 dark:bg-[#00D09C]/10 text-emerald-700 dark:text-[#00D09C] border-emerald-200 dark:border-[#00D09C]/30' 
+                      : 'bg-rose-50 dark:bg-[#FF453A]/10 text-rose-700 dark:text-[#FF453A] border-rose-200 dark:border-[#FF453A]/30'
+                  }`}>
+                    {trade.side || 'BUY'} {outcomeLabel.toUpperCase()}
+                  </span>
+                  <span className="text-[10px] font-mono font-bold text-slate-500 dark:text-[#8E8F99] bg-white dark:bg-[#2C2D35] px-2 py-0.5 rounded-full border border-black/[0.06] dark:border-white/5">
+                    {trade.status === 'FILLED' ? '🟢 OPEN POSITION' : '⚪ CLOSED'}
+                  </span>
+                </div>
+                <p className="text-[11px] font-mono text-slate-500 dark:text-[#8E8F99] flex items-center gap-1 mt-1">
                   <Clock size={12} />
                   {formatFrenchDateTime(trade.timestamp, true)}
                 </p>
@@ -92,11 +101,19 @@ export function TradeDrawer({ trade, onClose, onSelectWallet }: TradeDrawerProps
                   {trade.marketQuestion || 'Polymarket Event Prediction'}
                 </div>
               </div>
-              {trade.marketConditionId && (
-                <div className="text-[11px] font-mono text-slate-400 dark:text-[#8E8F99] truncate pt-1">
-                  CID: {trade.marketConditionId}
-                </div>
-              )}
+              <div className="flex flex-wrap items-center gap-2 pt-1">
+                <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-md bg-indigo-50 dark:bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 border border-indigo-200/60 dark:border-indigo-500/20">
+                  Selected Outcome: {outcomeLabel}
+                </span>
+                <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-md bg-slate-200/70 dark:bg-[#2C2D35] text-slate-700 dark:text-slate-300">
+                  Side: {trade.side || 'BUY'}
+                </span>
+                {trade.marketConditionId && (
+                  <span className="text-[10px] font-mono text-slate-400 dark:text-[#8E8F99] truncate">
+                    CID: {trade.marketConditionId.slice(0, 10)}...{trade.marketConditionId.slice(-6)}
+                  </span>
+                )}
+              </div>
             </div>
 
             {/* Pricing & Execution Grid */}

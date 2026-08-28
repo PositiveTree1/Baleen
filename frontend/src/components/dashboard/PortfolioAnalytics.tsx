@@ -12,7 +12,10 @@ import {
   Copy, 
   Check, 
   X, 
-  Loader2 
+  Loader2,
+  BarChart2,
+  Activity,
+  CandlestickChart
 } from 'lucide-react';
 import { formatFrenchTime, formatFrenchDate } from '@/lib/formatters';
 import { resetSandboxLedger, clearAllCache, fetchPortfolioSnapshots } from '@/lib/api-client';
@@ -49,6 +52,7 @@ export function PortfolioAnalytics({
   onResetComplete
 }: PortfolioAnalyticsProps) {
   const [timeframe, setTimeframe] = useState<string>('ALL');
+  const [chartType, setChartType] = useState<'area' | 'candles'>('area');
   const [selectedCategory, setSelectedCategory] = useState<string>('ALL');
   const [showDeepAnalytics, setShowDeepAnalytics] = useState(false);
   const [showStrategyModal, setShowStrategyModal] = useState(false);
@@ -235,12 +239,16 @@ export function PortfolioAnalytics({
     };
   }, [targetLogs, allTimeWins, allTimeLosses, allTimeWinRate, logs]);
 
-  // 4. Authentic Capital Allocation (100% Real Live Trades)
-  const allocationStats = useMemo(() => {
+  // 4. Authentic Active Capital Allocation (Open Positions Only)
+  const activeHoldingLogs = useMemo(() => {
+    return logs.filter((l) => l.status === 'FILLED' && l.side === 'BUY');
+  }, [logs]);
+
+  const activeAllocationStats = useMemo(() => {
     const whaleMap = new Map<string, number>();
     let totalNotional = 0;
 
-    logs.forEach((l) => {
+    activeHoldingLogs.forEach((l) => {
       const name = l.whaleName || l.whalePseudonym || (l.walletAddress ? `${l.walletAddress.slice(0, 6)}...${l.walletAddress.slice(-4)}` : 'Whale');
       const size = l.size ?? 0.0;
       whaleMap.set(name, (whaleMap.get(name) || 0) + size);
@@ -276,18 +284,20 @@ export function PortfolioAnalytics({
     }
 
     if (segments.length === 0) {
-      segments.push({ name: 'Active Whales', pct: 100, color: '#00D09C' });
+      segments.push({ name: '100% Cash Balance', pct: 100, color: '#00D09C' });
     }
 
     return {
       segments,
-      totalNotional
+      totalNotional,
+      count: activeHoldingLogs.length
     };
-  }, [logs]);
+  }, [activeHoldingLogs]);
 
   // 5. Portfolio Snapshots Timeline
   const [serverSnapshots, setServerSnapshots] = useState<any[]>(snapshots);
   const [chartLoading, setChartLoading] = useState(false);
+  const [hoveredCandle, setHoveredCandle] = useState<any>(null);
 
   const loadSnapshots = useCallback(async (tf: string) => {
     setChartLoading(true);
@@ -355,11 +365,47 @@ export function PortfolioAnalytics({
 
   const pnlTimeline = useMemo(() => {
     if (serverSnapshots && serverSnapshots.length > 0) return serverSnapshots;
-    return [
-      { displayTime: 'Genesis', time: '00:00', date: '', balance: startingBalance, pnl: 0, rawTimestamp: Date.now() },
-      { displayTime: 'Now', time: 'Live', date: '', balance: currentBalance, pnl: currentBalance - startingBalance, rawTimestamp: Date.now() }
-    ];
-  }, [serverSnapshots, startingBalance, currentBalance]);
+    return [];
+  }, [serverSnapshots]);
+
+  // Build OHLC Candles from timeline snapshots
+  const ohlcCandles = useMemo(() => {
+    if (!pnlTimeline || pnlTimeline.length < 2) return [];
+    
+    const numBuckets = Math.min(30, Math.max(6, Math.floor(pnlTimeline.length / 4)));
+    const bucketSize = Math.max(1, Math.floor(pnlTimeline.length / numBuckets));
+    const candles: {
+      time: string;
+      open: number;
+      high: number;
+      low: number;
+      close: number;
+      isBullish: boolean;
+      pnl: number;
+    }[] = [];
+
+    for (let i = 0; i < pnlTimeline.length; i += bucketSize) {
+      const chunk = pnlTimeline.slice(i, i + bucketSize);
+      if (chunk.length === 0) continue;
+      const prices = chunk.map((s: any) => s.balance);
+      const open = chunk[0].balance;
+      const close = chunk[chunk.length - 1].balance;
+      const high = Math.max(...prices);
+      const low = Math.min(...prices);
+      const isBullish = close >= open;
+
+      candles.push({
+        time: chunk[chunk.length - 1].displayTime,
+        open,
+        high,
+        low,
+        close,
+        isBullish,
+        pnl: close - open,
+      });
+    }
+    return candles;
+  }, [pnlTimeline]);
 
   const periodPnL = useMemo(() => {
     if (pnlTimeline.length < 2) return currentBalance - startingBalance;
@@ -392,10 +438,34 @@ export function PortfolioAnalytics({
 
   const isPositive = periodPnL >= 0;
 
+  const handleOpenMarketTrade = (m: any) => {
+    if (!onSelectTrade) return;
+    const match = logs.find((l) => (m.conditionId && l.marketConditionId === m.conditionId) || (m.question && l.marketQuestion === m.question));
+    if (match) {
+      onSelectTrade(match);
+    } else {
+      onSelectTrade({
+        id: m.conditionId || m.key,
+        timestamp: new Date().toISOString(),
+        marketQuestion: m.question,
+        marketConditionId: m.conditionId,
+        outcome: m.outcome || 'Yes',
+        side: m.totalPnl >= 0 ? 'BUY' : 'SELL',
+        fillPrice: m.avgFillPrice || 0.5,
+        currentPrice: m.avgFillPrice || 0.5,
+        size: m.totalNotional || 10.0,
+        pnl: m.totalPnl,
+        pnlPct: m.totalNotional > 0 ? (m.totalPnl / m.totalNotional) * 100 : 0,
+        whaleName: m.whaleName,
+        status: 'RESOLVED',
+      });
+    }
+  };
+
   return (
     <div className="flex flex-col gap-6 w-full">
       {/* ========================================================= */}
-      {/* 1. REVOLUT LINE CHART CARD */}
+      {/* 1. REVOLUT LINE / CANDLESTICK CHART CARD */}
       {/* ========================================================= */}
       <div className="revolut-card p-6 sm:p-8 space-y-6 rounded-[26px]">
         {/* Asset Header & Price */}
@@ -417,64 +487,162 @@ export function PortfolioAnalytics({
             </div>
           </div>
 
-          {/* Revolut Timeframe Pills */}
-          <div className="flex items-center gap-1 bg-[#F1F3F5] dark:bg-[#1C1D22] p-1 rounded-full border border-black/[0.04] dark:border-white/5 shrink-0 overflow-x-auto">
-            {(['1H', '6H', '1D', '1W', '1M', 'YTD', 'ALL'] as const).map((tf) => {
-              const isActive = timeframe === tf;
-              return (
-                <button
-                  key={tf}
-                  onClick={() => setTimeframe(tf)}
-                  className={`px-3 py-1 rounded-full text-xs font-bold transition-all cursor-pointer ${
-                    isActive ? 'bg-white dark:bg-[#2C2D35] text-slate-950 dark:text-white shadow-2xs' : 'text-slate-500 dark:text-[#8E8F99] hover:text-slate-900 dark:hover:text-white'
-                  }`}
-                >
-                  {tf}
-                </button>
-              );
-            })}
+          {/* Controls: Chart Type Toggle & Revolut Timeframe Pills */}
+          <div className="flex items-center gap-2">
+            {/* Area vs Candle Toggle */}
+            <div className="flex items-center bg-[#F1F3F5] dark:bg-[#1C1D22] p-1 rounded-full border border-black/[0.04] dark:border-white/5">
+              <button
+                onClick={() => setChartType('area')}
+                className={`p-1.5 rounded-full text-xs font-bold transition-all cursor-pointer ${
+                  chartType === 'area' ? 'bg-white dark:bg-[#2C2D35] text-slate-950 dark:text-white shadow-2xs' : 'text-slate-500 dark:text-[#8E8F99] hover:text-slate-900 dark:hover:text-white'
+                }`}
+                title="Line / Area View"
+              >
+                <Activity size={14} />
+              </button>
+              <button
+                onClick={() => setChartType('candles')}
+                className={`p-1.5 rounded-full text-xs font-bold transition-all cursor-pointer ${
+                  chartType === 'candles' ? 'bg-white dark:bg-[#2C2D35] text-slate-950 dark:text-white shadow-2xs' : 'text-slate-500 dark:text-[#8E8F99] hover:text-slate-900 dark:hover:text-white'
+                }`}
+                title="Candlestick (OHLC) Trader View"
+              >
+                <CandlestickChart size={14} />
+              </button>
+            </div>
+
+            {/* Revolut Timeframe Pills */}
+            <div className="flex items-center gap-1 bg-[#F1F3F5] dark:bg-[#1C1D22] p-1 rounded-full border border-black/[0.04] dark:border-white/5 shrink-0 overflow-x-auto">
+              {(['1H', '6H', '1D', '1W', '1M', 'YTD', 'ALL'] as const).map((tf) => {
+                const isActive = timeframe === tf;
+                return (
+                  <button
+                    key={tf}
+                    onClick={() => setTimeframe(tf)}
+                    className={`px-3 py-1 rounded-full text-xs font-bold transition-all cursor-pointer ${
+                      isActive ? 'bg-white dark:bg-[#2C2D35] text-slate-950 dark:text-white shadow-2xs' : 'text-slate-500 dark:text-[#8E8F99] hover:text-slate-900 dark:hover:text-white'
+                    }`}
+                  >
+                    {tf}
+                  </button>
+                );
+              })}
+            </div>
           </div>
         </div>
 
         {/* Chart Area */}
         <div className="h-64 sm:h-72 w-full pt-2">
-          <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={pnlTimeline} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-              <defs>
-                <linearGradient id="revolutGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor={isPositive ? '#00D09C' : '#FF453A'} stopOpacity={0.25} />
-                  <stop offset="95%" stopColor={isPositive ? '#00D09C' : '#FF453A'} stopOpacity={0.0} />
-                </linearGradient>
-              </defs>
-              <XAxis dataKey="displayTime" stroke="#94A3B8" tick={{ fill: '#94A3B8', fontSize: 9, fontWeight: 600 }} tickLine={false} axisLine={false} minTickGap={35} />
-              <YAxis domain={['auto', 'auto']} stroke="#94A3B8" tick={{ fill: '#94A3B8', fontSize: 10, fontWeight: 600 }} tickLine={false} axisLine={false} tickFormatter={(val) => `$${Math.round(val).toLocaleString()}`} />
-              <Tooltip 
-                content={({ active, payload }) => {
-                  if (active && payload && payload.length) {
-                    const d = payload[0].payload;
-                    return (
-                      <div className="bg-white dark:bg-[#1C1D22] text-slate-900 dark:text-white px-4 py-3 rounded-2xl text-xs font-mono shadow-xl border border-black/[0.08] dark:border-white/10 space-y-1">
-                        <div className="text-[10px] text-slate-500 dark:text-[#8E8F99] font-bold">{d.date} • {d.time || d.displayTime}</div>
-                        <div className="text-sm font-extrabold text-slate-950 dark:text-white">${d.balance.toLocaleString(undefined, { minimumFractionDigits: 2 })}</div>
-                        <div className={`font-bold ${d.pnl >= 0 ? 'text-emerald-600 dark:text-[#00D09C]' : 'text-rose-600 dark:text-[#FF453A]'}`}>
-                          {d.pnl >= 0 ? '+' : ''}${d.pnl.toFixed(2)} Mark-to-Market
+          {chartLoading || pnlTimeline.length === 0 ? (
+            <div className="w-full h-full flex flex-col items-center justify-center gap-3">
+              <div className="w-full h-48 rounded-2xl animate-shimmer" />
+              <span className="text-xs text-slate-400 dark:text-[#8E8F99] font-mono">Synchronizing verified Polymarket CLOB trajectory...</span>
+            </div>
+          ) : chartType === 'candles' && ohlcCandles.length > 0 ? (
+            /* Candlestick OHLC Chart Renderer */
+            <div className="w-full h-full flex flex-col justify-between relative select-none">
+              {hoveredCandle && (
+                <div className="absolute top-0 right-2 z-10 bg-white/90 dark:bg-[#1C1D22]/90 backdrop-blur-sm border border-black/10 dark:border-white/10 rounded-xl px-3 py-1.5 text-[11px] font-mono shadow-md flex items-center gap-3">
+                  <span>{hoveredCandle.time}</span>
+                  <span>O: <strong>${hoveredCandle.open.toFixed(0)}</strong></span>
+                  <span>H: <strong className="text-emerald-600 dark:text-[#00D09C]">${hoveredCandle.high.toFixed(0)}</strong></span>
+                  <span>L: <strong className="text-rose-600 dark:text-[#FF453A]">${hoveredCandle.low.toFixed(0)}</strong></span>
+                  <span>C: <strong>${hoveredCandle.close.toFixed(0)}</strong></span>
+                </div>
+              )}
+              {(() => {
+                const allHighs = ohlcCandles.map((c) => c.high);
+                const allLows = ohlcCandles.map((c) => c.low);
+                const minPrice = Math.min(...allLows);
+                const maxPrice = Math.max(...allHighs);
+                const range = Math.max(1, maxPrice - minPrice);
+                const pad = range * 0.1;
+                const domainMin = minPrice - pad;
+                const domainMax = maxPrice + pad;
+                const domainRange = domainMax - domainMin;
+
+                return (
+                  <svg className="w-full h-56" viewBox={`0 0 ${ohlcCandles.length * 20} 220`} preserveAspectRatio="none">
+                    {ohlcCandles.map((c, idx) => {
+                      const x = idx * 20 + 10;
+                      const wickY1 = 200 - ((c.high - domainMin) / domainRange) * 190;
+                      const wickY2 = 200 - ((c.low - domainMin) / domainRange) * 190;
+                      const bodyTopVal = Math.max(c.open, c.close);
+                      const bodyBotVal = Math.min(c.open, c.close);
+                      const bodyY = 200 - ((bodyTopVal - domainMin) / domainRange) * 190;
+                      const bodyH = Math.max(3, ((bodyTopVal - bodyBotVal) / domainRange) * 190);
+                      const color = c.isBullish ? '#00D09C' : '#FF453A';
+
+                      return (
+                        <g 
+                          key={idx} 
+                          onMouseEnter={() => setHoveredCandle(c)}
+                          onMouseLeave={() => setHoveredCandle(null)}
+                          className="cursor-crosshair group"
+                        >
+                          {/* Wick */}
+                          <line x1={x} y1={wickY1} x2={x} y2={wickY2} stroke={color} strokeWidth={1.5} opacity={0.8} />
+                          {/* Body */}
+                          <rect 
+                            x={x - 6} 
+                            y={bodyY} 
+                            width={12} 
+                            height={bodyH} 
+                            fill={color} 
+                            rx={1.5}
+                            className="group-hover:opacity-100 transition-opacity"
+                          />
+                        </g>
+                      );
+                    })}
+                  </svg>
+                );
+              })()}
+              <div className="flex justify-between text-[9px] font-mono text-slate-400 dark:text-[#8E8F99] pt-1 border-t border-black/[0.04] dark:border-white/5">
+                <span>{ohlcCandles[0]?.time}</span>
+                <span>Candlestick OHLC Trader Mode (Polymarket Mark-to-Market Snapshots)</span>
+                <span>{ohlcCandles[ohlcCandles.length - 1]?.time}</span>
+              </div>
+            </div>
+          ) : (
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={pnlTimeline} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                <defs>
+                  <linearGradient id="revolutGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor={isPositive ? '#00D09C' : '#FF453A'} stopOpacity={0.25} />
+                    <stop offset="95%" stopColor={isPositive ? '#00D09C' : '#FF453A'} stopOpacity={0.0} />
+                  </linearGradient>
+                </defs>
+                <XAxis dataKey="displayTime" stroke="#94A3B8" tick={{ fill: '#94A3B8', fontSize: 9, fontWeight: 600 }} tickLine={false} axisLine={false} minTickGap={35} />
+                <YAxis domain={['auto', 'auto']} stroke="#94A3B8" tick={{ fill: '#94A3B8', fontSize: 10, fontWeight: 600 }} tickLine={false} axisLine={false} tickFormatter={(val) => `$${Math.round(val).toLocaleString()}`} />
+                <Tooltip 
+                  content={({ active, payload }) => {
+                    if (active && payload && payload.length) {
+                      const d = payload[0].payload;
+                      return (
+                        <div className="bg-white dark:bg-[#1C1D22] text-slate-900 dark:text-white px-4 py-3 rounded-2xl text-xs font-mono shadow-xl border border-black/[0.08] dark:border-white/10 space-y-1">
+                          <div className="text-[10px] text-slate-500 dark:text-[#8E8F99] font-bold">{d.date} • {d.time || d.displayTime}</div>
+                          <div className="text-sm font-extrabold text-slate-950 dark:text-white">${d.balance.toLocaleString(undefined, { minimumFractionDigits: 2 })}</div>
+                          <div className={`font-bold ${d.pnl >= 0 ? 'text-emerald-600 dark:text-[#00D09C]' : 'text-rose-600 dark:text-[#FF453A]'}`}>
+                            {d.pnl >= 0 ? '+' : ''}${d.pnl.toFixed(2)} Mark-to-Market
+                          </div>
                         </div>
-                      </div>
-                    );
-                  }
-                  return null;
-                }}
-              />
-              <Area 
-                type="monotone" 
-                dataKey="balance" 
-                stroke={isPositive ? '#00D09C' : '#FF453A'} 
-                strokeWidth={2.5} 
-                fillOpacity={1} 
-                fill="url(#revolutGrad)" 
-              />
-            </AreaChart>
-          </ResponsiveContainer>
+                      );
+                    }
+                    return null;
+                  }}
+                />
+                <Area 
+                  type="monotone" 
+                  dataKey="balance" 
+                  stroke={isPositive ? '#00D09C' : '#FF453A'} 
+                  strokeWidth={2.5} 
+                  fillOpacity={1} 
+                  fill="url(#revolutGrad)" 
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+          )}
         </div>
 
         {/* Revolut Informational Caption */}
@@ -506,18 +674,23 @@ export function PortfolioAnalytics({
       {/* ========================================================= */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
         
-        {/* Card 1: Active Capital Allocation (Dynamic Real Data) */}
+        {/* Card 1: Active Capital Invested (Live Open Positions Only) */}
         <div className="revolut-card p-5 space-y-4 rounded-[26px]">
           <div className="space-y-1">
-            <span className="text-xs font-semibold text-slate-500 dark:text-[#8E8F99]">Total Capital Deployed</span>
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold text-slate-500 dark:text-[#8E8F99]">Active Capital Invested</span>
+              <span className="text-[10px] font-mono font-bold text-emerald-600 dark:text-[#00D09C] bg-emerald-50 dark:bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-200/50 dark:border-emerald-500/20">
+                {activeAllocationStats.count} Live Position{activeAllocationStats.count === 1 ? '' : 's'}
+              </span>
+            </div>
             <div className="text-2xl font-bold text-slate-950 dark:text-white font-outfit">
-              ${totalNotionalInvested.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+              ${activeAllocationStats.totalNotional.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </div>
           </div>
 
           {/* Dynamic Segmented Progress Bar */}
           <div className="h-2.5 w-full rounded-full bg-slate-100 dark:bg-[#1C1D22] overflow-hidden flex gap-1">
-            {allocationStats.segments.map((seg, idx) => (
+            {activeAllocationStats.segments.map((seg) => (
               <div 
                 key={seg.name} 
                 className="h-full rounded-full transition-all"
@@ -528,7 +701,7 @@ export function PortfolioAnalytics({
 
           {/* Dynamic Legend */}
           <div className="grid grid-cols-2 gap-2 text-[11px] font-semibold text-slate-600 dark:text-[#8E8F99]">
-            {allocationStats.segments.map((seg) => (
+            {activeAllocationStats.segments.map((seg) => (
               <div key={seg.name} className="flex items-center gap-1.5 truncate">
                 <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: seg.color }} />
                 <span className="text-slate-900 dark:text-white truncate">{seg.name}</span>
@@ -629,7 +802,7 @@ export function PortfolioAnalytics({
               topAlpha.map((m) => (
                 <div
                   key={m.key}
-                  onClick={() => onSelectTrade && onSelectTrade(m.sampleTrade)}
+                  onClick={() => handleOpenMarketTrade(m)}
                   className="p-3 rounded-2xl bg-slate-50 dark:bg-[#1C1D22] hover:bg-slate-100 dark:hover:bg-[#24262E] border border-black/[0.04] dark:border-white/5 transition-all cursor-pointer flex items-center justify-between group"
                 >
                   <div className="min-w-0 pr-3">
@@ -676,7 +849,7 @@ export function PortfolioAnalytics({
               topDrawdown.map((m) => (
                 <div
                   key={m.key}
-                  onClick={() => onSelectTrade && onSelectTrade(m.sampleTrade)}
+                  onClick={() => handleOpenMarketTrade(m)}
                   className="p-3 rounded-2xl bg-slate-50 dark:bg-[#1C1D22] hover:bg-slate-100 dark:hover:bg-[#24262E] border border-black/[0.04] dark:border-white/5 transition-all cursor-pointer flex items-center justify-between group"
                 >
                   <div className="min-w-0 pr-3">

@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { fetchExecutionLogs, getCachedExecutionLogs } from '@/lib/api-client';
 import { formatFrenchTimeWithSeconds } from '@/lib/formatters';
 import { ExecutionLog } from '@/types';
-import { Search, Flame, Coins, Landmark, Trophy, Globe, Zap } from 'lucide-react';
+import { Search, Flame, Coins, Landmark, Trophy, Globe, Zap, ArrowUpRight, ArrowDownRight } from 'lucide-react';
 import Image from 'next/image';
 
 interface LiveTapeProps {
@@ -141,11 +141,12 @@ export function LiveTape({ userId, onSelectTrade }: LiveTapeProps) {
           </div>
         ) : (
           filteredLogs.map((log) => {
-            const isBuy = log.side === 'BUY';
+            const isBuy = (log.side || 'BUY').toUpperCase() === 'BUY';
             const notional = log.size ?? 0.0;
             const fillPrice = log.fillPrice || log.entryPrice || 0.0;
             const timeStr = log.timestamp ? formatFrenchTimeWithSeconds(new Date(log.timestamp)) : '';
             const whaleDisplay = log.whaleName || log.whalePseudonym || (log.walletAddress ? `${log.walletAddress.slice(0, 6)}...${log.walletAddress.slice(-4)}` : 'Whale');
+            const outcomeText = log.outcome || 'Yes';
 
             return (
               <div
@@ -154,9 +155,14 @@ export function LiveTape({ userId, onSelectTrade }: LiveTapeProps) {
                 className="pt-2 flex items-center justify-between p-2 rounded-2xl hover:bg-slate-50 dark:hover:bg-[#1C1D22] transition-colors cursor-pointer group"
               >
                 <div className="flex items-center gap-3 min-w-0">
-                  {/* Market Icon */}
-                  <div className="shrink-0">
+                  {/* Side Indicator Badge & Market Icon */}
+                  <div className="relative shrink-0">
                     {getMarketIcon(log)}
+                    <div className={`absolute -bottom-1 -right-1 w-4 h-4 rounded-full border border-white dark:border-[#16171B] flex items-center justify-center ${
+                      isBuy ? 'bg-[#00D09C] text-black' : 'bg-[#FF453A] text-white'
+                    }`}>
+                      {isBuy ? <ArrowUpRight size={10} strokeWidth={3} /> : <ArrowDownRight size={10} strokeWidth={3} />}
+                    </div>
                   </div>
 
                   <div className="min-w-0">
@@ -164,12 +170,17 @@ export function LiveTape({ userId, onSelectTrade }: LiveTapeProps) {
                       {log.marketQuestion || 'Prediction Market'}
                     </p>
                     <div className="flex items-center gap-1.5 text-[10px] text-slate-500 dark:text-[#8E8F99] font-mono mt-0.5">
-                      <span className={`font-bold px-1.5 py-0.2 rounded-md ${
-                        (log.outcome || 'Yes').toLowerCase() === 'yes'
-                          ? 'bg-emerald-50 dark:bg-[#00D09C]/10 text-emerald-700 dark:text-[#00D09C]'
-                          : 'bg-rose-50 dark:bg-[#FF453A]/10 text-rose-700 dark:text-[#FF453A]'
+                      {/* Explicit BUY / SELL badge */}
+                      <span className={`font-extrabold px-1.5 py-0.2 rounded-md ${
+                        isBuy
+                          ? 'bg-emerald-100 dark:bg-[#00D09C]/20 text-emerald-800 dark:text-[#00D09C]'
+                          : 'bg-rose-100 dark:bg-[#FF453A]/20 text-rose-800 dark:text-[#FF453A]'
                       }`}>
-                        {log.outcome || 'Yes'}
+                        {isBuy ? 'BUY' : 'SELL'}
+                      </span>
+                      {/* Outcome Badge */}
+                      <span className="font-bold px-1.5 py-0.2 rounded-md bg-slate-200 dark:bg-[#2C2D35] text-slate-700 dark:text-[#E2E3E8]">
+                        {outcomeText}
                       </span>
                       <span>•</span>
                       <span>${fillPrice.toFixed(3)}</span>
