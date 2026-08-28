@@ -479,7 +479,7 @@ export function PortfolioAnalytics({
             </span>
             <div className="flex flex-wrap items-baseline gap-2 sm:gap-3">
               <span className="text-2xl sm:text-4xl lg:text-5xl font-bold font-outfit text-slate-950 dark:text-white tracking-tight">
-                ${(pnlTimeline[pnlTimeline.length - 1]?.balance ?? currentBalance).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                ${currentBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </span>
               <div className={`inline-flex items-center gap-1 text-[11px] sm:text-xs font-mono font-bold ${isPositive ? 'text-emerald-600 dark:text-[#00D09C]' : 'text-rose-600 dark:text-[#FF453A]'}`}>
                 {isPositive ? <TrendingUp size={12} /> : <TrendingDown size={12} />}

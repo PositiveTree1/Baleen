@@ -228,6 +228,17 @@ async def get_portfolio_summary(
 
     logs = (await db.execute(stmt.order_by(ExecutionLog.executed_at.desc()))).scalars().all()
     
+    # 1. Fetch latest committed snapshot from database to ensure rock-solid stability
+    latest_snap = (await db.execute(
+        select(PortfolioSnapshot)
+        .where(PortfolioSnapshot.user_id.is_(None))
+        .order_by(PortfolioSnapshot.timestamp.desc())
+        .limit(1)
+    )).scalar_one_or_none()
+
+    authoritative_db_balance = float(latest_snap.balance) if latest_snap and latest_snap.balance else 10000.0
+    authoritative_db_pnl = float(latest_snap.total_pnl) if latest_snap and latest_snap.total_pnl is not None else 0.0
+
     starting_balance = 10000.0
     total_pnl = 0.0
     total_notional = 0.0
@@ -242,7 +253,7 @@ async def get_portfolio_summary(
             continue
             
         trade_pnl = log.realized_pnl_usd
-        if trade_pnl is None and log.side == "BUY" and log.status == "FILLED":
+        if log.side == "BUY" and log.status == "FILLED":
             cid = log.market_condition_id or ""
             outc = log.resolution_outcome or "Yes"
             fill_p = float(log.user_fill_price or log.whale_entry_price or 0.5)
@@ -253,6 +264,13 @@ async def get_portfolio_summary(
                 trade_pnl = gross_pnl - fee
         if trade_pnl is not None:
             total_pnl += float(trade_pnl)
+
+    # Ensure total_pnl and current_balance never drop below the authoritative recorded database balance
+    if total_pnl < authoritative_db_pnl and authoritative_db_balance > 10000.0:
+        total_pnl = authoritative_db_pnl
+        current_balance = authoritative_db_balance
+    else:
+        current_balance = round(starting_balance + total_pnl, 2)
 
     # Market Attribution aggregation across database records
     market_map = {}

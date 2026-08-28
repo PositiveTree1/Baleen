@@ -88,9 +88,14 @@ export default function DashboardPage() {
     );
   }
 
-  const liveBalance = portfolio?.currentBalance ?? user?.currentBalance ?? 10000.0;
-  const livePnl = portfolio?.totalPnlUsd ?? 0.0;
-  const livePnlPct = portfolio?.totalPnlPct ?? 0.0;
+  const cachedSnapshots = getCachedPortfolioSnapshots(session?.user?.id, 'all');
+  const lastCachedBal = (cachedSnapshots && cachedSnapshots.length > 0) ? cachedSnapshots[cachedSnapshots.length - 1].balance : null;
+  const lastCachedPnl = (cachedSnapshots && cachedSnapshots.length > 0) ? cachedSnapshots[cachedSnapshots.length - 1].pnl : null;
+  const cachedSummary = getCachedPortfolioSummary(session?.user?.id);
+
+  const liveBalance = portfolio?.currentBalance ?? user?.currentBalance ?? cachedSummary?.currentBalance ?? lastCachedBal ?? 10000.0;
+  const livePnl = portfolio?.totalPnlUsd ?? cachedSummary?.totalPnlUsd ?? lastCachedPnl ?? 0.0;
+  const livePnlPct = portfolio?.totalPnlPct ?? cachedSummary?.totalPnlPct ?? (liveBalance > 10000.0 ? ((liveBalance - 10000.0) / 10000.0) * 100.0 : 0.0);
 
   return (
     <div className="min-h-screen flex flex-col bg-[#F8F9FB] dark:bg-[#000000] text-slate-900 dark:text-white selection:bg-[#00D09C] selection:text-black relative overflow-x-hidden font-sans transition-colors duration-150">
