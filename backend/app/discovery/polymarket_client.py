@@ -466,3 +466,76 @@ class PolymarketClient:
                 pass
 
         return None
+
+    async def fetch_batch_live_prices(self, condition_ids: List[str]) -> Dict[str, Dict[str, float]]:
+        """
+        Batch fetches live prices for a list of condition IDs from Polymarket Gamma API in single requests.
+        Returns mapping: { condition_id_lower: { outcome_lower: price } }
+        """
+        if not condition_ids:
+            return {}
+        
+        clean_cids = list(set(str(c).strip().lower() for c in condition_ids if c and len(str(c).strip()) > 5))
+        if not clean_cids:
+            return {}
+
+        results: Dict[str, Dict[str, float]] = {}
+        chunk_size = 30
+
+        for i in range(0, len(clean_cids), chunk_size):
+            chunk = clean_cids[i:i + chunk_size]
+            cids_param = ",".join(chunk)
+            try:
+                data = await self._fetch_with_retry(
+                    f"{self.gamma_api_url}/markets",
+                    params={"condition_ids": cids_param, "limit": len(chunk) * 2}
+                )
+                rows = data if isinstance(data, list) else ([data] if isinstance(data, dict) else [])
+                for m in rows:
+                    if not isinstance(m, dict):
+                        continue
+                    m_cid = str(m.get("conditionId") or m.get("condition_id") or "").lower().strip()
+                    if not m_cid:
+                        continue
+
+                    try:
+                        raw_prices = m.get("outcomePrices") or "[]"
+                        prices = json.loads(raw_prices) if isinstance(raw_prices, str) else list(raw_prices)
+                        prices = [float(p) for p in prices]
+
+                        raw_outcomes = m.get("outcomes") or "[]"
+                        outcomes = json.loads(raw_outcomes) if isinstance(raw_outcomes, str) else list(raw_outcomes)
+
+                        raw_tokens = m.get("clobTokenIds") or m.get("clob_token_ids") or "[]"
+                        tokens = json.loads(raw_tokens) if isinstance(raw_tokens, str) else list(raw_tokens)
+
+                        outcome_map: Dict[str, float] = {}
+                        for idx, outc in enumerate(outcomes):
+                            if idx < len(prices):
+                                p = prices[idx]
+                                if 0.001 <= p <= 0.999:
+                                    outcome_map[str(outc).lower().strip()] = round(p, 4)
+
+                        if len(prices) >= 1 and "yes" not in outcome_map:
+                            outcome_map["yes"] = round(prices[0], 4)
+                        if len(prices) >= 2 and "no" not in outcome_map:
+                            outcome_map["no"] = round(prices[1], 4)
+
+                        if outcome_map:
+                            results[m_cid] = outcome_map
+
+                            # Map tokens
+                            for idx, tok in enumerate(tokens):
+                                if idx < len(prices):
+                                    dec_t = _to_decimal_token(str(tok))
+                                    if dec_t:
+                                        results[f"token:{dec_t}"] = {"price": round(prices[idx], 4)}
+                    except Exception as e:
+                        logger.debug(f"Batch parse note for {m_cid}: {e}")
+            except Exception as e:
+                logger.debug(f"Batch fetch note: {e}")
+            
+            await asyncio.sleep(0.02)
+
+        return results
+

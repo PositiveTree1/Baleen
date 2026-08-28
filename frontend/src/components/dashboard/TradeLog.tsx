@@ -179,6 +179,7 @@ export function TradeLog({
               const fillPrice = trade.fillPrice || trade.entryPrice || 0.0;
               const livePrice = trade.currentPrice || fillPrice;
               const isProfit = pnl >= 0;
+              const isClosed = trade.status === 'CLOSED' || trade.status === 'RESOLVED' || trade.side === 'SELL';
               const whaleDisplay = trade.whaleName || trade.whalePseudonym || (trade.walletAddress ? `${trade.walletAddress.slice(0, 6)}...${trade.walletAddress.slice(-4)}` : 'Whale');
 
               return (
@@ -207,7 +208,7 @@ export function TradeLog({
                         <span>•</span>
                         <span>Fill: ${fillPrice.toFixed(3)}</span>
                         <span>•</span>
-                        <span className="text-slate-900 dark:text-white font-bold">Live: ${livePrice.toFixed(3)}</span>
+                        <span className="text-slate-900 dark:text-white font-bold">{isClosed ? 'Exit' : 'Live'}: ${livePrice.toFixed(3)}</span>
                       </div>
                     </div>
                   </div>

@@ -107,70 +107,22 @@ class MarkToMarketService:
                         "detail": f"{cnt} distinct whales took aligned {mkt_outcomes.get(cid, 'Yes')} positions with ${mkt_cash.get(cid, 0.0):,.0f} aggregate capital." if is_con else ""
                     }
 
-                # 2. Fetch live prices: Priority for recent trades + Round-Robin rotation across all positions
-                stmt_active_pairs = select(
-                    ExecutionLog.market_condition_id,
-                    ExecutionLog.resolution_outcome,
-                    ExecutionLog.onchain_tx_hash,
-                    ExecutionLog.executed_at
-                ).where(
-                    ExecutionLog.status == "FILLED",
-                    ExecutionLog.market_condition_id.is_not(None)
-                ).order_by(ExecutionLog.executed_at.desc())
-                all_active_rows = (await db.execute(stmt_active_pairs)).all()
-
-                # Prioritize active trades from the last 4 hours
-                recent_cutoff = datetime.utcnow() - timedelta(hours=4)
-                recent_pairs = list({
-                    (row[0], row[1] or "Yes", row[2] or "")
-                    for row in all_active_rows if row[0] and row[3] and row[3] >= recent_cutoff
-                })
-                
-                all_pairs = list({
-                    (row[0], row[1] or "Yes", row[2] or "")
-                    for row in all_active_rows if row[0]
-                })
-
-                # Rotate through the full pool
-                batch_size = 40
-                n_pairs = len(all_pairs)
-                if n_pairs > 0:
-                    start_idx = _price_cycle_index % n_pairs
-                    end_idx = min(start_idx + batch_size, n_pairs)
-                    rotating_batch = all_pairs[start_idx:end_idx]
-                    if len(rotating_batch) < batch_size and n_pairs > batch_size:
-                        rotating_batch += all_pairs[:(batch_size - len(rotating_batch))]
-                    _price_cycle_index = (start_idx + batch_size) % n_pairs
-                else:
-                    rotating_batch = []
-
-                # Combine recent priority with rotating batch
-                combined_to_price = list({(c, o, a): True for c, o, a in (recent_pairs[:25] + rotating_batch)}.keys())
-
-                # Concurrently price in bounded chunks with strict rate-limit protection
-                sem = asyncio.Semaphore(6)
-
-                async def _price_pair(cid: str, outc: str, asset_id: str):
-                    async with sem:
-                        cache_key = f"{cid.lower().strip()}:{outc.lower().strip()}"
-                        # If cached less than 15s ago, reuse to save API quota
-                        existing = _live_price_cache.get(cache_key)
-                        if existing and (time.time() - existing.get("ts", 0)) < 15.0:
-                            return
-                        try:
-                            live_p = await client.fetch_live_token_price(condition_id=cid, asset=asset_id, outcome=outc)
-                            if live_p is not None and 0.005 <= live_p <= 0.995:
-                                entry = {"price": live_p, "ts": time.time()}
-                                _live_price_cache[cache_key] = entry
-                                if asset_id:
-                                    _live_price_cache[asset_id] = entry
-                        except Exception as e:
-                            logger.debug(f"Live price fetch note for {cid}: {e}")
-                        await asyncio.sleep(0.04)
-
-                tasks = [_price_pair(c, o, a) for c, o, a in combined_to_price]
-                if tasks:
-                    await asyncio.gather(*tasks, return_exceptions=True)
+                # 2. Batch fetch live prices across active markets from Gamma API
+                all_cids = list({row[0].strip() for row in all_active_rows if row[0] and len(str(row[0]).strip()) > 5})
+                if all_cids:
+                    try:
+                        batch_prices = await client.fetch_batch_live_prices(all_cids[:150])
+                        now_ts = time.time()
+                        for cid_key, outcome_dict in batch_prices.items():
+                            if cid_key.startswith("token:"):
+                                tok_id = cid_key.replace("token:", "")
+                                _live_price_cache[tok_id] = {"price": outcome_dict.get("price", 0.5), "ts": now_ts}
+                            else:
+                                for outc_name, p_val in outcome_dict.items():
+                                    cache_key = f"{cid_key}:{outc_name}"
+                                    _live_price_cache[cache_key] = {"price": p_val, "ts": now_ts}
+                    except Exception as batch_err:
+                        logger.debug(f"MTM batch price fetch note: {batch_err}")
 
                 # 3. Update PnL on all execution logs (FILLED + CLOSED + RESOLVED)
                 # Use a single query and reuse these objects for the snapshot calculation below
@@ -307,6 +259,17 @@ def get_live_price(cid: str = "", outcome: str = "Yes", asset: str = "", fallbac
         if cache_key in _live_price_cache:
             return _live_price_cache[cache_key]["price"]
     return fallback
+
+def set_live_price(cid: str = "", outcome: str = "Yes", price: float = 0.5, asset: str = ""):
+    global _live_price_cache
+    if not (0.001 <= price <= 0.999):
+        return
+    entry = {"price": price, "ts": time.time()}
+    if cid:
+        cache_key = f"{cid.lower().strip()}:{outcome.lower().strip()}"
+        _live_price_cache[cache_key] = entry
+    if asset:
+        _live_price_cache[asset] = entry
 
 def get_consensus(cid: str) -> dict:
     return _consensus_cache.get(cid, {

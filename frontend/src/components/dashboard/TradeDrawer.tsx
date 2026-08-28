@@ -127,11 +127,15 @@ export function TradeDrawer({ trade, onClose, onSelectWallet }: TradeDrawerProps
               </div>
 
               <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-[#1C1D22] border border-black/[0.06] dark:border-white/5 space-y-1">
-                <span className="text-[10px] uppercase font-bold text-slate-400 dark:text-[#8E8F99]">Live Market Price</span>
+                <span className="text-[10px] uppercase font-bold text-slate-400 dark:text-[#8E8F99]">
+                  {trade.status === 'CLOSED' || trade.status === 'RESOLVED' || trade.side === 'SELL' ? 'Exit Settled Price' : 'Live Market Price'}
+                </span>
                 <div className="text-base font-bold font-mono text-slate-900 dark:text-white">
                   ${curP.toFixed(3)}
                 </div>
-                <span className="text-[10px] text-slate-400 dark:text-[#8E8F99] font-mono">Midpoint Orderbook</span>
+                <span className="text-[10px] text-slate-400 dark:text-[#8E8F99] font-mono">
+                  {trade.status === 'CLOSED' || trade.status === 'RESOLVED' ? 'Settled Valuation' : 'Live CLOB Midpoint'}
+                </span>
               </div>
 
               <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-[#1C1D22] border border-black/[0.06] dark:border-white/5 space-y-1">
