@@ -328,7 +328,30 @@ class LiveTradeMirrorService:
                 )
                 db.add(user_log)
 
-            await db.commit()
+            # Record running snapshot directly from live poller
+            try:
+                from app.models import PortfolioSnapshot
+                from sqlalchemy import func
+                stmt_pnl = select(
+                    func.sum(ExecutionLog.realized_pnl_usd),
+                    func.count(ExecutionLog.id)
+                ).where(ExecutionLog.user_id.is_(None))
+                res = (await db.execute(stmt_pnl)).first()
+                cur_pnl = float(res[0] or 0.0) if res else 0.0
+                cur_count = int(res[1] or 0) if res else 0
+                cur_bal = round(10000.0 + cur_pnl, 2)
+
+                db.add(PortfolioSnapshot(
+                    user_id=None,
+                    timestamp=dt,
+                    balance=cur_bal,
+                    total_pnl=round(cur_pnl, 2),
+                    active_trades_count=cur_count
+                ))
+                await db.commit()
+            except Exception as snap_err:
+                logger.debug(f"Poller snapshot note: {snap_err}")
+
             whale_name = source_whale.name or source_whale.pseudonym or addr[:10] if source_whale else addr[:10]
             logger.info(f"🎯 COPIED WHALE TRADE: {addr[:10]}... {side} ${cash_usd:,.2f} on '{title[:30]}' @ {effective_fill_price:.3f} (Consensus: {consensus.get('is_consensus')})")
 
