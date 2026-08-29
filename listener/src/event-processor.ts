@@ -66,28 +66,45 @@ export function matchesBasketWallet(
   let side: 'BUY' | 'SELL';
   let walletAddress: string;
   let assetId: string;
-  let amountFilled: string;
+  let sharesFilled: string;
+  let priceStr: string;
+
+  const isMakerCollateral = event.makerAssetId === '0';
+  const isTakerCollateral = event.takerAssetId === '0';
 
   if (isTakerBasket) {
-    side = 'BUY';
     walletAddress = takerLower;
-    assetId = event.makerAssetId;
-    amountFilled = event.makerAmountFilled;
+    if (isTakerCollateral) {
+      side = 'BUY';
+      assetId = event.makerAssetId;
+      sharesFilled = event.makerAmountFilled;
+      const collateral = parseFloat(event.takerAmountFilled);
+      const shares = parseFloat(event.makerAmountFilled);
+      priceStr = shares > 0 ? (collateral / shares).toFixed(4) : '0.5';
+    } else {
+      side = 'SELL';
+      assetId = event.takerAssetId;
+      sharesFilled = event.takerAmountFilled;
+      const collateral = parseFloat(event.makerAmountFilled);
+      const shares = parseFloat(event.takerAmountFilled);
+      priceStr = shares > 0 ? (collateral / shares).toFixed(4) : '0.5';
+    }
   } else {
-    side = 'SELL';
     walletAddress = makerLower;
-    assetId = event.makerAssetId;
-    amountFilled = event.makerAmountFilled;
+    side = isMakerCollateral ? 'BUY' : 'SELL';
+    assetId = isMakerCollateral ? event.takerAssetId : event.makerAssetId;
+    sharesFilled = isMakerCollateral ? event.takerAmountFilled : event.makerAmountFilled;
+    const collateral = parseFloat(isMakerCollateral ? event.makerAmountFilled : event.takerAmountFilled);
+    const shares = parseFloat(isMakerCollateral ? event.takerAmountFilled : event.makerAmountFilled);
+    priceStr = shares > 0 ? (collateral / shares).toFixed(4) : '0.5';
   }
-
-  const price = '0'; // Placeholder
 
   return {
     walletAddress,
     side,
     assetId,
-    amountFilled,
-    price,
+    amountFilled: sharesFilled,
+    price: priceStr,
     transactionHash: event.transactionHash,
     logIndex: event.logIndex,
     blockNumber: event.blockNumber,

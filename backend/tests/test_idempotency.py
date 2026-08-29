@@ -52,3 +52,49 @@ def test_same_tx_same_log_different_user_processed():
     r2 = checker.process_event("0xabc", 4, "u2")
     assert r1 == "PROCESSED"
     assert r2 == "PROCESSED"
+
+import pytest
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy import delete
+from app.database import SessionLocal, init_db
+from app.models import ExecutionLog
+
+@pytest.mark.asyncio
+async def test_database_idempotency_unique_constraint():
+    await init_db()
+    import uuid
+    test_user_id = uuid.uuid4()
+    async with SessionLocal() as db:
+        log1 = ExecutionLog(
+            onchain_tx_hash="0xtest_idempotency_tx",
+            onchain_log_index=1,
+            user_id=test_user_id,
+            side="BUY",
+            market_condition_id="0xcond_1",
+            market_question="Test question",
+            whale_entry_price=0.50,
+            notional_usd=100.0,
+            status="FILLED"
+        )
+        db.add(log1)
+        await db.commit()
+
+        try:
+            log2 = ExecutionLog(
+                onchain_tx_hash="0xtest_idempotency_tx",
+                onchain_log_index=1,
+                user_id=test_user_id,
+                side="BUY",
+                market_condition_id="0xcond_1",
+                market_question="Test question",
+                whale_entry_price=0.50,
+                notional_usd=100.0,
+                status="FILLED"
+            )
+            db.add(log2)
+            with pytest.raises(IntegrityError):
+                await db.commit()
+            await db.rollback()
+        finally:
+            await db.execute(delete(ExecutionLog).where(ExecutionLog.onchain_tx_hash == "0xtest_idempotency_tx"))
+            await db.commit()

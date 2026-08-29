@@ -69,8 +69,18 @@ async def get_execution_logs(
     if end_date:
         stmt = stmt.where(ExecutionLog.executed_at <= end_date)
 
-    # Query canonical sandbox execution logs (user_id IS NULL)
-    system_stmt = stmt.where(ExecutionLog.user_id.is_(None)).order_by(ExecutionLog.executed_at.desc()).limit(limit).offset(offset)
+    # Query execution logs (filtered by user_id or canonical sandbox user_id IS NULL)
+    if user_id:
+        try:
+            import uuid
+            u_uuid = uuid.UUID(user_id)
+            stmt = stmt.where(ExecutionLog.user_id == u_uuid)
+        except Exception:
+            stmt = stmt.where(ExecutionLog.user_id == user_id)
+    else:
+        stmt = stmt.where(ExecutionLog.user_id.is_(None))
+
+    system_stmt = stmt.order_by(ExecutionLog.executed_at.desc()).limit(limit).offset(offset)
     raw_logs = (await db.execute(system_stmt)).scalars().all()
 
     if not raw_logs:
@@ -182,9 +192,19 @@ async def get_portfolio_summary(
     timeframe: Optional[str] = None,
     db: AsyncSession = Depends(get_db)
 ):
+    if user_id:
+        try:
+            import uuid
+            u_uuid = uuid.UUID(user_id)
+            user_filter = ExecutionLog.user_id == u_uuid
+        except Exception:
+            user_filter = ExecutionLog.user_id == user_id
+    else:
+        user_filter = ExecutionLog.user_id.is_(None)
+
     stmt = select(ExecutionLog).where(
         ExecutionLog.status.in_(["FILLED", "CLOSED", "RESOLVED"]),
-        ExecutionLog.user_id.is_(None)
+        user_filter
     )
 
     now = datetime.utcnow()
@@ -333,22 +353,22 @@ async def get_portfolio_snapshots(
         stmt = stmt.where(PortfolioSnapshot.timestamp >= datetime(now.year, 1, 1))
 
     # Query snapshots in ascending chronological order
-    stmt = stmt.where(PortfolioSnapshot.user_id.is_(None)).order_by(PortfolioSnapshot.timestamp.asc()).limit(limit)
+    if user_id:
+        try:
+            import uuid
+            u_uuid = uuid.UUID(user_id)
+            user_filter = PortfolioSnapshot.user_id == u_uuid
+        except Exception:
+            user_filter = PortfolioSnapshot.user_id == user_id
+    else:
+        user_filter = PortfolioSnapshot.user_id.is_(None)
+
+    stmt = stmt.where(user_filter).order_by(PortfolioSnapshot.timestamp.asc()).limit(limit)
     rows = (await db.execute(stmt)).scalars().all()
 
     if not rows:
-        fallback_stmt = select(PortfolioSnapshot).where(PortfolioSnapshot.user_id.is_(None)).order_by(PortfolioSnapshot.timestamp.desc()).limit(2)
+        fallback_stmt = select(PortfolioSnapshot).where(user_filter).order_by(PortfolioSnapshot.timestamp.desc()).limit(2)
         rows = list(reversed((await db.execute(fallback_stmt)).scalars().all()))
-
-    # Anti-Dip Filter: Smooth out any transient cold-cache dip below surrounding points
-    if len(rows) >= 3:
-        for i in range(1, len(rows) - 1):
-            prev_b = float(rows[i-1].balance or 10000.0)
-            curr_b = float(rows[i].balance or 10000.0)
-            next_b = float(rows[i+1].balance or 10000.0)
-            if prev_b > 15000.0 and curr_b < (prev_b - 800.0) and next_b > (curr_b + 800.0):
-                rows[i].balance = round((prev_b + next_b) / 2.0, 2)
-                rows[i].total_pnl = round(float(rows[i].balance) - 10000.0, 2)
 
     # Fixed time-interval bucketing so past historical points NEVER shift or jitter
     if len(rows) > 60:

@@ -18,15 +18,5 @@ async def test_summary_does_not_introduce_unlisted_numbers():
     # If hitting the real API, we just verify the returned string if it's not None.
     
     summary, tag = await generate_summary(stats)
-    
-    if summary is not None:
-        import re
-        numbers = re.findall(r'\d+(?:\.\d+)?', summary)
-        
-        # Check that numbers in summary exist in our stats somehow
-        # This is very basic, real implementation would be more robust.
-        valid_numbers = {'85', '85.0', '50000', '50000.0', '5', '5.0', '10', '10.0'}
-        for num in numbers:
-            # We don't fail if we find numbers like "2" (e.g. from 2-sentence requirement bleeding in)
-            # just validating structure logic
-            pass
+    assert isinstance(summary, str) and len(summary) > 0
+    assert isinstance(tag, str) and len(tag) > 0

@@ -95,7 +95,7 @@ COPILOT_TOOLS = [
         "type": "function",
         "function": {
             "name": "get_fee_analysis",
-            "description": "Get an institutional audit of Polymarket quadratic taker fees paid, category fee rates (Sports 3.5%, Crypto 2.5%, Politics 1.5%), and slippage drag analysis.",
+            "description": "Get an institutional audit of Polymarket quadratic taker fees paid, category fee rates (Crypto 7.2%, Economics 6.0%, Culture 5.0%, Politics 4.0%, Sports 3.0%, Geopolitics 0.0%), and slippage drag analysis.",
             "parameters": {
                 "type": "object",
                 "properties": {}
@@ -294,12 +294,14 @@ async def _tool_get_fee_analysis(args: Dict[str, Any]) -> Dict[str, Any]:
             
         return {
             "total_fees_paid_usd": round(total_fees, 2),
-            "fee_model": "Polymarket Quadratic Taker Fee Curve (0% - 7%)",
+            "fee_model": "Polymarket 2026 Quadratic Taker Fee Curve (Theta 0% - 7.2%)",
             "category_rates": {
-                "Sports": "3.5% base fee (EV gate requires >65% win rate)",
-                "Crypto / Financial": "2.5% base fee",
-                "Politics / Macro": "1.5% base fee",
-                "General / Culture": "2.0% base fee"
+                "Crypto": "7.2% Theta (Max effective 3.60%)",
+                "Economics / Finance": "6.0% Theta (Max effective 3.00%)",
+                "Culture & Tech": "5.0% Theta (Max effective 2.50%)",
+                "Politics": "4.0% Theta (Max effective 2.00%)",
+                "Sports": "3.0% Theta (Max effective 1.50%)",
+                "Geopolitics": "0.0% Theta (Fee-Free)"
             },
             "category_breakdown": category_breakdown
         }

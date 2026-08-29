@@ -4,7 +4,9 @@ import { config } from './config';
 import { WhaleTradeSignal } from './types';
 
 const QUEUE_FILE = path.join(__dirname, '../queue.jsonl');
+const MAX_PROCESSED_KEYS = 50000;
 const processedKeys = new Set<string>();
+const processedKeysOrder: string[] = [];
 
 export async function enqueueSignal(signal: WhaleTradeSignal): Promise<void> {
   const key = `${signal.transactionHash}:${signal.logIndex}`;
@@ -12,7 +14,15 @@ export async function enqueueSignal(signal: WhaleTradeSignal): Promise<void> {
     return;
   }
   
+  if (processedKeysOrder.length >= MAX_PROCESSED_KEYS) {
+    const oldest = processedKeysOrder.shift();
+    if (oldest) {
+      processedKeys.delete(oldest);
+    }
+  }
   processedKeys.add(key);
+  processedKeysOrder.push(key);
+
   const line = JSON.stringify(signal) + '\n';
   await fs.promises.appendFile(QUEUE_FILE, line, 'utf-8');
 }

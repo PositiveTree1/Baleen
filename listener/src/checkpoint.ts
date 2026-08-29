@@ -9,7 +9,16 @@ export function saveCheckpoint(blockNumber: number): void {
     lastProcessedBlock: blockNumber,
     updatedAt: Date.now(),
   };
-  fs.writeFileSync(CHECKPOINT_FILE, JSON.stringify(checkpoint, null, 2));
+  const tmpFile = `${CHECKPOINT_FILE}.tmp.${Date.now()}`;
+  try {
+    fs.writeFileSync(tmpFile, JSON.stringify(checkpoint, null, 2));
+    fs.renameSync(tmpFile, CHECKPOINT_FILE);
+  } catch (err) {
+    if (fs.existsSync(tmpFile)) {
+      try { fs.unlinkSync(tmpFile); } catch {}
+    }
+    throw err;
+  }
 }
 
 export function getResumeBlock(): number {

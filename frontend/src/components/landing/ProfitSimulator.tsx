@@ -8,11 +8,9 @@ export function ProfitSimulator() {
   const [initialCapital, setInitialCapital] = useState(20);
   const [timeHorizonMonths, setTimeHorizonMonths] = useState(6);
 
-  // High-performance compounding model based on Baleen Gold Sniper Basket (88.4% Win Rate, multi-trades/day)
-  // For $20 over 6 months at high frequency whale compounding, it projects close to ~$10,000
-  // Monthly compounding factor ~2.81x (i.e. 20 * 2.81^6 ≈ 9,850)
-  const baseGrowthFactorPerMonth = 2.815;
-  const projectedBalance = initialCapital * Math.pow(baseGrowthFactorPerMonth, timeHorizonMonths);
+  // Realistic high-performance alpha model based on Baleen Gold Sniper Basket (~18% monthly net alpha with liquidity bounds)
+  const monthlyRate = 0.18;
+  const projectedBalance = initialCapital * Math.pow(1 + monthlyRate, timeHorizonMonths);
   const projectedProfit = projectedBalance - initialCapital;
 
   return (

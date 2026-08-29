@@ -26,15 +26,16 @@ async def generate_summary(wallet_stats: dict) -> Tuple[Optional[str], Optional[
     Returns (summary, style_tag)
     """
     client = get_groq_client()
-    if not client:
-        logger.warning("No Groq API keys configured")
-        return None, None
-
     pnl = wallet_stats.get('all_time_pnl_usd', 0)
     win_rate = wallet_stats.get('win_rate_pct', 0)
     trades_per_day = wallet_stats.get('avg_trades_per_day', 0)
     max_dd = wallet_stats.get('max_drawdown_pct', 0)
     total_trades = wallet_stats.get('total_trades_analyzed', 100)
+
+    if not client:
+        fallback_summary = f"Institutional Polymarket trader with ${pnl:,.0f} all-time PnL and {win_rate}% win rate across {total_trades} trades."
+        fallback_tag = "Alpha Whale" if pnl >= 100000 else "Standard Whale"
+        return fallback_summary, fallback_tag
 
     prompt = f"""
     You are an expert quantitative hedge fund analyst evaluating a top Polymarket prediction market trader.

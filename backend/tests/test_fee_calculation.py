@@ -27,3 +27,21 @@ def test_hwm_ratchets_up_only():
     # Rises above
     _, hwm2 = calculate_fee(10000.0, 12000.0)
     assert hwm2 == 12000.0
+
+def test_official_polymarket_quadratic_fees():
+    from app.services.polymarket_fees import calculate_polymarket_fee
+    
+    # Crypto: Theta = 0.072. Price = 0.50. Fee = 0.072 * 100 * (1 - 0.5) = $3.60
+    res_crypto = calculate_polymarket_fee(notional_usd=100.0, price=0.50, market_title="Bitcoin Price Up or Down")
+    assert res_crypto["fee_usd"] == 3.60
+    assert res_crypto["category"] == "Crypto"
+    
+    # Politics: Theta = 0.040. Price = 0.50. Fee = 0.040 * 100 * (1 - 0.5) = $2.00
+    res_politics = calculate_polymarket_fee(notional_usd=100.0, price=0.50, market_title="US Presidential Election Winner")
+    assert res_politics["fee_usd"] == 2.00
+    assert res_politics["category"] == "Politics"
+    
+    # Geopolitics: Theta = 0.000. Fee = $0.00
+    res_geo = calculate_polymarket_fee(notional_usd=100.0, price=0.50, market_title="Ukraine Ceasefire Agreement Treaty")
+    assert res_geo["fee_usd"] == 0.0
+    assert res_geo["category"] == "Geopolitics"

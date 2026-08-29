@@ -10,7 +10,13 @@ interface RebalanceModalProps {
 }
 
 export function RebalanceModal({ isOpen, onClose, onRebalanceExecute }: RebalanceModalProps) {
-  const [strategy, setStrategy] = useState<'equal' | 'pnl_weighted' | 'winrate_weighted'>('pnl_weighted');
+  const [strategy, setStrategy] = useState<'equal' | 'pnl_weighted' | 'winrate_weighted'>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('baleen_rebalance_strategy');
+      if (saved === 'equal' || saved === 'pnl_weighted' || saved === 'winrate_weighted') return saved;
+    }
+    return 'pnl_weighted';
+  });
   const [isExecuting, setIsExecuting] = useState(false);
   const [success, setSuccess] = useState(false);
 
@@ -18,6 +24,9 @@ export function RebalanceModal({ isOpen, onClose, onRebalanceExecute }: Rebalanc
 
   const handleExecute = () => {
     setIsExecuting(true);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('baleen_rebalance_strategy', strategy);
+    }
     setTimeout(() => {
       setIsExecuting(false);
       setSuccess(true);

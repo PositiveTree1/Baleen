@@ -266,10 +266,10 @@ async def handle_baleen_admin_users(args):
             {
                 "id": str(u.id),
                 "email": u.email,
-                "role": u.role,
+                "role": "user",
                 "sandbox_balance_usd": u.sandbox_balance_usd,
                 "high_water_mark_usd": u.sandbox_high_water_mark_usd,
-                "live_trading_active": u.live_trading_active,
+                "live_trading_active": u.live_trading_enabled,
                 "created_at": u.created_at.isoformat() if u.created_at else None
             }
             for u in users

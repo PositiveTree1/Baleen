@@ -18,11 +18,20 @@ export function MirrorStrategyModal({ isOpen, onClose, onSelectWallet }: MirrorS
 
   useEffect(() => {
     if (isOpen) {
+      let savedMults: Record<string, number> = {};
+      let savedActive: Record<string, boolean> = {};
+      if (typeof window !== 'undefined') {
+        try {
+          savedMults = JSON.parse(localStorage.getItem('baleen_whale_multipliers') || '{}');
+          savedActive = JSON.parse(localStorage.getItem('baleen_active_whales') || '{}');
+        } catch {}
+      }
+
       fetchWallets().then((data) => {
         if (data && data.length > 0) {
           setWallets(data);
           setActiveWhales((prev) => {
-            const next = { ...prev };
+            const next = { ...prev, ...savedActive };
             data.forEach((w) => {
               if (next[w.address] === undefined) {
                 next[w.address] = !w.dormant;
@@ -31,7 +40,7 @@ export function MirrorStrategyModal({ isOpen, onClose, onSelectWallet }: MirrorS
             return next;
           });
           setMultipliers((prev) => {
-            const next = { ...prev };
+            const next = { ...prev, ...savedMults };
             data.forEach((w) => {
               if (next[w.address] === undefined) {
                 next[w.address] = w.tier === 'gold_sniper' ? 1.5 : 1.0;
@@ -161,7 +170,13 @@ export function MirrorStrategyModal({ isOpen, onClose, onSelectWallet }: MirrorS
         <div className="pt-3 border-t border-black/[0.06] dark:border-white/10 flex justify-between items-center">
           <span className="text-xs text-slate-500 dark:text-[#8E8F99] font-mono">All orders executed via CLOB taker limit</span>
           <button
-            onClick={onClose}
+            onClick={() => {
+              if (typeof window !== 'undefined') {
+                localStorage.setItem('baleen_whale_multipliers', JSON.stringify(multipliers));
+                localStorage.setItem('baleen_active_whales', JSON.stringify(activeWhales));
+              }
+              onClose();
+            }}
             className="px-6 py-2.5 rounded-full bg-slate-950 dark:bg-white text-white dark:text-black text-xs font-bold hover:bg-slate-800 dark:hover:bg-slate-200 transition-all cursor-pointer shadow-sm"
           >
             Save Strategy

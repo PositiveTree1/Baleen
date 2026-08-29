@@ -1,7 +1,7 @@
 from app.scoring.engine import score_wallet
 
-def test_pnl_threshold_rejects_below_50k(make_wallet_stats):
-    stats = make_wallet_stats(pnl=49000.0)
+def test_pnl_threshold_rejects_below_25k(make_wallet_stats):
+    stats = make_wallet_stats(pnl=24000.0)
     res = score_wallet(stats)
     assert res.status == "rejected"
     assert res.rejection_reason == "PNL_BELOW_THRESHOLD"

@@ -40,9 +40,11 @@ async function main() {
   let startBlock = getResumeBlock();
   try {
     const currentHeight = await client.getHeight();
-    if (!startBlock || (currentHeight - startBlock > 5000)) {
+    if (!startBlock) {
       startBlock = Math.max(1, currentHeight - 500);
-      console.log(`[INFO] Starting at recent chain height: ${startBlock} (tip is ${currentHeight})`);
+      console.log(`[INFO] First run: starting at recent chain height ${startBlock} (tip is ${currentHeight})`);
+    } else if (currentHeight - startBlock > 5000) {
+      console.warn(`[WARN] Large block lag detected: catching up from block ${startBlock} (${currentHeight - startBlock} blocks behind tip ${currentHeight})`);
     } else {
       console.log(`Resuming from block: ${startBlock} (tip is ${currentHeight})`);
     }

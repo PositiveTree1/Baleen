@@ -176,23 +176,20 @@ async def reset_user_sandbox(
         user.sandbox_balance_usd = new_bal
         user.sandbox_high_water_mark_usd = new_bal
 
-    # Clear ALL execution logs, snapshots and system events across all users and global
-    await db.execute(delete(ExecutionLog))
-    await db.execute(delete(PortfolioSnapshot))
-    await db.execute(delete(SystemEvent))
+    # Clear execution logs and snapshots for this user specifically (or global if no user)
+    if user:
+        await db.execute(delete(ExecutionLog).where(ExecutionLog.user_id == user.id))
+        await db.execute(delete(PortfolioSnapshot).where(PortfolioSnapshot.user_id == user.id))
+    else:
+        await db.execute(delete(ExecutionLog).where(ExecutionLog.user_id.is_(None)))
+        await db.execute(delete(PortfolioSnapshot).where(PortfolioSnapshot.user_id.is_(None)))
+
     clear_recent_events_from_memory()
 
     # Initial starting snapshot
     now_dt = datetime.utcnow()
     db.add(PortfolioSnapshot(
         user_id=user.id if user else None,
-        timestamp=now_dt,
-        balance=new_bal,
-        total_pnl=0.0,
-        active_trades_count=0
-    ))
-    db.add(PortfolioSnapshot(
-        user_id=None,
         timestamp=now_dt,
         balance=new_bal,
         total_pnl=0.0,

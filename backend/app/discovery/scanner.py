@@ -110,15 +110,12 @@ def calculate_authentic_wallet_stats(
     losses = sum(1 for p in positions if float(p.get("cashPnl") or 0.0) < 0)
     total_resolved = wins + losses
 
-    if total_resolved >= 3:
+    if total_resolved > 0:
         win_rate = round((wins / total_resolved) * 100.0, 1)
         wilson_lb = calc_wilson_lower_bound(wins, total_resolved)
-    elif all_time_pnl > 50000.0:
-        win_rate = 72.0
-        wilson_lb = 62.0
     else:
-        win_rate = 58.0
-        wilson_lb = 50.0
+        win_rate = 0.0
+        wilson_lb = 0.0
 
     # 3. Profit Factor & Best/Worst
     gross_profit = sum(float(p.get("cashPnl") or 0.0) for p in positions if float(p.get("cashPnl") or 0.0) > 0)
@@ -322,31 +319,6 @@ def calculate_authentic_wallet_stats(
         "daily_pnl_history": daily_pnl_history,
         "first_trade_at": None,
         "last_trade_at": datetime.utcnow()
-    }
-    
-    # Drawdown calculation
-    max_drawdown = round(max(3.0, min(16.0, 18.0 - (win_rate * 0.12))), 1)
-    outlier_pct = 0.14
-    alpha_per_trade = round(realized_pnl / total_trades_count, 2) if total_trades_count > 0 else 0.0
-    profit_factor = round(max(1.2, 1.0 + (realized_pnl / max(1000.0, volume * 0.35))), 2)
-
-    return {
-        'all_time_pnl_usd': round(realized_pnl, 2),
-        'volume_usd': round(volume, 2),
-        'win_rate_pct': win_rate,
-        'wilson_lower_bound': wilson_lb,
-        'max_drawdown_pct': max_drawdown,
-        'avg_trades_per_day': avg_trades_per_day,
-        'trades_per_hour': trades_per_hour,
-        'outlier_concentration_pct': outlier_pct,
-        'is_hft': is_hft,
-        'is_dormant': is_dormant,
-        'first_trade_at': first_trade_dt,
-        'last_trade_at': last_trade_dt,
-        'alpha_per_trade': alpha_per_trade,
-        'profit_factor': profit_factor,
-        'daily_pnl_history': daily_pnl_history,
-        'trades_count': total_trades_count
     }
 
 async def evaluate_pending_wallets(db: AsyncSession):

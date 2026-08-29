@@ -181,17 +181,19 @@ class LiveTradeMirrorService:
                 ))
                 return
 
-            # Rule 2: Execution Delay / Anti-Frontrunning Guard (BUY: 1.5 cents max slippage | SELL: Guaranteed Position Exit)
+            # Rule 2: Execution Delay / Anti-Frontrunning Guard with Directional Slippage Check
             live_p = get_live_price(condition_id, outcome=outcome, asset=asset or tx_hash or "", fallback=price)
-            max_buy_slippage = 0.015  # 1.5 cents ($0.015) max slippage tolerance for BUY entries
+            from app.sizing.slippage import check_slippage
+            from app.sizing.dynamic_sizer import size_trade
             
-            if side == "BUY" and (live_p - price) > max_buy_slippage:
-                logger.info(f"⚠️ Anti-Frontrunning Guard: BUY on '{title[:25]}' live={live_p:.3f} > entry={price:.3f} + 0.015. Aborting slippage spike fill.")
+            slippage_decision = check_slippage(price, live_p, side=side)
+            if slippage_decision != 'EXECUTE_ORDER':
+                logger.info(f"⚠️ Slippage Guard: {side} on '{title[:25]}' entry={price:.3f} -> live={live_p:.3f}. Aborting ({slippage_decision}).")
                 from app.services.event_logger import log_event
                 asyncio.create_task(log_event(
                     "TRADE_SKIPPED_SLIPPAGE",
                     f"Slippage guard: {side} {title[:50]}",
-                    detail=f"Live price {live_p:.4f} vs entry {price:.4f} — slippage {(live_p - price):.4f} > max {max_buy_slippage}.",
+                    detail=f"Live price {live_p:.4f} vs entry {price:.4f} triggered slippage threshold for {side}.",
                     severity="warning",
                     related_address=wallet_address,
                     related_market=title,
@@ -202,7 +204,9 @@ class LiveTradeMirrorService:
             effective_fill_price = live_p if (0.001 <= live_p <= 0.999) else price
 
             # Rule 1: Fee-Aware Expected Value Gate (EV_net > 2.5 * Fee Rate)
-            expected_edge = abs(effective_fill_price - 0.5)
+            source_whale = next((w for w in active_wallets if w.address.lower() == wallet_address.lower()), None)
+            whale_expected_p = (float(source_whale.wilson_lb or source_whale.win_rate_pct or 60.0) / 100.0) if source_whale else 0.60
+            expected_edge = max(0.0, whale_expected_p - effective_fill_price) if side == "BUY" else max(0.0, effective_fill_price - (1.0 - whale_expected_p))
             ev_pass, fee_rate, min_edge = calculate_fee_aware_ev_gate(effective_fill_price, title, expected_edge)
             if not ev_pass and expected_edge > 0.02 and side == "BUY":
                 logger.info(f"🛑 Fee-Aware EV Gate: Skipping '{title[:25]}' - edge {expected_edge:.3f} < 2.5x fee rate ({min_edge:.3f}).")
@@ -219,7 +223,7 @@ class LiveTradeMirrorService:
 
             sys_notional = round(min(max(10.0, cash_usd * 0.1 * sizing_multiplier), 350.0), 2)
 
-            # Rule 3: Strict Cash Ceiling Guard (Max Active Open Exposure <= Portfolio Balance)
+            # Rule 3: Strict Cash Ceiling Guard (Max Active Open Exposure <= Settled Cash Balance)
             if side == "BUY":
                 stmt_active_notional = select(func.sum(ExecutionLog.notional_usd)).where(
                     ExecutionLog.user_id.is_(None),
@@ -228,21 +232,23 @@ class LiveTradeMirrorService:
                 )
                 current_open_notional = float((await db.execute(stmt_active_notional)).scalar() or 0.0)
                 
-                # Fetch latest portfolio balance
-                stmt_latest_snap = select(PortfolioSnapshot.balance).where(
-                    PortfolioSnapshot.user_id.is_(None)
-                ).order_by(PortfolioSnapshot.timestamp.desc()).limit(1)
-                total_portfolio_equity = float((await db.execute(stmt_latest_snap)).scalar() or 10000.0)
+                # Fetch settled cash: starting balance + cumulative realized PnL
+                stmt_realized_pnl = select(func.sum(ExecutionLog.realized_pnl_usd)).where(
+                    ExecutionLog.user_id.is_(None),
+                    ExecutionLog.status == "CLOSED"
+                )
+                total_realized_pnl = float((await db.execute(stmt_realized_pnl)).scalar() or 0.0)
+                settled_cash = 10000.0 + total_realized_pnl
                 
-                free_cash = max(0.0, total_portfolio_equity - current_open_notional)
+                free_cash = max(0.0, settled_cash - current_open_notional)
                 
                 if free_cash < 10.0:
-                    logger.info(f"🛑 Cash Limit Guard: Skipping BUY on '{title[:25]}' - Active exposure ${current_open_notional:,.2f} >= Portfolio Equity ${total_portfolio_equity:,.2f} (Free cash: ${free_cash:,.2f}).")
+                    logger.info(f"🛑 Cash Limit Guard: Skipping BUY on '{title[:25]}' - Active exposure ${current_open_notional:,.2f} >= Settled Cash ${settled_cash:,.2f} (Free cash: ${free_cash:,.2f}).")
                     from app.services.event_logger import log_event
                     asyncio.create_task(log_event(
                         "TRADE_SKIPPED_CASH_LIMIT",
                         f"Cash limit: {title[:50]}",
-                        detail=f"Active capital deployed (${current_open_notional:,.2f}) at 100% capacity of portfolio equity (${total_portfolio_equity:,.2f}). Free cash: ${free_cash:,.2f}.",
+                        detail=f"Active capital deployed (${current_open_notional:,.2f}) at 100% capacity of settled cash (${settled_cash:,.2f}). Free cash: ${free_cash:,.2f}.",
                         severity="warning",
                         related_address=wallet_address,
                         related_market=title,
@@ -259,24 +265,62 @@ class LiveTradeMirrorService:
                 is_maker=False
             )
 
-            # If this is a valid SELL closing an open BUY position, close the earliest position
+            # FIFO matching loop for SELL orders
             sys_realized_pnl_val = None
             if side == "SELL" and target_open_buys:
-                earliest_buy = target_open_buys[0]
-                orig_buy_price = float(earliest_buy.user_fill_price or earliest_buy.whale_entry_price or 0.5)
-                orig_notional = float(earliest_buy.notional_usd or sys_notional)
+                remaining_sell_notional = sys_notional
+                sell_fee_total = float(fee_calc["fee_usd"] or 0.0)
+                sell_fee_rate = sell_fee_total / sys_notional if sys_notional > 0 else 0.0
                 
-                # Proportional price return ratio
-                price_ratio = ((effective_fill_price - orig_buy_price) / orig_buy_price) if orig_buy_price > 0 else 0.0
-                
-                # Close the original buy position and lock in net realized PnL (accounting for both entry and exit fees)
-                earliest_buy.status = "CLOSED"
-                buy_fee = float(earliest_buy.fee_usd or 0.0)
-                sell_fee = float(fee_calc["fee_usd"] or 0.0)
-                earliest_buy.realized_pnl_usd = round(orig_notional * price_ratio - (buy_fee + sell_fee), 2)
-                
-                # The sell order serves as the audit exit record; PnL is tracked strictly on the closed position
-                sys_realized_pnl_val = None
+                for open_buy in target_open_buys:
+                    if remaining_sell_notional <= 0:
+                        break
+                    buy_notional = float(open_buy.notional_usd or 0.0)
+                    orig_buy_price = float(open_buy.user_fill_price or open_buy.whale_entry_price or 0.5)
+                    price_ratio = ((effective_fill_price - orig_buy_price) / orig_buy_price) if orig_buy_price > 0 else 0.0
+                    
+                    if buy_notional <= remaining_sell_notional + 0.01:
+                        open_buy.status = "CLOSED"
+                        buy_fee = float(open_buy.fee_usd or 0.0)
+                        allocated_sell_fee = buy_notional * sell_fee_rate
+                        open_buy.realized_pnl_usd = round(buy_notional * price_ratio - (buy_fee + allocated_sell_fee), 2)
+                        remaining_sell_notional -= buy_notional
+                    else:
+                        closed_portion = remaining_sell_notional
+                        remaining_portion = round(buy_notional - closed_portion, 2)
+                        buy_fee_rate = float(open_buy.fee_usd or 0.0) / buy_notional if buy_notional > 0 else 0.0
+                        closed_buy_fee = closed_portion * buy_fee_rate
+                        allocated_sell_fee = closed_portion * sell_fee_rate
+                        
+                        open_buy.status = "CLOSED"
+                        open_buy.notional_usd = closed_portion
+                        open_buy.fee_usd = round(closed_buy_fee, 4)
+                        open_buy.realized_pnl_usd = round(closed_portion * price_ratio - (closed_buy_fee + allocated_sell_fee), 2)
+                        
+                        split_buy = ExecutionLog(
+                            user_id=None,
+                            source_wallet_address=open_buy.source_wallet_address,
+                            market_condition_id=open_buy.market_condition_id,
+                            market_question=open_buy.market_question,
+                            event_slug=open_buy.event_slug,
+                            icon=open_buy.icon,
+                            side="BUY",
+                            whale_entry_price=open_buy.whale_entry_price,
+                            user_fill_price=open_buy.user_fill_price,
+                            resolution_outcome=open_buy.resolution_outcome,
+                            onchain_tx_hash=open_buy.onchain_tx_hash,
+                            notional_usd=remaining_portion,
+                            fee_usd=round(float(open_buy.fee_usd or 0.0) - closed_buy_fee, 4),
+                            market_category=open_buy.market_category,
+                            active_basket_size_at_trade=open_buy.active_basket_size_at_trade,
+                            is_sandbox=True,
+                            status="FILLED",
+                            realized_pnl_usd=None,
+                            executed_at=open_buy.executed_at
+                        )
+                        db.add(split_buy)
+                        remaining_sell_notional = 0.0
+                        break
 
             # System execution log
             sys_log = ExecutionLog(
@@ -303,7 +347,21 @@ class LiveTradeMirrorService:
 
             # Copy-trade for individual sandbox users
             for u in users:
-                u_notional = round(min(max(5.0, cash_usd * 0.05 * sizing_multiplier), 150.0), 2)
+                whale_port_val = float(source_whale.all_time_pnl_usd or 50000.0) if source_whale else 50000.0
+                whale_trade_val = float(price * notional if notional > 0 else 500.0)
+                sizing_res = size_trade(
+                    user_balance=float(u.sandbox_balance_usd or 10000.0),
+                    risk_profile=str(u.risk_profile or "balanced"),
+                    n_active=max(1, len(active_wallets)),
+                    whale_trade_value=whale_trade_val,
+                    whale_portfolio_value=max(1000.0, whale_port_val),
+                    min_order_usd=5.0
+                )
+                if sizing_res.status == 'SUCCESS':
+                    u_notional = sizing_res.value
+                else:
+                    u_notional = round(min(max(5.0, cash_usd * 0.05 * sizing_multiplier), 150.0), 2)
+
                 u_fee = calculate_polymarket_fee(
                     notional_usd=u_notional,
                     price=effective_fill_price,
@@ -323,14 +381,59 @@ class LiveTradeMirrorService:
                     ).order_by(ExecutionLog.executed_at.asc())
                     u_open_buys = (await db.execute(stmt_u_buys)).scalars().all()
                     if u_open_buys:
-                        u_earliest_buy = u_open_buys[0]
-                        u_orig_price = float(u_earliest_buy.user_fill_price or 0.5)
-                        u_orig_notional = float(u_earliest_buy.notional_usd or u_notional)
-                        u_ratio = ((effective_fill_price - u_orig_price) / u_orig_price) if u_orig_price > 0 else 0.0
+                        remaining_u_sell_notional = u_notional
+                        u_sell_fee_total = float(u_fee["fee_usd"] or 0.0)
+                        u_sell_fee_rate = u_sell_fee_total / u_notional if u_notional > 0 else 0.0
                         
-                        u_earliest_buy.status = "CLOSED"
-                        u_earliest_buy.realized_pnl_usd = round(u_orig_notional * u_ratio - float(u_earliest_buy.fee_usd or 0.0), 2)
-                        u_realized_pnl_val = round(u_notional * u_ratio - float(u_fee["fee_usd"]), 2)
+                        for u_buy in u_open_buys:
+                            if remaining_u_sell_notional <= 0:
+                                break
+                            u_buy_notional = float(u_buy.notional_usd or 0.0)
+                            u_orig_price = float(u_buy.user_fill_price or 0.5)
+                            u_ratio = ((effective_fill_price - u_orig_price) / u_orig_price) if u_orig_price > 0 else 0.0
+                            
+                            if u_buy_notional <= remaining_u_sell_notional + 0.01:
+                                u_buy.status = "CLOSED"
+                                u_buy_fee = float(u_buy.fee_usd or 0.0)
+                                u_allocated_sell_fee = u_buy_notional * u_sell_fee_rate
+                                u_buy.realized_pnl_usd = round(u_buy_notional * u_ratio - (u_buy_fee + u_allocated_sell_fee), 2)
+                                remaining_u_sell_notional -= u_buy_notional
+                            else:
+                                closed_part = remaining_u_sell_notional
+                                rem_part = round(u_buy_notional - closed_part, 2)
+                                u_buy_fee_rate = float(u_buy.fee_usd or 0.0) / u_buy_notional if u_buy_notional > 0 else 0.0
+                                closed_u_buy_fee = closed_part * u_buy_fee_rate
+                                u_allocated_sell_fee = closed_part * u_sell_fee_rate
+                                
+                                u_buy.status = "CLOSED"
+                                u_buy.notional_usd = closed_part
+                                u_buy.fee_usd = round(closed_u_buy_fee, 4)
+                                u_buy.realized_pnl_usd = round(closed_part * u_ratio - (closed_u_buy_fee + u_allocated_sell_fee), 2)
+                                
+                                u_split_buy = ExecutionLog(
+                                    user_id=u.id,
+                                    source_wallet_address=u_buy.source_wallet_address,
+                                    market_condition_id=u_buy.market_condition_id,
+                                    market_question=u_buy.market_question,
+                                    event_slug=u_buy.event_slug,
+                                    icon=u_buy.icon,
+                                    side="BUY",
+                                    whale_entry_price=u_buy.whale_entry_price,
+                                    user_fill_price=u_buy.user_fill_price,
+                                    resolution_outcome=u_buy.resolution_outcome,
+                                    onchain_tx_hash=u_buy.onchain_tx_hash,
+                                    notional_usd=rem_part,
+                                    fee_usd=round(float(u_buy.fee_usd or 0.0) - closed_u_buy_fee, 4),
+                                    market_category=u_buy.market_category,
+                                    active_basket_size_at_trade=u_buy.active_basket_size_at_trade,
+                                    is_sandbox=True,
+                                    status="FILLED",
+                                    realized_pnl_usd=None,
+                                    executed_at=u_buy.executed_at
+                                )
+                                db.add(u_split_buy)
+                                remaining_u_sell_notional = 0.0
+                                break
 
                 user_log = ExecutionLog(
                     user_id=u.id,
