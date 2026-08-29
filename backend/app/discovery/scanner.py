@@ -237,8 +237,34 @@ def calculate_authentic_wallet_stats(
     total_positions_cnt = max(len(positions), len(trades or []), len(activity), 1)
     avg_trades_day = round(max(1.0, len(activity) / max(1, len(daily_map))), 1)
 
-    # Detect Automated High-Frequency Market Maker Bots (>300 trades/day)
-    is_hft_bot = bool(avg_trades_day > 300.0)
+    # Detect Automated High-Frequency Market Maker Bots (>100 trades/day)
+    is_hft_bot = bool(avg_trades_day > 100.0)
+
+    # 6. Crypto-Only Concentration Gate (>90% crypto keywords across market history)
+    crypto_keywords = [
+        "bitcoin", "btc", "ethereum", "eth", "solana", "sol", "cardano", "ada",
+        "xrp", "ripple", "doge", "dogecoin", "binance", "bnb", "crypto", "tether",
+        "usdt", "nft", "memecoin", "up or down", "5-minute", "15-minute", "hourly",
+        "polygon", "matic", "avalanche", "avax", "chainlink", "link", "near"
+    ]
+    all_titles = []
+    for p in (positions or []):
+        if isinstance(p, dict):
+            t = str(p.get("title") or p.get("question") or p.get("market") or "").lower()
+            if t: all_titles.append(t)
+    for t in (trades or []):
+        if isinstance(t, dict):
+            q = str(t.get("title") or t.get("question") or t.get("market") or "").lower()
+            if q: all_titles.append(q)
+    for a in (activity or []):
+        if isinstance(a, dict):
+            m = str(a.get("title") or a.get("question") or a.get("market") or "").lower()
+            if m: all_titles.append(m)
+
+    total_titled = len(all_titles)
+    crypto_count = sum(1 for t in all_titles if any(k in t for k in crypto_keywords))
+    crypto_pct = round((crypto_count / total_titled * 100.0), 1) if total_titled >= 5 else 0.0
+    is_crypto_only = bool(total_titled >= 8 and crypto_pct >= 90.0)
 
     return {
         "all_time_pnl_usd": round(all_time_pnl, 2),
@@ -251,6 +277,8 @@ def calculate_authentic_wallet_stats(
         "outlier_concentration_pct": outlier_concentration,
         "is_hft": is_hft_bot,
         "is_dormant": False,
+        "is_crypto_only": is_crypto_only,
+        "crypto_pct": crypto_pct,
         "today_pnl": round(today_pnl, 2),
         "today_trades_count": today_trades,
         "daily_pnl_history": daily_pnl_history,
@@ -355,7 +383,12 @@ async def evaluate_pending_wallets(db: AsyncSession):
                 elif stats['is_hft']:
                     wallet.status = 'rejected'
                     wallet.tier = 'rejected'
-                    wallet.rejection_reason = 'High-Frequency Bot detected (>300 trades/day)'
+                    wallet.rejection_reason = f'High-Frequency Bot detected ({stats.get("avg_trades_per_day", 0):.0f} trades/day > 100/day max)'
+                    discovery_state["rejected"] += 1
+                elif stats.get('is_crypto_only'):
+                    wallet.status = 'rejected'
+                    wallet.tier = 'rejected'
+                    wallet.rejection_reason = f'Crypto-only mono-trader ({stats.get("crypto_pct", 0):.0f}% crypto markets)'
                     discovery_state["rejected"] += 1
                 elif stats['is_dormant']:
                     wallet.status = 'rejected'

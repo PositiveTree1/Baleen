@@ -125,14 +125,7 @@ class LiveTradeMirrorService:
             active_wallets = (await db.execute(stmt_wallets)).scalars().all()
             basket_addrs = {w.address.lower() for w in active_wallets}
 
-            if addr not in basket_addrs:
-                return
-
-            stmt_users = select(User)
-            users = (await db.execute(stmt_users)).scalars().all()
-
-            # Prevent Naked Short Selling & Cross-Whale Interference:
-            # Only mirror a SELL if we hold open positions opened by THIS specific whale
+            # Sells are ALWAYS permitted if we hold an open position from this whale (even if whale was later demoted/blacklisted)
             target_open_buys = []
             if side == "SELL":
                 stmt_open_buys = select(ExecutionLog).where(
@@ -145,8 +138,15 @@ class LiveTradeMirrorService:
                 target_open_buys = (await db.execute(stmt_open_buys)).scalars().all()
                 
                 if not target_open_buys:
-                    logger.info(f"🛡️ Position Guard: Whale {addr[:8]} sold '{title[:25]}', but sandbox portfolio holds 0 open positions from this specific whale. Preserving other whales' open positions.")
+                    logger.info(f"🛡️ Position Guard: Whale {addr[:8]} sold '{title[:25]}', but sandbox holds 0 open positions from this whale. Skipping.")
                     return
+            else:
+                # BUY: Must be an active, approved basket whale
+                if addr not in basket_addrs:
+                    return
+
+            stmt_users = select(User)
+            users = (await db.execute(stmt_users)).scalars().all()
 
             # Check for sniper conviction weighting (e.g. Mr. Ozi / Gold snipers)
             source_whale = next((w for w in active_wallets if w.address.lower() == wallet_address.lower()), None)
@@ -160,7 +160,39 @@ class LiveTradeMirrorService:
             from app.services.mark_to_market import get_consensus, get_live_price
             consensus = get_consensus(condition_id)
             consensus_multiplier = 1.5 if consensus.get("is_consensus") else 1.0
-            sizing_multiplier = consensus_multiplier * sniper_multiplier
+
+            # Dynamic Streak Multiplier: Dampen sizing on consecutive losses, scale up on win momentum
+            stmt_recent_closed = select(ExecutionLog.realized_pnl_usd).where(
+                ExecutionLog.source_wallet_address.ilike(wallet_address),
+                ExecutionLog.status == "CLOSED",
+                ExecutionLog.side == "BUY",
+                ExecutionLog.realized_pnl_usd.is_not(None)
+            ).order_by(ExecutionLog.executed_at.desc()).limit(5)
+            recent_closed_pnls = (await db.execute(stmt_recent_closed)).scalars().all()
+
+            consecutive_losses = 0
+            for pnl_item in recent_closed_pnls:
+                if float(pnl_item) < 0:
+                    consecutive_losses += 1
+                else:
+                    break
+
+            consecutive_wins = 0
+            for pnl_item in recent_closed_pnls:
+                if float(pnl_item) > 0:
+                    consecutive_wins += 1
+                else:
+                    break
+
+            streak_multiplier = 1.0
+            if consecutive_losses >= 3:
+                streak_multiplier = 0.50  # 50% capital reduction during a drawdown
+            elif consecutive_losses == 2:
+                streak_multiplier = 0.75  # 25% reduction on 2 losses
+            elif consecutive_wins >= 3:
+                streak_multiplier = 1.25  # 25% conviction boost on winning streaks
+
+            sizing_multiplier = consensus_multiplier * sniper_multiplier * streak_multiplier
 
             # Category & Fee Evaluation
             from app.services.polymarket_fees import calculate_polymarket_fee, calculate_fee_aware_ev_gate, classify_market_category
