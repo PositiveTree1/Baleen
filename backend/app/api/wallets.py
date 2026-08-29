@@ -222,14 +222,14 @@ async def get_wallet(address: str, db: AsyncSession = Depends(get_db)):
     # Score Snapshots
     snap_stmt = select(WalletSnapshot).where(
         func.lower(WalletSnapshot.wallet_address) == clean_addr
-    ).order_by(WalletSnapshot.snapshot_at.asc())
+    ).order_by(WalletSnapshot.snapshot_at.asc()).limit(30)
     snapshots = (await db.execute(snap_stmt)).scalars().all()
     
     score_history = []
     if snapshots:
         score_history = [
             {
-                "date": s.snapshot_at.strftime("%Y-%m-%d %H:%M") if s.snapshot_at else "Now",
+                "date": s.snapshot_at.strftime("%Y-%m-%d %H:%M") if getattr(s, "snapshot_at", None) else "Now",
                 "score": round(s.baleen_score or 0.0, 1),
                 "win_rate": round(s.win_rate_pct or 0.0, 1),
                 "pnl": round(s.pnl_usd or 0.0, 2)
@@ -239,15 +239,13 @@ async def get_wallet(address: str, db: AsyncSession = Depends(get_db)):
     else:
         # Initial point
         score_history = [
-    ).order_by(WalletSnapshot.timestamp.asc()).limit(30)
-    snaps = (await db.execute(stmt_snaps)).scalars().all()
-    
-    score_history = [{
-        "timestamp": s.timestamp.isoformat(),
-        "score": s.baleen_score,
-        "win_rate": s.win_rate_pct,
-        "total_pnl": s.all_time_pnl_usd
-    } for s in snaps]
+            {
+                "date": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M"),
+                "score": round(wallet.baleen_score or 0.0, 1),
+                "win_rate": round(wallet.win_rate_pct or 0.0, 1),
+                "pnl": round(wallet.all_time_pnl_usd or 0.0, 2)
+            }
+        ]
     
     # Fetch recent execution logs for this specific whale
     stmt_trades = select(ExecutionLog).where(
