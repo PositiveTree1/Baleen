@@ -97,17 +97,26 @@ def calculate_authentic_wallet_stats(
     Calculates authentic PnL, win rate, Wilson lower bound, profit factor, and daily history
     directly from Polymarket's official positions, activity closures, and profile endpoints.
     """
-    # 1. Total All-time Realized PnL
+    # 1. Total All-time Realized PnL & Volume
     all_time_pnl = 0.0
+    total_volume = 0.0
     if profile and isinstance(profile, dict):
         all_time_pnl = float(profile.get("pnl") or profile.get("profit") or profile.get("profile_profit") or 0.0)
+        total_volume = float(profile.get("volume") or profile.get("vol") or 0.0)
     
     if all_time_pnl == 0.0 and positions:
         all_time_pnl = sum(float(p.get("cashPnl") or 0.0) for p in positions)
+    
+    if total_volume == 0.0:
+        total_volume = sum(float(t.get("usdcSize") or t.get("size") or 0.0) for t in (trades or []))
 
-    # 2. Winning and Losing Positions
-    wins = sum(1 for p in positions if float(p.get("cashPnl") or 0.0) > 0)
-    losses = sum(1 for p in positions if float(p.get("cashPnl") or 0.0) < 0)
+    # 2. Closed/Settled Positions Only (Strictly ignore open MTM marks for scoring)
+    closed_positions = [p for p in (positions or []) if isinstance(p, dict) and (p.get("redeemable") or float(p.get("cashPnl") or 0.0) != 0.0)]
+    if not closed_positions:
+        closed_positions = [p for p in (positions or []) if isinstance(p, dict)]
+
+    wins = sum(1 for p in closed_positions if float(p.get("cashPnl") or 0.0) > 0)
+    losses = sum(1 for p in closed_positions if float(p.get("cashPnl") or 0.0) < 0)
     total_resolved = wins + losses
 
     if total_resolved > 0:
@@ -117,30 +126,98 @@ def calculate_authentic_wallet_stats(
         win_rate = 0.0
         wilson_lb = 0.0
 
-    # 3. Profit Factor & Best/Worst
-    gross_profit = sum(float(p.get("cashPnl") or 0.0) for p in positions if float(p.get("cashPnl") or 0.0) > 0)
-    gross_loss = sum(abs(float(p.get("cashPnl") or 0.0)) for p in positions if float(p.get("cashPnl") or 0.0) < 0)
-    profit_factor = round(gross_profit / gross_loss, 2) if gross_loss > 0 else (10.0 if gross_profit > 0 else 1.0)
+    # 3. Position Concentration Cap (Closed positions positive PnL sum)
+    pos_pnl_sum = sum(float(p.get("cashPnl") or 0.0) for p in closed_positions if float(p.get("cashPnl") or 0.0) > 0)
+    biggest_win = max((float(p.get("cashPnl") or 0.0) for p in closed_positions), default=0.0)
+    outlier_concentration = round(biggest_win / pos_pnl_sum, 3) if (pos_pnl_sum > 0 and biggest_win > 0) else 0.10
 
-    biggest_win = max((float(p.get("cashPnl") or 0.0) for p in positions), default=0.0)
-    biggest_loss = min((float(p.get("cashPnl") or 0.0) for p in positions), default=0.0)
-    outlier_concentration = round(biggest_win / all_time_pnl, 2) if (all_time_pnl > 0 and biggest_win > 0) else 0.12
+    # 4. Odds-Weighted Win Rate & Risk-Adjusted Sharpe Ratio
+    entry_prices = []
+    pct_pnls = []
+    for p in closed_positions:
+        init_val = float(p.get("initialValue") or p.get("size") or 1.0)
+        c_pnl = float(p.get("cashPnl") or 0.0)
+        p_price = float(p.get("avgPrice") or p.get("curPrice") or 0.50)
+        entry_prices.append(p_price)
+        if init_val > 0:
+            pct_pnls.append(c_pnl / init_val)
 
-    # 4. Daily PnL history from Positions, Activity, and Trades feed
+    avg_entry_price = sum(entry_prices) / len(entry_prices) if entry_prices else 0.50
+    odds_weighted_edge = (win_rate / 100.0) - avg_entry_price
+
+    if pct_pnls and len(pct_pnls) >= 3:
+        mean_pct = sum(pct_pnls) / len(pct_pnls)
+        variance = sum((x - mean_pct) ** 2 for x in pct_pnls) / len(pct_pnls)
+        stdev = math.sqrt(variance)
+        sharpe_ratio = mean_pct / (stdev + 1e-6) if stdev > 0 else 1.0
+    else:
+        sharpe_ratio = 1.0
+
+    # 5. Track Record Length (Lifetime Trades & Active Days)
+    all_ts = []
+    for item in list(trades or []) + list(positions or []) + list(activity or []):
+        if isinstance(item, dict):
+            raw_t = item.get("timestamp") or item.get("time") or item.get("createdAt") or item.get("updatedAt")
+            if raw_t:
+                try:
+                    ts_val = float(raw_t) / 1000.0 if float(raw_t) > 1e11 else float(raw_t)
+                    if ts_val > 1e8:
+                        all_ts.append(ts_val)
+                except Exception:
+                    pass
+
+    if all_ts:
+        min_ts = min(all_ts)
+        max_ts = max(all_ts)
+        active_days = max(1.0, (max_ts - min_ts) / 86400.0)
+    else:
+        active_days = 60.0
+
+    total_trade_count = max(len(trades or []), len(positions or []), len(activity or []), 1)
+    trades_per_day = round(total_trade_count / active_days, 1)
+
+    # 6. Trade Size Compatibility with Sleeve (Median usdcSize)
+    trade_sizes = []
+    for t in (trades or []):
+        if isinstance(t, dict):
+            s_val = float(t.get("usdcSize") or t.get("size") or 0.0)
+            if s_val > 0:
+                trade_sizes.append(s_val)
+
+    trade_sizes.sort()
+    if trade_sizes:
+        mid_idx = len(trade_sizes) // 2
+        median_trade_size = trade_sizes[mid_idx]
+    else:
+        median_trade_size = 150.0
+
+    is_sleeve_incompatible = bool(median_trade_size < 20.0 or median_trade_size > 3000.0)
+
+    # 7. Wash-Trading / Round-Trip Pair Check (<120s BUY<->SELL pairs)
+    wash_pair_count = 0
+    trade_list_sorted = sorted((trades or []), key=lambda x: float(x.get("timestamp") or 0))
+    for i in range(len(trade_list_sorted) - 1):
+        t1 = trade_list_sorted[i]
+        t2 = trade_list_sorted[i+1]
+        cid1 = t1.get("conditionId") or t1.get("asset")
+        cid2 = t2.get("conditionId") or t2.get("asset")
+        side1 = str(t1.get("side") or "").upper()
+        side2 = str(t2.get("side") or "").upper()
+        ts1 = float(t1.get("timestamp") or 0) / 1000.0 if float(t1.get("timestamp") or 0) > 1e11 else float(t1.get("timestamp") or 0)
+        ts2 = float(t2.get("timestamp") or 0) / 1000.0 if float(t2.get("timestamp") or 0) > 1e11 else float(t2.get("timestamp") or 0)
+        
+        if cid1 and cid1 == cid2 and side1 != side2 and 0 <= (ts2 - ts1) <= 120:
+            wash_pair_count += 1
+
+    wash_ratio = round(wash_pair_count / max(1, len(trades or [])), 3)
+    is_wash_trading = bool(wash_ratio > 0.10 and wash_pair_count >= 2)
+
+    # 8. Daily PnL history & Recency-Weighted EMA (30-day half-life)
     daily_map = {}
     today_utc = datetime.now(timezone.utc).strftime("%Y-%m-%d")
 
-    # A. Process Positions (closed & active MTM)
-    for pos in (positions or []):
-        if not isinstance(pos, dict):
-            continue
-        pnl_val = float(pos.get("cashPnl") or pos.get("realizedPnl") or pos.get("pnl") or 0.0)
-        if pnl_val == 0.0:
-            val = float(pos.get("currentValue") or 0.0)
-            init = float(pos.get("initialValue") or 0.0)
-            if init > 0:
-                pnl_val = val - init
-
+    for pos in closed_positions:
+        pnl_val = float(pos.get("cashPnl") or pos.get("realizedPnl") or 0.0)
         ts_raw = pos.get("updatedAt") or pos.get("endDate") or pos.get("timestamp")
         d_str = today_utc
         if ts_raw:
@@ -149,39 +226,6 @@ def calculate_authentic_wallet_stats(
                 d_str = datetime.fromtimestamp(ts_sec, timezone.utc).strftime("%Y-%m-%d")
             except Exception:
                 d_str = today_utc
-
-        if d_str not in daily_map:
-            daily_map[d_str] = {"won": 0.0, "lost": 0.0, "net": 0.0, "count": 0}
-        
-        daily_map[d_str]["count"] += 1
-        if pnl_val > 0:
-            daily_map[d_str]["won"] += pnl_val
-        elif pnl_val < 0:
-            daily_map[d_str]["lost"] += abs(pnl_val)
-        daily_map[d_str]["net"] += pnl_val
-
-    # B. Process Activity Feed
-    for act in (activity or []):
-        if not isinstance(act, dict):
-            continue
-        ts_raw = act.get("timestamp") or act.get("time") or act.get("created_at")
-        if not ts_raw:
-            continue
-        try:
-            ts_sec = float(ts_raw) / 1000.0 if float(ts_raw) > 1e11 else float(ts_raw)
-            d_str = datetime.fromtimestamp(ts_sec, timezone.utc).strftime("%Y-%m-%d")
-        except Exception:
-            continue
-        
-        pnl_val = float(act.get("pnl") or act.get("cashPnl") or act.get("realizedPnl") or 0.0)
-        if pnl_val == 0.0:
-            act_type = str(act.get("type") or "").upper()
-            size = float(act.get("size") or act.get("usdcSize") or 0.0)
-            if act_type == "REDEEM":
-                pnl_val = size * 0.25
-            elif act_type == "TRADE" and str(act.get("side") or "").upper() == "SELL":
-                price = float(act.get("price") or 0.5)
-                pnl_val = size * (price - 0.5)
 
         if d_str not in daily_map:
             daily_map[d_str] = {"won": 0.0, "lost": 0.0, "net": 0.0, "count": 0}
@@ -208,7 +252,14 @@ def calculate_authentic_wallet_stats(
             "trades_count": d_info["count"]
         })
 
-    # 4. Maximum Drawdown Calculation (Peak-to-Trough on cumulative daily equity)
+    # Recency EMA over realized PnL series (30-day half-life decay)
+    recency_ema = 0.0
+    alpha_30d = 1.0 - math.exp(-math.log(2) / 30.0) # ~0.0228
+    for h in daily_pnl_history:
+        net_d = float(h.get("daily_pnl") or 0.0)
+        recency_ema = (1.0 - alpha_30d) * recency_ema + alpha_30d * net_d
+
+    # Maximum Drawdown
     peak_equity = 0.0
     running_equity = 0.0
     max_dd_dollars = 0.0
@@ -222,116 +273,46 @@ def calculate_authentic_wallet_stats(
 
     if peak_equity > 0 and max_dd_dollars > 0:
         max_drawdown = min(35.0, round((max_dd_dollars / peak_equity) * 100.0, 1))
-    elif gross_loss > 0 and all_time_pnl > 0:
-        max_drawdown = min(25.0, round((gross_loss / (all_time_pnl + gross_loss)) * 100.0, 1))
     else:
-        max_drawdown = round(max(3.0, min(14.0, 16.0 - (win_rate * 0.1))), 1)
+        max_drawdown = 8.0
 
-    today_pnl = daily_map.get(today_utc, {}).get("net", 0.0)
-    today_trades = daily_map.get(today_utc, {}).get("count", 0)
+    # 9. Category Breadth
+    all_categories = set()
+    category_keywords = {
+        "Sports": ["vs", "fc", "win on", "cup", "league", "match", "tournament"],
+        "Politics": ["election", "president", "senate", "house", "party", "vote"],
+        "Culture & Tech": ["ai", "temperature", "highest", "lowest", "gta", "movie", "box office"],
+        "Macro & Finance": ["fed", "rate", "inflation", "cpi", "gdp", "recession"]
+    }
+    for p in closed_positions:
+        t = str(p.get("title") or p.get("question") or "").lower()
+        for cat_name, kw_list in category_keywords.items():
+            if any(k in t for k in kw_list):
+                all_categories.add(cat_name)
 
-    # 5. Trades / Hour and Burst / HFT detection
-    total_positions_cnt = max(len(positions), len(trades or []), len(activity), 1)
-    avg_trades_day = round(max(1.0, len(activity) / max(1, len(daily_map))), 1)
-
-    # Detect Automated High-Frequency Market Maker Bots (>100 trades/day)
-    is_hft_bot = bool(avg_trades_day > 100.0)
-
-    # 6. Crypto-Only Concentration Gate (>90% crypto keywords across market history)
-    crypto_keywords = [
-        "bitcoin", "btc", "ethereum", "eth", "solana", "sol", "cardano", "ada",
-        "xrp", "ripple", "doge", "dogecoin", "binance", "bnb", "crypto", "tether",
-        "usdt", "nft", "memecoin", "up or down", "5-minute", "15-minute", "hourly",
-        "polygon", "matic", "avalanche", "avax", "chainlink", "link", "near"
-    ]
-    all_titles = []
-    for p in (positions or []):
-        if isinstance(p, dict):
-            t = str(p.get("title") or p.get("question") or p.get("market") or "").lower()
-            if t: all_titles.append(t)
-    for t in (trades or []):
-        if isinstance(t, dict):
-            q = str(t.get("title") or t.get("question") or t.get("market") or "").lower()
-            if q: all_titles.append(q)
-    for a in (activity or []):
-        if isinstance(a, dict):
-            m = str(a.get("title") or a.get("question") or a.get("market") or "").lower()
-            if m: all_titles.append(m)
-
-    total_titled = len(all_titles)
-    crypto_count = sum(1 for t in all_titles if any(k in t for k in crypto_keywords))
-    crypto_pct = round((crypto_count / total_titled * 100.0), 1) if total_titled >= 5 else 0.0
-    is_crypto_only = bool(total_titled >= 8 and crypto_pct >= 90.0)
-
-    # 7. Holding Duration Analytics (Pairing BUYs with subsequent SELLs or REDEEMs)
-    condition_groups = {}
-    for act in (activity or []):
-        if not isinstance(act, dict): continue
-        cid = act.get("conditionId") or act.get("asset")
-        if not cid: continue
-        if cid not in condition_groups:
-            condition_groups[cid] = []
-        condition_groups[cid].append(act)
-
-    holding_durations = []
-    for cid, events in condition_groups.items():
-        sorted_events = sorted(events, key=lambda x: float(x.get("timestamp") or 0))
-        buys = [x for x in sorted_events if str(x.get("type", "")).upper() == "TRADE" and str(x.get("side", "")).upper() == "BUY"]
-        exits = [x for x in sorted_events if (str(x.get("type", "")).upper() == "TRADE" and str(x.get("side", "")).upper() == "SELL") or str(x.get("type", "")).upper() == "REDEEM"]
-        
-        if buys and exits:
-            first_buy_ts = float(buys[0].get("timestamp") or 0)
-            for ex in exits:
-                ex_ts = float(ex.get("timestamp") or 0)
-                if ex_ts >= first_buy_ts and first_buy_ts > 0:
-                    hold_hrs = (ex_ts - first_buy_ts) / 3600.0
-                    holding_durations.append(hold_hrs)
-                    break
-
-    if holding_durations:
-        avg_hold_hours = round(sum(holding_durations) / len(holding_durations), 1)
-        avg_hold_days = round(avg_hold_hours / 24.0, 1)
-    else:
-        avg_hold_hours = 24.0
-        avg_hold_days = 1.0
-
-    # Max holding threshold: If average holding duration > 14 days, reject to prevent dead capital lockup
-    is_excessive_hold = bool(len(holding_durations) >= 5 and avg_hold_days > 14.0)
-
-    # 7. Boundary Arbitrage Bot Detection (Trades at <= $0.02 or >= $0.98)
-    boundary_trades_cnt = 0
-    all_trade_samples = list(trades or []) + list(positions or [])
-    for t_item in all_trade_samples:
-        if isinstance(t_item, dict):
-            p_val = float(t_item.get("price") or t_item.get("curPrice") or 0.5)
-            if 0.0 < p_val <= 0.02 or p_val >= 0.98:
-                boundary_trades_cnt += 1
-    
-    total_eval_trades = max(1, len(all_trade_samples))
-    boundary_ratio = round(boundary_trades_cnt / total_eval_trades, 3)
-    is_boundary_arb_bot = bool(boundary_ratio > 0.10 and boundary_trades_cnt >= 3)
+    category_count = max(1, len(all_categories))
 
     return {
         "all_time_pnl_usd": round(all_time_pnl, 2),
+        "total_volume_usd": round(total_volume, 2),
         "win_rate_pct": win_rate,
         "wilson_lower_bound": wilson_lb,
-        "profit_factor": profit_factor,
-        "trades_count": total_positions_cnt,
-        "avg_trades_per_day": avg_trades_day,
-        "avg_hold_hours": avg_hold_hours,
-        "avg_hold_days": avg_hold_days,
-        "is_excessive_hold": is_excessive_hold,
+        "trades_count": total_trade_count,
+        "active_days": round(active_days, 1),
+        "avg_trades_per_day": trades_per_day,
         "max_drawdown_pct": max_drawdown,
         "outlier_concentration_pct": outlier_concentration,
-        "is_hft": is_hft_bot,
+        "is_hft": bool(trades_per_day > 15.0),
         "is_dormant": False,
-        "is_crypto_only": is_crypto_only,
-        "crypto_pct": crypto_pct,
-        "boundary_trades_count": boundary_trades_cnt,
-        "boundary_ratio": boundary_ratio,
-        "is_boundary_arb": is_boundary_arb_bot,
-        "today_pnl": round(today_pnl, 2),
-        "today_trades_count": today_trades,
+        "is_wash_trading": is_wash_trading,
+        "wash_ratio": wash_ratio,
+        "median_trade_size": round(median_trade_size, 2),
+        "is_sleeve_incompatible": is_sleeve_incompatible,
+        "odds_weighted_edge": round(odds_weighted_edge, 4),
+        "avg_entry_price": round(avg_entry_price, 4),
+        "sharpe_ratio": round(sharpe_ratio, 3),
+        "recency_ema": round(recency_ema, 2),
+        "category_count": category_count,
         "daily_pnl_history": daily_pnl_history,
         "first_trade_at": None,
         "last_trade_at": datetime.utcnow()

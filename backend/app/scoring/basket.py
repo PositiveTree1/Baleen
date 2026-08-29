@@ -9,103 +9,130 @@ from app.scoring.engine import score_wallet
 
 logger = logging.getLogger(__name__)
 
-def compute_baleen_score(stats: dict) -> float:
+def compute_raw_factors(stats: dict) -> dict:
     """
-    5-Factor Quantitative Composite Whale Scoring (0 - 100):
-    1. Risk-Adjusted Return (Sortino / Sharpe on Trade PnL series) — 25 pts
-    2. Odds-Weighted Calibration / Brier Edge — 25 pts
-    3. Category Breadth / Multi-Market Edge — 20 pts
-    4. Recency-Weighted Momentum / EMA — 15 pts
-    5. Copyability & Liquidity Score — 15 pts
+    Computes raw metrics across closed positions for candidate pool normalization:
+    1. Odds-Weighted Win Rate Edge: Win Rate - avgPrice (30% weight)
+    2. Risk-Adjusted Sharpe Ratio: mean(pct_pnl) / stdev(pct_pnl) (30% weight)
+    3. Recency-Weighted EMA: 30-day half-life EMA over closed PnL (20% weight)
+    4. Category Consistency: Count of profitable distinct categories (10% weight)
+    5. Copyability Penalty: Trade size relative to typical depth (10% weight subtracted)
     """
-    pnl = float(stats.get('all_time_pnl_usd', 0) or 0)
     win_rate = float(stats.get('win_rate_pct', 0) or 0)
-    drawdown = float(stats.get('max_drawdown_pct', 10) or 10)
-    daily_history = stats.get('daily_pnl_history') or []
-    trades_count = int(stats.get('trades_count', 0) or stats.get('total_trades_analyzed', 0) or 0)
-    category_count = int(stats.get('category_count', 3) or 3)
     avg_price = float(stats.get('avg_entry_price', 0.50) or 0.50)
+    pnl = float(stats.get('all_time_pnl_usd', 0) or 0)
+    daily_history = stats.get('daily_pnl_history') or []
+    category_count = int(stats.get('category_count', 3) or 3)
+    median_trade_size = float(stats.get('median_trade_size', 150.0) or 150.0)
 
-    # ---------------------------------------------------------
-    # FACTOR 1: Risk-Adjusted Return (Sortino Ratio) — 25 points
-    # ---------------------------------------------------------
-    sortino_score = 15.0  # default baseline
+    # 1. Odds-Weighted Edge: Win Rate % minus implied price probability
+    # e.g., 60% win rate at 0.55 entry price has +0.05 edge
+    implied_prob = max(0.05, min(0.95, avg_price))
+    actual_prob = win_rate / 100.0
+    odds_edge = actual_prob - implied_prob
+
+    # 2. Risk-Adjusted Return (Sharpe on trade series / daily history)
     if daily_history and len(daily_history) >= 5:
         nets = [float(h.get('net_pnl') or h.get('daily_pnl') or 0.0) for h in daily_history]
         mean_pnl = sum(nets) / len(nets)
-        downside_sq = [min(0.0, n)**2 for n in nets]
-        downside_dev = math.sqrt(sum(downside_sq) / len(downside_sq)) if downside_sq else 1.0
-
-        if downside_dev > 0:
-            sortino_ratio = max(0.0, mean_pnl / downside_dev)
-            # Sortino > 2.0 is institutional grade
-            sortino_score = min(25.0, sortino_ratio * 10.0)
-        else:
-            sortino_score = 25.0 if mean_pnl > 0 else 5.0
+        variance = sum((n - mean_pnl)**2 for n in nets) / len(nets)
+        stdev = math.sqrt(variance)
+        sharpe_raw = mean_pnl / (stdev + 1e-6) if stdev > 0 else 1.0
     else:
-        # Fallback to drawdown-penalized PnL score
-        dd_shield = max(0.0, 1.0 - (drawdown / 30.0))
-        pnl_component = min(1.0, max(0.0, pnl) / 500000.0)
-        sortino_score = (dd_shield * 15.0) + (pnl_component * 10.0)
+        sharpe_raw = 1.0
 
-    # ---------------------------------------------------------
-    # FACTOR 2: Odds-Weighted Calibration / Brier Edge — 25 points
-    # ---------------------------------------------------------
-    # A 65% win rate buying 40% underdogs is vastly superior to 65% buying 85% favorites!
-    implied_prob = max(0.10, min(0.90, avg_price))
-    actual_prob = win_rate / 100.0
-    calibration_edge = actual_prob - implied_prob
+    # 3. Recency-Weighted EMA (30-day half-life decay)
+    recency_ema = float(stats.get('recency_ema', 0.0) or 0.0)
+    if recency_ema == 0.0 and daily_history:
+        alpha_30d = 1.0 - math.exp(-math.log(2) / 30.0)
+        for h in daily_history:
+            net_d = float(h.get("daily_pnl") or 0.0)
+            recency_ema = (1.0 - alpha_30d) * recency_ema + alpha_30d * net_d
+    elif recency_ema == 0.0:
+        recency_ema = pnl / 30.0
 
-    if calibration_edge > 0:
-        # +15% edge over market odds gets full 25 points
-        odds_score = min(25.0, 10.0 + (calibration_edge / 0.15) * 15.0)
-    else:
-        # Penalize negative edge over market odds
-        odds_score = max(5.0, 10.0 + (calibration_edge / 0.15) * 10.0)
+    # 4. Category Consistency: Count of profitable categories
+    cat_raw = float(category_count)
 
-    # ---------------------------------------------------------
-    # FACTOR 3: Category Breadth & Non-Concentration — 20 points
-    # ---------------------------------------------------------
-    # Whales whose edge spans Politics, Sports, Tech, Macro get full points
-    if category_count >= 4:
-        breadth_score = 20.0
-    elif category_count == 3:
-        breadth_score = 16.0
-    elif category_count == 2:
-        breadth_score = 12.0
-    else:
-        breadth_score = 8.0
+    # 5. Copyability Penalty: Larger trades relative to typical market depth incur higher penalty
+    # Typical liquidity depth ~ $5,000; median_trade_size / 5,000
+    copy_penalty_raw = min(1.0, median_trade_size / 5000.0)
 
-    # ---------------------------------------------------------
-    # FACTOR 4: Recency-Weighted Performance (30-Day EMA) — 15 points
-    # ---------------------------------------------------------
-    if daily_history and len(daily_history) >= 10:
-        # Last 30 daily data points vs all-time
-        recent_30 = daily_history[-30:] if len(daily_history) >= 30 else daily_history
-        recent_pos = sum(1 for h in recent_30 if float(h.get('net_pnl') or h.get('daily_pnl') or 0) > 0)
-        recent_win_rate = (recent_pos / len(recent_30)) if recent_30 else 0.5
-        recency_score = min(15.0, max(3.0, (recent_win_rate / 0.75) * 15.0))
-    else:
-        # Volume-weighted track record bonus
-        track_bonus = min(1.0, trades_count / 150.0)
-        recency_score = 5.0 + (track_bonus * 10.0)
+    return {
+        "odds_edge": odds_edge,
+        "sharpe": sharpe_raw,
+        "recency_ema": recency_ema,
+        "category_count": cat_raw,
+        "copy_penalty": copy_penalty_raw
+    }
 
-    # ---------------------------------------------------------
-    # FACTOR 5: Copyability & Liquidity Score — 15 points
-    # ---------------------------------------------------------
-    # Rewards thick liquid order books and reasonable trade counts
-    is_hft = stats.get('is_hft', False)
-    avg_trades_day = float(stats.get('avg_trades_per_day', 5) or 5)
-    
-    if is_hft or avg_trades_day > 80:
-        copyability_score = 4.0
-    elif avg_trades_day > 30:
-        copyability_score = 9.0
-    else:
-        copyability_score = 15.0
+def normalize_and_score_pool(candidate_stats_list: List[dict]) -> List[float]:
+    """
+    Intra-Pool Normalization & 5-Factor Composite Scoring:
+    Normalizes each metric to 0 - 100 within the filtered pool:
+    - Odds-Weighted Win Rate: 30%
+    - Risk-Adjusted Return: 30%
+    - Recency-Weighted PnL: 20%
+    - Category Consistency: 10%
+    - Copyability Penalty: -10% (subtracted)
+    """
+    if not candidate_stats_list:
+        return []
 
-    total_score = sortino_score + odds_score + breadth_score + recency_score + copyability_score
-    return round(min(100.0, max(0.0, total_score)), 1)
+    raw_factors_list = [compute_raw_factors(s) for s in candidate_stats_list]
+
+    # Find min and max for each metric across the pool
+    keys = ["odds_edge", "sharpe", "recency_ema", "category_count", "copy_penalty"]
+    min_vals = {k: min(rf[k] for rf in raw_factors_list) for k in keys}
+    max_vals = {k: max(rf[k] for rf in raw_factors_list) for k in keys}
+
+    final_scores = []
+    for rf in raw_factors_list:
+        # Min-max normalize to 0 - 100
+        def norm(k: str) -> float:
+            low = min_vals[k]
+            high = max_vals[k]
+            if high - low <= 1e-7:
+                return 50.0
+            return max(0.0, min(100.0, ((rf[k] - low) / (high - low)) * 100.0))
+
+        norm_odds = norm("odds_edge")
+        norm_sharpe = norm("sharpe")
+        norm_recency = norm("recency_ema")
+        norm_cat = norm("category_count")
+        norm_penalty = norm("copy_penalty")
+
+        # Apply exact weights
+        composite = (
+            (0.30 * norm_odds) +
+            (0.30 * norm_sharpe) +
+            (0.20 * norm_recency) +
+            (0.10 * norm_cat) -
+            (0.10 * norm_penalty)
+        )
+        # Shift penalty offset so scores sit on intuitive 0 - 100 scale
+        scaled_score = round(max(0.0, min(100.0, composite + 10.0)), 1)
+        final_scores.append(scaled_score)
+
+    return final_scores
+
+def compute_baleen_score(stats: dict) -> float:
+    """Computes standalone Baleen Score for a single wallet."""
+    raw = compute_raw_factors(stats)
+    norm_odds = max(0.0, min(100.0, (raw["odds_edge"] + 0.20) / 0.40 * 100.0))
+    norm_sharpe = max(0.0, min(100.0, (raw["sharpe"] / 3.0) * 100.0))
+    norm_recency = max(0.0, min(100.0, (raw["recency_ema"] / 5000.0) * 100.0))
+    norm_cat = max(0.0, min(100.0, (raw["category_count"] / 4.0) * 100.0))
+    norm_penalty = max(0.0, min(100.0, raw["copy_penalty"] * 100.0))
+
+    composite = (
+        (0.30 * norm_odds) +
+        (0.30 * norm_sharpe) +
+        (0.20 * norm_recency) +
+        (0.10 * norm_cat) -
+        (0.10 * norm_penalty)
+    )
+    return round(max(0.0, min(100.0, composite + 10.0)), 1)
 
 def select_top_10_roster(
     candidates: List[Wallet], 
@@ -115,21 +142,17 @@ def select_top_10_roster(
     """
     Roster Selection with 5-Point Hysteresis:
     Incumbent active whales receive a +5.0 point incumbency defense buffer during ranking.
-    A challenger on the bench must beat the incumbent by >= 5.0 points to displace it,
-    completely eliminating frivolous roster churn.
+    A challenger on the bench must beat the incumbent by >= 5.0 points to displace it.
     """
     incumbents = set(a.lower() for a in (current_incumbent_addresses or set()))
 
     def ranking_key(w: Wallet) -> float:
         base_score = float(w.baleen_score or 0.0)
         is_incumbent = w.address.lower() in incumbents
-        # Incumbent defense bonus
         defense_bonus = hysteresis_buffer if is_incumbent else 0.0
-        # Tier bonus: Gold Snipers get secondary boost
         gold_boost = 3.0 if w.tier == "gold_sniper" else 0.0
         return base_score + defense_bonus + gold_boost
 
-    # Sort descending by effective score
     sorted_roster = sorted(candidates, key=ranking_key, reverse=True)
     return sorted_roster[:10]
 
@@ -145,18 +168,19 @@ async def get_active_basket(db: AsyncSession) -> list[Wallet]:
 
 async def refresh_basket(db: AsyncSession):
     """
-    24-Hour Rescore Cadence with 5-Point Hysteresis:
-    Rescores all qualifying wallets and updates active Top 10 roster.
+    24-Hour Rescore Cadence with Intra-Pool Normalization & 5-Point Hysteresis:
+    Evaluates hard filters, computes normalized pool scores, and selects Top 10 roster.
     """
-    # 1. Fetch current active incumbent addresses
     stmt_active = select(Wallet.address).where(Wallet.status == "active")
     current_active_addrs = set((await db.execute(stmt_active)).scalars().all())
 
-    # 2. Fetch all tracked and active wallets
     stmt_all = select(Wallet).where(Wallet.status.in_(["active", "tracked"]))
     wallets = (await db.execute(stmt_all)).scalars().all()
 
     import json
+    candidate_wallets = []
+    candidate_stats_list = []
+
     for wallet in wallets:
         daily_hist = []
         if wallet.cached_daily_pnl:
@@ -184,11 +208,18 @@ async def refresh_basket(db: AsyncSession):
             wallet.rejection_reason = score_res.rejection_reason
         else:
             wallet.tier = score_res.tier
-            wallet.baleen_score = compute_baleen_score(stats)
+            candidate_wallets.append(wallet)
+            candidate_stats_list.append(stats)
         wallet.last_scored_at = datetime.utcnow()
 
-    # 3. Select Top 10 Roster with Hysteresis
-    qualifying_wallets = [w for w in wallets if w.status != "rejected" and not w.dormant]
+    # Dynamic Intra-Pool Normalization
+    if candidate_stats_list:
+        scores = normalize_and_score_pool(candidate_stats_list)
+        for w, sc in zip(candidate_wallets, scores):
+            w.baleen_score = sc
+
+    # Select Top 10 Roster with 5-point Hysteresis
+    qualifying_wallets = [w for w in candidate_wallets if not w.dormant]
     top_10 = select_top_10_roster(qualifying_wallets, current_incumbent_addresses=current_active_addrs, hysteresis_buffer=5.0)
     top_10_addrs = set(w.address.lower() for w in top_10)
 
@@ -199,4 +230,4 @@ async def refresh_basket(db: AsyncSession):
             w.status = "tracked"
 
     await db.commit()
-    logger.info(f"24h Roster Rescore Complete: {len(top_10)} active whales in Top 10 roster.")
+    logger.info(f"24h Pool-Normalized Roster Rescore Complete: {len(top_10)} active whales in Top 10 roster.")

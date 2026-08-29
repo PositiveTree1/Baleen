@@ -6,11 +6,11 @@ def test_pnl_threshold_rejects_below_50k(make_wallet_stats):
     assert res.status == "rejected"
     assert res.rejection_reason == "PNL_BELOW_THRESHOLD"
 
-def test_hft_screen_rejects_over_100_trades_per_day(make_wallet_stats):
-    stats = make_wallet_stats(trades_per_day=101.0)
+def test_hft_screen_rejects_over_15_trades_per_day(make_wallet_stats):
+    stats = make_wallet_stats(trades_per_day=16.0)
     res = score_wallet(stats)
     assert res.status == "rejected"
-    assert res.rejection_reason == "HFT_EXCEEDED"
+    assert res.rejection_reason == "HFT_MAKER_BOT_EXCEEDED"
 
 def test_outlier_concentration_rejects_single_trade_over_25pct(make_wallet_stats):
     stats = make_wallet_stats(outlier_pct=0.26)
