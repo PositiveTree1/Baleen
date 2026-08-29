@@ -77,18 +77,18 @@ export function CumulativePnLChart({ data }: CumulativePnLChartProps) {
                 const cum = pt.cumulativePnL ?? 0;
                 const daily = pt.dailyPnL;
                 return (
-                  <div className="bg-white/95 backdrop-blur-xl p-3 rounded-2xl border border-black/[0.08] shadow-xl text-slate-900 min-w-[150px]">
-                    <div className="text-[10px] text-slate-400 font-medium mb-1">{label}</div>
-                    <div className="text-sm font-bold font-mono text-slate-950 flex items-center justify-between">
-                      <span className="text-xs text-slate-500 font-sans font-medium">Cumulative PnL:</span>
-                      <span className={cum >= 0 ? 'text-emerald-600' : 'text-rose-600'}>
+                  <div className="bg-white/95 dark:bg-[#1C1D22]/95 backdrop-blur-xl p-3 rounded-2xl border border-black/[0.08] dark:border-white/10 shadow-xl text-slate-900 dark:text-white min-w-[150px]">
+                    <div className="text-[10px] text-slate-400 dark:text-[#8E8F99] font-medium mb-1">{label}</div>
+                    <div className="text-sm font-bold font-mono text-slate-950 dark:text-white flex items-center justify-between">
+                      <span className="text-xs text-slate-500 dark:text-[#8E8F99] font-sans font-medium">Cumulative PnL:</span>
+                      <span className={cum >= 0 ? 'text-emerald-600 dark:text-[#00D09C]' : 'text-rose-600 dark:text-[#FF453A]'}>
                         {cum >= 0 ? '+' : '-'}${Math.abs(cum).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </span>
                     </div>
                     {daily !== undefined && (
-                      <div className="text-xs font-semibold font-mono text-slate-600 flex items-center justify-between mt-1 pt-1 border-t border-black/[0.04]">
-                        <span className="text-[11px] text-slate-400 font-sans font-normal">Daily Gain:</span>
-                        <span className={daily >= 0 ? 'text-emerald-600' : 'text-rose-600'}>
+                      <div className="text-xs font-semibold font-mono text-slate-600 dark:text-slate-300 flex items-center justify-between mt-1 pt-1 border-t border-black/[0.04] dark:border-white/10">
+                        <span className="text-[11px] text-slate-400 dark:text-[#8E8F99] font-sans font-normal">Daily Gain:</span>
+                        <span className={daily >= 0 ? 'text-emerald-600 dark:text-[#00D09C]' : 'text-rose-600 dark:text-[#FF453A]'}>
                           {daily >= 0 ? '+' : '-'}${Math.abs(daily).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </span>
                       </div>

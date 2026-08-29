@@ -63,24 +63,24 @@ export function DailyWinLossBarChart({ data }: DailyWinLossBarChartProps) {
                 const trades = pt.tradesCount ?? 1;
 
                 return (
-                  <div className="bg-white/95 backdrop-blur-xl p-3.5 rounded-2xl border border-black/[0.08] shadow-xl text-slate-900 min-w-[170px]">
-                    <div className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-2 flex items-center justify-between">
+                  <div className="bg-white/95 dark:bg-[#1C1D22]/95 backdrop-blur-xl p-3.5 rounded-2xl border border-black/[0.08] dark:border-white/10 shadow-xl text-slate-900 dark:text-white min-w-[170px]">
+                    <div className="text-[10px] text-slate-400 dark:text-[#8E8F99] font-bold uppercase tracking-wider mb-2 flex items-center justify-between">
                       <span>{label}</span>
-                      <span className="font-mono text-slate-500">{trades} trades</span>
+                      <span className="font-mono text-slate-500 dark:text-[#8E8F99]">{trades} trades</span>
                     </div>
 
                     <div className="space-y-1.5 font-mono text-xs">
-                      <div className="flex items-center justify-between text-emerald-600 font-bold">
-                        <span className="font-sans text-slate-500 font-medium">Won:</span>
+                      <div className="flex items-center justify-between text-emerald-600 dark:text-[#00D09C] font-bold">
+                        <span className="font-sans text-slate-500 dark:text-[#8E8F99] font-medium">Won:</span>
                         <span>+${won.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                       </div>
-                      <div className="flex items-center justify-between text-rose-600 font-bold">
-                        <span className="font-sans text-slate-500 font-medium">Lost:</span>
+                      <div className="flex items-center justify-between text-rose-600 dark:text-[#FF453A] font-bold">
+                        <span className="font-sans text-slate-500 dark:text-[#8E8F99] font-medium">Lost:</span>
                         <span>-${Math.abs(lost).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                       </div>
-                      <div className="pt-1.5 border-t border-black/[0.06] flex items-center justify-between font-extrabold text-sm">
-                        <span className="font-sans text-slate-700 text-xs font-semibold">Net P&L:</span>
-                        <span className={net >= 0 ? 'text-emerald-600' : 'text-rose-600'}>
+                      <div className="pt-1.5 border-t border-black/[0.06] dark:border-white/10 flex items-center justify-between font-extrabold text-sm">
+                        <span className="font-sans text-slate-700 dark:text-slate-200 text-xs font-semibold">Net P&L:</span>
+                        <span className={net >= 0 ? 'text-emerald-600 dark:text-[#00D09C]' : 'text-rose-600 dark:text-[#FF453A]'}>
                           {net >= 0 ? '+' : '-'}${Math.abs(net).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </span>
                       </div>
