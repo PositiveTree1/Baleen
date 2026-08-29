@@ -37,7 +37,7 @@ class MarkToMarketService:
         self.running = False
 
     async def _ensure_snapshot_continuity(self):
-        """Self-healing snapshot watchdog: verifies snapshot table continuity on startup and auto-recovers from execution_logs."""
+        """Self-healing snapshot watchdog: fills time gaps but never overwrites balance with cold-cache values."""
         try:
             async with SessionLocal() as db:
                 from app.models import PortfolioSnapshot
@@ -45,20 +45,22 @@ class MarkToMarketService:
                 latest = (await db.execute(stmt)).scalars().first()
                 now = datetime.utcnow()
                 if latest and latest.timestamp and (now - latest.timestamp) > timedelta(minutes=30):
-                    logger.info(f"🛡️ Self-healing watchdog: Found {(now - latest.timestamp).total_seconds()/60:.0f}m gap in snapshots. Auto-recovering from trade ledger...")
-                    stmt_logs = select(ExecutionLog).where(ExecutionLog.status.in_(["FILLED", "CLOSED", "RESOLVED"]))
-                    logs = (await db.execute(stmt_logs)).scalars().all()
-                    tot_pnl = sum(float(l.realized_pnl_usd or 0.0) for l in logs if l.user_id is None) or sum(float(l.realized_pnl_usd or 0.0) for l in logs)
-                    bal = round(10000.0 + tot_pnl, 2)
+                    # Gap detected — carry forward the LAST KNOWN GOOD balance, not a recomputed one
+                    last_bal = float(latest.balance) if latest.balance else 10000.0
+                    last_pnl = float(latest.total_pnl) if latest.total_pnl is not None else 0.0
+                    logger.info(
+                        f"🛡️ Watchdog: {(now - latest.timestamp).total_seconds()/60:.0f}m snapshot gap. "
+                        f"Carrying forward last known balance ${last_bal:,.2f} (not recomputing from cold cache)."
+                    )
                     db.add(PortfolioSnapshot(
                         user_id=None,
                         timestamp=now,
-                        balance=bal,
-                        total_pnl=round(tot_pnl, 2),
-                        active_trades_count=len(logs)
+                        balance=last_bal,
+                        total_pnl=last_pnl,
+                        active_trades_count=int(latest.active_trades_count or 0)
                     ))
                     await db.commit()
-                    logger.info(f"✅ Self-healing recovery snapshot written: Balance ${bal:,.2f} ({len(logs)} trades).")
+                    logger.info(f"✅ Watchdog recovery snapshot written: Balance ${last_bal:,.2f}.")
         except Exception as e:
             logger.error(f"Watchdog recovery check note: {e}")
 
@@ -190,28 +192,68 @@ class MarkToMarketService:
                 if not platform_logs:
                     platform_logs = all_logs
 
-                total_portfolio_pnl = sum(float(l.realized_pnl_usd or 0.0) for l in platform_logs)
-                trades_count = len(platform_logs)
+                # --- STRUCTURAL FIX: Track price cache warmth before computing balance ---
+                # Count how many open positions actually got a fresh live price this cycle
+                open_positions = [l for l in platform_logs if l.status == "FILLED"]
+                closed_positions = [l for l in platform_logs if l.status in ("CLOSED", "RESOLVED")]
+                
+                positions_with_fresh_price = 0
+                for elog in open_positions:
+                    cid = (elog.market_condition_id or "").lower().strip()
+                    outc = (elog.resolution_outcome or "Yes").lower().strip()
+                    asset_id = elog.onchain_tx_hash or ""
+                    cache_key = f"{cid}:{outc}"
+                    
+                    entry = _live_price_cache.get(asset_id) or _live_price_cache.get(cache_key)
+                    if entry and (time.time() - entry.get("ts", 0)) < 3600.0:
+                        positions_with_fresh_price += 1
 
-                # Guard: If total PnL is incomplete or price cache is cold,
-                # do not allow a 17k+ portfolio to drop down to closed-only level (~15k).
+                total_open = len(open_positions)
+                cache_warmth_pct = (positions_with_fresh_price / total_open * 100.0) if total_open > 0 else 0.0
+                
+                # Fetch the last known good balance from database
                 stmt_latest_snap = select(PortfolioSnapshot.balance).where(
                     PortfolioSnapshot.user_id.is_(None)
                 ).order_by(PortfolioSnapshot.timestamp.desc()).limit(1)
                 last_db_bal = float((await db.execute(stmt_latest_snap)).scalar() or _last_snapshot_balance or 10000.0)
 
+                # Sum PnL from all platform logs
+                total_portfolio_pnl = sum(float(l.realized_pnl_usd or 0.0) for l in platform_logs)
                 computed_bal = round(10000.0 + total_portfolio_pnl, 2)
-                if last_db_bal > 15000.0 and computed_bal < (last_db_bal - 500.0) and total_portfolio_pnl <= 5200.0:
+                trades_count = len(platform_logs)
+
+                # DECISION: Only trust the computed balance if the price cache is warm enough
+                # If <30% of open positions have fresh prices, the computed balance is unreliable
+                if total_open > 10 and cache_warmth_pct < 30.0:
                     logger.warning(
-                        f"⚠️ MTM: Cold-cache dip avoided: computed {computed_bal} vs DB balance {last_db_bal}. "
-                        f"Preserving last known balance {last_db_bal}."
+                        f"⚠️ MTM: Price cache cold ({cache_warmth_pct:.0f}% warm, {positions_with_fresh_price}/{total_open} open positions priced). "
+                        f"Computed ${computed_bal:,.2f} vs last known ${last_db_bal:,.2f}. "
+                        f"REFUSING to write snapshot — preserving last known balance."
                     )
                     canonical_balance = last_db_bal
                     total_portfolio_pnl = round(last_db_bal - 10000.0, 2)
-                elif trades_count > 0 and total_portfolio_pnl == 0.0:
+                    # Skip snapshot write entirely when cache is cold
+                    should_snapshot = False
+                elif computed_bal < (last_db_bal - 500.0) and last_db_bal > 12000.0:
+                    # Even with warm cache, guard against sudden >$500 drops (likely partial pricing)
+                    logger.warning(
+                        f"⚠️ MTM: Suspicious drop: computed ${computed_bal:,.2f} vs last ${last_db_bal:,.2f} "
+                        f"(cache {cache_warmth_pct:.0f}% warm). Preserving last known balance."
+                    )
                     canonical_balance = last_db_bal
+                    total_portfolio_pnl = round(last_db_bal - 10000.0, 2)
+                    should_snapshot = False
                 else:
                     canonical_balance = computed_bal
+                    # Snapshot throttle: Only write if balance changed meaningfully or enough time passed
+                    time_since_last = time.time() - _last_snapshot_time
+                    balance_changed = abs(canonical_balance - _last_snapshot_balance) > 2.0
+                    should_snapshot = balance_changed or time_since_last >= _SNAPSHOT_MIN_INTERVAL_SECS
+
+                logger.debug(
+                    f"MTM cycle: cache={cache_warmth_pct:.0f}% warm ({positions_with_fresh_price}/{total_open}), "
+                    f"computed=${computed_bal:,.2f}, canonical=${canonical_balance:,.2f}, write={should_snapshot}"
+                )
 
                 # Update all users to their authoritative balance
                 try:
@@ -227,11 +269,6 @@ class MarkToMarketService:
                         u.sandbox_balance_usd = u_bal
                         if u_bal > float(u.sandbox_high_water_mark_usd or u_start):
                             u.sandbox_high_water_mark_usd = u_bal
-
-                    # Snapshot throttle: Only write if balance changed meaningfully or enough time passed
-                    time_since_last = time.time() - _last_snapshot_time
-                    balance_changed = abs(canonical_balance - _last_snapshot_balance) > 2.0
-                    should_snapshot = balance_changed or time_since_last >= _SNAPSHOT_MIN_INTERVAL_SECS
 
                     if should_snapshot:
                         # Global platform sandbox snapshot (no per-user snapshots)

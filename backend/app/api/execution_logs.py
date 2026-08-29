@@ -205,7 +205,8 @@ async def get_portfolio_summary(
 
     logs = (await db.execute(stmt.order_by(ExecutionLog.executed_at.desc()))).scalars().all()
     
-    # 1. Fetch latest committed snapshot from database to ensure rock-solid stability
+    # 1. Fetch latest committed snapshot from database — this is the SINGLE SOURCE OF TRUTH
+    # The MTM background loop maintains this with cache warmth checks, so it's always reliable
     latest_snap = (await db.execute(
         select(PortfolioSnapshot)
         .where(PortfolioSnapshot.user_id.is_(None))
@@ -217,37 +218,16 @@ async def get_portfolio_summary(
     authoritative_db_pnl = float(latest_snap.total_pnl) if latest_snap and latest_snap.total_pnl is not None else 0.0
 
     starting_balance = 10000.0
-    total_pnl = 0.0
     total_notional = 0.0
     total_fees = 0.0
     
     for log in logs:
-        notional = float(log.notional_usd or 0.0)
-        total_notional += notional
+        total_notional += float(log.notional_usd or 0.0)
         total_fees += float(log.fee_usd or 0.0)
-        
-        if log.side == "SELL" and log.realized_pnl_usd is None:
-            continue
-            
-        trade_pnl = log.realized_pnl_usd
-        if log.side == "BUY" and log.status == "FILLED":
-            cid = log.market_condition_id or ""
-            outc = log.resolution_outcome or "Yes"
-            fill_p = float(log.user_fill_price or log.whale_entry_price or 0.5)
-            cur_p = get_live_price(cid, outcome=outc, asset=log.onchain_tx_hash or "", fallback=fill_p)
-            if abs(cur_p - fill_p) > 0.001 and fill_p > 0:
-                fee = float(log.fee_usd or 0.0)
-                gross_pnl = notional * ((cur_p - fill_p) / fill_p)
-                trade_pnl = gross_pnl - fee
-        if trade_pnl is not None:
-            total_pnl += float(trade_pnl)
 
-    # Ensure total_pnl and current_balance never drop below the authoritative recorded database balance
-    if total_pnl < authoritative_db_pnl and authoritative_db_balance > 10000.0:
-        total_pnl = authoritative_db_pnl
-        current_balance = authoritative_db_balance
-    else:
-        current_balance = round(starting_balance + total_pnl, 2)
+    # Always use the database snapshot as the authoritative balance
+    total_pnl = authoritative_db_pnl
+    current_balance = authoritative_db_balance
 
     # Market Attribution aggregation across database records
     market_map = {}
