@@ -354,43 +354,56 @@ class LiveTradeMirrorService:
                 ))
                 return
 
-            sys_notional = round(min(max(10.0, cash_usd * 0.1 * sizing_multiplier), 350.0), 2)
+            # Conviction Mirroring Sizing: scale our bet proportionally to the whale's conviction
+            # whale_conviction = whale_trade_size / whale_portfolio_value
+            # our_trade = our_portfolio × whale_conviction × quality_multiplier
+            whale_portfolio_value = float(source_whale.all_time_pnl_usd or 500000.0) if source_whale else 500000.0
+            whale_portfolio_value = max(whale_portfolio_value, 50000.0)  # floor to prevent division explosion
+            whale_conviction = cash_usd / whale_portfolio_value
 
-            # Rule 3: Strict Cash Ceiling Guard (Max Active Open Exposure <= Settled Cash Balance)
+            # Rule 3: Fetch settled portfolio value and open exposure
+            stmt_active_notional = select(func.sum(ExecutionLog.notional_usd)).where(
+                ExecutionLog.user_id.is_(None),
+                ExecutionLog.status == "FILLED",
+                ExecutionLog.side == "BUY"
+            )
+            current_open_notional = float((await db.execute(stmt_active_notional)).scalar() or 0.0)
+
+            stmt_realized_pnl = select(func.sum(ExecutionLog.realized_pnl_usd)).where(
+                ExecutionLog.user_id.is_(None),
+                ExecutionLog.status == "CLOSED"
+            )
+            total_realized_pnl = float((await db.execute(stmt_realized_pnl)).scalar() or 0.0)
+            settled_cash = 10000.0 + total_realized_pnl
+
+            # Conviction-mirrored raw size against our settled portfolio
+            raw_conviction_size = settled_cash * whale_conviction * sizing_multiplier
+            # Soft floor: $5 minimum (noise trades not worth copying)
+            # Soft ceiling: 15% of portfolio (prevent single whale going all-in from wiping us)
+            portfolio_ceiling = settled_cash * 0.15
+            sys_notional = round(min(max(5.0, raw_conviction_size), portfolio_ceiling), 2)
+
             if side == "BUY":
-                stmt_active_notional = select(func.sum(ExecutionLog.notional_usd)).where(
-                    ExecutionLog.user_id.is_(None),
-                    ExecutionLog.status == "FILLED",
-                    ExecutionLog.side == "BUY"
-                )
-                current_open_notional = float((await db.execute(stmt_active_notional)).scalar() or 0.0)
-                
-                # Fetch settled cash: starting balance + cumulative realized PnL
-                stmt_realized_pnl = select(func.sum(ExecutionLog.realized_pnl_usd)).where(
-                    ExecutionLog.user_id.is_(None),
-                    ExecutionLog.status == "CLOSED"
-                )
-                total_realized_pnl = float((await db.execute(stmt_realized_pnl)).scalar() or 0.0)
-                settled_cash = 10000.0 + total_realized_pnl
-                
                 free_cash = max(0.0, settled_cash - current_open_notional)
-                cash_reserve_buffer = settled_cash * 0.10  # 10% cash reserve buffer (90% maximum deployed)
+                cash_reserve_buffer = settled_cash * 0.10  # 10% cash reserve
+
+                # Floating cash buffer: never hard-reject, just scale from remaining deployable cash
                 deployable_cash = max(0.0, free_cash - cash_reserve_buffer)
-                
-                if deployable_cash < 10.0:
-                    logger.info(f"🛑 10% Cash Buffer Guard: Skipping BUY on '{title[:25]}' - Active exposure ${current_open_notional:,.2f} at 90% deployable cap of Settled Cash ${settled_cash:,.2f} (10% cash reserve preserved).")
+
+                if deployable_cash < 5.0:
+                    logger.info(f"🛑 10% Cash Buffer: Skipping BUY on '{title[:25]}' - 90% deployed (${current_open_notional:,.2f} / ${settled_cash:,.2f}).")
                     from app.services.event_logger import log_event
                     asyncio.create_task(log_event(
                         "TRADE_SKIPPED_CASH_LIMIT",
                         f"Cash buffer limit: {title[:50]}",
-                        detail=f"Active capital deployed (${current_open_notional:,.2f}) reached 90% deployable cap of settled cash (${settled_cash:,.2f}). Preserving 10% cash reserve ($1,000).",
+                        detail=f"Active capital (${current_open_notional:,.2f}) at 90% cap of settled cash (${settled_cash:,.2f}). 10% reserve preserved.",
                         severity="warning",
                         related_address=wallet_address,
                         related_market=title,
                     ))
                     return
-                
-                # Adjust sizing to not exceed available free cash
+
+                # Size down to fit remaining deployable cash
                 sys_notional = round(min(sys_notional, deployable_cash), 2)
 
             fee_calc = calculate_polymarket_fee(
@@ -855,12 +868,12 @@ class LiveTradeMirrorService:
 
     async def _poll_active_whales(self):
         async with SessionLocal() as db:
-            # 1. Fetch all active basket whales
+            # 1. Dynamically select Top 35 highest-scoring whales (auto-rotation by Baleen Score)
             stmt = select(Wallet).where(
                 Wallet.status == "active",
                 Wallet.dormant == False,
                 Wallet.is_hft == False
-            )
+            ).order_by(Wallet.baleen_score.desc()).limit(35)
             active_wallets = (await db.execute(stmt)).scalars().all()
             
             # 2. Fetch any open position source wallets (even if flagged/demoted) to follow their SELL signals!
