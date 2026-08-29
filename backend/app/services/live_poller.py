@@ -131,19 +131,21 @@ class LiveTradeMirrorService:
             stmt_users = select(User)
             users = (await db.execute(stmt_users)).scalars().all()
 
-            # Prevent Naked Short Selling: If whale is selling, only mirror if we hold open long positions
+            # Prevent Naked Short Selling & Cross-Whale Interference:
+            # Only mirror a SELL if we hold open positions opened by THIS specific whale
             target_open_buys = []
             if side == "SELL":
                 stmt_open_buys = select(ExecutionLog).where(
                     ExecutionLog.market_condition_id == condition_id,
                     ExecutionLog.resolution_outcome == outcome,
+                    ExecutionLog.source_wallet_address.ilike(wallet_address),
                     ExecutionLog.side == "BUY",
                     ExecutionLog.status == "FILLED"
                 ).order_by(ExecutionLog.executed_at.asc())
                 target_open_buys = (await db.execute(stmt_open_buys)).scalars().all()
                 
                 if not target_open_buys:
-                    logger.info(f"🛡️ Position Guard: Whale {addr[:8]} sold '{title[:25]}', but sandbox portfolio holds 0 open shares. Skipping naked sell.")
+                    logger.info(f"🛡️ Position Guard: Whale {addr[:8]} sold '{title[:25]}', but sandbox portfolio holds 0 open positions from this specific whale. Preserving other whales' open positions.")
                     return
 
             # Check for sniper conviction weighting (e.g. Mr. Ozi / Gold snipers)
@@ -315,6 +317,7 @@ class LiveTradeMirrorService:
                         ExecutionLog.user_id == u.id,
                         ExecutionLog.market_condition_id == condition_id,
                         ExecutionLog.resolution_outcome == outcome,
+                        ExecutionLog.source_wallet_address.ilike(wallet_address),
                         ExecutionLog.side == "BUY",
                         ExecutionLog.status == "FILLED"
                     ).order_by(ExecutionLog.executed_at.asc())
