@@ -17,13 +17,11 @@ def simulate_fill(order_value_usd: float, order_book: dict, side: str, latency_m
     # In a real app we'd apply latency penalities (e.g., stripping best levels)
     # For now, just a basic depth walk.
     
-    levels = order_book.get("asks" if side == "BUY" else "bids", [])
+    is_buy = str(side).upper() == "BUY"
+    raw_levels = order_book.get("asks" if is_buy else "bids", [])
     
-    # Sort levels (ascending for asks, descending for bids)
-    if side == "BUY":
-        levels.sort(key=lambda x: float(x.get("price", 0)))
-    else:
-        levels.sort(key=lambda x: float(x.get("price", 0)), reverse=True)
+    # Sort levels (ascending for asks, descending for bids) without mutating caller's order book
+    levels = sorted(raw_levels, key=lambda x: float(x.get("price", 0)), reverse=not is_buy)
         
     if not levels:
         return FillResult(avg_price=0.0, total_filled=0.0, slippage_pct=0.0, levels_consumed=0)
@@ -41,12 +39,14 @@ def simulate_fill(order_value_usd: float, order_book: dict, side: str, latency_m
             
         price = float(level.get("price", 0))
         size = float(level.get("size", 0))
+        if price <= 0 or size <= 0:
+            continue
+            
         level_value = price * size
-        
         levels_consumed += 1
         
         if remaining_value <= level_value:
-            shares_taken = remaining_value / price
+            shares_taken = remaining_value / price if price > 0 else 0.0
             total_shares += shares_taken
             weighted_price_sum += shares_taken * price
             remaining_value = 0

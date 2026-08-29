@@ -70,7 +70,7 @@ def test_fill_simulator_inverted_depth_levels():
 
 
 def test_fill_simulator_in_place_mutation_vulnerability():
-    """Empirical proof: simulate_fill mutates the caller's order_book list in place!"""
+    """Verify simulate_fill does not mutate the caller's order_book list in place."""
     original_asks = [
         {"price": 0.80, "size": 10.0},
         {"price": 0.20, "size": 10.0},
@@ -82,20 +82,20 @@ def test_fill_simulator_in_place_mutation_vulnerability():
     
     simulate_fill(10.0, book, "BUY")
     
-    # BUG PROOF: The caller's dictionary list was mutated in-place by levels.sort()
-    assert book["asks"][0]["price"] == 0.20, "simulate_fill mutated caller's order book in place!"
+    # Order book immutability check: caller's list was not mutated
+    assert book["asks"][0]["price"] == 0.80, "simulate_fill should not mutate caller's order book in place!"
 
 
 def test_fill_simulator_case_sensitivity_hazard():
-    """Empirical proof: passing lowercase 'buy' causes book walker to execute against BIDS."""
+    """Verify passing lowercase 'buy' correctly executes against ASKS."""
     book = {
         "asks": [{"price": 0.55, "size": 100.0}],
         "bids": [{"price": 0.45, "size": 100.0}],
     }
     # Lowercase 'buy'
     res = simulate_fill(20.0, book, "buy")
-    # Because side == 'BUY' fails, it fetched 'bids' and executed against 0.45!
-    assert math.isclose(res.avg_price, 0.45, rel_tol=1e-5), "Lowercase 'buy' wrongly matched bids!"
+    # Case-insensitive side check ensures 'buy' matches asks at 0.55
+    assert math.isclose(res.avg_price, 0.55, rel_tol=1e-5), "Lowercase 'buy' should match asks!"
 
 
 # ============================================================================

@@ -114,7 +114,7 @@ def calculate_polymarket_fee(
             "maker_rebate_eligible": True
         }
 
-    p = max(0.001, min(0.999, float(price or 0.5)))
+    p = max(0.001, min(0.999, float(price) if price is not None else 0.5))
     
     # Dynamic Taker Fee: Fee = Theta * Notional * (1 - p)
     raw_fee = notional_usd * theta * (1.0 - p)
@@ -144,7 +144,7 @@ def calculate_fee_aware_ev_gate(price: float, market_title: str, expected_edge: 
     Returns: (should_pass: bool, fee_rate: float, min_required_edge: float)
     """
     _, theta = classify_market_category(market_title)
-    p = max(0.001, min(0.999, float(price or 0.5)))
+    p = max(0.001, min(0.999, float(price) if price is not None else 0.5))
     
     fee_rate = theta * (1.0 - p)
     min_required_edge = 2.5 * fee_rate

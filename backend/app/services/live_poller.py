@@ -348,7 +348,7 @@ class LiveTradeMirrorService:
             # Copy-trade for individual sandbox users
             for u in users:
                 whale_port_val = float(source_whale.all_time_pnl_usd or 50000.0) if source_whale else 50000.0
-                whale_trade_val = float(price * notional if notional > 0 else 500.0)
+                whale_trade_val = float(cash_usd if (cash_usd is not None and cash_usd > 0) else 500.0)
                 sizing_res = size_trade(
                     user_balance=float(u.sandbox_balance_usd or 10000.0),
                     risk_profile=str(u.risk_profile or "balanced"),
