@@ -93,6 +93,8 @@ export async function fetchWallets(params?: Record<string, string>): Promise<Wal
     const url = new URL(`${API_BASE_URL}/api/wallets`);
     if (params) {
       Object.keys(params).forEach(key => url.searchParams.append(key, params[key]));
+    } else {
+      url.searchParams.append('limit', '250');
     }
     const res = await fetch(url.toString(), { next: { revalidate: 60 } });
     if (!res.ok) return getCachedWallets() || [];

@@ -292,11 +292,27 @@ export function WalletDrawer({ address, onClose }: WalletDrawerProps) {
                       )}
                       {activeChartTab === 'pnl' && (
                         <CumulativePnLChart 
-                          data={(wallet.dailyPnLHistory || []).map(p => ({
-                            date: p.date,
-                            dailyPnL: p.dailyPnL ?? p.netPnL ?? 0,
-                            cumulativePnL: p.cumulativePnL ?? p.dailyPnL ?? 0
-                          }))} 
+                          data={(() => {
+                            if (!filteredDailyPnLHistory || filteredDailyPnLHistory.length === 0) return [];
+                            if (timeframe === 'ALL') {
+                              return filteredDailyPnLHistory.map(p => ({
+                                date: p.date,
+                                dailyPnL: p.dailyPnL ?? p.netPnL ?? 0,
+                                cumulativePnL: p.cumulativePnL ?? p.dailyPnL ?? 0
+                              }));
+                            }
+                            // Rebase cumulative PnL for selected window (1W, 1M, YTD)
+                            let running = 0;
+                            return filteredDailyPnLHistory.map(p => {
+                              const daily = p.dailyPnL ?? p.netPnL ?? 0;
+                              running += daily;
+                              return {
+                                date: p.date,
+                                dailyPnL: daily,
+                                cumulativePnL: Math.round(running * 100) / 100
+                              };
+                            });
+                          })()} 
                         />
                       )}
                       {activeChartTab === 'score' && (

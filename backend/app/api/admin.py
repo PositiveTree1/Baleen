@@ -223,7 +223,7 @@ async def hard_wipe_all_database(db: AsyncSession = Depends(get_db)):
 @router.get("/wallets")
 async def get_all_wallets(
     status: str = None,
-    limit: int = 200,
+    limit: int = 500,
     offset: int = 0,
     db: AsyncSession = Depends(get_db)
 ):
@@ -235,6 +235,9 @@ async def get_all_wallets(
     wallets = result.scalars().all()
     return [{
         "address": w.address,
+        "name": w.name,
+        "pseudonym": w.pseudonym,
+        "profileImage": w.profile_image,
         "status": w.status,
         "tier": w.tier,
         "baleenScore": w.baleen_score or 0,
