@@ -39,7 +39,7 @@ class LiveTradeMirrorService:
         self.pending_out_of_order_sells: Dict[str, List[PendingOutOfOrderSell]] = {}
         self.boundary_snipe_counts: Dict[str, int] = {}
         self.client = None
-        self.started_at = datetime.utcnow().timestamp() - 14400  # 4-hour lookback on startup
+        self.started_at = datetime.utcnow().timestamp()  # Pure real-time startup (0-second lookback)
 
     async def start(self):
         self.running = True
@@ -354,21 +354,11 @@ class LiveTradeMirrorService:
                 ))
                 return
 
-            # Conviction Mirroring Sizing: scale our bet proportionally to the whale's conviction
-            # whale_conviction = whale_trade_size / whale_portfolio_value
-            # our_trade = our_portfolio × whale_conviction × quality_multiplier
-            whale_portfolio_value = float(source_whale.all_time_pnl_usd or 500000.0) if source_whale else 500000.0
-            whale_portfolio_value = max(whale_portfolio_value, 50000.0)  # floor to prevent division explosion
-            whale_conviction = cash_usd / whale_portfolio_value
+            # SleeveManager 10-Wallet Architecture: Conviction Percentile sizing within isolated sleeve
+            from app.sizing.sleeve_manager import SleeveManager
+            import json
 
-            # Rule 3: Fetch settled portfolio value and open exposure
-            stmt_active_notional = select(func.sum(ExecutionLog.notional_usd)).where(
-                ExecutionLog.user_id.is_(None),
-                ExecutionLog.status == "FILLED",
-                ExecutionLog.side == "BUY"
-            )
-            current_open_notional = float((await db.execute(stmt_active_notional)).scalar() or 0.0)
-
+            # 1. Fetch settled portfolio value
             stmt_realized_pnl = select(func.sum(ExecutionLog.realized_pnl_usd)).where(
                 ExecutionLog.user_id.is_(None),
                 ExecutionLog.status == "CLOSED"
@@ -376,35 +366,81 @@ class LiveTradeMirrorService:
             total_realized_pnl = float((await db.execute(stmt_realized_pnl)).scalar() or 0.0)
             settled_cash = 10000.0 + total_realized_pnl
 
-            # Conviction-mirrored raw size against our settled portfolio
-            raw_conviction_size = settled_cash * whale_conviction * sizing_multiplier
-            # Soft floor: $5 minimum (noise trades not worth copying)
-            # Soft ceiling: 15% of portfolio (prevent single whale going all-in from wiping us)
-            portfolio_ceiling = settled_cash * 0.15
-            sys_notional = round(min(max(5.0, raw_conviction_size), portfolio_ceiling), 2)
+            # 2. Dynamic 10-sleeve base budget ($1,000 each on $10k/10)
+            base_sleeve_budget = SleeveManager.calculate_sleeve_budget(settled_cash, active_roster_size=10)
 
-            if side == "BUY":
-                free_cash = max(0.0, settled_cash - current_open_notional)
-                cash_reserve_buffer = settled_cash * 0.10  # 10% cash reserve
+            # 3. Fetch wallet's realized copy-PnL EMA
+            stmt_wallet_copy_pnl = select(func.sum(ExecutionLog.realized_pnl_usd)).where(
+                ExecutionLog.user_id.is_(None),
+                ExecutionLog.source_wallet_address.ilike(wallet_address),
+                ExecutionLog.status == "CLOSED"
+            )
+            wallet_copy_pnl = float((await db.execute(stmt_wallet_copy_pnl)).scalar() or 0.0)
+            
+            # Dynamic sleeve budget adjusted off our own copy-PnL EMA (floored at 0.30x = $300, capped at 1.50x = $1500)
+            adjusted_sleeve_budget = SleeveManager.calculate_adjusted_sleeve_budget(base_sleeve_budget, wallet_copy_pnl)
 
-                # Floating cash buffer: never hard-reject, just scale from remaining deployable cash
-                deployable_cash = max(0.0, free_cash - cash_reserve_buffer)
+            # 4. Fetch this specific wallet's open invested notional
+            stmt_wallet_open = select(func.sum(ExecutionLog.notional_usd)).where(
+                ExecutionLog.user_id.is_(None),
+                ExecutionLog.source_wallet_address.ilike(wallet_address),
+                ExecutionLog.status == "FILLED",
+                ExecutionLog.side == "BUY"
+            )
+            wallet_open_notional = float((await db.execute(stmt_wallet_open)).scalar() or 0.0)
 
-                if deployable_cash < 5.0:
-                    logger.info(f"🛑 10% Cash Buffer: Skipping BUY on '{title[:25]}' - 90% deployed (${current_open_notional:,.2f} / ${settled_cash:,.2f}).")
-                    from app.services.event_logger import log_event
-                    asyncio.create_task(log_event(
-                        "TRADE_SKIPPED_CASH_LIMIT",
-                        f"Cash buffer limit: {title[:50]}",
-                        detail=f"Active capital (${current_open_notional:,.2f}) at 90% cap of settled cash (${settled_cash:,.2f}). 10% reserve preserved.",
-                        severity="warning",
-                        related_address=wallet_address,
-                        related_market=title,
-                    ))
-                    return
+            # 5. Extract trailing trade sizes for this whale
+            trailing_sizes = []
+            if source_whale and source_whale.cached_daily_pnl:
+                try:
+                    d_hist = json.loads(source_whale.cached_daily_pnl)
+                    for item in d_hist:
+                        t_sz = float(item.get('won_usd') or item.get('lost_usd') or item.get('daily_pnl') or 0.0)
+                        if abs(t_sz) > 0:
+                            trailing_sizes.append(abs(t_sz))
+                except Exception:
+                    trailing_sizes = []
 
-                # Size down to fit remaining deployable cash
-                sys_notional = round(min(sys_notional, deployable_cash), 2)
+            # 6. Size the trade within the isolated wallet sleeve using Conviction Percentile
+            sizing_res = SleeveManager.size_sleeve_trade(
+                wallet_address=wallet_address,
+                whale_trade_size_usd=cash_usd,
+                sleeve_budget_usd=adjusted_sleeve_budget,
+                open_notional_usd=wallet_open_notional,
+                trailing_sizes=trailing_sizes,
+                min_trade_usd=5.0,
+                quality_multiplier=sizing_multiplier
+            )
+
+            if side == "BUY" and sizing_res.status != "SUCCESS":
+                logger.info(f"🛑 Sleeve Cap: Skipping BUY on '{title[:25]}' - {sizing_res.status} (Sleeve rem: ${sizing_res.sleeve_remaining_usd:,.2f}).")
+                from app.services.event_logger import log_event
+                asyncio.create_task(log_event(
+                    "TRADE_SKIPPED_SLEEVE",
+                    f"Sleeve limit: {title[:50]}",
+                    detail=f"Status: {sizing_res.status}. Sleeve remaining: ${sizing_res.sleeve_remaining_usd:,.2f} / ${adjusted_sleeve_budget:,.2f}. Capture rate: {sizing_res.capture_rate_pct}%.",
+                    severity="warning",
+                    related_address=wallet_address,
+                    related_market=title,
+                ))
+                return
+
+            sys_notional = sizing_res.actual_size_usd if side == "BUY" else round(min(max(5.0, cash_usd * 0.1), 350.0), 2)
+
+            # Log clipping event if signal was trimmed due to sleeve capacity
+            if side == "BUY" and sizing_res.is_clipped:
+                from app.services.event_logger import log_event
+                asyncio.create_task(log_event(
+                    "TRADE_CLIPPED_SLEEVE",
+                    f"Signal clipped: {title[:50]}",
+                    detail=f"Intended: ${sizing_res.intended_size_usd:,.2f}, Actual: ${sizing_res.actual_size_usd:,.2f} ({sizing_res.capture_rate_pct}% capture rate). Conviction percentile: {sizing_res.conviction_percentile*100:.1f}%.",
+                    severity="info",
+                    related_address=wallet_address,
+                    related_market=title,
+                ))
+
+            # Record fill slippage in basis points
+            slippage_bps = round(abs(effective_fill_price - price) / max(price, 0.001) * 10000.0, 1)
 
             fee_calc = calculate_polymarket_fee(
                 notional_usd=sys_notional,
@@ -868,12 +904,12 @@ class LiveTradeMirrorService:
 
     async def _poll_active_whales(self):
         async with SessionLocal() as db:
-            # 1. Dynamically select Top 35 highest-scoring whales (auto-rotation by Baleen Score)
+            # 1. Dynamically select Top 10 highest-scoring whales (auto-rotation by Baleen Score)
             stmt = select(Wallet).where(
                 Wallet.status == "active",
                 Wallet.dormant == False,
                 Wallet.is_hft == False
-            ).order_by(Wallet.baleen_score.desc()).limit(35)
+            ).order_by(Wallet.baleen_score.desc()).limit(10)
             active_wallets = (await db.execute(stmt)).scalars().all()
             
             # 2. Fetch any open position source wallets (even if flagged/demoted) to follow their SELL signals!

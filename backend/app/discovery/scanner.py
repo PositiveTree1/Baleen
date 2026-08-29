@@ -389,17 +389,22 @@ async def evaluate_pending_wallets(db: AsyncSession):
                 scoring = score_wallet(stats)
                 is_valid = scoring.status == "active"
                 reason = scoring.rejection_reason
-                baleen_score = compute_baleen_score(stats)
-                
-                if stats.get('trades_count', 0) < 5:
+                has_history = bool(stats.get('daily_pnl_history') and len(stats.get('daily_pnl_history')) > 0)
+
+                if not has_history or stats.get('trades_count', 0) < 5:
                     wallet.status = 'rejected'
                     wallet.tier = 'rejected'
-                    wallet.rejection_reason = f"Insufficient on-chain trading history ({stats.get('trades_count', 0)} trades < 5 minimum required)"
+                    wallet.rejection_reason = "No verifiable on-chain trade history from Polymarket API"
                     discovery_state["rejected"] += 1
                 elif stats['all_time_pnl_usd'] < 50000.0 or stats['all_time_pnl_usd'] > 22000000.0:
                     wallet.status = 'rejected'
                     wallet.tier = 'rejected'
                     wallet.rejection_reason = f'All-time Polymarket realized PnL (${stats["all_time_pnl_usd"]:,.0f}) is outside verified whale threshold ($50k - $22M)'
+                    discovery_state["rejected"] += 1
+                elif stats['outlier_concentration_pct'] > 0.25:
+                    wallet.status = 'rejected'
+                    wallet.tier = 'rejected'
+                    wallet.rejection_reason = f'Market concentration too high ({stats["outlier_concentration_pct"]*100:.1f}% > 25% max single trade PnL)'
                     discovery_state["rejected"] += 1
                 elif stats['win_rate_pct'] < 55.0:
                     wallet.status = 'rejected'

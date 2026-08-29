@@ -1,124 +1,202 @@
+import math
+import logging
+from typing import List, Dict, Set, Optional
+from datetime import datetime
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, update
 from app.models import Wallet
 from app.scoring.engine import score_wallet
-import logging
-from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
 def compute_baleen_score(stats: dict) -> float:
     """
-    Computes Baleen Score (0 - 100) with Consistency as the dominant factor.
-    - PnL Score: up to 15 points
-    - Win Rate Score: up to 20 points
-    - Multi-Horizon Consistency Factor: up to 40 points (1-day, 3-day, 7-day, 30-day rolling wins)
-    - Drawdown Shield: up to 15 points
-    - Trade Volume Confidence Bonus: up to 10 points
+    5-Factor Quantitative Composite Whale Scoring (0 - 100):
+    1. Risk-Adjusted Return (Sortino / Sharpe on Trade PnL series) — 25 pts
+    2. Odds-Weighted Calibration / Brier Edge — 25 pts
+    3. Category Breadth / Multi-Market Edge — 20 pts
+    4. Recency-Weighted Momentum / EMA — 15 pts
+    5. Copyability & Liquidity Score — 15 pts
     """
-    pnl = stats.get('all_time_pnl_usd', 0) or 0
-    win_rate = stats.get('win_rate_pct', 0) or 0
-    drawdown = stats.get('max_drawdown_pct', 100) or 100
+    pnl = float(stats.get('all_time_pnl_usd', 0) or 0)
+    win_rate = float(stats.get('win_rate_pct', 0) or 0)
+    drawdown = float(stats.get('max_drawdown_pct', 10) or 10)
     daily_history = stats.get('daily_pnl_history') or []
-    trades_count = stats.get('trades_count', 0) or 0
+    trades_count = int(stats.get('trades_count', 0) or stats.get('total_trades_analyzed', 0) or 0)
+    category_count = int(stats.get('category_count', 3) or 3)
+    avg_price = float(stats.get('avg_entry_price', 0.50) or 0.50)
 
-    # 1. PnL Score (15 pts max) — proves profitability, but no longer dominant
-    pnl_score = min(max(0.0, pnl) / 500000.0, 1.0) * 15.0
-
-    # 2. Win Rate Score (20 pts max)
-    wr_score = min(max(0.0, win_rate) / 100.0, 1.0) * 20.0
-
-    # 3. Drawdown Shield (15 pts max) — rewards tight risk management
-    dd_score = max(1.0 - drawdown / 40.0, 0.0) * 15.0
-
-    # 4. Trade Volume Confidence Bonus (10 pts max)
-    # Whales with 200+ resolved trades get full points; fewer trades = less confidence
-    volume_score = min(trades_count / 200.0, 1.0) * 10.0
-
-    # 5. Multi-Horizon Consistency Evaluation (40 pts max) — THE DOMINANT FACTOR
-    if daily_history and len(daily_history) >= 3:
+    # ---------------------------------------------------------
+    # FACTOR 1: Risk-Adjusted Return (Sortino Ratio) — 25 points
+    # ---------------------------------------------------------
+    sortino_score = 15.0  # default baseline
+    if daily_history and len(daily_history) >= 5:
         nets = [float(h.get('net_pnl') or h.get('daily_pnl') or 0.0) for h in daily_history]
+        mean_pnl = sum(nets) / len(nets)
+        downside_sq = [min(0.0, n)**2 for n in nets]
+        downside_dev = math.sqrt(sum(downside_sq) / len(downside_sq)) if downside_sq else 1.0
 
-        # 1-day win ratio: what fraction of individual trading days are profitable?
-        pos_1d = sum(1 for n in nets if n > 0)
-        tot_1d = sum(1 for n in nets if n != 0) or 1
-        r_1d = pos_1d / tot_1d
-
-        # 3-day rolling window: are they profitable across every 3-day stretch?
-        r_3d_wins = 0
-        r_3d_tot = 0
-        for i in range(len(nets) - 2):
-            r_3d_tot += 1
-            if sum(nets[i:i+3]) > 0:
-                r_3d_wins += 1
-        r_3d = (r_3d_wins / r_3d_tot) if r_3d_tot > 0 else r_1d
-
-        # 7-day rolling window: are they profitable across every week?
-        r_7d_wins = 0
-        r_7d_tot = 0
-        for i in range(len(nets) - 6):
-            r_7d_tot += 1
-            if sum(nets[i:i+7]) > 0:
-                r_7d_wins += 1
-        r_7d = (r_7d_wins / r_7d_tot) if r_7d_tot > 0 else r_3d
-
-        # 30-day rolling window: are they profitable across every month?
-        r_30d_wins = 0
-        r_30d_tot = 0
-        for i in range(len(nets) - 29):
-            r_30d_tot += 1
-            if sum(nets[i:i+30]) > 0:
-                r_30d_wins += 1
-        r_30d = (r_30d_wins / r_30d_tot) if r_30d_tot > 0 else r_7d
-
-        consistency_factor = (r_1d * 0.20) + (r_3d * 0.25) + (r_7d * 0.30) + (r_30d * 0.25)
+        if downside_dev > 0:
+            sortino_ratio = max(0.0, mean_pnl / downside_dev)
+            # Sortino > 2.0 is institutional grade
+            sortino_score = min(25.0, sortino_ratio * 10.0)
+        else:
+            sortino_score = 25.0 if mean_pnl > 0 else 5.0
     else:
-        # Fallback for whales with very short history — penalize lack of data
-        consistency_factor = min(1.0, (win_rate / 100.0) * 0.65)
+        # Fallback to drawdown-penalized PnL score
+        dd_shield = max(0.0, 1.0 - (drawdown / 30.0))
+        pnl_component = min(1.0, max(0.0, pnl) / 500000.0)
+        sortino_score = (dd_shield * 15.0) + (pnl_component * 10.0)
 
-    consistency_score = round(consistency_factor * 40.0, 1)
+    # ---------------------------------------------------------
+    # FACTOR 2: Odds-Weighted Calibration / Brier Edge — 25 points
+    # ---------------------------------------------------------
+    # A 65% win rate buying 40% underdogs is vastly superior to 65% buying 85% favorites!
+    implied_prob = max(0.10, min(0.90, avg_price))
+    actual_prob = win_rate / 100.0
+    calibration_edge = actual_prob - implied_prob
 
-    total_score = pnl_score + wr_score + dd_score + volume_score + consistency_score
+    if calibration_edge > 0:
+        # +15% edge over market odds gets full 25 points
+        odds_score = min(25.0, 10.0 + (calibration_edge / 0.15) * 15.0)
+    else:
+        # Penalize negative edge over market odds
+        odds_score = max(5.0, 10.0 + (calibration_edge / 0.15) * 10.0)
+
+    # ---------------------------------------------------------
+    # FACTOR 3: Category Breadth & Non-Concentration — 20 points
+    # ---------------------------------------------------------
+    # Whales whose edge spans Politics, Sports, Tech, Macro get full points
+    if category_count >= 4:
+        breadth_score = 20.0
+    elif category_count == 3:
+        breadth_score = 16.0
+    elif category_count == 2:
+        breadth_score = 12.0
+    else:
+        breadth_score = 8.0
+
+    # ---------------------------------------------------------
+    # FACTOR 4: Recency-Weighted Performance (30-Day EMA) — 15 points
+    # ---------------------------------------------------------
+    if daily_history and len(daily_history) >= 10:
+        # Last 30 daily data points vs all-time
+        recent_30 = daily_history[-30:] if len(daily_history) >= 30 else daily_history
+        recent_pos = sum(1 for h in recent_30 if float(h.get('net_pnl') or h.get('daily_pnl') or 0) > 0)
+        recent_win_rate = (recent_pos / len(recent_30)) if recent_30 else 0.5
+        recency_score = min(15.0, max(3.0, (recent_win_rate / 0.75) * 15.0))
+    else:
+        # Volume-weighted track record bonus
+        track_bonus = min(1.0, trades_count / 150.0)
+        recency_score = 5.0 + (track_bonus * 10.0)
+
+    # ---------------------------------------------------------
+    # FACTOR 5: Copyability & Liquidity Score — 15 points
+    # ---------------------------------------------------------
+    # Rewards thick liquid order books and reasonable trade counts
+    is_hft = stats.get('is_hft', False)
+    avg_trades_day = float(stats.get('avg_trades_per_day', 5) or 5)
+    
+    if is_hft or avg_trades_day > 80:
+        copyability_score = 4.0
+    elif avg_trades_day > 30:
+        copyability_score = 9.0
+    else:
+        copyability_score = 15.0
+
+    total_score = sortino_score + odds_score + breadth_score + recency_score + copyability_score
     return round(min(100.0, max(0.0, total_score)), 1)
 
+def select_top_10_roster(
+    candidates: List[Wallet], 
+    current_incumbent_addresses: Optional[Set[str]] = None,
+    hysteresis_buffer: float = 5.0
+) -> List[Wallet]:
+    """
+    Roster Selection with 5-Point Hysteresis:
+    Incumbent active whales receive a +5.0 point incumbency defense buffer during ranking.
+    A challenger on the bench must beat the incumbent by >= 5.0 points to displace it,
+    completely eliminating frivolous roster churn.
+    """
+    incumbents = set(a.lower() for a in (current_incumbent_addresses or set()))
+
+    def ranking_key(w: Wallet) -> float:
+        base_score = float(w.baleen_score or 0.0)
+        is_incumbent = w.address.lower() in incumbents
+        # Incumbent defense bonus
+        defense_bonus = hysteresis_buffer if is_incumbent else 0.0
+        # Tier bonus: Gold Snipers get secondary boost
+        gold_boost = 3.0 if w.tier == "gold_sniper" else 0.0
+        return base_score + defense_bonus + gold_boost
+
+    # Sort descending by effective score
+    sorted_roster = sorted(candidates, key=ranking_key, reverse=True)
+    return sorted_roster[:10]
+
 async def get_active_basket(db: AsyncSession) -> list[Wallet]:
-    """Returns active, non-dormant wallets."""
+    """Returns the Top 10 active, non-dormant roster wallets."""
     stmt = select(Wallet).where(
         Wallet.status == "active",
-        Wallet.dormant == False
-    )
+        Wallet.dormant == False,
+        Wallet.is_hft == False
+    ).order_by(Wallet.baleen_score.desc()).limit(10)
     result = await db.execute(stmt)
     return result.scalars().all()
 
 async def refresh_basket(db: AsyncSession):
     """
-    Rescore all tracked wallets, update statuses.
-    A wallet dropping below gold tier gets status='rejected'
-    Dormant wallets stay active but excluded from N_active count (handled by get_active_basket).
+    24-Hour Rescore Cadence with 5-Point Hysteresis:
+    Rescores all qualifying wallets and updates active Top 10 roster.
     """
-    stmt = select(Wallet).where(Wallet.status.in_(["active", "pending"]))
-    result = await db.execute(stmt)
-    wallets = result.scalars().all()
+    # 1. Fetch current active incumbent addresses
+    stmt_active = select(Wallet.address).where(Wallet.status == "active")
+    current_active_addrs = set((await db.execute(stmt_active)).scalars().all())
 
+    # 2. Fetch all tracked and active wallets
+    stmt_all = select(Wallet).where(Wallet.status.in_(["active", "tracked"]))
+    wallets = (await db.execute(stmt_all)).scalars().all()
+
+    import json
     for wallet in wallets:
+        daily_hist = []
+        if wallet.cached_daily_pnl:
+            try:
+                daily_hist = json.loads(wallet.cached_daily_pnl)
+            except Exception:
+                daily_hist = []
+
         stats = {
             'all_time_pnl_usd': wallet.all_time_pnl_usd,
             'avg_trades_per_day': wallet.avg_trades_per_day,
             'outlier_concentration_pct': wallet.outlier_concentration_pct,
             'win_rate_pct': wallet.win_rate_pct,
             'max_drawdown_pct': wallet.max_drawdown_pct,
+            'trades_count': wallet.total_trades_analyzed,
+            'daily_pnl_history': daily_hist,
+            'is_hft': wallet.is_hft,
+            'has_no_history': bool(not daily_hist and not wallet.all_time_pnl_usd)
         }
         
-        # Only valid stats should be scored
-        if stats['all_time_pnl_usd'] is None:
-            continue
-            
         score_res = score_wallet(stats)
-        
-        wallet.status = score_res.status
-        wallet.tier = score_res.tier
-        wallet.rejection_reason = score_res.rejection_reason
-        wallet.baleen_score = compute_baleen_score(stats)
+        if score_res.status == "rejected":
+            wallet.status = "rejected"
+            wallet.tier = "rejected"
+            wallet.rejection_reason = score_res.rejection_reason
+        else:
+            wallet.tier = score_res.tier
+            wallet.baleen_score = compute_baleen_score(stats)
         wallet.last_scored_at = datetime.utcnow()
 
+    # 3. Select Top 10 Roster with Hysteresis
+    qualifying_wallets = [w for w in wallets if w.status != "rejected" and not w.dormant]
+    top_10 = select_top_10_roster(qualifying_wallets, current_incumbent_addresses=current_active_addrs, hysteresis_buffer=5.0)
+    top_10_addrs = set(w.address.lower() for w in top_10)
+
+    for w in qualifying_wallets:
+        if w.address.lower() in top_10_addrs:
+            w.status = "active"
+        else:
+            w.status = "tracked"
+
     await db.commit()
+    logger.info(f"24h Roster Rescore Complete: {len(top_10)} active whales in Top 10 roster.")
