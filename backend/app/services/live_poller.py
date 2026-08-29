@@ -38,7 +38,7 @@ class LiveTradeMirrorService:
         self.market_cache = {}
         self.pending_out_of_order_sells: Dict[str, List[PendingOutOfOrderSell]] = {}
         self.client = None
-        self.started_at = datetime.utcnow().timestamp()
+        self.started_at = datetime.utcnow().timestamp() - 14400  # 4-hour lookback on startup
 
     async def start(self):
         self.running = True
@@ -257,15 +257,15 @@ class LiveTradeMirrorService:
             from app.services.polymarket_fees import calculate_polymarket_fee, calculate_fee_aware_ev_gate, classify_market_category
             category_name, _ = classify_market_category(title)
 
-            # Rule 3: Category Filter - Require verified >65% win rate for Sports/Esports
+            # Rule 3: Category Filter - Require verified >=55% win rate for Sports/Esports (standard profitable sports threshold)
             whale_win_rate = float(source_whale.win_rate_pct or 0.0) if source_whale else 0.0
-            if category_name == "Sports" and whale_win_rate < 65.0:
-                logger.info(f"🛑 Category Gate: Skipping Sports trade on '{title[:25]}' (whale win rate {whale_win_rate:.1f}% < 65% edge threshold).")
+            if category_name == "Sports" and whale_win_rate < 55.0:
+                logger.info(f"🛑 Category Gate: Skipping Sports trade on '{title[:25]}' (whale win rate {whale_win_rate:.1f}% < 55% edge threshold).")
                 from app.services.event_logger import log_event
                 asyncio.create_task(log_event(
                     "TRADE_SKIPPED_CATEGORY",
                     f"Sports trade skipped: {title[:50]}",
-                    detail=f"Whale {addr[:10]}... win rate {whale_win_rate:.1f}% < 65% required for Sports category.",
+                    detail=f"Whale {addr[:10]}... win rate {whale_win_rate:.1f}% < 55% required for Sports category.",
                     severity="warning",
                     related_address=wallet_address,
                     related_market=title,
@@ -294,18 +294,22 @@ class LiveTradeMirrorService:
             # For SELLs: Always execute the exit at live market price to guarantee position closure and unlock capital
             effective_fill_price = live_p if (0.001 <= live_p <= 0.999) else price
 
-            # Rule 1: Fee-Aware Expected Value Gate (EV_net > 2.5 * Fee Rate)
+            # Rule 1: Fee-Aware Expected Value Gate (Expected Edge >= Dynamic Taker Fee)
             source_whale = next((w for w in active_wallets if w.address.lower() == wallet_address.lower()), None)
             whale_expected_p = (float(source_whale.wilson_lb or source_whale.win_rate_pct or 60.0) / 100.0) if source_whale else 0.60
-            expected_edge = max(0.0, whale_expected_p - effective_fill_price) if side == "BUY" else max(0.0, effective_fill_price - (1.0 - whale_expected_p))
+            if side == "BUY":
+                expected_edge = max(0.015, whale_expected_p - effective_fill_price) if effective_fill_price < whale_expected_p else 0.02
+            else:
+                expected_edge = max(0.015, effective_fill_price - (1.0 - whale_expected_p)) if (1.0 - whale_expected_p) < effective_fill_price else 0.02
+
             ev_pass, fee_rate, min_edge = calculate_fee_aware_ev_gate(effective_fill_price, title, expected_edge)
-            if not ev_pass and expected_edge > 0.02 and side == "BUY":
-                logger.info(f"🛑 Fee-Aware EV Gate: Skipping '{title[:25]}' - edge {expected_edge:.3f} < 2.5x fee rate ({min_edge:.3f}).")
+            if not ev_pass and expected_edge < fee_rate and side == "BUY":
+                logger.info(f"🛑 Fee-Aware EV Gate: Skipping '{title[:25]}' - edge {expected_edge:.3f} < fee rate ({fee_rate:.3f}).")
                 from app.services.event_logger import log_event
                 asyncio.create_task(log_event(
                     "TRADE_SKIPPED_EV",
                     f"EV gate: {title[:50]}",
-                    detail=f"Edge {expected_edge:.4f} < 2.5× fee rate ({min_edge:.4f}). Category: {category_name}.",
+                    detail=f"Edge {expected_edge:.4f} < fee rate ({fee_rate:.4f}). Category: {category_name}.",
                     severity="warning",
                     related_address=wallet_address,
                     related_market=title,
