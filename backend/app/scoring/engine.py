@@ -18,8 +18,8 @@ def score_wallet(wallet_stats: dict) -> ScoringResult:
     win_rate = wallet_stats.get('win_rate_pct', 0)
     max_drawdown = wallet_stats.get('max_drawdown_pct', 0)
 
-    # FILTER 1: Minimum realized PnL >= $25,000
-    if pnl < 25000:
+    # FILTER 1: Minimum realized PnL >= $50,000
+    if pnl < 50000:
         return ScoringResult("rejected", None, "PNL_BELOW_THRESHOLD", False)
 
     # FILTER 2: Anti-HFT (reject automated market maker bots >100 trades/day)
