@@ -160,39 +160,7 @@ class LiveTradeMirrorService:
             from app.services.mark_to_market import get_consensus, get_live_price
             consensus = get_consensus(condition_id)
             consensus_multiplier = 1.5 if consensus.get("is_consensus") else 1.0
-
-            # Dynamic Streak Multiplier: Dampen sizing on consecutive losses, scale up on win momentum
-            stmt_recent_closed = select(ExecutionLog.realized_pnl_usd).where(
-                ExecutionLog.source_wallet_address.ilike(wallet_address),
-                ExecutionLog.status == "CLOSED",
-                ExecutionLog.side == "BUY",
-                ExecutionLog.realized_pnl_usd.is_not(None)
-            ).order_by(ExecutionLog.executed_at.desc()).limit(5)
-            recent_closed_pnls = (await db.execute(stmt_recent_closed)).scalars().all()
-
-            consecutive_losses = 0
-            for pnl_item in recent_closed_pnls:
-                if float(pnl_item) < 0:
-                    consecutive_losses += 1
-                else:
-                    break
-
-            consecutive_wins = 0
-            for pnl_item in recent_closed_pnls:
-                if float(pnl_item) > 0:
-                    consecutive_wins += 1
-                else:
-                    break
-
-            streak_multiplier = 1.0
-            if consecutive_losses >= 3:
-                streak_multiplier = 0.50  # 50% capital reduction during a drawdown
-            elif consecutive_losses == 2:
-                streak_multiplier = 0.75  # 25% reduction on 2 losses
-            elif consecutive_wins >= 3:
-                streak_multiplier = 1.25  # 25% conviction boost on winning streaks
-
-            sizing_multiplier = consensus_multiplier * sniper_multiplier * streak_multiplier
+            sizing_multiplier = consensus_multiplier * sniper_multiplier
 
             # Category & Fee Evaluation
             from app.services.polymarket_fees import calculate_polymarket_fee, calculate_fee_aware_ev_gate, classify_market_category

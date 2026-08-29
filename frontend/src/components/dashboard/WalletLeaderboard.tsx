@@ -78,6 +78,7 @@ export function WalletLeaderboard({ userId, onSelectWallet }: WalletLeaderboardP
         wins: c.wins ?? 0,
         losses: c.losses ?? 0,
         tier: c.tier || 'standard',
+        copyRatePct: c.copyRatePct ?? 100,
       })).sort((a, b) => b.mirroredPnl - a.mirroredPnl);
     }
 
@@ -250,7 +251,7 @@ export function WalletLeaderboard({ userId, onSelectWallet }: WalletLeaderboardP
                     </div>
                     <span className="text-[11px] text-slate-500 dark:text-[#8E8F99] font-mono block truncate">
                       {isCopiedTab
-                        ? `${fillsCount} Copied Fill${fillsCount === 1 ? '' : 's'}`
+                        ? `${fillsCount} Fills • ${w.copyRatePct ?? 100}% Copy Rate`
                         : `${formatWinRate(winRate)} Win Rate${fillsCount > 0 ? ` • ${fillsCount} Fills` : ''}`}
                     </span>
                   </div>

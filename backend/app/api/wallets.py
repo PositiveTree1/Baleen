@@ -140,6 +140,8 @@ async def get_copied_wallet_stats(
         roi = (stats["net_pnl"] / stats["total_notional"] * 100.0) if stats["total_notional"] > 0 else 0.0
 
         disp_name = (w_obj.name if w_obj and w_obj.name else (w_obj.pseudonym if w_obj and w_obj.pseudonym else None))
+        total_analyzed = w_obj.total_trades_analyzed if (w_obj and w_obj.total_trades_analyzed and w_obj.total_trades_analyzed > 0) else max(stats["trades_copied"], 1)
+        copy_rate = round(min(100.0, max(1.0, (stats["trades_copied"] / max(stats["trades_copied"], total_analyzed)) * 100.0)), 1)
 
         results.append({
             "address": stats["address"],
@@ -159,6 +161,7 @@ async def get_copied_wallet_stats(
             "profitFactor": round(pf, 2),
             "wins": stats["wins"],
             "losses": stats["losses"],
+            "copyRatePct": copy_rate,
         })
 
     results.sort(key=lambda r: r["netPnl"], reverse=True)
