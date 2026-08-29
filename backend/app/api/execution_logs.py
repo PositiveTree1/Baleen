@@ -374,18 +374,18 @@ async def get_portfolio_snapshots(
         fallback_stmt = select(PortfolioSnapshot).where(user_filter).order_by(PortfolioSnapshot.timestamp.desc()).limit(2)
         rows = list(reversed((await db.execute(fallback_stmt)).scalars().all()))
 
-    # High-fidelity bucketing: Preserve every peak and valley without smoothing out intra-hour spikes
-    if len(rows) > 300:
+    # Fixed time-interval bucketing so past historical points NEVER shift or jitter
+    if len(rows) > 60:
         if tf in ("all", "1m", "ytd"):
-            bucket_secs = 300   # 5-minute high-fidelity buckets
+            bucket_secs = 3600  # 1-hour buckets for all-time
         elif tf == "1w":
-            bucket_secs = 180   # 3-min buckets for 1 week
+            bucket_secs = 1800  # 30-min buckets for 1 week
         elif tf == "1d":
-            bucket_secs = 60    # 1-min buckets for 1 day
+            bucket_secs = 900   # 15-min buckets for 1 day
         elif tf == "6h":
-            bucket_secs = 30    # 30-sec buckets for 6 hours
+            bucket_secs = 300   # 5-min buckets for 6 hours
         else:
-            bucket_secs = 15    # 15-sec buckets for 1 hour
+            bucket_secs = 60    # 1-min buckets for 1 hour
 
         bucketed_rows = []
         seen_buckets = set()
@@ -406,8 +406,13 @@ async def get_portfolio_snapshots(
 
     result = []
     for i, r in enumerate(rows):
+        is_latest = (i == len(rows) - 1)
         ts = r.timestamp
-        ts_clean = ts
+        if ts and not is_latest and tf in ("all", "1m", "ytd"):
+            # Cleanly floor historical hours to :00
+            ts_clean = ts.replace(minute=0, second=0, microsecond=0)
+        else:
+            ts_clean = ts
 
         result.append({
             "id": str(r.id),
