@@ -110,7 +110,12 @@ class MarkToMarketService:
                     }
 
                 # 2. Batch fetch live prices across active markets from Gamma API
-                all_cids = list({row[0].strip() for row in all_active_rows if row[0] and len(str(row[0]).strip()) > 5})
+                active_cids_stmt = select(ExecutionLog.market_condition_id).where(
+                    ExecutionLog.status == "FILLED",
+                    ExecutionLog.market_condition_id.is_not(None)
+                ).distinct()
+                all_active_rows = (await db.execute(active_cids_stmt)).all()
+                all_cids = list({str(row[0]).strip() for row in all_active_rows if row[0] and len(str(row[0]).strip()) > 5})
                 if all_cids:
                     try:
                         batch_prices = await client.fetch_batch_live_prices(all_cids[:150])
