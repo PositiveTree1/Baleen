@@ -17,7 +17,14 @@ export function WalletLeaderboard({ userId, onSelectWallet }: WalletLeaderboardP
   const [evaluating, setEvaluating] = useState(false);
   const [progress, setProgress] = useState<any>(null);
   const [search, setSearch] = useState('');
-  const [tab, setTab] = useState<'copied' | 'all' | 'gold'>('copied');
+  const [tab, setTab] = useState<'copied' | 'top35' | 'all'>('copied');
+
+  const top35Addresses = useMemo(() => {
+    const sorted = [...wallets]
+      .filter((w) => w.tier !== 'dormant' && !w.dormant)
+      .sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
+    return new Set(sorted.slice(0, 35).map((w) => (w.address || '').toLowerCase()));
+  }, [wallets]);
 
   const load = async () => {
     const [walletsData, logsData, copiedData] = await Promise.all([
@@ -119,7 +126,7 @@ export function WalletLeaderboard({ userId, onSelectWallet }: WalletLeaderboardP
 
   const filteredWallets = wallets.filter((w) => {
     if (search && !w.address.toLowerCase().includes(search.toLowerCase()) && !(w.name || '').toLowerCase().includes(search.toLowerCase())) return false;
-    if (tab === 'gold') return w.tier === 'gold_sniper';
+    if (tab === 'top35') return top35Addresses.has((w.address || '').toLowerCase());
     return true;
   });
 
@@ -136,7 +143,7 @@ export function WalletLeaderboard({ userId, onSelectWallet }: WalletLeaderboardP
       <div className="flex items-center justify-between">
         <div>
           <h3 className="text-base font-bold text-slate-950 dark:text-white tracking-tight">Active Index Whales</h3>
-          <p className="text-xs text-slate-500 dark:text-[#8E8F99]">Mirrored Polymarket accounts</p>
+          <p className="text-xs text-slate-500 dark:text-[#8E8F99]">Top 35 live mirrored accounts</p>
         </div>
         <button
           onClick={handleReevaluate}
@@ -163,21 +170,21 @@ export function WalletLeaderboard({ userId, onSelectWallet }: WalletLeaderboardP
         <div className="flex rounded-full bg-[#F1F3F5] dark:bg-[#1C1D22] p-0.5 border border-black/[0.04] dark:border-white/5 text-[11px] font-bold justify-between sm:justify-start shrink-0">
           <button
             onClick={() => setTab('copied')}
-            className={`flex-1 sm:flex-initial px-3.5 py-1.5 rounded-full transition-all text-center ${tab === 'copied' ? 'bg-white dark:bg-[#2C2D35] text-slate-950 dark:text-white shadow-2xs' : 'text-slate-500 dark:text-[#8E8F99]'}`}
+            className={`flex-1 sm:flex-initial px-3 py-1.5 rounded-full transition-all text-center ${tab === 'copied' ? 'bg-white dark:bg-[#2C2D35] text-slate-950 dark:text-white shadow-2xs' : 'text-slate-500 dark:text-[#8E8F99]'}`}
           >
             Copied
           </button>
           <button
-            onClick={() => setTab('gold')}
-            className={`flex-1 sm:flex-initial px-3.5 py-1.5 rounded-full transition-all text-center ${tab === 'gold' ? 'bg-white dark:bg-[#2C2D35] text-slate-950 dark:text-white shadow-2xs' : 'text-slate-500 dark:text-[#8E8F99]'}`}
+            onClick={() => setTab('top35')}
+            className={`flex-1 sm:flex-initial px-3 py-1.5 rounded-full transition-all text-center ${tab === 'top35' ? 'bg-white dark:bg-[#2C2D35] text-slate-950 dark:text-white shadow-2xs' : 'text-slate-500 dark:text-[#8E8F99]'}`}
           >
-            Gold
+            Top 35 Active
           </button>
           <button
             onClick={() => setTab('all')}
-            className={`flex-1 sm:flex-initial px-3.5 py-1.5 rounded-full transition-all text-center ${tab === 'all' ? 'bg-white dark:bg-[#2C2D35] text-slate-950 dark:text-white shadow-2xs' : 'text-slate-500 dark:text-[#8E8F99]'}`}
+            className={`flex-1 sm:flex-initial px-3 py-1.5 rounded-full transition-all text-center ${tab === 'all' ? 'bg-white dark:bg-[#2C2D35] text-slate-950 dark:text-white shadow-2xs' : 'text-slate-500 dark:text-[#8E8F99]'}`}
           >
-            All
+            All Tracked
           </button>
         </div>
       </div>
@@ -214,12 +221,15 @@ export function WalletLeaderboard({ userId, onSelectWallet }: WalletLeaderboardP
             const winRate = w.winRate ?? 0.0;
             const isGold = (w.tier === 'gold_sniper');
             const fillsCount = w.fillsCount ?? 0;
+            const isTop35 = top35Addresses.has((w.address || '').toLowerCase());
 
             return (
               <div
                 key={w.address}
                 onClick={() => onSelectWallet(w.address)}
-                className="pt-2 flex items-center justify-between p-2 rounded-2xl hover:bg-slate-50 dark:hover:bg-[#1C1D22] transition-colors cursor-pointer group"
+                className={`pt-2 flex items-center justify-between p-2 rounded-2xl hover:bg-slate-50 dark:hover:bg-[#1C1D22] transition-all cursor-pointer group ${
+                  !isCopiedTab && !isTop35 ? 'opacity-40 hover:opacity-90 grayscale-[35%]' : 'opacity-100'
+                }`}
               >
                 {/* Left: Circular Avatar & Name */}
                 <div className="flex items-center gap-3 min-w-0">
@@ -247,6 +257,17 @@ export function WalletLeaderboard({ userId, onSelectWallet }: WalletLeaderboardP
                         <span className="text-[9px] bg-amber-50 dark:bg-amber-400/10 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-400/20 px-1.5 py-0.2 rounded-full font-bold">
                           Gold
                         </span>
+                      )}
+                      {!isCopiedTab && (
+                        isTop35 ? (
+                          <span className="text-[9px] bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/20 px-1.5 py-0.2 rounded-full font-bold">
+                            Top 35
+                          </span>
+                        ) : (
+                          <span className="text-[9px] bg-slate-100 dark:bg-white/5 text-slate-500 dark:text-[#8E8F99] border border-black/5 dark:border-white/5 px-1.5 py-0.2 rounded-full font-semibold">
+                            Bench
+                          </span>
+                        )
                       )}
                     </div>
                     <span className="text-[11px] text-slate-500 dark:text-[#8E8F99] font-mono block truncate">
