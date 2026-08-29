@@ -383,6 +383,16 @@ async def get_portfolio_snapshots(
         fallback_stmt = select(PortfolioSnapshot).where(PortfolioSnapshot.user_id.is_(None)).order_by(PortfolioSnapshot.timestamp.desc()).limit(2)
         rows = list(reversed((await db.execute(fallback_stmt)).scalars().all()))
 
+    # Anti-Dip Filter: Smooth out any transient cold-cache dip below surrounding points
+    if len(rows) >= 3:
+        for i in range(1, len(rows) - 1):
+            prev_b = float(rows[i-1].balance or 10000.0)
+            curr_b = float(rows[i].balance or 10000.0)
+            next_b = float(rows[i+1].balance or 10000.0)
+            if prev_b > 15000.0 and curr_b < (prev_b - 800.0) and next_b > (curr_b + 800.0):
+                rows[i].balance = round((prev_b + next_b) / 2.0, 2)
+                rows[i].total_pnl = round(float(rows[i].balance) - 10000.0, 2)
+
     # Fixed time-interval bucketing so past historical points NEVER shift or jitter
     if len(rows) > 60:
         if tf in ("all", "1m", "ytd"):

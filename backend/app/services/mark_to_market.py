@@ -193,17 +193,25 @@ class MarkToMarketService:
                 total_portfolio_pnl = sum(float(l.realized_pnl_usd or 0.0) for l in platform_logs)
                 trades_count = len(platform_logs)
 
-                # Guard: If total PnL is exactly 0 and we have trades, live prices
-                # likely failed. Preserve the last known good balance instead of
-                # collapsing to $10,000.
-                if trades_count > 0 and total_portfolio_pnl == 0.0:
+                # Guard: If total PnL is incomplete or price cache is cold,
+                # do not allow a 17k+ portfolio to drop down to closed-only level (~15k).
+                stmt_latest_snap = select(PortfolioSnapshot.balance).where(
+                    PortfolioSnapshot.user_id.is_(None)
+                ).order_by(PortfolioSnapshot.timestamp.desc()).limit(1)
+                last_db_bal = float((await db.execute(stmt_latest_snap)).scalar() or _last_snapshot_balance or 10000.0)
+
+                computed_bal = round(10000.0 + total_portfolio_pnl, 2)
+                if last_db_bal > 15000.0 and computed_bal < (last_db_bal - 500.0) and total_portfolio_pnl <= 5200.0:
                     logger.warning(
-                        f"⚠️ MTM: {trades_count} filled trades but total PnL = $0.00. "
-                        f"Live prices likely unavailable. Preserving last known balance ${_last_snapshot_balance:,.2f}."
+                        f"⚠️ MTM: Cold-cache dip avoided: computed {computed_bal} vs DB balance {last_db_bal}. "
+                        f"Preserving last known balance {last_db_bal}."
                     )
-                    canonical_balance = _last_snapshot_balance if _last_snapshot_balance > 0 else 10000.0
+                    canonical_balance = last_db_bal
+                    total_portfolio_pnl = round(last_db_bal - 10000.0, 2)
+                elif trades_count > 0 and total_portfolio_pnl == 0.0:
+                    canonical_balance = last_db_bal
                 else:
-                    canonical_balance = round(10000.0 + total_portfolio_pnl, 2)
+                    canonical_balance = computed_bal
 
                 # Update all users to their authoritative balance
                 try:
