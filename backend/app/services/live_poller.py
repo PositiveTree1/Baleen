@@ -257,20 +257,25 @@ class LiveTradeMirrorService:
             from app.services.polymarket_fees import calculate_polymarket_fee, calculate_fee_aware_ev_gate, classify_market_category
             category_name, _ = classify_market_category(title)
 
-            # Rule 3: Category Filter - Require verified >=55% win rate for Sports/Esports (standard profitable sports threshold)
+            # Rule 3: Option A Price-Adjusted Sports Gate
+            # Dynamically checks if the whale's win rate clears the odds/price they are betting on:
+            # - For favorites (price >= 0.60): Whale win rate must exceed the implied market probability
+            # - For toss-ups / underdogs (price < 0.60): Whale win rate must exceed 50.0% (profitable odds)
             whale_win_rate = float(source_whale.win_rate_pct or 0.0) if source_whale else 0.0
-            if category_name == "Sports" and whale_win_rate < 55.0:
-                logger.info(f"🛑 Category Gate: Skipping Sports trade on '{title[:25]}' (whale win rate {whale_win_rate:.1f}% < 55% edge threshold).")
-                from app.services.event_logger import log_event
-                asyncio.create_task(log_event(
-                    "TRADE_SKIPPED_CATEGORY",
-                    f"Sports trade skipped: {title[:50]}",
-                    detail=f"Whale {addr[:10]}... win rate {whale_win_rate:.1f}% < 55% required for Sports category.",
-                    severity="warning",
-                    related_address=wallet_address,
-                    related_market=title,
-                ))
-                return
+            if category_name == "Sports" and side == "BUY":
+                min_required_wr = (price * 100.0) if price >= 0.60 else 50.0
+                if whale_win_rate < min_required_wr:
+                    logger.info(f"🛑 Price-Adjusted Sports Gate: Skipping '{title[:25]}' (price {price:.2f} requires >{min_required_wr:.1f}% WR, whale has {whale_win_rate:.1f}%).")
+                    from app.services.event_logger import log_event
+                    asyncio.create_task(log_event(
+                        "TRADE_SKIPPED_CATEGORY",
+                        f"Sports trade skipped: {title[:50]}",
+                        detail=f"Whale win rate ({whale_win_rate:.1f}%) below price-adjusted threshold ({min_required_wr:.1f}%) for entry at {price:.2f}.",
+                        severity="warning",
+                        related_address=wallet_address,
+                        related_market=title,
+                    ))
+                    return
 
             # Rule 2: Execution Delay / Anti-Frontrunning Guard with Directional Slippage Check
             live_p = get_live_price(condition_id, outcome=outcome, asset=asset or tx_hash or "", fallback=price)
