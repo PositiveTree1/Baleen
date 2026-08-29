@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, func
 from typing import Optional, List, Dict
 from datetime import datetime, timedelta
 import re
@@ -69,17 +69,19 @@ async def get_execution_logs(
     if end_date:
         stmt = stmt.where(ExecutionLog.executed_at <= end_date)
 
-    # Query execution logs (filtered by user_id or canonical sandbox user_id IS NULL)
+    # Query execution logs (filtered by user_id if specific rows exist, otherwise canonical platform logs)
+    user_filter = ExecutionLog.user_id.is_(None)
     if user_id:
         try:
             import uuid
             u_uuid = uuid.UUID(user_id)
-            stmt = stmt.where(ExecutionLog.user_id == u_uuid)
+            user_cnt = (await db.execute(select(func.count(ExecutionLog.id)).where(ExecutionLog.user_id == u_uuid))).scalar() or 0
+            if user_cnt > 0:
+                user_filter = ExecutionLog.user_id == u_uuid
         except Exception:
-            stmt = stmt.where(ExecutionLog.user_id == user_id)
-    else:
-        stmt = stmt.where(ExecutionLog.user_id.is_(None))
+            pass
 
+    stmt = stmt.where(user_filter)
     system_stmt = stmt.order_by(ExecutionLog.executed_at.desc()).limit(limit).offset(offset)
     raw_logs = (await db.execute(system_stmt)).scalars().all()
 
@@ -192,15 +194,16 @@ async def get_portfolio_summary(
     timeframe: Optional[str] = None,
     db: AsyncSession = Depends(get_db)
 ):
+    user_filter = ExecutionLog.user_id.is_(None)
     if user_id:
         try:
             import uuid
             u_uuid = uuid.UUID(user_id)
-            user_filter = ExecutionLog.user_id == u_uuid
+            user_cnt = (await db.execute(select(func.count(ExecutionLog.id)).where(ExecutionLog.user_id == u_uuid))).scalar() or 0
+            if user_cnt > 0:
+                user_filter = ExecutionLog.user_id == u_uuid
         except Exception:
-            user_filter = ExecutionLog.user_id == user_id
-    else:
-        user_filter = ExecutionLog.user_id.is_(None)
+            pass
 
     stmt = select(ExecutionLog).where(
         ExecutionLog.status.in_(["FILLED", "CLOSED", "RESOLVED"]),
@@ -353,15 +356,16 @@ async def get_portfolio_snapshots(
         stmt = stmt.where(PortfolioSnapshot.timestamp >= datetime(now.year, 1, 1))
 
     # Query snapshots in ascending chronological order
+    user_filter = PortfolioSnapshot.user_id.is_(None)
     if user_id:
         try:
             import uuid
             u_uuid = uuid.UUID(user_id)
-            user_filter = PortfolioSnapshot.user_id == u_uuid
+            snap_cnt = (await db.execute(select(func.count(PortfolioSnapshot.id)).where(PortfolioSnapshot.user_id == u_uuid))).scalar() or 0
+            if snap_cnt > 0:
+                user_filter = PortfolioSnapshot.user_id == u_uuid
         except Exception:
-            user_filter = PortfolioSnapshot.user_id == user_id
-    else:
-        user_filter = PortfolioSnapshot.user_id.is_(None)
+            pass
 
     stmt = stmt.where(user_filter).order_by(PortfolioSnapshot.timestamp.asc()).limit(limit)
     rows = (await db.execute(stmt)).scalars().all()
