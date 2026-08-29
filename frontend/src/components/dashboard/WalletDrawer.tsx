@@ -239,11 +239,14 @@ export function WalletDrawer({ address, onClose }: WalletDrawerProps) {
                     </div>
 
                     <div className="p-4 bg-slate-50 dark:bg-[#1C1D22] border border-black/[0.04] dark:border-white/5 rounded-2xl">
-                      <span className="text-[10px] uppercase font-bold text-slate-400 dark:text-[#8E8F99]">Trades / Day</span>
+                      <span className="text-[10px] uppercase font-bold text-slate-400 dark:text-[#8E8F99]">Avg Hold Time</span>
                       <div className="text-xl font-bold font-mono text-slate-950 dark:text-white mt-0.5">
-                        {wallet.tradesPerDay !== undefined && wallet.tradesPerDay !== null ? wallet.tradesPerDay.toFixed(1) : '—'}
+                        {(() => {
+                          const hrs = wallet.avgHoldHours ?? (24.0 / Math.max(wallet.tradesPerDay || 1, 1));
+                          return hrs >= 24 ? `${(hrs / 24).toFixed(1)}d` : `${hrs.toFixed(1)}h`;
+                        })()}
                       </div>
-                      <span className="text-[10px] text-slate-400 dark:text-[#8E8F99]">Average Velocity</span>
+                      <span className="text-[10px] text-slate-400 dark:text-[#8E8F99]">Position Duration</span>
                     </div>
                   </div>
 

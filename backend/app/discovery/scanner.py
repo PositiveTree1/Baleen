@@ -266,6 +266,41 @@ def calculate_authentic_wallet_stats(
     crypto_pct = round((crypto_count / total_titled * 100.0), 1) if total_titled >= 5 else 0.0
     is_crypto_only = bool(total_titled >= 8 and crypto_pct >= 90.0)
 
+    # 7. Holding Duration Analytics (Pairing BUYs with subsequent SELLs or REDEEMs)
+    condition_groups = {}
+    for act in (activity or []):
+        if not isinstance(act, dict): continue
+        cid = act.get("conditionId") or act.get("asset")
+        if not cid: continue
+        if cid not in condition_groups:
+            condition_groups[cid] = []
+        condition_groups[cid].append(act)
+
+    holding_durations = []
+    for cid, events in condition_groups.items():
+        sorted_events = sorted(events, key=lambda x: float(x.get("timestamp") or 0))
+        buys = [x for x in sorted_events if str(x.get("type", "")).upper() == "TRADE" and str(x.get("side", "")).upper() == "BUY"]
+        exits = [x for x in sorted_events if (str(x.get("type", "")).upper() == "TRADE" and str(x.get("side", "")).upper() == "SELL") or str(x.get("type", "")).upper() == "REDEEM"]
+        
+        if buys and exits:
+            first_buy_ts = float(buys[0].get("timestamp") or 0)
+            for ex in exits:
+                ex_ts = float(ex.get("timestamp") or 0)
+                if ex_ts >= first_buy_ts and first_buy_ts > 0:
+                    hold_hrs = (ex_ts - first_buy_ts) / 3600.0
+                    holding_durations.append(hold_hrs)
+                    break
+
+    if holding_durations:
+        avg_hold_hours = round(sum(holding_durations) / len(holding_durations), 1)
+        avg_hold_days = round(avg_hold_hours / 24.0, 1)
+    else:
+        avg_hold_hours = 24.0
+        avg_hold_days = 1.0
+
+    # Max holding threshold: If average holding duration > 14 days, reject to prevent dead capital lockup
+    is_excessive_hold = bool(len(holding_durations) >= 5 and avg_hold_days > 14.0)
+
     return {
         "all_time_pnl_usd": round(all_time_pnl, 2),
         "win_rate_pct": win_rate,
@@ -273,6 +308,9 @@ def calculate_authentic_wallet_stats(
         "profit_factor": profit_factor,
         "trades_count": total_positions_cnt,
         "avg_trades_per_day": avg_trades_day,
+        "avg_hold_hours": avg_hold_hours,
+        "avg_hold_days": avg_hold_days,
+        "is_excessive_hold": is_excessive_hold,
         "max_drawdown_pct": max_drawdown,
         "outlier_concentration_pct": outlier_concentration,
         "is_hft": is_hft_bot,
@@ -389,6 +427,11 @@ async def evaluate_pending_wallets(db: AsyncSession):
                     wallet.status = 'rejected'
                     wallet.tier = 'rejected'
                     wallet.rejection_reason = f'Crypto-only mono-trader ({stats.get("crypto_pct", 0):.0f}% crypto markets)'
+                    discovery_state["rejected"] += 1
+                elif stats.get('is_excessive_hold'):
+                    wallet.status = 'rejected'
+                    wallet.tier = 'rejected'
+                    wallet.rejection_reason = f'Excessive holding duration ({stats.get("avg_hold_days", 0):.1f} days > 14-day max capital lockup)'
                     discovery_state["rejected"] += 1
                 elif stats['is_dormant']:
                     wallet.status = 'rejected'

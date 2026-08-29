@@ -117,7 +117,8 @@ export async function fetchWallets(params?: Record<string, string>): Promise<Wal
       profitFactor: w.profit_factor ?? null,
       firstTradeAt: w.first_trade_at || null,
       lastTradeAt: w.last_trade_at || null,
-      aiStyleTag: w.ai_style_tag || null
+      aiStyleTag: w.ai_style_tag || null,
+      avgHoldHours: w.avg_hold_hours ?? null
     }));
     setCached('wallets_list', result);
     return result;
@@ -144,6 +145,7 @@ export async function fetchCopiedWhalesStats(userId?: string): Promise<{
   profitFactor: number;
   wins: number;
   losses: number;
+  copyRatePct?: number;
 }[]> {
   try {
     const url = new URL(`${API_BASE_URL}/api/wallets/copied-stats`);
@@ -182,6 +184,7 @@ export async function fetchWallet(address: string): Promise<WalletDetail | null>
       lastTradeAt: w.last_trade_at || null,
       aiStyleTag: w.ai_style_tag || null,
       aiSummary: w.ai_summary || null,
+      avgHoldHours: w.avg_hold_hours ?? null,
       maxDrawdown: w.max_drawdown_pct || 0,
       scoreHistory: (data.score_history || []).map((s: any) => ({ 
         date: s.snapshot_at || s.date || new Date().toISOString(), 

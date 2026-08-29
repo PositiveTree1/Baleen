@@ -39,6 +39,7 @@ def wallet_to_response(w: Wallet) -> dict:
         "first_trade_at": w.first_trade_at.isoformat() if getattr(w, "first_trade_at", None) else None,
         "last_trade_at": w.last_trade_at.isoformat() if getattr(w, "last_trade_at", None) else None,
         "total_trades_analyzed": w.total_trades_analyzed or 0,
+        "avg_hold_hours": getattr(w, "median_inter_trade_gap_hours", 12.0) or 12.0,
         "rejection_reason": w.rejection_reason,
         "first_seen_at": w.first_seen_at.isoformat() if w.first_seen_at else None,
         "last_scored_at": w.last_scored_at.isoformat() if w.last_scored_at else None,

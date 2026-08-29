@@ -258,8 +258,8 @@ class PolymarketClient:
             
         return all_trades
 
-    async def fetch_wallet_activity(self, address: str, max_items: int = 1000) -> List[Dict]:
-        """Pulls trade closures and redemptions from Polymarket activity endpoint."""
+    async def fetch_wallet_activity(self, address: str, max_items: int = 4000) -> List[Dict]:
+        """Pulls trade fills, closures, and redemptions from Polymarket activity endpoint with multi-page pagination."""
         all_activity = []
         batch_size = 500
         offset = 0
@@ -267,7 +267,6 @@ class PolymarketClient:
             url = f"{self.data_api_url}/activity"
             data = await self._fetch_with_retry(url, params={
                 "user": address,
-                "type": "REDEEM",
                 "limit": batch_size,
                 "offset": offset,
                 "sortBy": "TIMESTAMP",
@@ -278,13 +277,17 @@ class PolymarketClient:
                 batch = data
             elif isinstance(data, dict):
                 batch = data.get("data") or data.get("results") or []
+                
             if not batch:
                 break
+                
             all_activity.extend(batch)
             if len(batch) < batch_size:
                 break
+                
             offset += len(batch)
-            await asyncio.sleep(0.05)
+            await asyncio.sleep(0.04)
+            
         return all_activity
 
     async def fetch_order_book(self, token_id: str) -> Optional[Dict]:
