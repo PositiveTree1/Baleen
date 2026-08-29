@@ -179,35 +179,25 @@ class LiveTradeMirrorService:
                 ))
                 return
 
-            # Rule 2: Execution Delay / Anti-Frontrunning Guard (1.5 ticks / $0.015 max slippage)
+            # Rule 2: Execution Delay / Anti-Frontrunning Guard (BUY: 1.5 cents max slippage | SELL: Guaranteed Position Exit)
             live_p = get_live_price(condition_id, outcome=outcome, asset=asset or tx_hash or "", fallback=price)
-            max_slippage = 0.015  # 1.5 cents ($0.015) max slippage tolerance
-            if side == "BUY" and (live_p - price) > max_slippage:
+            max_buy_slippage = 0.015  # 1.5 cents ($0.015) max slippage tolerance for BUY entries
+            
+            if side == "BUY" and (live_p - price) > max_buy_slippage:
                 logger.info(f"⚠️ Anti-Frontrunning Guard: BUY on '{title[:25]}' live={live_p:.3f} > entry={price:.3f} + 0.015. Aborting slippage spike fill.")
                 from app.services.event_logger import log_event
                 asyncio.create_task(log_event(
                     "TRADE_SKIPPED_SLIPPAGE",
                     f"Slippage guard: {side} {title[:50]}",
-                    detail=f"Live price {live_p:.4f} vs entry {price:.4f} — slippage {(live_p - price):.4f} > max {max_slippage}.",
-                    severity="warning",
-                    related_address=wallet_address,
-                    related_market=title,
-                ))
-                return
-            elif side == "SELL" and (price - live_p) > max_slippage:
-                logger.info(f"⚠️ Anti-Frontrunning Guard: SELL on '{title[:25]}' live={live_p:.3f} < entry={price:.3f} - 0.015. Aborting slippage spike fill.")
-                from app.services.event_logger import log_event
-                asyncio.create_task(log_event(
-                    "TRADE_SKIPPED_SLIPPAGE",
-                    f"Slippage guard: {side} {title[:50]}",
-                    detail=f"Live price {live_p:.4f} vs entry {price:.4f} — slippage {(price - live_p):.4f} > max {max_slippage}.",
+                    detail=f"Live price {live_p:.4f} vs entry {price:.4f} — slippage {(live_p - price):.4f} > max {max_buy_slippage}.",
                     severity="warning",
                     related_address=wallet_address,
                     related_market=title,
                 ))
                 return
 
-            effective_fill_price = live_p if (0.01 <= live_p <= 0.99) else price
+            # For SELLs: Always execute the exit at live market price to guarantee position closure and unlock capital
+            effective_fill_price = live_p if (0.001 <= live_p <= 0.999) else price
 
             # Rule 1: Fee-Aware Expected Value Gate (EV_net > 2.5 * Fee Rate)
             expected_edge = abs(effective_fill_price - 0.5)
