@@ -70,7 +70,7 @@ class MarkToMarketService:
                 await self.update_valuations_and_consensus()
             except Exception as e:
                 logger.error(f"Error in Mark-to-Market loop: {e}", exc_info=True)
-            await asyncio.sleep(3.5)
+            await asyncio.sleep(5.0)
 
     async def update_valuations_and_consensus(self):
         global _last_snapshot_time, _last_snapshot_balance, _price_cycle_index
