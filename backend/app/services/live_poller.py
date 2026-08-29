@@ -374,14 +374,16 @@ class LiveTradeMirrorService:
                 settled_cash = 10000.0 + total_realized_pnl
                 
                 free_cash = max(0.0, settled_cash - current_open_notional)
+                cash_reserve_buffer = settled_cash * 0.10  # 10% cash reserve buffer (90% maximum deployed)
+                deployable_cash = max(0.0, free_cash - cash_reserve_buffer)
                 
-                if free_cash < 10.0:
-                    logger.info(f"🛑 Cash Limit Guard: Skipping BUY on '{title[:25]}' - Active exposure ${current_open_notional:,.2f} >= Settled Cash ${settled_cash:,.2f} (Free cash: ${free_cash:,.2f}).")
+                if deployable_cash < 10.0:
+                    logger.info(f"🛑 10% Cash Buffer Guard: Skipping BUY on '{title[:25]}' - Active exposure ${current_open_notional:,.2f} at 90% deployable cap of Settled Cash ${settled_cash:,.2f} (10% cash reserve preserved).")
                     from app.services.event_logger import log_event
                     asyncio.create_task(log_event(
                         "TRADE_SKIPPED_CASH_LIMIT",
-                        f"Cash limit: {title[:50]}",
-                        detail=f"Active capital deployed (${current_open_notional:,.2f}) at 100% capacity of settled cash (${settled_cash:,.2f}). Free cash: ${free_cash:,.2f}.",
+                        f"Cash buffer limit: {title[:50]}",
+                        detail=f"Active capital deployed (${current_open_notional:,.2f}) reached 90% deployable cap of settled cash (${settled_cash:,.2f}). Preserving 10% cash reserve ($1,000).",
                         severity="warning",
                         related_address=wallet_address,
                         related_market=title,
@@ -389,7 +391,7 @@ class LiveTradeMirrorService:
                     return
                 
                 # Adjust sizing to not exceed available free cash
-                sys_notional = round(min(sys_notional, free_cash), 2)
+                sys_notional = round(min(sys_notional, deployable_cash), 2)
 
             fee_calc = calculate_polymarket_fee(
                 notional_usd=sys_notional,

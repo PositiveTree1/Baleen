@@ -251,7 +251,7 @@ export function WalletLeaderboard({ userId, onSelectWallet }: WalletLeaderboardP
                     </div>
                     <span className="text-[11px] text-slate-500 dark:text-[#8E8F99] font-mono block truncate">
                       {isCopiedTab
-                        ? `${fillsCount} Fills • ${w.copyRatePct ?? 100}% Copy Rate`
+                        ? `${fillsCount} Fills • Active Basket`
                         : `${formatWinRate(winRate)} Win Rate${fillsCount > 0 ? ` • ${fillsCount} Fills` : ''}`}
                     </span>
                   </div>
