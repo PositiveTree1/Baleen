@@ -90,30 +90,7 @@ async def get_execution_logs(
                 "all_time_pnl_usd": w.all_time_pnl_usd
             }
 
-    # Identify unique active condition IDs that need fresh live prices
-    active_cids = list({
-        log.market_condition_id.strip() 
-        for log in raw_logs 
-        if log.status == "FILLED" and log.market_condition_id and len(str(log.market_condition_id).strip()) > 5
-    })
-    
-    # Fast batch-resolve fresh Polymarket Gamma prices for open positions
-    if active_cids:
-        try:
-            from app.discovery.polymarket_client import PolymarketClient
-            from app.services.mark_to_market import set_live_price
-            client = PolymarketClient()
-            batch_prices = await client.fetch_batch_live_prices(active_cids[:60])
-            await client.close()
-            for cid_key, outcome_dict in batch_prices.items():
-                if not cid_key.startswith("token:"):
-                    for outc_name, p_val in outcome_dict.items():
-                        set_live_price(cid_key, outc_name, p_val)
-                else:
-                    tok_id = cid_key.replace("token:", "")
-                    set_live_price(asset=tok_id, price=outcome_dict.get("price", 0.5))
-        except Exception:
-            pass
+    # Use in-memory live prices from the continuous MTM background service for instant sub-millisecond response times
 
     response_list = []
     for log in raw_logs:

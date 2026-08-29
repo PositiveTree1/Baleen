@@ -227,6 +227,9 @@ export async function fetchExecutionLogs(userId?: string, params?: Record<string
     const res = await fetch(url.toString());
     if (!res.ok) return getCachedExecutionLogs(userId) || [];
     const data = await res.json();
+    if (!Array.isArray(data) || data.length === 0) {
+      return getCachedExecutionLogs(userId) || [];
+    }
     const result = data.map((log: any) => ({
       id: log.id,
       timestamp: log.timestamp || log.executed_at,
@@ -255,7 +258,9 @@ export async function fetchExecutionLogs(userId?: string, params?: Record<string
       consensus: log.consensus ?? { whale_count: 1, total_cash: 0, is_consensus: false },
       polymarketUrl: log.polymarketUrl ?? (log.eventSlug ? `https://polymarket.com/event/${log.eventSlug}` : (log.marketConditionId ? `https://polymarket.com/market/${log.marketConditionId}` : 'https://polymarket.com')),
     }));
-    setCached(cacheKey, result);
+    if (result.length > 0) {
+      setCached(cacheKey, result);
+    }
     return result;
   } catch (error) {
     return getCachedExecutionLogs(userId) || [];
