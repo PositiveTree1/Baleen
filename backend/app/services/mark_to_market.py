@@ -241,8 +241,8 @@ class MarkToMarketService:
                         u_start = float(u.sandbox_starting_balance_usd or 10000.0)
                         u_bal = round(u_start + u_pnl, 2)
                         u.sandbox_balance_usd = u_bal
-                        if u_bal > float(u.sandbox_high_water_mark_usd or u_start):
-                            u.sandbox_high_water_mark_usd = u_bal
+                        current_hwm = float(u.sandbox_high_water_mark_usd or u_start)
+                        u.sandbox_high_water_mark_usd = max(current_hwm, u_bal)
 
                     if should_snapshot:
                         # Global platform sandbox snapshot (no per-user snapshots)

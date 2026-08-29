@@ -27,29 +27,12 @@ Baleen is an automated copy-trading and market discovery platform for Polymarket
 
 | # | Name | Scope | Dependencies | Status |
 |---|------|-------|-------------|--------|
-| M-A1 | Core Execution & Order Book Robustness | Fix `fill_simulator.py` mutation/case/zero-division, `polymarket_fees.py` zero-price bug, `live_poller.py:351` notional bug | None | PLANNED |
-| M-A2 | FIFO Lot Splitting, Cash Invariance & Ghost Sells | Fix `live_poller.py` partial split fee zeroing, ghost user SELLs, MTM HWM inflation, cash bounds | M-A1 | PLANNED |
-| M-A3 | Ingestion, Out-of-Order Logging & Settlement | Fix out-of-order SELL/BUY race condition, platform log deduplication, binary resolution lifecycle | M-A2 | PLANNED |
-| M-B1 | Scenario Test Infrastructure & Invariant Monitor | Create scenario runner, mock book/event generators, and 10-invariant assertion engine | None | PLANNED |
-| M-B2 | 220-Scenario Stress Matrix Implementation | Implement 220 distinct scenarios (55 Order Book, 55 Network/Timing, 55 Lifecycle/FIFO, 55 Multi-Tenancy) | M-B1, M-A1, M-A2, M-A3 | PLANNED |
-| M-B3 | Final Invariant Verification & E2E Validation | Run full 220-scenario suite, verify 100% invariant satisfaction and 100% pytest pass rate | M-B2 | PLANNED |
-
-## Interface Contracts
-### Order Book Simulator ↔ Sizing Engine
-- `simulate_fill(order_book: dict, side: str, target_value: float) -> tuple[float, float, float]`
-  - `side` accepted in any case (`"BUY"`, `"buy"`, `"SELL"`, `"sell"`)
-  - Input `order_book` is treated as immutable (no in-place modification)
-  - Returns `(effective_price, total_shares, slippage_pct)` safely bounded against zero division.
-
-### Fee Calculation Contract
-- `calculate_fee(category: str, price: float, notional: float) -> Decimal`
-  - $p$ strictly clamped in $[0.001, 0.999]$; $p=0.0$ evaluates to $0.001$, NOT $0.50$.
-
-### FIFO Lot Split Contract
-- For partial fill $V_{\text{closed}} < V_{\text{open}}$:
-  - $\text{Original Lot: } V' = V_{\text{closed}}, \quad \text{Fee}' = \text{round}(\text{Fee}_{\text{orig}} \cdot \frac{V_{\text{closed}}}{V_{\text{open}}}, 4), \quad \text{Status} = \text{"CLOSED"}$
-  - $\text{Split Lot: } V'' = V_{\text{open}} - V_{\text{closed}}, \quad \text{Fee}'' = \text{Fee}_{\text{orig}} - \text{Fee}', \quad \text{Status} = \text{"FILLED"}$
-  - Invariant: $V' + V'' = V_{\text{open}}$ and $\text{Fee}' + \text{Fee}'' = \text{Fee}_{\text{orig}}$.
+| M-A1 | Core Execution & Order Book Robustness | Fix `fill_simulator.py` mutation/case/zero-division, `polymarket_fees.py` zero-price bug, `live_poller.py:351` notional bug | None | DONE |
+| M-A2 | FIFO Lot Splitting, Cash Invariance & Ghost Sells | Fix `live_poller.py` partial split fee zeroing, ghost user SELLs, MTM HWM inflation, cash bounds | M-A1 | DONE |
+| M-A3 | Ingestion, Out-of-Order Logging & Settlement | Fix out-of-order SELL/BUY race condition, platform log deduplication, binary resolution lifecycle | M-A2 | DONE |
+| M-B1 | Scenario Test Infrastructure & Invariant Monitor | Create scenario runner, mock book/event generators, and 10-invariant assertion engine | None | DONE |
+| M-B2 | 220-Scenario Stress Matrix Implementation | Implement 220 distinct scenarios (55 Order Book, 55 Network/Timing, 55 Lifecycle/FIFO, 55 Multi-Tenancy) | M-B1, M-A1, M-A2, M-A3 | DONE |
+| M-B3 | Final Invariant Verification & E2E Validation | Run full 220-scenario suite, verify 100% invariant satisfaction and 100% pytest pass rate | M-B2 | DONE |
 
 ## Code Layout
 - `backend/app/sizing/fill_simulator.py`: Non-mutating order book matching and slippage simulation.
