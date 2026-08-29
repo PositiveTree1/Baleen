@@ -318,7 +318,7 @@ def calculate_authentic_wallet_stats(
         "last_trade_at": datetime.utcnow()
     }
 
-async def evaluate_pending_wallets(db: AsyncSession):
+async def evaluate_pending_wallets(db: AsyncSession, client: Optional[PolymarketClient] = None):
     """
     Stage 2: Deep evaluation of candidate wallets.
     Fetches multi-page trades + redemptions and verifies real all-time Polymarket PnL.
@@ -329,7 +329,7 @@ async def evaluate_pending_wallets(db: AsyncSession):
     if not pending_wallets:
         return 0
 
-    client = PolymarketClient()
+    client = client or PolymarketClient()
     total_pending = len(pending_wallets)
     logger.info(f"Stage 2: Starting deep audit of {total_pending} pending candidate wallets...")
     
@@ -365,6 +365,8 @@ async def evaluate_pending_wallets(db: AsyncSession):
                     profile=raw_profile,
                     trades=raw_trades
                 )
+                
+                baleen_score = compute_baleen_score(stats)
                 
                 # Score wallet
                 scoring = score_wallet(stats)

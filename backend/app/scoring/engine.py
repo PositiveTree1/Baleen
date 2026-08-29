@@ -31,7 +31,7 @@ def score_wallet(wallet_stats: dict) -> ScoringResult:
         return ScoringResult("rejected", None, "VOLUME_BELOW_THRESHOLD", False)
 
     # FILTER 2: Track record length (>= 150 lifetime trades AND >= 60 active days)
-    if trades_count > 0 and trades_count < 150 and pnl < 500000.0:
+    if trades_count < 150 and pnl < 500000.0:
         return ScoringResult("rejected", None, "INSUFFICIENT_TRACK_RECORD_TRADES", False)
     
     if active_days < 60.0 and pnl < 500000.0:

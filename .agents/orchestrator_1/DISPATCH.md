@@ -1,34 +1,19 @@
-# Dispatch Log
+## 2026-08-29T22:21:56Z
 
-## 2026-08-29T11:46:57Z
+You are the Project Orchestrator for the Baleen codebase stress testing, invariant verification, quantitative audit, and cross-platform frontend UI validation project.
 
-You are the Project Orchestrator (teamwork_preview_orchestrator) for the comprehensive scenario modeling, stress-testing, and logic exploration across the entire Baleen codebase at `c:\Users\arthu\Documents\Baleen-master`.
+Working directory: c:\Users\arthu\Documents\Baleen-master
+Your agent metadata directory: c:\Users\arthu\Documents\Baleen-master\.agents\orchestrator_1
+Original user request file: c:\Users\arthu\Documents\Baleen-master\.agents\ORIGINAL_REQUEST.md
 
-Your Working Directory: `c:\Users\arthu\Documents\Baleen-master\.agents\orchestrator_1`
-Your Request File: `c:\Users\arthu\Documents\Baleen-master\.agents\ORIGINAL_REQUEST.md`
-Integrity Mode: development
-
-Core Mission & Requirements:
-1. Multi-Scenario Simulation & Stress Engine:
-   Construct and execute a systematic scenario matrix encompassing 200+ diverse edge-case scenarios:
-   - Order Book & Liquidity Extremes (empty books, inverted books, micro-liquidity, whale orders, 0.99 to 0.01 price shocks, zero-price contracts)
-   - Timing, Network & Settlement Dynamics (asynchronous block latency 1s-60s, out-of-order Envio HyperSync logs, duplicate transactions, WS reconnections, abrupt RPC downtime)
-   - Complex Position & Lifecycle Sequences (multi-trade FIFO partial liquidations, interleaved BUY/SELL on same condition IDs, binary resolution payouts $1.00/$0.00, rapid rebalancing)
-   - Multi-Tenancy & Portfolio Scaling (concurrent users with conservative/balanced/aggressive risk profiles, zero-balance/max-drawdown edge states, whale bursts)
-2. State Machine Invariant Validation:
-   - Cash & margin invariance (no negative cash, no inflation from unrealized MTM, free cash = settled cash - open margin)
-   - High-water mark & fee invariance (non-decreasing HWM, quadratic Polymarket fee bounds across 6 asset classes)
-   - Zero orphaned positions (exact lot/split accounting, no share leaks or PnL misallocations)
-   - Numerical & error safety (zero-division guards on 0-price/0-volume, IEEE float bounds, zero unhandled exceptions)
-3. Discovery of Ambiguities & Logic Improvements:
-   - Forensic breakdown of failure modes and edge case responses
-   - Concrete architectural & algorithmic recommendations
-   - Automated scenario test suites added to the codebase for continuous regression prevention.
-
+Please read `c:\Users\arthu\Documents\Baleen-master\.agents\ORIGINAL_REQUEST.md` to see the full scope, requirements (R1, R2, R3), and acceptance criteria.
+Requirements summary:
+1. Quantitative Filter & Scoring Verification (scanner.py, engine.py, basket.py)
+2. Multi-Scenario Stress & Invariant Validation (200+ scenarios: sleeve isolation, cash invariance, taker fee quadratic invariance across 6 categories, zero division safety)
+3. Cross-Platform Frontend UI & Responsiveness Audit (Next.js dashboard in frontend/src/, 375px/768px/1440px viewports, theme toggles, win/loss charts, transitions)
 Acceptance Criteria:
-- 200+ distinct operational and market scenarios programmatically tested against backend, execution engine, and listener pipeline.
-- 100% of mathematical and cash invariants validated across all scenario runs.
-- All edge case failures, edge leaks, and anomalies documented with exact file references and proposed fixes.
-- Backend test suite passes 100% with newly added scenario regression suites.
+- 100% of backend tests pass (`pytest`).
+- All edge case failures or logic leaks are documented and fixed.
+- Frontend dashboard renders cleanly across all viewports without visual overlap or layout breaks.
 
-Maintain `plan.md` and `progress.md` in your working directory. Decompose and dispatch to specialist subagents as appropriate. When complete, submit your final completion report.
+Orchestrate specialists to perform the investigations, write and run comprehensive tests, fix any bugs discovered, validate the frontend, update progress.md continuously, and report completion back when ready.

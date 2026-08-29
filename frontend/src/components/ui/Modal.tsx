@@ -20,7 +20,7 @@ export function Modal({ isOpen, onClose, children, title }: ModalProps) {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={onClose}
-            className="fixed inset-0 z-40 bg-black/20 backdrop-blur-sm"
+            className="fixed inset-0 z-40 bg-black/20 dark:bg-black/60 backdrop-blur-sm"
           />
           <motion.div
             initial={{ opacity: 0, scale: 0.96, y: 16 }}
@@ -28,14 +28,14 @@ export function Modal({ isOpen, onClose, children, title }: ModalProps) {
             exit={{ opacity: 0, scale: 0.96, y: 16 }}
             className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none"
           >
-            <div className="bg-white rounded-3xl border border-black/10 shadow-[0_20px_50px_rgba(0,0,0,0.15)] w-full max-w-lg overflow-hidden pointer-events-auto">
-              <div className="flex justify-between items-center p-5 border-b border-black/[0.06] bg-zinc-50/50">
-                {title && <h3 className="text-base font-semibold text-zinc-900 tracking-tight">{title}</h3>}
-                <button onClick={onClose} className="p-1 text-zinc-400 hover:text-zinc-700 hover:bg-black/5 rounded-full transition-colors">
+            <div className="bg-white dark:bg-[#16171B] rounded-3xl border border-black/10 dark:border-white/10 shadow-[0_20px_50px_rgba(0,0,0,0.15)] dark:shadow-[0_20px_50px_rgba(0,0,0,0.5)] w-full max-w-lg overflow-hidden pointer-events-auto">
+              <div className="flex justify-between items-center p-5 border-b border-black/[0.06] dark:border-white/10 bg-zinc-50/50 dark:bg-[#1C1D22]/50">
+                {title && <h3 className="text-base font-semibold text-zinc-900 dark:text-white tracking-tight">{title}</h3>}
+                <button onClick={onClose} className="p-1 text-zinc-400 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/10 rounded-full transition-colors">
                   <X size={18} />
                 </button>
               </div>
-              <div className="p-6">
+              <div className="p-6 text-zinc-900 dark:text-white">
                 {children}
               </div>
             </div>

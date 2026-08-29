@@ -1,71 +1,80 @@
-# Project: Baleen Codebase Comprehensive Audit & Verification
+# Project: Baleen Codebase Stress Testing, Invariant Verification, Quantitative Audit, and Frontend UI Validation
 
 ## Architecture
-Baleen is an automated copy-trading and predictive market intelligence platform for Polymarket.
-The system consists of four primary subsystems:
-1. **Ingestion Listener (`listener/src/`)**: Envio HyperSync client streaming Polygon `OrderFilled` events from CTF Exchange contracts, filtering by active whale basket, local queueing, and webhook forwarding to backend `/api/signals`.
-2. **Backend Services & API (`backend/app/`)**: FastAPI server, SQLAlchemy async engine (PostgreSQL/SQLite), APScheduler background workers (Discovery, Rescoring, Analysis), Live Trade Mirror engine (`live_poller.py`), Mark-to-Market revaluation loop (`mark_to_market.py`), and Groq LLaMA-3.1 AI Copilot (`copilot.py`).
-3. **Database Layer (`db/`, `backend/app/database.py`, `backend/app/models.py`)**: Canonical PostgreSQL schema (`wallets`, `wallet_snapshots`, `users`, `execution_logs`, `fee_charges`, `portfolio_snapshots`, `system_events`), indexing, connection pool retry, and auto-migrations.
-4. **Frontend Dashboard (`frontend/`)**: Next.js 14 App Router, Tailwind CSS, Framer Motion, Recharts, trade drawers, wallet analytics, interactive charts, and risk settings.
+Baleen is an automated copy-trading and portfolio management engine for Polymarket prediction markets.
+- **Backend Architecture**:
+  - `backend/app/discovery/scanner.py`: Whale candidate discovery, trade history fetching, gatekeeper evaluation, and tier assignment.
+  - `backend/app/scoring/engine.py` & `backend/app/scoring/basket.py`: 8 gatekeeper filters, 5-factor scoring engine (Odds-Edge, Sharpe, Recency-EMA, Category, Penalty), intra-pool 0-100 min-max normalization, and top 10 roster selection with 5-point hysteresis.
+  - `backend/app/sizing/sleeve_manager.py`: 10-wallet bankroll partitioning ($Cash/10$), Conviction Percentile sizing, Copy-PnL EMA multiplier, and sleeve isolation.
+  - `backend/app/services/polymarket_fees.py`: 2026 Polymarket Quadratic Dynamic Fee formula ($\text{Fee} = \Theta \times \text{Notional} \times (1-p)$) across 6 categories with Banker's Rounding to $0.01.
+  - `backend/app/services/mark_to_market.py` & `live_poller.py`: Mark-to-market valuation, cash invariance enforcement, out-of-order execution resolution, and platform state deduplication.
+  - `backend/tests/scenarios/`: 220-scenario stress testing matrix (Orderbook extremes, Network timing, Lifecycle FIFO, Multitenancy scaling) and Invariant Monitor.
+- **Frontend Architecture**:
+  - `frontend/src/app/dashboard/page.tsx`: Next.js 16.3.0 dashboard orchestrating `BalanceCounter`, `PortfolioAnalytics`, `LiveTape`, `WalletLeaderboard`, `TradeLog`, `WalletDrawer`, `TradeDrawer`, and action modals.
+  - `frontend/src/components/charts/`: `DailyWinLossBarChart`, `CumulativePnLChart`, `PortfolioAnalytics` (Area/OHLC), and `TradePriceChart`.
+  - `frontend/src/context/ThemeContext.tsx`: Dark/light mode theme management.
 
 ## Feature Inventory
 | # | Feature | Description | Milestone | Source |
 |---|---------|-------------|-----------|--------|
-| 1 | Test Suite Execution | Execute and evaluate backend pytest and listener jest test suites | M1 | ORIGINAL_REQUEST §5 |
-| 2 | HyperSync Event Ingestion | Stream and parse OrderFilled logs from CTF Exchange contracts | M2 | ORIGINAL_REQUEST §R1 |
-| 3 | Whale Basket Matching & Signal Dispatch | Decode topics/data, match against active whale addresses, forward to backend | M2 | ORIGINAL_REQUEST §R1 |
-| 4 | Block Checkpointing & Queue Persistence | Atomic block height tracking and offline signal queueing | M2 | ORIGINAL_REQUEST §R1 |
-| 5 | Database Connection & Schema Management | Async SQLAlchemy pool management, reconnect retries, migrations, and model integrity | M3 | ORIGINAL_REQUEST §R1 |
-| 6 | Execution Logging & User Isolation | Trade execution logging, portfolio snapshots, user query filtering, and sandbox resets | M3 | ORIGINAL_REQUEST §R1 |
-| 7 | Backend Workers & Scheduling | Autonomous discovery (20m), rescoring (24h), and analysis (24h) workers | M3 | ORIGINAL_REQUEST §R1 |
-| 8 | MCP Admin Server | Model Context Protocol stdio server exposing admin inspection and control tools | M3 | ORIGINAL_REQUEST §R1 |
-| 9 | Fill Simulation & Book Walking | Order book walking, depth consumption, and execution fill pricing | M4 | ORIGINAL_REQUEST §R2 |
-| 10 | Dynamic Quadratic Taker Fees | 2026 Polymarket dynamic quadratic fee curves across market categories | M4 | ORIGINAL_REQUEST §R2 |
-| 11 | Slippage Modeling & Latency | Slippage guards, favorable price improvements vs adverse movement, block timestamps | M4 | ORIGINAL_REQUEST §R2 |
-| 12 | PnL & Equity Accounting Realism | Realized PnL double-counting fixes, mark-to-market valuations, free cash vs MTM equity | M4 | ORIGINAL_REQUEST §R2 |
-| 13 | Wilson Score Lower Bounds & Win Rate Filtering | Statistical scoring, binomial confidence intervals, sample size gating | M5 | ORIGINAL_REQUEST §R3 |
-| 14 | Sizing & Kelly Position Models | Proportional sizing, Kelly criterion balance management, risk caps | M5 | ORIGINAL_REQUEST §R3 |
-| 15 | Multi-Candidate Discovery & Fee-Aware EV Gates | 2-stage discovery scanning, threshold harmonization, alpha-aware EV gates | M5 | ORIGINAL_REQUEST §R3 |
-| 16 | Frontend Dashboard & State Displays | TradeDrawer, WalletDrawer, PortfolioAnalytics, LiveTape, TradeLog, and Copilot | M6 | ORIGINAL_REQUEST §R1 |
-| 17 | Frontend Compounding & Simulation Realism | ProfitSimulator models, modal persistence, and client-side probability math | M6 | ORIGINAL_REQUEST §R1 |
-| 18 | Adversarial Verification & Forensic Audit | Stress testing, edge case challenging, and zero-tolerance integrity audit | M7 | System Requirements |
-| 19 | Final Comprehensive Audit Report | Structured report with line citations, failure mechanics, concrete diffs, and ambiguities | M8 | ORIGINAL_REQUEST §R4 |
+| 1 | 150+ Lifetime Trades & 60+ Active Days Gate | Gatekeeper requiring candidate whales to have $\ge 150$ closed trades and $\ge 60$ active days track record | M1 | ORIGINAL_REQUEST §R1 |
+| 2 | Anti-HFT / Maker-Rebate Filter | Gatekeeper capping trade frequency at $\le 15$ trades/day | M1 | ORIGINAL_REQUEST §R1 |
+| 3 | Closed Position Concentration Cap | Outlier cap rejecting whales where top closed winning position exceeds $25\%$ of positive realized PnL | M1 | ORIGINAL_REQUEST §R1 |
+| 4 | Minimum Scale Filter | Gatekeeper requiring $\ge \$50\text{k}$ all-time PnL and $\ge \$150\text{k}$ total traded volume | M1 | ORIGINAL_REQUEST §R1 |
+| 5 | Sleeve Size Compatibility | Gatekeeper requiring median trade size between $\$20$ and $\$3,000$ | M1 | ORIGINAL_REQUEST §R1 |
+| 6 | Wash-Trading Detection Filter | Gatekeeper flagging $<120\text{s}$ BUY$\leftrightarrow$SELL roundtrips $>10\%$ ($\ge 2$ occurrences) | M1 | ORIGINAL_REQUEST §R1 |
+| 7 | Intra-Pool 0-100 Normalization | 5-factor normalization across active pool with division-by-zero guards | M1 | ORIGINAL_REQUEST §R1 |
+| 8 | Top 10 Roster with 5-Point Hysteresis | Incumbent defense bonus ($+5.0$) and Gold Sniper boost ($+3.0$) for top 10 selection | M1 | ORIGINAL_REQUEST §R1 |
+| 9 | Whale Discovery Score Assignment Fix | Resolve uninitialized `baleen_score` runtime bug in `scanner.py:422` | M1 | Survey Finding R1 |
+| 10 | 10-Wallet Sleeve Isolation & Zero Starvation | Dynamic bankroll partitioning with strict sleeve boundaries preventing cross-wallet capital starvation | M2 | ORIGINAL_REQUEST §R2 |
+| 11 | Cash Invariance & MTM Isolation | Non-negative cash balance enforcement, margin equation, and prevention of unrealized MTM phantom cash inflation | M2 | ORIGINAL_REQUEST §R2 |
+| 12 | 2026 Quadratic Polymarket Fee Invariance | Dynamic quadratic fee calculation across 6 categories (Crypto, Econ, Culture/Tech, Politics, Sports, Geopolitics) with Banker's Rounding | M2 | ORIGINAL_REQUEST §R2 |
+| 13 | Zero-Division & Edge-Case Safety | Safe handling of empty history, zero volume, single-trade input, corrupted orderbook levels | M2 | ORIGINAL_REQUEST §R2 |
+| 14 | 220+ Multi-Scenario Stress Suite | Comprehensive execution of 220 operational, market, and execution scenarios across 4 tiers | M2 | ORIGINAL_REQUEST §R2 |
+| 15 | Responsive Dashboard Viewports (375px, 768px, 1440px) | Zero text collision, robust horizontal containment (`min-w-0`, `truncate`, `shrink-0`) across all device viewports | M3 | ORIGINAL_REQUEST §R3 |
+| 16 | Smooth Drawer Transitions & Modals | Spring physics animated drawers and modal overlays with keyboard / backdrop dismissal | M3 | ORIGINAL_REQUEST §R3 |
+| 17 | Daily Win/Loss & Financial Charts | Stacked daily win/loss bar chart, cumulative PnL area chart, and localized French date/currency formatting | M3 | ORIGINAL_REQUEST §R3 |
+| 18 | Theme Toggle & Dark Mode Uniformity | Seamless dark/light theme toggling and standardized dark mode styling across all modals and charts | M3 | ORIGINAL_REQUEST §R3 |
+| 19 | E2E Requirements-Driven Test Suite | Opaque-box 4-tier test verification covering all 18 features | E2E Track | Project Architecture |
 
 ## Milestones
 | # | Name | Scope | Dependencies | Status |
 |---|------|-------|-------------|--------|
-| M1 | Test Suite Execution & Baseline Evaluation | Run pytest and jest; document baseline pass/fail rates | none | DONE |
-| M2 | Ingestion Listener & Pipeline Audit | Deep audit of listener/src/, event parsing, topics, queueing, checkpointing | M1 | DONE |
-| M3 | Backend Services, API & Database Audit | Deep audit of backend/app/, database.py, models.py, mcp_server.py | M1 | DONE |
-| M4 | Paper Trading Simulation & Uneven Edge Audit | Deep audit of fill_simulator, slippage, fees, live_poller, PnL accounting | M1 | DONE |
-| M5 | Mathematical & Quantitative Integrity Audit | Deep audit of scanner, Wilson score, Kelly sizing, EV gates, discovery | M1 | DONE |
-| M6 | Frontend Architecture & Realism Audit | Deep audit of frontend/ components, drawers, simulator, API hooks | M1 | DONE |
-| M7 | Adversarial Review & Forensic Gate | Challenger stress-tests and Forensic Auditor integrity verification | M2, M3, M4, M5, M6 | DONE |
-| M8 | Comprehensive Audit Report Synthesis | Final structured audit report with diffs, failure mechanics, ambiguities | M7 | IN_PROGRESS |
+| M1 | Quantitative Filters & Scoring Hardening | Fix `scanner.py:422` uninitialized variable, fix `engine.py:34` trade count condition, add boundary unit tests in `test_scoring_filters.py` | none | DONE |
+| M2 | Multi-Scenario Stress & Invariant Validation | Verify all 4 invariants across 220+ scenario matrix, fee boundary matrix, and edge case safety | M1 | DONE |
+| M3 | Frontend UI & Theme Uniformity Refinement | Standardize dark mode classes across secondary modals/tooltips/empty states, verify 375px/768px/1440px responsiveness and clean build | none | DONE |
+| E2E | E2E Testing Track | Independent requirements-driven test suite across all 4 tiers, publishing `TEST_INFRA.md` and `TEST_READY.md` | none | DONE |
+| M_FINAL | Final Acceptance & Adversarial Hardening | Verify 100% pass on all E2E tests + Tier 5 adversarial stress testing | M1, M2, M3, E2E | DONE |
 
 ## Interface Contracts
-### Listener (`listener/src/`) ↔ Backend (`backend/app/api/signals.py`)
-- Endpoint: `POST /api/signals`
-- Payload: `WhaleTradeSignal`
-  - `walletAddress`: string (0x...)
-  - `side`: 'BUY' | 'SELL' (strictly reflecting outcome token direction)
-  - `assetId`: string (Polymarket token ID, never '0' for collateral)
-  - `amountFilled`: string (raw units / decimal)
-  - `price`: string (calculated execution price 0.00-1.00)
-  - `transactionHash`: string (0x...)
-  - `logIndex`: number
-  - `blockNumber`: number
-  - `timestamp`: number (block timestamp in ms)
+### `scanner.py` ↔ `basket.py`
+- `compute_baleen_score(stats: Dict[str, Any]) -> float`: Accepts whale metrics dictionary and returns normalized score in $[0.0, 100.0]$.
+- `evaluate_pending_wallets()`: Computes `baleen_score` before assigning `wallet.tier` and persisting `wallet.baleen_score`.
 
-### Backend Services (`live_poller.py`) ↔ Sizing & Fill Models (`app/sizing/`)
-- `simulate_fill(order_value_usd, order_book, side)` -> `FillResult(average_price, total_filled_usd, is_fully_filled, levels_walked)`
-- `check_slippage(whale_price, current_price, side)` -> `'EXECUTE_ORDER' | 'CANCEL_ORDER: SLIPPAGE_EXCEEDED'`
-- `size_trade(user_balance, risk_profile, n_active, ...)` -> `SizingResult(order_size_usd, reason)`
+### `engine.py` ↔ `basket.py`
+- `score_wallet(stats: Dict[str, Any]) -> Tuple[float, List[str]]`: Evaluates 8 gatekeeper filters and returns score with rejection reasons.
+- `trades_count` gate: Must reject accounts with $< 150$ trades (including $0$ trades) unless `pnl >= 500000.0`.
+
+### `sleeve_manager.py` ↔ `InvariantMonitor`
+- `size_sleeve_trade(...)`: Respects isolated wallet budget `sleeve_remaining = max(0.0, sleeve_budget - open_notional)`.
+- Cash Invariant: Settled cash is modified solely on trade fills and settlements; MTM adjustments modify unrealized PnL/equity only.
+
+### `ThemeContext.tsx` ↔ Modal / Chart Components
+- `theme: 'light' | 'dark'`: Root element toggles `.dark` class. All modals and chart tooltips provide corresponding `dark:` utility classes.
 
 ## Code Layout
-- `backend/app/`: Core backend application code (API routers, discovery, scoring, services, sizing, workers).
-- `backend/tests/`: Pytest unit and integration test suite.
-- `listener/src/`: Envio HyperSync listener TypeScript source code.
-- `listener/tests/`: Jest test suite for listener.
-- `frontend/src/`: Next.js frontend application (app router, components, lib).
-- `db/`: Database schemas and migration files.
+- Backend: `c:\Users\arthu\Documents\Baleen-master\backend\`
+  - App: `backend/app/`
+    - Discovery: `backend/app/discovery/scanner.py`
+    - Scoring: `backend/app/scoring/engine.py`, `backend/app/scoring/basket.py`
+    - Sizing: `backend/app/sizing/sleeve_manager.py`, `backend/app/sizing/fill_simulator.py`, `backend/app/sizing/dynamic_sizer.py`
+    - Services: `backend/app/services/polymarket_fees.py`, `backend/app/services/mark_to_market.py`, `backend/app/services/live_poller.py`
+    - Models: `backend/app/models.py`
+  - Tests: `backend/tests/`
+    - Unit tests: `backend/tests/test_*.py`
+    - Scenarios: `backend/tests/scenarios/`
+- Frontend: `c:\Users\arthu\Documents\Baleen-master\frontend\`
+  - App: `frontend/src/app/`
+  - Components: `frontend/src/components/`
+  - Context: `frontend/src/context/`
+  - Lib: `frontend/src/lib/`
