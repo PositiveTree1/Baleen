@@ -180,12 +180,15 @@ class MarkToMarketService:
                             elog.realized_pnl_usd = round(net_pnl, 2)
                             _last_known_pnl[str(elog.id)] = elog.realized_pnl_usd
                     else:
-                        # Use last known PnL to avoid oscillation from stale/fill prices
+                        # Use last known PnL from memory or DB to preserve valuation
                         last_pnl = _last_known_pnl.get(str(elog.id))
                         if last_pnl is not None:
                             elog.realized_pnl_usd = last_pnl
-                        elif elog.realized_pnl_usd is None:
+                        elif elog.realized_pnl_usd is not None:
+                            _last_known_pnl[str(elog.id)] = elog.realized_pnl_usd
+                        else:
                             elog.realized_pnl_usd = round(-fee, 2)
+                            _last_known_pnl[str(elog.id)] = elog.realized_pnl_usd
 
                 # 4. Synchronize authoritative sandbox balance & snapshots
                 from app.models import PortfolioSnapshot
@@ -197,24 +200,7 @@ class MarkToMarketService:
                 if not platform_logs:
                     platform_logs = all_logs
 
-                # --- STRUCTURAL FIX: Track price cache warmth before computing balance ---
-                # Count how many open positions actually got a fresh live price this cycle
-                open_positions = [l for l in platform_logs if l.status == "FILLED"]
-                closed_positions = [l for l in platform_logs if l.status in ("CLOSED", "RESOLVED")]
-                
-                positions_with_fresh_price = 0
-                for elog in open_positions:
-                    cid = (elog.market_condition_id or "").lower().strip()
-                    outc = (elog.resolution_outcome or "Yes").lower().strip()
-                    asset_id = elog.onchain_tx_hash or ""
-                    cache_key = f"{cid}:{outc}"
-                    
-                    entry = _live_price_cache.get(asset_id) or _live_price_cache.get(cache_key)
-                    if entry and (time.time() - entry.get("ts", 0)) < 3600.0:
-                        positions_with_fresh_price += 1
-
-                total_open = len(open_positions)
-                cache_warmth_pct = (positions_with_fresh_price / total_open * 100.0) if total_open > 0 else 0.0
+                total_open = len([l for l in platform_logs if l.status == "FILLED"])
                 
                 # Fetch the last known good balance from database
                 stmt_latest_snap = select(PortfolioSnapshot.balance).where(
@@ -227,37 +213,20 @@ class MarkToMarketService:
                 computed_bal = round(10000.0 + total_portfolio_pnl, 2)
                 trades_count = len(platform_logs)
 
-                # DECISION: Only trust the computed balance if the price cache is warm enough
-                # If <30% of open positions have fresh prices, the computed balance is unreliable
-                if total_open > 10 and cache_warmth_pct < 30.0:
-                    logger.warning(
-                        f"⚠️ MTM: Price cache cold ({cache_warmth_pct:.0f}% warm, {positions_with_fresh_price}/{total_open} open positions priced). "
-                        f"Computed ${computed_bal:,.2f} vs last known ${last_db_bal:,.2f}. "
-                        f"REFUSING to write snapshot — preserving last known balance."
-                    )
-                    canonical_balance = last_db_bal
-                    total_portfolio_pnl = round(last_db_bal - 10000.0, 2)
-                    # Skip snapshot write entirely when cache is cold
-                    should_snapshot = False
-                elif computed_bal < (last_db_bal - 500.0) and last_db_bal > 12000.0:
-                    # Even with warm cache, guard against sudden >$500 drops (likely partial pricing)
-                    logger.warning(
-                        f"⚠️ MTM: Suspicious drop: computed ${computed_bal:,.2f} vs last ${last_db_bal:,.2f} "
-                        f"(cache {cache_warmth_pct:.0f}% warm). Preserving last known balance."
-                    )
+                # Guard against total zero/empty database collapse
+                if computed_bal < 5000.0 and last_db_bal > 12000.0:
+                    logger.warning(f"⚠️ MTM: Suspicious collapse: computed ${computed_bal:,.2f} vs last ${last_db_bal:,.2f}. Preserving last balance.")
                     canonical_balance = last_db_bal
                     total_portfolio_pnl = round(last_db_bal - 10000.0, 2)
                     should_snapshot = False
                 else:
                     canonical_balance = computed_bal
-                    # Snapshot throttle: Only write if balance changed meaningfully or enough time passed
                     time_since_last = time.time() - _last_snapshot_time
-                    balance_changed = abs(canonical_balance - _last_snapshot_balance) > 2.0
-                    should_snapshot = balance_changed or time_since_last >= _SNAPSHOT_MIN_INTERVAL_SECS
+                    balance_changed = abs(canonical_balance - _last_snapshot_balance) > 0.50
+                    should_snapshot = balance_changed or time_since_last >= 30.0
 
                 logger.debug(
-                    f"MTM cycle: cache={cache_warmth_pct:.0f}% warm ({positions_with_fresh_price}/{total_open}), "
-                    f"computed=${computed_bal:,.2f}, canonical=${canonical_balance:,.2f}, write={should_snapshot}"
+                    f"MTM cycle: open={total_open}, computed=${computed_bal:,.2f}, canonical=${canonical_balance:,.2f}, write={should_snapshot}"
                 )
 
                 # Update all users to their authoritative balance
