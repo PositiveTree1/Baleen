@@ -34,6 +34,10 @@ def score_wallet(wallet_stats: dict) -> ScoringResult:
     if win_rate < 55.0:
         return ScoringResult("rejected", None, "WIN_RATE_TOO_LOW", False)
 
+    # FILTER 5: Boundary Arbitrage Bot Filter (reject settlement delay / dust snipers >10% at boundary prices)
+    if wallet_stats.get('is_boundary_arb'):
+        return ScoringResult("rejected", None, "ARBITRAGE_BOUNDARY_SNIPER", False)
+
     # TIER: Gold Sniper requires win_rate >= 85.0% AND max_drawdown <= 10.0%
     if win_rate >= 85.0 and max_drawdown <= 10.0:
         tier = "gold_sniper"

@@ -298,6 +298,19 @@ def calculate_authentic_wallet_stats(
     # Max holding threshold: If average holding duration > 14 days, reject to prevent dead capital lockup
     is_excessive_hold = bool(len(holding_durations) >= 5 and avg_hold_days > 14.0)
 
+    # 7. Boundary Arbitrage Bot Detection (Trades at <= $0.02 or >= $0.98)
+    boundary_trades_cnt = 0
+    all_trade_samples = list(trades or []) + list(positions or [])
+    for t_item in all_trade_samples:
+        if isinstance(t_item, dict):
+            p_val = float(t_item.get("price") or t_item.get("curPrice") or 0.5)
+            if 0.0 < p_val <= 0.02 or p_val >= 0.98:
+                boundary_trades_cnt += 1
+    
+    total_eval_trades = max(1, len(all_trade_samples))
+    boundary_ratio = round(boundary_trades_cnt / total_eval_trades, 3)
+    is_boundary_arb_bot = bool(boundary_ratio > 0.10 and boundary_trades_cnt >= 3)
+
     return {
         "all_time_pnl_usd": round(all_time_pnl, 2),
         "win_rate_pct": win_rate,
@@ -314,6 +327,9 @@ def calculate_authentic_wallet_stats(
         "is_dormant": False,
         "is_crypto_only": is_crypto_only,
         "crypto_pct": crypto_pct,
+        "boundary_trades_count": boundary_trades_cnt,
+        "boundary_ratio": boundary_ratio,
+        "is_boundary_arb": is_boundary_arb_bot,
         "today_pnl": round(today_pnl, 2),
         "today_trades_count": today_trades,
         "daily_pnl_history": daily_pnl_history,
@@ -404,6 +420,11 @@ async def evaluate_pending_wallets(db: AsyncSession):
                     wallet.status = 'rejected'
                     wallet.tier = 'rejected'
                     wallet.rejection_reason = f'Excessive holding duration ({stats.get("avg_hold_days", 0):.1f} days > 14-day max capital lockup)'
+                    discovery_state["rejected"] += 1
+                elif stats.get('is_boundary_arb'):
+                    wallet.status = 'rejected'
+                    wallet.tier = 'rejected'
+                    wallet.rejection_reason = f'Arbitrage/Settlement Sniper ({stats.get("boundary_ratio", 0)*100:.1f}% boundary trades at 0.01/0.99)'
                     discovery_state["rejected"] += 1
                 elif stats['is_dormant']:
                     wallet.status = 'rejected'

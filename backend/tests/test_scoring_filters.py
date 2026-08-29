@@ -42,3 +42,9 @@ def test_wallet_above_all_thresholds_but_failing_drawdown(make_wallet_stats):
     res = score_wallet(stats)
     assert res.status == "active"
     assert res.tier.lower() == "standard"
+
+def test_boundary_arbitrage_filter_rejects_boundary_snipers(make_wallet_stats):
+    stats = make_wallet_stats(is_boundary_arb=True)
+    res = score_wallet(stats)
+    assert res.status == "rejected"
+    assert res.rejection_reason == "ARBITRAGE_BOUNDARY_SNIPER"

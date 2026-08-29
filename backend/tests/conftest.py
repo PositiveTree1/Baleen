@@ -19,13 +19,14 @@ def cleanup_test_db():
 
 @pytest.fixture
 def make_wallet_stats():
-    def _make(pnl=100000.0, trades_per_day=5.0, outlier_pct=0.1, win_rate=90.0, max_drawdown=5.0):
+    def _make(pnl=100000.0, trades_per_day=5.0, outlier_pct=0.1, win_rate=90.0, max_drawdown=5.0, is_boundary_arb=False):
         return {
             'all_time_pnl_usd': pnl,
             'avg_trades_per_day': trades_per_day,
             'outlier_concentration_pct': outlier_pct,
             'win_rate_pct': win_rate,
-            'max_drawdown_pct': max_drawdown
+            'max_drawdown_pct': max_drawdown,
+            'is_boundary_arb': is_boundary_arb,
         }
     return _make
 

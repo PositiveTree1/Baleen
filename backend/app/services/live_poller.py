@@ -37,6 +37,7 @@ class LiveTradeMirrorService:
         self.seen_trade_keys = set()
         self.market_cache = {}
         self.pending_out_of_order_sells: Dict[str, List[PendingOutOfOrderSell]] = {}
+        self.boundary_snipe_counts: Dict[str, int] = {}
         self.client = None
         self.started_at = datetime.utcnow().timestamp() - 14400  # 4-hour lookback on startup
 
@@ -256,6 +257,38 @@ class LiveTradeMirrorService:
             # Category & Fee Evaluation
             from app.services.polymarket_fees import calculate_polymarket_fee, calculate_fee_aware_ev_gate, classify_market_category
             category_name, _ = classify_market_category(title)
+
+            # Rule 0: Anti-Boundary Arbitrage Trap Guard (Never copy toxic boundary BUYs at <= 0.02 or >= 0.98)
+            if side == "BUY" and (price <= 0.02 or price >= 0.98):
+                logger.info(f"🛑 Boundary Arb Guard: Skipping BUY on '{title[:25]}' at boundary price {price:.3f} (Toxic settlement arb / lottery dust trap).")
+                from app.services.event_logger import log_event
+                asyncio.create_task(log_event(
+                    "TRADE_SKIPPED_BOUNDARY_PRICE",
+                    f"Boundary price BUY skipped: {title[:50]}",
+                    detail=f"Whale {addr[:10]}... attempted BUY at boundary price {price:.3f}. Blocked toxic settlement delay / dust sweep trap.",
+                    severity="warning",
+                    related_address=wallet_address,
+                    related_market=title,
+                ))
+                self.boundary_snipe_counts[addr] = self.boundary_snipe_counts.get(addr, 0) + 1
+                if self.boundary_snipe_counts[addr] >= 3:
+                    try:
+                        w_to_demote = await db.get(Wallet, wallet_address)
+                        if w_to_demote and w_to_demote.status == "active":
+                            w_to_demote.status = "rejected"
+                            w_to_demote.tier = "rejected"
+                            w_to_demote.rejection_reason = "FLAGGED_ARBITRAGE_BOT: Repeated boundary price sniping (<=0.02 or >=0.98)"
+                            await db.commit()
+                            asyncio.create_task(log_event(
+                                "WALLET_FLAGGED_ARBITRAGE",
+                                f"Wallet demoted: {w_to_demote.name or addr[:10]}",
+                                detail=f"Wallet {addr} flagged as Arbitrage/Settlement Sniper after {self.boundary_snipe_counts[addr]} boundary trades.",
+                                severity="error",
+                                related_address=wallet_address,
+                            ))
+                    except Exception as demote_err:
+                        logger.debug(f"Demote error: {demote_err}")
+                return
 
             # Rule 3: Option A Price-Adjusted Sports Gate
             # Dynamically checks if the whale's win rate clears the odds/price they are betting on:
@@ -820,6 +853,7 @@ class LiveTradeMirrorService:
 
     async def _poll_active_whales(self):
         async with SessionLocal() as db:
+            # 1. Fetch all active basket whales
             stmt = select(Wallet).where(
                 Wallet.status == "active",
                 Wallet.dormant == False,
@@ -827,10 +861,27 @@ class LiveTradeMirrorService:
             )
             active_wallets = (await db.execute(stmt)).scalars().all()
             
-            if not active_wallets:
+            # 2. Fetch any open position source wallets (even if flagged/demoted) to follow their SELL signals!
+            stmt_open_sources = select(ExecutionLog.source_wallet_address).where(
+                ExecutionLog.status == "FILLED",
+                ExecutionLog.side == "BUY",
+                ExecutionLog.source_wallet_address.isnot(None)
+            ).distinct()
+            open_source_addrs = set(addr.lower() for addr in (await db.execute(stmt_open_sources)).scalars().all() if addr)
+
+            active_addrs = set(w.address.lower() for w in active_wallets)
+            missing_source_addrs = open_source_addrs - active_addrs
+            
+            all_wallets_to_poll = list(active_wallets)
+            if missing_source_addrs:
+                stmt_legacy = select(Wallet).where(Wallet.address.in_(list(missing_source_addrs)))
+                legacy_wallets = (await db.execute(stmt_legacy)).scalars().all()
+                all_wallets_to_poll.extend(legacy_wallets)
+
+            if not all_wallets_to_poll:
                 return
 
-            for w in active_wallets:
+            for w in all_wallets_to_poll:
                 addr = w.address.lower()
                 try:
                     res = await self.client.get(
