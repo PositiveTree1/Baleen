@@ -14,7 +14,7 @@ class Settings(BaseSettings):
     POLYMARKET_DATA_API_URL: str = "https://data-api.polymarket.com"
     CLOB_API_URL: str = "https://clob.polymarket.com"
     GAMMA_API_URL: str = "https://gamma-api.polymarket.com"
-    POLYMARKET_MIN_ORDER_USD: float = 5.0
+    POLYMARKET_MIN_ORDER_USD: float = 1.0
     BACKEND_URL: str = "http://localhost:8000"
 
     @property

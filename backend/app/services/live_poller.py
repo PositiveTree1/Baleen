@@ -724,7 +724,7 @@ class LiveTradeMirrorService:
                     n_active=max(1, len(active_wallets)),
                     whale_trade_value=whale_trade_val,
                     whale_portfolio_value=max(1000.0, whale_port_val),
-                    min_order_usd=5.0
+                    min_order_usd=float(getattr(settings, 'POLYMARKET_MIN_ORDER_USD', 1.0))
                 )
                 if sizing_res.status == 'SUCCESS':
                     u_notional = sizing_res.value

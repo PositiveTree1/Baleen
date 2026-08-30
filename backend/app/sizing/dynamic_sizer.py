@@ -5,7 +5,7 @@ class SizingResult:
     value: float
     status: str
 
-def size_trade(user_balance: float, risk_profile: str, n_active: int, whale_trade_value: float, whale_portfolio_value: float, min_order_usd: float = 5.0) -> SizingResult:
+def size_trade(user_balance: float, risk_profile: str, n_active: int, whale_trade_value: float, whale_portfolio_value: float, min_order_usd: float = 1.0) -> SizingResult:
     """
     Exact implementation of §5 dynamic sizer.
     """
