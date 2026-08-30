@@ -1,43 +1,55 @@
-# Project: Baleen Comprehensive Scenario Modeling & Invariant Stress-Testing
+# Project: Baleen Quantitative Engineering & Robustness (R1-R4)
 
 ## Architecture
 Baleen is an automated copy-trading and market discovery platform for Polymarket prediction markets.
-- **Core Engine & Execution**: `backend/app/services/live_poller.py`, `backend/app/sizing/fill_simulator.py`, `backend/app/sizing/dynamic_sizing.py`, `backend/app/services/polymarket_fees.py`.
-- **Valuation & MTM State Machine**: `backend/app/services/mark_to_market.py`, `backend/app/models.py`.
-- **Ingestion & Network Pipeline**: `listener/src/hypersync.ts`, `listener/src/poller.ts`, `backend/app/api/endpoints/webhooks.py`.
-- **Scoring & Discovery**: `backend/app/scoring/`, `backend/app/discovery/`.
+- **Core Engine & Execution**: `backend/app/services/live_poller.py`, `backend/app/sizing/fill_simulator.py`, `backend/app/sizing/slippage.py`, `backend/app/services/polymarket_fees.py`.
+- **Sizing & Risk Management**: `backend/app/sizing/sleeve_manager.py`, `backend/app/sizing/dynamic_sizing.py`.
+- **Valuation & MTM State Machine**: `backend/app/services/mark_to_market.py`, `backend/app/api/execution_logs.py`.
+- **Frontend & Visualization**: `frontend/src/components/portfolio/PortfolioAnalytics.tsx`, `BalanceCounter.tsx`.
+- **Testing & Verification**: `backend/tests/`.
 
 ## Feature Inventory
 | # | Feature | Description | Milestone | Source |
 |---|---------|-------------|-----------|--------|
-| 1 | Order Book & Liquidity Extremes | Empty books, inverted books, micro-liquidity, whale orders, 0.99 to 0.01 shocks, zero-price contracts | M-A1, M-B2 | Survey |
-| 2 | Dynamic Sizing & Slippage Model | Multi-tier book depth consumption, non-mutating sort, case-insensitive side matching, zero-division guards | M-A1, M-B2 | Survey |
-| 3 | 2026 Quadratic Polymarket Fees | $\Theta \in [0.00, 0.072]$ across 6 asset classes with exact zero-price clamp ($p=0.0 \to 0.001$) | M-A1, M-B2 | Survey |
-| 4 | State Machine Cash Invariance | `Free Cash = Settled Cash - Open Margin`, non-negative cash, no unearned MTM inflation | M-A2, M-B2 | Survey |
-| 5 | FIFO Lot Splitting & Conservation | Partial trade closures with exact notional, share, and transaction fee conservation | M-A2, M-B2 | Survey |
-| 6 | Ghost Sell Fill & Leak Prevention | Ensure users with 0 open positions do not log phantom SELL fills or deduct unearned fees | M-A2, M-B2 | Survey |
-| 7 | Non-Decreasing High-Water Mark | HWM strictly monotonic, ratcheting on verified equity without floating phantom inflation | M-A2, M-B2 | Survey |
-| 8 | Timing & Async Latency Dynamics | Asynchronous block latency (1s-60s), out-of-order Envio logs, duplicate transaction idempotency | M-A3, M-B2 | Survey |
-| 9 | Out-of-Order SELL/BUY Guarding | Prevent dropped SELLs and orphaned open BUY positions when log arrivals invert | M-A3, M-B2 | Survey |
-| 10 | Binary Resolution & Payout Logic | Settlement at $1.00/$0.00, condition ID redemption, and lot closure | M-A3, M-B2 | Survey |
-| 11 | Multi-Tenancy & Risk Profiles | Concurrent users (Conservative 5%, Balanced 10%, Aggressive 20%), zero-balance/drawdown edge states | M-A2, M-B2 | Survey |
-| 12 | 220-Scenario Automated Test Matrix | Programmatic stress engine executing 220+ edge cases across all 4 operational domains | M-B1, M-B2, M-B3 | Survey |
+| 1 | R1: Universal CLOB Fill Slippage | Guaranteed `slippage_bps > 0` on 100% of simulated fills across all 5 branches (direct buys, FIFO sells, split lots, OOO matches, onchain signals) | M1 | ORIGINAL_REQUEST §R1 |
+| 2 | R1: Universal Non-Null Latency | Non-null `latency_ms` across all execution paths including split lots | M1 | ORIGINAL_REQUEST §R1 |
+| 3 | R1: Absolute Tick Delta Floor | Minimum price tick movement ($\delta_{\min} \ge 0.0005$) preventing anti-rounding collapse on small prices/sizes | M1 | Survey |
+| 4 | R2: Bayesian Credibility Sizing Prior | $Z(N)$ shrinkage prior for $N < 15$ anchoring whale sleeve budgets strictly within $\pm 10\%$ ($900-$1,100) of $1,000 base | M2 | ORIGINAL_REQUEST §R2 |
+| 5 | R2: Smooth EMA Scaling & Bounded Sensitivity | Bounded single-trade sensitivity and smooth scaling to full $[0.30\times, 1.50\times]$ range over dozens of trades | M2 | ORIGINAL_REQUEST §R2 |
+| 6 | R3: Timeframe Net Worth Synchronization | Zero valuation jumps between 1H, 1D, 1W, ALL timeframes; elimination of cold-cache markdown spikes ($9.6k \leftrightarrow 10.1k$) | M3 | ORIGINAL_REQUEST §R3 |
+| 7 | R3: Harmonized Snapshot Bucketing & API | Single-authoritative MTM writer, last-of-bucket sampling in `/api/executions/snapshots`, and consistent Genesis baseline | M3 | ORIGINAL_REQUEST §R3 |
+| 8 | R4: Automated Regression Test Suite | Dedicated comprehensive regression test suite in `backend/tests/` covering R1, R2, R3 invariants | M4 | ORIGINAL_REQUEST §R4 |
+| 9 | R4: Full Pytest & Frontend Build Verification | 100% test pass rate across all backend pytest suites and 0-error Next.js production build | M4 | ORIGINAL_REQUEST §R4 |
 
 ## Milestones
 
 | # | Name | Scope | Dependencies | Status |
 |---|------|-------|-------------|--------|
-| M-A1 | Core Execution & Order Book Robustness | Fix `fill_simulator.py` mutation/case/zero-division, `polymarket_fees.py` zero-price bug, `live_poller.py:351` notional bug | None | DONE |
-| M-A2 | FIFO Lot Splitting, Cash Invariance & Ghost Sells | Fix `live_poller.py` partial split fee zeroing, ghost user SELLs, MTM HWM inflation, cash bounds | M-A1 | DONE |
-| M-A3 | Ingestion, Out-of-Order Logging & Settlement | Fix out-of-order SELL/BUY race condition, platform log deduplication, binary resolution lifecycle | M-A2 | DONE |
-| M-B1 | Scenario Test Infrastructure & Invariant Monitor | Create scenario runner, mock book/event generators, and 10-invariant assertion engine | None | DONE |
-| M-B2 | 220-Scenario Stress Matrix Implementation | Implement 220 distinct scenarios (55 Order Book, 55 Network/Timing, 55 Lifecycle/FIFO, 55 Multi-Tenancy) | M-B1, M-A1, M-A2, M-A3 | DONE |
-| M-B3 | Final Invariant Verification & E2E Validation | Run full 220-scenario suite, verify 100% invariant satisfaction and 100% pytest pass rate | M-B2 | DONE |
+| M1 | Universal CLOB Fill Slippage & Latency Modeling | Fix zero-slippage bypasses in `live_poller.py`, `fill_simulator.py`, tick delta floors, and non-null `latency_ms` | None | PLANNED |
+| M2 | Sample-Size Damped Dynamic Sleeve Budget Sizing | Implement Bayesian credibility prior $Z(N)$ and bounded EMA in `sleeve_manager.py` | None | PLANNED |
+| M3 | Portfolio Timeframe & Net Worth Synchronization | Synchronize MTM snapshots, bucketing in `execution_logs.py`, and eliminate balance fluctuation | None | PLANNED |
+| M4 | Automated Regression Suite & System Verification | Implement comprehensive regression test suite in `backend/tests/`, verify 100% pytest and frontend build | M1, M2, M3 | PLANNED |
+
+## Interface Contracts
+### `calculate_simulated_fill_price` ↔ `live_poller.py`
+- Signature: `calculate_simulated_fill_price(price: float, side: str, cash_usd: float = 100.0, order_book: Optional[Dict] = None, latency_ms: Optional[float] = None) -> Tuple[float, float, float]`
+- Returns: `(effective_fill_price, slippage_bps, latency_ms)`
+- Guarantees: `slippage_bps > 0.0`, `latency_ms > 0.0`, `abs(effective_fill_price - price) >= 0.0005`
+
+### `SleeveManager.calculate_adjusted_sleeve_budget` ↔ `live_poller.py`
+- Signature: `calculate_adjusted_sleeve_budget(base_budget: float, copy_pnl: float, baleen_score: float = 80.0, trades_count: Optional[int] = None) -> float`
+- Guarantees: For `trades_count < 15`, returned budget is strictly in `[0.90 * base_budget, 1.10 * base_budget]`.
+
+### `MarkToMarketService` ↔ `/api/executions/snapshots`
+- Snapshot Model: `PortfolioSnapshot(user_id=None, timestamp=now_dt, balance=canonical_balance, total_pnl=round(total_portfolio_pnl, 2), active_trades_count=trades_count)`
+- Bucketing: Last-of-bucket selection with consistent timeframe endpoints.
 
 ## Code Layout
-- `backend/app/sizing/fill_simulator.py`: Non-mutating order book matching and slippage simulation.
-- `backend/app/services/polymarket_fees.py`: 2026 Quadratic Polymarket fee curves with zero-price clamping.
-- `backend/app/services/live_poller.py`: Core trade copy execution, FIFO partial liquidation, user sizing, and position guards.
-- `backend/app/services/mark_to_market.py`: MTM valuation, PnL calculations, and monotonic HWM tracking.
-- `backend/app/models.py`: Database models, unique constraints, and schema definitions.
-- `backend/tests/scenarios/`: Scenario test engine, invariant checkers, and 220-scenario regression suites.
+- `backend/app/sizing/slippage.py`: Centralized slippage & latency calculation.
+- `backend/app/sizing/fill_simulator.py`: Multi-level order book fill simulation.
+- `backend/app/services/live_poller.py`: Trade copy execution and log generation.
+- `backend/app/sizing/sleeve_manager.py`: Bayesian sample-size damped dynamic sleeve budget sizing.
+- `backend/app/services/mark_to_market.py`: Mark-to-market continuous valuation service.
+- `backend/app/api/execution_logs.py`: Portfolio snapshots and summary API endpoints.
+- `backend/tests/`: Pytest regression suites.
+- `frontend/`: Next.js portfolio analytics and dashboard.

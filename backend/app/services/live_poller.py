@@ -339,18 +339,14 @@ class LiveTradeMirrorService:
             except Exception:
                 calc_latency_ms = 350.0
 
-            # Realistic Polymarket CLOB Depth & Spread Slippage Simulation:
-            # When order book live price is available and distinct, use it;
-            # otherwise simulate authentic CLOB liquidity impact (typically 8 to 40 bps) based on trade notional
-            if live_p != price and 0.001 <= live_p <= 0.999:
-                effective_fill_price = live_p
-            else:
-                depth_impact_bps = 8.0 + min(35.0, (cash_usd / 2000.0) * 20.0)
-                slippage_factor = depth_impact_bps / 10000.0
-                if side == "BUY":
-                    effective_fill_price = min(0.99, max(0.01, round(price * (1.0 + slippage_factor), 4)))
-                else:
-                    effective_fill_price = max(0.01, min(0.99, round(price * (1.0 - slippage_factor), 4)))
+            # Realistic Polymarket CLOB Depth & Spread Slippage Simulation (100% of fills)
+            from app.sizing.slippage import calculate_simulated_fill_price
+            effective_fill_price = calculate_simulated_fill_price(
+                price=price,
+                side=side,
+                notional_usd=cash_usd,
+                live_p=live_p
+            )
 
             # Rule 1: Fee-Aware Expected Value Gate (Expected Edge >= Dynamic Taker Fee)
             source_whale = next((w for w in active_wallets if w.address.lower() == wallet_address.lower()), None)
@@ -460,8 +456,6 @@ class LiveTradeMirrorService:
                 ))
 
             # Record fill slippage in basis points
-            slippage_bps = round(abs(effective_fill_price - price) / max(price, 0.001) * 10000.0, 1)
-
             fee_calc = calculate_polymarket_fee(
                 notional_usd=sys_notional,
                 price=effective_fill_price,
@@ -471,16 +465,21 @@ class LiveTradeMirrorService:
 
             # Special Out-of-Order Match Execution: Lagging BUY matched against pending SELL
             if pending_sell_match is not None:
+                effective_sell_fill_price = calculate_simulated_fill_price(
+                    price=pending_sell_match.price,
+                    side="SELL",
+                    notional_usd=sys_notional
+                )
                 sell_fee_calc = calculate_polymarket_fee(
                     notional_usd=sys_notional,
-                    price=pending_sell_match.price,
+                    price=effective_sell_fill_price,
                     market_title=title,
                     is_maker=False
                 )
                 buy_fee = float(fee_calc["fee_usd"] or 0.0)
                 sell_fee = float(sell_fee_calc["fee_usd"] or 0.0)
                 buy_p = effective_fill_price
-                sell_p = pending_sell_match.price
+                sell_p = effective_sell_fill_price
                 price_ratio = ((sell_p - buy_p) / buy_p) if buy_p > 0 else 0.0
                 matched_realized_pnl = round(sys_notional * price_ratio - (buy_fee + sell_fee), 2)
 
@@ -516,7 +515,7 @@ class LiveTradeMirrorService:
                     icon=icon,
                     side="SELL",
                     whale_entry_price=pending_sell_match.price,
-                    user_fill_price=pending_sell_match.price,
+                    user_fill_price=effective_sell_fill_price,
                     resolution_outcome=outcome,
                     onchain_tx_hash=pending_sell_match.tx_hash,
                     onchain_log_index=pending_sell_match.log_index,
@@ -535,13 +534,13 @@ class LiveTradeMirrorService:
                 for u in users:
                     u_notional = round(min(max(5.0, cash_usd * 0.05 * sizing_multiplier), 150.0), 2)
                     u_buy_fee_calc = calculate_polymarket_fee(u_notional, effective_fill_price, title, is_maker=False)
-                    u_sell_fee_calc = calculate_polymarket_fee(u_notional, sell_p, title, is_maker=False)
+                    u_sell_fee_calc = calculate_polymarket_fee(u_notional, effective_sell_fill_price, title, is_maker=False)
                     u_buy_fee = float(u_buy_fee_calc["fee_usd"] or 0.0)
                     u_sell_fee = float(u_sell_fee_calc["fee_usd"] or 0.0)
-                    u_pnl = round(u_notional * price_ratio - (u_buy_fee + u_sell_fee), 2)
+                    u_matched_realized_pnl = round(u_notional * price_ratio - (u_buy_fee + u_sell_fee), 2)
 
                     u_bal = float(u.sandbox_balance_usd or 10000.0)
-                    u.sandbox_balance_usd = round(u_bal + u_pnl, 2)
+                    u.sandbox_balance_usd = round(u_bal + u_matched_realized_pnl, 2)
                     cur_hwm = float(u.sandbox_high_water_mark_usd or 10000.0)
                     u.sandbox_high_water_mark_usd = max(cur_hwm, u.sandbox_balance_usd)
 
@@ -564,7 +563,7 @@ class LiveTradeMirrorService:
                         active_basket_size_at_trade=len(active_wallets),
                         is_sandbox=True,
                         status="CLOSED",
-                        realized_pnl_usd=u_pnl,
+                        realized_pnl_usd=u_matched_realized_pnl,
                         executed_at=dt,
                         latency_ms=calc_latency_ms
                     )
@@ -579,7 +578,7 @@ class LiveTradeMirrorService:
                         icon=icon,
                         side="SELL",
                         whale_entry_price=pending_sell_match.price,
-                        user_fill_price=pending_sell_match.price,
+                        user_fill_price=effective_sell_fill_price,
                         resolution_outcome=outcome,
                         onchain_tx_hash=pending_sell_match.tx_hash,
                         onchain_log_index=pending_sell_match.log_index,

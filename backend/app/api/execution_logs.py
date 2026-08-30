@@ -341,19 +341,23 @@ async def get_portfolio_snapshots(
     stmt = select(PortfolioSnapshot)
     now = datetime.utcnow()
     tf = (timeframe or "all").lower()
+    start_window = None
     
     if tf == "1h":
-        stmt = stmt.where(PortfolioSnapshot.timestamp >= now - timedelta(hours=1))
+        start_window = now - timedelta(hours=1)
     elif tf == "6h":
-        stmt = stmt.where(PortfolioSnapshot.timestamp >= now - timedelta(hours=6))
+        start_window = now - timedelta(hours=6)
     elif tf == "1d":
-        stmt = stmt.where(PortfolioSnapshot.timestamp >= now - timedelta(days=1))
+        start_window = now - timedelta(days=1)
     elif tf == "1w":
-        stmt = stmt.where(PortfolioSnapshot.timestamp >= now - timedelta(days=7))
+        start_window = now - timedelta(days=7)
     elif tf == "1m":
-        stmt = stmt.where(PortfolioSnapshot.timestamp >= now - timedelta(days=30))
+        start_window = now - timedelta(days=30)
     elif tf == "ytd":
-        stmt = stmt.where(PortfolioSnapshot.timestamp >= datetime(now.year, 1, 1))
+        start_window = datetime(now.year, 1, 1)
+
+    if start_window:
+        stmt = stmt.where(PortfolioSnapshot.timestamp >= start_window)
 
     # Query snapshots in ascending chronological order
     user_filter = PortfolioSnapshot.user_id.is_(None)
@@ -368,7 +372,28 @@ async def get_portfolio_snapshots(
             pass
 
     stmt = stmt.where(user_filter).order_by(PortfolioSnapshot.timestamp.asc()).limit(limit)
-    rows = (await db.execute(stmt)).scalars().all()
+    rows = list((await db.execute(stmt)).scalars().all())
+
+    # If timeframe window has snapshots, ensure start boundary is cleanly anchored
+    if start_window and rows:
+        earliest_row = rows[0]
+        if earliest_row.timestamp and earliest_row.timestamp > start_window + timedelta(minutes=2):
+            prev_stmt = select(PortfolioSnapshot).where(
+                user_filter,
+                PortfolioSnapshot.timestamp < start_window
+            ).order_by(PortfolioSnapshot.timestamp.desc()).limit(1)
+            prev_row = (await db.execute(prev_stmt)).scalar_one_or_none()
+            anchor_bal = float(prev_row.balance) if prev_row and prev_row.balance else float(earliest_row.balance)
+            anchor_pnl = float(prev_row.total_pnl) if prev_row and prev_row.total_pnl is not None else float(earliest_row.total_pnl)
+            
+            anchor_snap = PortfolioSnapshot(
+                user_id=earliest_row.user_id,
+                timestamp=start_window,
+                balance=anchor_bal,
+                total_pnl=anchor_pnl,
+                active_trades_count=earliest_row.active_trades_count
+            )
+            rows.insert(0, anchor_snap)
 
     if not rows:
         fallback_stmt = select(PortfolioSnapshot).where(user_filter).order_by(PortfolioSnapshot.timestamp.desc()).limit(2)

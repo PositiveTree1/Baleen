@@ -71,10 +71,18 @@ class SleeveManager:
         return round((1.0 - alpha) * current_ema + alpha * new_realized_pnl, 4)
 
     @staticmethod
-    def calculate_adjusted_sleeve_budget(base_budget: float, copy_pnl_ema: float = 0.0, baleen_score: float = 80.0) -> float:
+    def calculate_adjusted_sleeve_budget(
+        base_budget: float,
+        copy_pnl_ema: float = 0.0,
+        baleen_score: float = 80.0,
+        trades_analyzed: Optional[int] = None
+    ) -> float:
         """
         Adjusts sleeve budget dynamically off Baleen Score base weight + copy-PnL EMA
         with a strict 0.30x ($300) floor and 1.50x ($1,500) cap.
+        Applies Bayesian sample-size shrinkage prior when trades_analyzed < 15 so that
+        whales with few trades (e.g. SitsToPee with 2 trades) remain anchored near base ($900-$1,100)
+        and cannot have their budget violently slashed without statistically significant evidence.
         """
         if base_budget <= 0:
             return 0.0
@@ -83,8 +91,16 @@ class SleeveManager:
         score_factor = (baleen_score / 80.0) if baleen_score > 0 else 1.0
         # Scaling: each $100 in average realized copy-PnL adjusts budget by ~20%
         pnl_factor = (copy_pnl_ema / 500.0)
-        multiplier = score_factor + pnl_factor
-        clamped_multiplier = max(0.30, min(1.50, multiplier))
+        raw_multiplier = score_factor + pnl_factor
+        
+        # When trade count is explicitly provided, apply Bayesian shrinkage for low sample (N < 15)
+        if trades_analyzed is not None and trades_analyzed < 15:
+            damping_lambda = min(1.0, max(0.05, float(trades_analyzed) / 15.0))
+            damped_multiplier = 1.0 + damping_lambda * (raw_multiplier - 1.0)
+        else:
+            damped_multiplier = raw_multiplier
+
+        clamped_multiplier = max(0.30, min(1.50, damped_multiplier))
         return round(base_budget * clamped_multiplier, 2)
 
     @classmethod

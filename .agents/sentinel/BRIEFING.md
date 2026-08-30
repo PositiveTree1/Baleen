@@ -1,44 +1,38 @@
-﻿# BRIEFING — 2026-08-30T01:13:15Z
+# BRIEFING — 2026-08-31T00:32:40Z
 
 ## Mission
-Sentinel monitoring and lifecycle orchestration for end-to-end verification, on-chain trade classification audit, dual-column chart rendering, and overnight paper-trading readiness across the Baleen codebase.
+Deploy and monitor orchestrator for root-cause resolution, quantitative modeling, and testing across Baleen trading system.
 
 ## 🔒 My Identity
 - Archetype: sentinel
-- Working directory: c:\Users\arthu\Documents\Baleen-master\.agents\sentinel\
-- Orchestrator: 751bd955-015e-4770-a375-1e1351856f59 (completed)
-- Victory Auditor: 0f15e205-8b91-484b-9af1-7f31e26de1a9 (VICTORY CONFIRMED)
+- Working directory: c:\Users\arthu\Documents\Baleen-master\.agents\sentinel
+- Orchestrator: 6594f42a-45c8-4563-84dc-424bdd63433f
+- Victory Auditor: to be spawned on victory claim
 
 ## 🔒 Key Constraints
 - No technical decisions — relay only
 - Victory Audit is MANDATORY before reporting completion
-- Must route to teamwork_preview_orchestrator for general SWE work
-- Setup progress reporting cron (*/8) and liveness check cron (*/10)
-- Cancel crons and kill subagents upon completion
+- Audit every execution path for CLOB slippage > 0
+- Dynamic sleeve sizing Bayesian credibility prior for N < 15
+- Portfolio timeframe synchronization
+- 100% test pass rate
 
 ## User Context
-- **Last user request**: Deploy a specialized multi-agent engineering team for end-to-end verification, on-chain trade classification audit, dual-column chart rendering, and overnight paper-trading readiness across `c:\Users\arthu\Documents\Baleen-master`.
+- **Last user request**: Deploy engineering team to resolve R1 (CLOB slippage), R2 (sleeve budget Bayesian shrinkage), R3 (portfolio timeframe sync), R4 (regression test suite) on Baleen.
 - **Pending clarifications**: none
-- **Delivered results**: Full engineering rollout verified with 100% test pass rate, 0 build/lint errors, and certified independent victory audit.
+- **Delivered results**: none
 
 ## Project Status
-- **Phase**: complete
-
-## Routing Decision
-- **Route**: General (`teamwork_preview_orchestrator`)
-- **Rationale**: Full multi-part software engineering project covering backend data ingestion, frontend React charts, overnight paper trading execution, and automated test verification.
+- **Phase**: in progress (Survey & Codebase mapping underway by Orchestrator team)
+- **Cron 1 (Progress)**: task-11 (*/8 * * * *)
+- **Cron 2 (Liveness)**: task-13 (*/10 * * * *)
 
 ## Victory Audit Status
-- **Triggered**: yes
-- **Verdict**: VICTORY CONFIRMED
+- **Triggered**: no
+- **Verdict**: pending
 - **Retry count**: 0
 
 ## Artifact Index
-- c:\Users\arthu\Documents\Baleen-master\.agents\ORIGINAL_REQUEST.md — Verbatim user request
-- c:\Users\arthu\Documents\Baleen-master\.agents\sentinel\BRIEFING.md — Sentinel persistent briefing
-- c:\Users\arthu\Documents\Baleen-master\.agents\sentinel\handoff.md — Final Sentinel completion handoff
-- c:\Users\arthu\Documents\Baleen-master\PROJECT.md — Project inventory & architecture spec
-- c:\Users\arthu\Documents\Baleen-master\TEST_INFRA.md — Testing infrastructure & verification framework
-- c:\Users\arthu\Documents\Baleen-master\TEST_READY.md — Automated test readiness matrix
-- c:\Users\arthu\Documents\Baleen-master\.agents\orchestrator_1\GATE_STATUS.md — Gate status and signoffs
-- c:\Users\arthu\Documents\Baleen-master\.agents\victory_auditor_1\handoff.md — Victory Auditor forensic report
+- c:\Users\arthu\Documents\Baleen-master\.agents\ORIGINAL_REQUEST.md — Authoritative record of user intent
+- c:\Users\arthu\Documents\Baleen-master\.agents\PROJECT.md — Global project architecture
+- c:\Users\arthu\Documents\Baleen-master\.agents\orchestrator\progress.md — Orchestrator progress
