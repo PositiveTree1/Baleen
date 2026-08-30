@@ -45,7 +45,7 @@ export function TradeLog({
   }, [logs]);
 
   const closedLogs = useMemo(() => {
-    return logs.filter(l => (l.status === 'CLOSED' || l.status === 'RESOLVED') && l.side === 'BUY');
+    return logs.filter(l => l.status === 'CLOSED' || l.status === 'RESOLVED' || l.side === 'SELL');
   }, [logs]);
 
   const filteredLogs = useMemo(() => {

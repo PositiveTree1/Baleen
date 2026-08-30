@@ -26,7 +26,7 @@ export function DailyWinLossBarChart({ data }: DailyWinLossBarChartProps) {
   return (
     <div className="w-full h-full text-xs select-none outline-none focus:outline-none ring-0 focus:ring-0 [&_*]:outline-none">
       <ResponsiveContainer width="100%" height="100%" className="outline-none">
-        <BarChart data={data} margin={{ top: 10, right: 10, left: -10, bottom: 0 }} stackOffset="sign" className="outline-none">
+        <BarChart data={data} margin={{ top: 10, right: 10, left: 0, bottom: 0 }} stackOffset="sign" className="outline-none">
           <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.05)" vertical={false} />
           <XAxis 
             dataKey="date" 
@@ -34,6 +34,7 @@ export function DailyWinLossBarChart({ data }: DailyWinLossBarChartProps) {
             tick={{ fill: '#64748B', fontSize: 10, fontWeight: 500 }}
             tickLine={false}
             axisLine={false}
+            minTickGap={20}
             tickFormatter={(val) => {
               if (String(val).startsWith('Day')) return val;
               try {
@@ -48,6 +49,7 @@ export function DailyWinLossBarChart({ data }: DailyWinLossBarChartProps) {
             tick={{ fill: '#64748B', fontSize: 10, fontWeight: 500 }}
             tickLine={false}
             axisLine={false}
+            width={42}
             tickFormatter={formatCurrency}
           />
           <ReferenceLine y={0} stroke="rgba(0,0,0,0.18)" strokeWidth={1} />

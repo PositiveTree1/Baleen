@@ -182,4 +182,40 @@ class SystemEvent(Base):
     related_market = Column(String, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow, index=True)
 
+class SandboxRun(Base):
+    __tablename__ = "sandbox_runs"
+
+    id = Column(GUID(), primary_key=True, default=uuid.uuid4)
+    run_number = Column(Integer, autoincrement=True, nullable=True)
+    started_at = Column(DateTime, default=datetime.utcnow)
+    ended_at = Column(DateTime, nullable=True)
+    initial_balance_usd = Column(Float, default=10000.0)
+    final_balance_usd = Column(Float, nullable=True)
+    total_realized_pnl_usd = Column(Float, default=0.0)
+    total_fees_paid_usd = Column(Float, default=0.0)
+    total_trades_copied = Column(Integer, default=0)
+    winning_trades_count = Column(Integer, default=0)
+    losing_trades_count = Column(Integer, default=0)
+    win_rate_pct = Column(Float, default=0.0)
+    max_drawdown_pct = Column(Float, default=0.0)
+    high_water_mark_usd = Column(Float, default=10000.0)
+    total_reevaluations_count = Column(Integer, default=0)
+    active_whales_roster = Column(String, nullable=True) # JSON string of active roster
+    status = Column(String, default="ACTIVE") # ACTIVE, COMPLETED, RESET
+
+class SandboxReevaluation(Base):
+    __tablename__ = "sandbox_reevaluations"
+
+    id = Column(GUID(), primary_key=True, default=uuid.uuid4)
+    run_id = Column(GUID(), ForeignKey("sandbox_runs.id"), nullable=True)
+    timestamp = Column(DateTime, default=datetime.utcnow)
+    trigger_type = Column(String, default="SCHEDULED_CRON") # SCHEDULED_CRON, STARTUP_SYNC, MANUAL_SCAN, THRESHOLD_CHANGE
+    total_candidates_scanned = Column(Integer, default=0)
+    qualified_whales_count = Column(Integer, default=0)
+    rejected_whales_count = Column(Integer, default=0)
+    top10_active_roster = Column(String, nullable=True) # JSON string
+    promotions = Column(String, nullable=True) # JSON string
+    demotions = Column(String, nullable=True) # JSON string
+    execution_duration_ms = Column(Float, default=0.0)
+
 

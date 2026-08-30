@@ -1,0 +1,40 @@
+{
+  "exported_at": "2026-08-30T12:23:13.912867",
+  "total_trades": 2,
+  "trades": [
+    {
+      "id": "2c0e095c-b030-40cc-849c-1ef87ac92239",
+      "timestamp": "2026-08-30T12:23:13.907204",
+      "wallet_address": "0xempirical_backup_whale",
+      "market_condition_id": "0xcond_backup_1",
+      "market_question": "Will SpaceX reach Mars in 2026?",
+      "event_slug": null,
+      "side": "BUY",
+      "outcome": "Yes",
+      "whale_entry_price": 0.35,
+      "user_fill_price": 0.35,
+      "notional_usd": 250.0,
+      "fee_usd": 2.5,
+      "realized_pnl_usd": null,
+      "status": "FILLED",
+      "tx_hash": null
+    },
+    {
+      "id": "cb32e4f8-439f-4662-a0ab-4dfe653bf746",
+      "timestamp": "2026-08-30T12:23:13.907204",
+      "wallet_address": "0xempirical_backup_whale",
+      "market_condition_id": "0xcond_backup_2",
+      "market_question": "Will Apple launch foldable iPhone in 2026?",
+      "event_slug": null,
+      "side": "SELL",
+      "outcome": "No",
+      "whale_entry_price": 0.8,
+      "user_fill_price": 0.8,
+      "notional_usd": 250.0,
+      "fee_usd": 1.5,
+      "realized_pnl_usd": 75.0,
+      "status": "CLOSED",
+      "tx_hash": null
+    }
+  ]
+}

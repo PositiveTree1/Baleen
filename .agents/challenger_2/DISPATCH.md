@@ -1,23 +1,19 @@
-## 2026-08-29T22:35:31Z
-You are Challenger 2 (220-Scenario & Invariant Stress Challenger) for the Baleen codebase.
-Working directory for your metadata: c:\Users\arthu\Documents\Baleen-master\.agents\challenger_2
-Project root: c:\Users\arthu\Documents\Baleen-master
+## 2026-08-30T01:00:34Z
+<USER_REQUEST>
+You are challenger_2, an adversarial verifier for the Baleen project.
+Your working directory is: c:\Users\arthu\Documents\Baleen-master\.agents\challenger_2
+The original request file is: c:\Users\arthu\Documents\Baleen-master\.agents\ORIGINAL_REQUEST.md
+The project specification is: c:\Users\arthu\Documents\Baleen-master\PROJECT.md
+The test infrastructure specification is: c:\Users\arthu\Documents\Baleen-master\TEST_INFRA.md
+The project root is: c:\Users\arthu\Documents\Baleen-master
 
-MANDATORY: Read the original user request at:
-c:\Users\arthu\Documents\Baleen-master\.agents\ORIGINAL_REQUEST.md
-Also read PROJECT.md at c:\Users\arthu\Documents\Baleen-master\PROJECT.md
-
-Tasks:
-1. Adversarially stress test the 220-scenario matrix and the 4 core invariants:
-   - 10-wallet sleeve isolation & zero capital starvation
-   - Cash invariance & MTM isolation (no negative cash, no phantom cash inflation)
-   - Quadratic Polymarket fee invariance
-   - Zero-division safety on single-trade / zero-volume / corrupted orderbooks
-2. Run scenario test runner and stress tests in `backend/`:
-   `backend/.venv/Scripts/pytest.exe tests/scenarios/test_massive_220_scenario_matrix.py -v`
-   `backend/.venv/Scripts/pytest.exe tests/test_challenger_a1_stress.py tests/test_challenger_execution_stress.py -v`
-3. Render an explicit verdict: APPROVE (if all invariants hold across 220+ scenarios) or REQUEST_CHANGES.
-
-Deliverables:
-- Write `handoff.md` in your working directory.
-- Notify the orchestrator via `send_message`.
+Task & Objectives:
+Empirically and adversarially verify live polling execution, resilience, and stress bounds (R3):
+1. Verify continuous live poller loop pacing (2.5s), top-10 active whale roster selection, and dynamic expansion for open-position legacy exits.
+2. Verify boundary price screening ($0.04 - $0.96) and 3-strike anti-arbitrage bot demotion ($p <= 0.02$ or $p >= 0.98$).
+3. Verify 24/7 overnight resilience: keep-alive pinging, periodic 15-minute disk backups, MTM watchdog restart recovery, and error-isolated async loops.
+4. Run execution stress & live poller test suites:
+   `& "C:\Users\arthu\Documents\Baleen-master\backend\.venv\Scripts\pytest.exe" backend/tests/test_challenger_execution_stress.py backend/tests/test_challenger_a1_stress.py backend/tests/test_live_poller_m_a3.py`
+5. Write your adversarial analysis to c:\Users\arthu\Documents\Baleen-master\.agents\challenger_2\analysis.md and a structured 5-component handoff report to c:\Users\arthu\Documents\Baleen-master\.agents\challenger_2\handoff.md with a clear verdict: APPROVE or REQUEST_CHANGES.
+6. Send a message back to the orchestrator with your verdict and summary.
+</USER_REQUEST>

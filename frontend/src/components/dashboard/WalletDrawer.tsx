@@ -72,7 +72,7 @@ export function WalletDrawer({ address, onClose }: WalletDrawerProps) {
         return true;
       }
     });
-    return filtered.length > 0 ? filtered : raw;
+    return filtered;
   }, [wallet?.dailyPnLHistory, timeframe]);
 
   const cleanSummary = (() => {

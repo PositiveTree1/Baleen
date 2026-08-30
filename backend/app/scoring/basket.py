@@ -161,11 +161,13 @@ async def get_active_basket(db: AsyncSession) -> list[Wallet]:
     result = await db.execute(stmt)
     return result.scalars().all()
 
-async def refresh_basket(db: AsyncSession):
+async def refresh_basket(db: AsyncSession, trigger_type: str = "SCHEDULED_CRON"):
     """
     24-Hour Rescore Cadence with Intra-Pool Normalization & 5-Point Hysteresis:
-    Evaluates hard filters, computes normalized pool scores, and selects Top 10 roster.
+    Evaluates hard filters, computes normalized pool scores, selects Top 10 roster,
+    and logs the re-evaluation event to the Supabase audit instance.
     """
+    start_t = datetime.utcnow()
     stmt_active = select(Wallet.address).where(Wallet.status == "active")
     current_active_addrs = set((await db.execute(stmt_active)).scalars().all())
 
@@ -224,5 +226,55 @@ async def refresh_basket(db: AsyncSession):
         else:
             w.status = "tracked"
 
+    # Audit logging for re-evaluation in Supabase
+    try:
+        from app.models import SandboxRun, SandboxReevaluation
+        stmt_run = select(SandboxRun).where(SandboxRun.status == "ACTIVE").order_by(SandboxRun.started_at.desc()).limit(1)
+        active_run = (await db.execute(stmt_run)).scalars().first()
+
+        promotions = [
+            {"address": w.address, "name": w.name or w.pseudonym, "score": w.baleen_score}
+            for w in top_10 if w.address.lower() not in set(a.lower() for a in current_active_addrs)
+        ]
+        demotions = [
+            {"address": a, "reason": "Displaced by higher scoring candidate"}
+            for a in current_active_addrs if a.lower() not in top_10_addrs
+        ]
+        top10_roster_json = [
+            {
+                "rank": idx + 1,
+                "address": w.address,
+                "name": w.name or w.pseudonym or "Whale",
+                "tier": w.tier,
+                "score": w.baleen_score,
+                "win_rate": w.win_rate_pct,
+                "pnl": w.all_time_pnl_usd,
+                "trades_per_day": w.avg_trades_per_day
+            }
+            for idx, w in enumerate(top_10)
+        ]
+
+        duration_ms = (datetime.utcnow() - start_t).total_seconds() * 1000.0
+
+        reeval_log = SandboxReevaluation(
+            run_id=active_run.id if active_run else None,
+            timestamp=datetime.utcnow(),
+            trigger_type=trigger_type,
+            total_candidates_scanned=len(wallets),
+            qualified_whales_count=len(qualifying_wallets),
+            rejected_whales_count=len(wallets) - len(qualifying_wallets),
+            top10_active_roster=json.dumps(top10_roster_json),
+            promotions=json.dumps(promotions),
+            demotions=json.dumps(demotions),
+            execution_duration_ms=round(duration_ms, 1)
+        )
+        db.add(reeval_log)
+
+        if active_run:
+            active_run.total_reevaluations_count = (active_run.total_reevaluations_count or 0) + 1
+            active_run.active_whales_roster = json.dumps(top10_roster_json)
+    except Exception as audit_err:
+        logger.warning(f"Note on re-evaluation audit log: {audit_err}")
+
     await db.commit()
-    logger.info(f"24h Pool-Normalized Roster Rescore Complete: {len(top_10)} active whales in Top 10 roster.")
+    logger.info(f"24h Pool-Normalized Roster Rescore Complete ({trigger_type}): {len(top_10)} active whales in Top 10 roster.")

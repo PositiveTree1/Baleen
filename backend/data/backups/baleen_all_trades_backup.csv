@@ -1,0 +1,3 @@
+id,timestamp,wallet_address,market_condition_id,market_question,event_slug,side,outcome,whale_entry_price,user_fill_price,notional_usd,fee_usd,realized_pnl_usd,status,tx_hash
+2c0e095c-b030-40cc-849c-1ef87ac92239,2026-08-30T12:23:13.907204,0xempirical_backup_whale,0xcond_backup_1,Will SpaceX reach Mars in 2026?,,BUY,Yes,0.35,0.35,250.0,2.5,,FILLED,
+cb32e4f8-439f-4662-a0ab-4dfe653bf746,2026-08-30T12:23:13.907204,0xempirical_backup_whale,0xcond_backup_2,Will Apple launch foldable iPhone in 2026?,,SELL,No,0.8,0.8,250.0,1.5,75.0,CLOSED,

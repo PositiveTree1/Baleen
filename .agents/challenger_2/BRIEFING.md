@@ -1,61 +1,48 @@
-# BRIEFING — 2026-08-29T22:39:15Z
+# BRIEFING — 2026-08-30T01:05:00Z
 
 ## Mission
-Adversarially stress test the 220-scenario matrix and the 4 core invariants of the Baleen system (10-wallet sleeve isolation, cash invariance/MTM isolation, quadratic Polymarket fee invariance, zero-division safety on corrupt/zero-volume orderbooks).
+Empirically and adversarially verify live polling execution, resilience, and stress bounds (R3) for Baleen.
 
 ## 🔒 My Identity
-- Archetype: empirical challenger
+- Archetype: challenger
 - Roles: critic, specialist
 - Working directory: c:\Users\arthu\Documents\Baleen-master\.agents\challenger_2
-- Original parent: 80a690ee-3a02-4f8b-b9bd-343f548c6fae
-- Milestone: 220-Scenario & Invariant Stress Testing
+- Original parent: 751bd955-015e-4770-a375-1e1351856f59
+- Milestone: Empirical Live Polling & Execution Stress Verification (R3)
 - Instance: 2 of 2
 
 ## 🔒 Key Constraints
-- Review-only — do NOT modify implementation code (report findings/failures, don't fix ourselves)
-- Empirical verification mandatory: run verification code directly
-- Deliver handoff.md with 5 sections: Observation, Logic Chain, Caveats, Conclusion, Verification Method
-- Explicit verdict: APPROVE or REQUEST_CHANGES
+- Review-only — do NOT modify implementation code
+- Run tests and empirical verification scripts independently
+- Follow AGENTS.md rules and project specs
 
 ## Current Parent
-- Conversation ID: 80a690ee-3a02-4f8b-b9bd-343f548c6fae
-- Updated: 2026-08-29T22:39:15Z
+- Conversation ID: 751bd955-015e-4770-a375-1e1351856f59
+- Updated: 2026-08-30T01:05:00Z
 
 ## Review Scope
-- **Files to review**:
-  - `backend/tests/scenarios/test_massive_220_scenario_matrix.py`
-  - `backend/tests/test_challenger_a1_stress.py`
-  - `backend/tests/test_challenger_execution_stress.py`
-  - `backend/tests/test_challenger_fee_boundary_matrix.py`
-  - `backend/tests/test_challenger_c2_invariant_adversary.py`
-  - `backend/app/sizing/sleeve_manager.py`
-  - `backend/app/services/polymarket_fees.py`
-  - `backend/app/services/mark_to_market.py`
-  - `backend/tests/scenarios/invariant_monitor.py`
-- **Interface contracts**: `PROJECT.md`, `.agents/ORIGINAL_REQUEST.md`
-- **Review criteria**: 4 core invariants (10-wallet sleeve isolation & zero capital starvation, cash invariance & MTM isolation, quadratic fee invariance, zero-division safety)
+- **Files reviewed**: backend/app/services/live_poller.py, backend/app/services/mark_to_market.py, backend/app/services/disk_backup.py, backend/app/main.py, backend/app/sizing/sleeve_manager.py, backend/tests/test_challenger_execution_stress.py, backend/tests/test_challenger_a1_stress.py, backend/tests/test_live_poller_m_a3.py, backend/tests/test_challenger_r3_deep_empirical.py.
+- **Interface contracts**: PROJECT.md, TEST_INFRA.md, ORIGINAL_REQUEST.md
+- **Review criteria**: Empirical correctness, resilience under stress/errors, bounds conformance, pacing, boundary screening, 3-strike demotion, 24/7 overnight resilience.
 
 ## Attack Surface
 - **Hypotheses tested**:
-  - 10-Wallet Sleeve Isolation under asymmetric exhaustion & 9-wallet starvation pressure
-  - Cash non-negativity & MTM phantom cash inflation during 99x mark-to-market spikes
-  - 2026 Quadratic Polymarket Fee bounds ($\Theta \in [0.00, 0.072]$) and Banker's Rounding half-to-even
-  - Zero-division safety on 0-balance, 0-volume, corrupt books, single-trade histories, and float NaNs/Infs
-- **Vulnerabilities found**: None in core invariant logic; all 10 invariants hold strictly across 220 standard scenarios + 25 adversarial stress tests.
-- **Untested angles**: Hardware-level fault injection / OS out-of-memory kernel kills (out of scope for unit/integration testing).
+  - Live poller loop pacing (2.5s) and error isolation.
+  - Top-10 active whale roster selection and dynamic legacy expansion for open positions.
+  - Boundary price screening ($0.04 - $0.96) and 3-strike anti-arbitrage bot demotion ($p <= 0.02$ or $p >= 0.98$).
+  - 24/7 overnight resilience: 5-minute keep-alive pinging, 15-minute disk backups, MTM watchdog restart gap recovery, and error-isolated async loops.
+- **Vulnerabilities found**: None in current codebase. All state machine invariants, fee logic, slippage guards, and anti-arbitrage screens pass 100%.
+- **Untested angles**: Full production network disruption against live Polymarket WebSocket (simulated via local HTTP & offline fixtures).
 
 ## Loaded Skills
-None required (backend Python testing).
+- None
 
 ## Key Decisions Made
-- Executed 220-scenario aggregate stress matrix: 100% PASS
-- Executed existing Challenger stress suites (a1, execution, fee boundary): 100% PASS
-- Created and executed custom adversarial suite `test_challenger_c2_invariant_adversary.py`: 100% PASS
-- Executed full test suite (403 tests total): 100% PASS
-- Rendered final verdict: APPROVE
+- Executed all requested test suites (`test_challenger_execution_stress.py`, `test_challenger_a1_stress.py`, `test_live_poller_m_a3.py`) -> 44 passed.
+- Authored and executed deep empirical suite `test_challenger_r3_deep_empirical.py` -> 6 passed.
+- Verified full regression test suite (409 passed).
+- Issued formal verdict: **APPROVE**.
 
 ## Artifact Index
-- `.agents/challenger_2/DISPATCH.md` — Incoming dispatch prompt
-- `.agents/challenger_2/progress.md` — Liveness and progress tracking
-- `.agents/challenger_2/BRIEFING.md` — Agent briefing & situational awareness
-- `.agents/challenger_2/handoff.md` — Final handoff report
+- analysis.md — Adversarial analysis and stress findings
+- handoff.md — 5-component handoff report

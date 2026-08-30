@@ -1,58 +1,56 @@
-# BRIEFING — 2026-08-29T23:37:00Z
+﻿# BRIEFING — 2026-08-30T02:05:00Z
 
 ## Mission
-Adversarially stress-test the quantitative filters, 5-factor scoring engine, hysteresis selection, and 2026 Polymarket quadratic dynamic fee calculation across extreme boundary conditions and full parameter matrices in Baleen.
+Adversarially and empirically verify mathematical models, fee structures, dynamic sleeve sizing, and state machine invariants (R1 & R3) for the Baleen copy-trading platform.
 
 ## 🔒 My Identity
-- Archetype: empirical_challenger
+- Archetype: challenger
 - Roles: critic, specialist
 - Working directory: c:\Users\arthu\Documents\Baleen-master\.agents\challenger_1
-- Original parent: 80a690ee-3a02-4f8b-b9bd-343f548c6fae
-- Milestone: M1 / M2 Validation
+- Original parent: 751bd955-015e-4770-a375-1e1351856f59
+- Milestone: M5 (Adversarial Hardening & Verification)
 - Instance: 1 of 1
 
 ## 🔒 Key Constraints
 - Review-only — do NOT modify implementation code
-- Write metadata strictly to own `.agents/challenger_1` directory
-- Empirically execute and verify all claims with test runs
+- Empirical verification required: all challenges and verifications must be executed with code/tests
+- Strict adherence to 5-component handoff report and communication protocols
 
 ## Current Parent
-- Conversation ID: 80a690ee-3a02-4f8b-b9bd-343f548c6fae
-- Updated: not yet
+- Conversation ID: 751bd955-015e-4770-a375-1e1351856f59
+- Updated: 2026-08-30T02:05:00Z
 
 ## Review Scope
-- **Files reviewed**:
-  - `backend/app/scoring/engine.py` (8 hard gatekeepers, win-rate gate, gold sniper tiering)
-  - `backend/app/scoring/basket.py` (5-factor raw computation, intra-pool 0-100 normalization, 5-point hysteresis top 10 selection)
-  - `backend/app/discovery/scanner.py` (Deep evaluation, on-chain trade fetch, score assignment)
-  - `backend/app/services/polymarket_fees.py` (2026 Polymarket quadratic dynamic fee schedule, 6 categories, Banker's Rounding, EV gate)
-  - `backend/tests/test_scoring_filters.py`
-  - `backend/tests/test_scoring_5factor_and_hysteresis.py`
-  - `backend/tests/test_polymarket_fees.py`
-  - `backend/tests/test_challenger_fee_boundary_matrix.py`
-- **Review criteria**: Mathematical correctness, boundary precision, division-by-zero resilience, edge case coverage, robustness.
+- **Files to review**:
+  - ackend/app/services/polymarket_fees.py
+  - ackend/app/sizing/sleeve_manager.py
+  - ackend/app/services/live_poller.py
+  - ackend/app/sizing/slippage.py
+  - ackend/app/sizing/fill_simulator.py
+  - ackend/app/scoring/engine.py
+  - ackend/app/discovery/scanner.py
+  - ackend/tests/test_challenger_fee_boundary_matrix.py
+  - ackend/tests/test_challenger_c2_invariant_adversary.py
+  - ackend/tests/scenarios/test_massive_220_scenario_matrix.py
+- **Interface contracts**: PROJECT.md / TEST_INFRA.md
+- **Review criteria**: Mathematical correctness, boundary stability, state machine invariants, fee accuracy, non-negativity, anti-starvation.
 
 ## Attack Surface
-- **Hypotheses tested**: 
-  - Gatekeeper boundary values: 0 trades, 149 vs 150 trades, 59 vs 60 days, $149,999 vs $150,000 vol, 54.9% vs 55% win rate, 25.1% vs 25.0% outlier concentration, wash trading flag, sleeve compatibility, high PnL exemptions ($250k for volume, $500k for trades/days).
-  - 2026 Quadratic Fee Schedule: 6 categories (Crypto 0.072, Econ 0.060, Culture/Tech 0.050, Politics 0.040, Sports 0.030, Geopolitics 0.000) across extreme prices ($0.0001, $0.001, $0.50, $0.999, $1.00, negative, None) and notionals ($0, -$100, $0.0001, $1.00, $10,000, $1B).
-  - Banker's Rounding (ROUND_HALF_EVEN) to nearest cent.
-  - Maker invariant: $0.00 fee across all parameters.
-  - Intra-pool normalization division-by-zero guard on identical metrics.
-  - Top 10 roster selection with 5-point hysteresis buffer.
-- **Vulnerabilities found**: None in tested quantitative filter & fee modules. All 45 quantitative/fee unit tests and all 378 total backend test cases passed with zero errors.
-- **Untested angles**: None within quantitative and fee boundary scope.
+- **Hypotheses tested**:
+  - 2026 Quadratic fee formula & Banker's rounding across 6 categories ($\Theta \in [0.00, 0.072]$) and boundary prices: VERIFIED PASS.
+  - Sleeve capacity bounds & anti-starvation: VERIFIED PASS.
+  - Out-of-order SELL matching & lagging BUY pairing with 0 orphan trades: VERIFIED PASS.
+  - EV gating ($\text{Expected Edge} \ge 2.5 \times \text{Fee Rate}$): VERIFIED PASS.
+- **Vulnerabilities found**: None. All 10 state machine invariants hold across 220 scenarios and 403 test cases.
+- **Untested angles**: None within scope.
 
 ## Loaded Skills
-None.
+- None requested
 
 ## Key Decisions Made
-- Executed full test suite `pytest tests/test_scoring_filters.py tests/test_scoring_5factor_and_hysteresis.py tests/test_polymarket_fees.py tests/test_challenger_fee_boundary_matrix.py` (45 passed).
-- Executed entire backend test suite (378 passed).
-- Verified mathematical invariants and rendered explicit verdict: APPROVE.
+- Executed full test suites, empirical calculation harness, out-of-order simulation, and Next.js frontend production build.
+- Verdict reached: APPROVE.
 
 ## Artifact Index
-- `.agents/challenger_1/DISPATCH.md` — Dispatch log
-- `.agents/challenger_1/BRIEFING.md` — Persistent briefing
-- `.agents/challenger_1/progress.md` — Liveness & step log
-- `.agents/challenger_1/handoff.md` — Final handoff report
+- .agents/challenger_1/analysis.md — Adversarial analysis report
+- .agents/challenger_1/handoff.md — 5-component handoff report

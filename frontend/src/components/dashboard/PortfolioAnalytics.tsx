@@ -708,7 +708,7 @@ export function PortfolioAnalytics({
                 ${activeAllocationStats.totalNotional.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </div>
               <span className="text-[11px] font-mono font-medium text-slate-500 dark:text-[#8E8F99]">
-                {activeAllocationStats.allocatedPct}% of $10,000 Bankroll
+                {activeAllocationStats.allocatedPct}% of ${Math.round(currentBalance || 10000).toLocaleString()} Bankroll
               </span>
             </div>
           </div>
@@ -735,14 +735,14 @@ export function PortfolioAnalytics({
                     <span className="text-slate-900 dark:text-white font-bold truncate">{w.name}</span>
                   </div>
                   <div className="font-mono text-slate-700 dark:text-slate-300 shrink-0">
-                    ${w.notional.toLocaleString()} <span className="text-slate-400 text-[10px]">({w.sleevePct}% of $1k Sleeve • {w.bankrollPct}% Portfolio)</span>
+                    ${w.notional.toLocaleString()} <span className="text-slate-400 text-[10px]">({w.sleevePct}% of ${Math.round(activeAllocationStats.sleeveBudget).toLocaleString()} Sleeve • {w.bankrollPct}% Portfolio)</span>
                   </div>
                 </div>
               ))
             ) : (
               <div className="flex items-center justify-between text-[11px] text-slate-500">
-                <span>10 Isolated $1,000 Sleeves Ready</span>
-                <span className="font-mono text-emerald-500 font-bold">$10,000 Free Cash</span>
+                <span>10 Isolated ${Math.round(activeAllocationStats.sleeveBudget).toLocaleString()} Sleeves Ready</span>
+                <span className="font-mono text-emerald-500 font-bold">${Math.round(currentBalance || 10000).toLocaleString()} Free Cash</span>
               </div>
             )}
           </div>

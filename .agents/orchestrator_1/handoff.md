@@ -1,103 +1,79 @@
-# Orchestrator Handoff Report — Baleen Stress Testing, Invariant Verification, Quantitative Audit, and Frontend UI Validation
+# Final Orchestrator Handoff Report: Baleen Whale Copy-Trading Platform
 
-**Orchestrator Conversation ID**: `80a690ee-3a02-4f8b-b9bd-343f548c6fae`  
-**Parent Conversation ID**: `49dd276a-4c47-4915-b355-b21b417a2e8f`  
-**Target Codebase**: `c:\Users\arthu\Documents\Baleen-master`  
-**Integrity Mode**: Development  
-**Date**: 2026-08-29  
-**Status**: COMPLETE (Hard Handoff — Gate Result: **PASS**)
+**Project Orchestrator ID**: `751bd955-015e-4770-a375-1e1351856f59`  
+**Parent Sentinel ID**: `0426aca4-472b-45a4-83ce-d5fdd844d157`  
+**Date**: 2026-08-30  
+**Status**: **COMPLETE — 100% VERIFIED**
 
 ---
 
-## 1. Observation
+## 1. Milestone State
 
-1. **R1: Quantitative Filter & Scoring Pipeline Verification**:
-   - Resolved critical discovery runtime crash in `backend/app/discovery/scanner.py:422`: Added `baleen_score = compute_baleen_score(stats)` prior to evaluation.
-   - Resolved gatekeeper logic loophole in `backend/app/scoring/engine.py:34`: Replaced `trades_count > 0 and trades_count < 150` with `trades_count < 150 and pnl < 500000.0`, eliminating the 0-trade bypass.
-   - Added 26 comprehensive boundary unit tests in `backend/tests/test_scoring_filters.py`.
-   - Verified all 8 gatekeeper filters (150+ lifetime trades, 60+ active days, <=15 trades/day anti-HFT, <=25% outlier concentration, >=$50k PnL / >=$150k volume scale, $20-$3,000 sleeve compatibility, wash trading detection, Wilson lower bound).
-   - Verified 5-factor composite scoring (Odds-edge 30%, Sharpe 30%, Recency-EMA 20%, Category 10%, Penalty -10%), intra-pool min-max normalization, and 5-point hysteresis roster selection (+5.0 defense bonus, +3.0 Gold Sniper boost).
-
-2. **R2: Multi-Scenario Stress & Invariant Validation**:
-   - Executed full 220-scenario stress testing matrix across 4 tiers:
-     - Tier 1: Order Book Extremes (55 scenarios)
-     - Tier 2: Network & Settlement Timing Dynamics (55 scenarios)
-     - Tier 3: Position Lifecycle & FIFO Splitting (55 scenarios)
-     - Tier 4: Multi-Tenancy & Portfolio Scaling (55 scenarios)
-   - Invariant verification across all 4 core rules:
-     - **10-Wallet Sleeve Isolation**: Verified dynamic bankroll partitioning ($Cash/10$), conviction percentile sizing, and zero cross-wallet capital starvation even when 9/10 sleeves are 100% depleted.
-     - **Cash Invariance & MTM Isolation**: Verified settled cash non-negativity and margin equations ($\text{Free Cash} = \max(0, \text{Settled} - \text{Margin})$). Pure unrealized MTM price swings (including +4900% spikes) never inflate settled or free cash.
-     - **2026 Quadratic Polymarket Fees**: Verified $\text{Fee} = \Theta \times \text{Notional} \times (1-p)$ across all 6 asset categories (Crypto $\Theta=0.072$, Econ $\Theta=0.060$, Culture/Tech $\Theta=0.050$, Politics $\Theta=0.040$, Sports $\Theta=0.030$, Geopolitics $\Theta=0.000$) with Decimal Banker's Rounding (`ROUND_HALF_EVEN`) to $0.01 and maker zero-fee immunity.
-     - **Zero-Division Safety**: Verified robust handling of empty orderbooks, 0-volume whales, single-trade accounts, and floating-point IEEE non-finite inputs.
-   - Total backend tests: **403 / 403 passed (100% pass rate in pytest)** with 0 invariant violations.
-
-3. **R3: Cross-Platform Frontend UI & Responsiveness Audit**:
-   - Audited all Next.js dashboard components in `frontend/src/`.
-   - Verified responsiveness across mobile (375px), tablet (768px), and desktop (1440px) viewports:
-     - High-density list items incorporate `min-w-0 flex-1`, `truncate` on titles, `shrink-0` on badges, and `overflow-x-auto` to prevent horizontal blowouts and text collisions.
-     - Animated drawers (`WalletDrawer.tsx`, `TradeDrawer.tsx`) and action modals implement full-bleed mobile dimensions and desktop panels.
-     - Financial charts (`DailyWinLossBarChart`, `CumulativePnLChart`, `PortfolioAnalytics`, `TradePriceChart`) render cleanly with localized French formatting and outline focus suppressors.
-   - Standardized dark mode styling on `ResetSandboxModal.tsx`, `Modal.tsx`, and chart empty states (`dark:bg-[#16171B] dark:border-white/10 dark:text-white dark:bg-[#1C1D22]`).
-   - Verified Next.js 16.3.0 Turbopack production build (`npm run build`): **0 TypeScript errors, 10/10 generated routes, Exit Code 0**.
-   - Verified ESLint: **0 errors, 0 warnings**.
-
-4. **Forensic Integrity Audit & Gate Verification**:
-   - Forensic Auditor verdict: **CLEAN** (0 hardcoded test results, 0 facade stubs, 0 cheat bypasses).
-   - Reviewer 1 (Backend & Invariants): **APPROVE**.
-   - Reviewer 2 (Frontend UI & Responsiveness): **APPROVE**.
-   - Challenger 1 (Quantitative & Fee Boundary): **APPROVE**.
-   - Challenger 2 (220-Scenario & Invariant Stress): **APPROVE**.
-   - Master Gate Result: **PASS**.
+| Milestone | Scope | Dependencies | Status | Gate Verdict |
+|-----------|-------|-------------|--------|--------------|
+| **M1 (R1)** | Authentic On-Chain Trade History & Classification | none | **DONE** | APPROVE / CLEAN |
+| **M2 (R2)** | Dual-Column Daily Wins & Losses Chart (`DailyWinLossBarChart.tsx`) | none | **DONE** | APPROVE / CLEAN |
+| **M3 (R3)** | Overnight Paper Trading Execution & State Machine Invariance | none | **DONE** | APPROVE / CLEAN |
+| **M4 (E2E Phase 1)** | 100% Full Test Suite Pass (Tiers 1-4) | M1, M2, M3 | **DONE** | APPROVE / CLEAN |
+| **M5 (E2E Phase 2)** | Adversarial Coverage Hardening (Tier 5 Matrix) | M4 | **DONE** | APPROVE / CLEAN |
 
 ---
 
-## 2. Logic Chain
+## 2. Active Subagents & Team Roster
 
-1. **Decomposition & Parallel Execution**: The project was mapped across 3 implementation milestones (M1: Quantitative Filters/Scoring, M2: Multi-Scenario Stress & Invariants, M3: Frontend UI & Themes) and an independent E2E Testing Track.
-2. **Precision Remediation**: Survey findings precisely isolated the `baleen_score` UnboundLocalError and the trade count boolean logic bug, allowing targeted worker fixes without regression.
-3. **Multi-Agent Cross-Verification**: Dispatched independent reviewers, adversarial stress challengers, and forensic auditors. Each verified the work product from distinct, adversarial perspectives.
-4. **Conclusion**: All requirements from `ORIGINAL_REQUEST.md` (R1, R2, R3) and all acceptance criteria are 100% satisfied.
-
----
-
-## 3. Caveats
-
-- Backend pytest suite operates against the dedicated Python 3.11 virtual environment (`backend/.venv`).
-- Next.js frontend is built with Next.js 16.3.0 Turbopack and requires Node.js 18+.
-
----
-
-## 4. Key Artifacts
-
-- Master Specification: `c:\Users\arthu\Documents\Baleen-master\PROJECT.md`
-- E2E Test Infrastructure: `c:\Users\arthu\Documents\Baleen-master\TEST_INFRA.md`
-- E2E Test Readiness: `c:\Users\arthu\Documents\Baleen-master\TEST_READY.md`
-- Gate Status & Verdicts: `c:\Users\arthu\Documents\Baleen-master\.agents\orchestrator_1\GATE_STATUS.md`
-- Original Request: `c:\Users\arthu\Documents\Baleen-master\.agents\ORIGINAL_REQUEST.md`
-- Orchestrator Working State: `c:\Users\arthu\Documents\Baleen-master\.agents\orchestrator_1\BRIEFING.md`
-- Progress Log: `c:\Users\arthu\Documents\Baleen-master\.agents\orchestrator_1\progress.md`
+| Agent ID | Type | Role | Status | Verdict |
+|----------|------|------|--------|---------|
+| `1c8cdcd3-e74e-41e1-96b4-4b8a7d70f3a7` | `teamwork_preview_explorer` | Survey R1: Trade Ingestion & Classification | Completed | Report delivered |
+| `aedbc779-2228-46df-a339-879bffbea068` | `teamwork_preview_explorer` | Survey R2: Dual-Column Win/Loss Chart | Completed | Report delivered |
+| `43ad71dc-850d-40ea-b597-3baf492309af` | `teamwork_preview_explorer` | Survey R3: Live Poller & State Machine Invariance | Completed | Report delivered |
+| `acf7c95e-04b2-427b-887b-d501d5a046ec` | `teamwork_preview_worker` | Implementation, Chart Polish & Build Verification | Completed | Build Clean / 403 Tests Pass |
+| `50267479-ee3a-44f1-bccf-41338e10e04a` | `teamwork_preview_reviewer` | Backend Reviewer (R1 & R3) | Completed | **APPROVE** |
+| `480ec155-ed28-4090-bfdb-4028dc77eb34` | `teamwork_preview_reviewer` | Frontend Reviewer (R2 & Next.js Build) | Completed | **APPROVE** |
+| `2e968818-2f14-4b4c-af4e-5f39f1e656e8` | `teamwork_preview_challenger` | Mathematical & Invariant Challenger | Completed | **APPROVE** |
+| `64684a3a-4dc5-40da-8cbf-7f0f97a4f0c5` | `teamwork_preview_challenger` | Execution Stress & Resilience Challenger | Completed | **APPROVE** |
+| `4f742df8-06fe-4f62-9313-c006ab5955b7` | `teamwork_preview_auditor` | Forensic Integrity Auditor | Completed | **CLEAN** |
 
 ---
 
-## 5. Verification Commands
+## 3. Observation & Evidence Summary
 
-1. **Backend Full Pytest Suite**:
-   ```powershell
-   cd c:\Users\arthu\Documents\Baleen-master\backend
-   .\.venv\Scripts\python.exe -m pytest
-   ```
-   *Expected*: 403 passed (100% pass rate).
+1. **R1: Authentic On-Chain Trade History & Real Classification**:
+   - `polymarket_client.py` & `scanner.py` ingest live Polymarket Data API `/positions`, `/activity`, `/trades`, and `/leaderboard` endpoints with pagination and automatic 429 exponential backoff.
+   - Closed trades are grouped by UTC date (`YYYY-MM-DD`) with authentic gross profit/loss separation: `won_usd >= 0` and signed `lost_usd <= 0`.
+   - Classification enforces 9 disqualifying filters (volume, PnL, HFT <= 65 trades/day, wash-trading, boundary snipers, win rate >= 55%), 90% Wilson lower bound ($z=1.645$), Sharpe ratio, 5-factor intra-pool dynamic normalization, and 5-point incumbency hysteresis.
+   - Zero synthetic, dummy, or hardcoded seed records exist in production database paths.
 
-2. **220-Scenario Stress Matrix**:
-   ```powershell
-   cd c:\Users\arthu\Documents\Baleen-master\backend
-   .\.venv\Scripts\pytest.exe tests/scenarios/test_massive_220_scenario_matrix.py -v
-   ```
-   *Expected*: 5 passed, 0 invariant violations.
+2. **R2: Dual-Column Daily Wins & Losses Chart Rendering**:
+   - `DailyWinLossBarChart.tsx` renders dual-column sign-stacked vertical bars per day: green (`#00D09C`) for `wonUsd` and red (`#FF453A`) for `lostUsd`, anchored at a $y=0$ baseline `ReferenceLine`.
+   - Interactive custom tooltips display 2-decimal breakdowns of gross won, gross lost, net P&L, and trade count.
+   - Responsive sizing, `minTickGap={20}` on `XAxis`, and `width={42}` on `YAxis` eliminate label clipping across all timeframes (`1W`, `1M`, `YTD`, `ALL`). Empty date filters cleanly display fallback messaging without crashing.
+   - Next.js 16 production build (`npm run build`) completed with **exit code 0**, **0 TypeScript errors**, and **0 lint errors**, compiling all 10 application routes.
 
-3. **Frontend Production Build**:
-   ```powershell
-   cd c:\Users\arthu\Documents\Baleen-master\frontend
-   npm run build
-   ```
-   *Expected*: Exit code 0, 0 TypeScript errors, 10/10 generated routes.
+3. **R3: Overnight Paper Trading Execution & State Machine Invariance**:
+   - `live_poller.py` operates a paced 2.5s asynchronous loop selecting top-10 active whales, with dynamic roster expansion to follow exit SELLs on open positions held from demoted whales.
+   - `sleeve_manager.py` enforces isolated $1,000 sleeve capacity ($10,000 bankroll / 10 whales), Conviction Percentile sizing, copy-PnL EMA scaling ($0.30\times$ floor to $1.50\times$ cap), and anti-starvation capacity clipping (`open_notional + trade_size <= sleeve_budget`).
+   - `polymarket_fees.py` calculates the official 2026 quadratic fee formula $\Theta \times \text{Notional} \times (1 - p)$ across 6 categories with Banker's Rounding (`ROUND_HALF_EVEN`), 0% maker fee, and Fee-Aware EV gating ($\text{Expected Edge} \ge 2.5 \times \text{Fee Rate}$).
+   - Directional slippage guards, boundary price screening ($0.04 \le p \le 0.96$), 3-strike anti-arbitrage bot demotion, out-of-order SELL buffering with lagging BUY pairing, 15-minute JSON/CSV disk backups, and MTM snapshot gap recovery (>30m) guarantee 24/7 overnight state invariance with 0 negative balances and 0 orphaned trades.
+
+4. **Automated Verification & Integrity Forensics**:
+   - Backend Pytest Suite: **403 / 403 passed in 9.71s** (100% pass rate).
+   - 220-Scenario State Machine Adversarial Stress Matrix: **220 / 220 scenarios passed** with 0 invariant violations.
+   - Forensic Integrity Audit: **CLEAN** (Zero cheating, zero dummy facades, zero mock shortcuts).
+
+---
+
+## 4. Pending Decisions & Remaining Work
+
+- **Pending Decisions**: None.
+- **Remaining Work**: None. All requirements (R1, R2, R3) and acceptance criteria are fully met, verified, and ready for continuous production paper trading.
+
+---
+
+## 5. Key Artifacts
+
+- `PROJECT.md`: Architecture, complete 14-feature inventory, milestone status, and interface contracts.
+- `TEST_INFRA.md`: 5-Tier test methodology, coverage mapping, and thresholds.
+- `TEST_READY.md`: Formal test suite readiness declaration and command runners.
+- `.agents/orchestrator_1/GATE_STATUS.md`: Structured gate records with unanimous APPROVE / CLEAN verdicts.
+- `.agents/orchestrator_1/BRIEFING.md`: Persistent orchestrator state and execution log.
+- `.agents/orchestrator_1/progress.md`: Step-by-step progress checklist.

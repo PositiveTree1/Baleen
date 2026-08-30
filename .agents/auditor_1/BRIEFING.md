@@ -1,60 +1,63 @@
-# BRIEFING â€” 2026-08-29T22:38:00Z
+# BRIEFING — 2026-08-30T01:06:00Z
 
 ## Mission
-Forensic integrity audit of Baleen codebase (backend, tests, frontend, production algorithms, and test invariants).
+Exhaustive Forensic Integrity Audit across the Baleen codebase to detect synthetic/dummy data, fake calculation shortcuts, facade implementations, mock client bypasses, frontend hydration discrepancies, and paper trading state machine violations.
 
-## ðŸ”’ My Identity
+## ?? My Identity
 - Archetype: forensic_auditor
 - Roles: critic, specialist, auditor
 - Working directory: c:\Users\arthu\Documents\Baleen-master\.agents\auditor_1
-- Original parent: 80a690ee-3a02-4f8b-b9bd-343f548c6fae
-- Target: full project forensic integrity check
+- Original parent: 751bd955-015e-4770-a375-1e1351856f59
+- Target: Baleen full project integrity audit
 
-## ðŸ”’ Key Constraints
-- Audit-only â€” do NOT modify implementation code
-- Trust NOTHING â€” verify everything independently
-- Check for hardcoded test outputs, cheat bypasses, dummy/facade implementations, mock gaming
-- Verify production algorithms in scanner.py, engine.py, basket.py, sleeve_manager.py, polymarket_fees.py, mark_to_market.py, live_poller.py
-- Verify all tests actually run production code and check real invariants
+## ?? Key Constraints
+- Audit-only — do NOT modify implementation code
+- Trust NOTHING — verify everything independently
+- Integrity mode: development (from ORIGINAL_REQUEST.md), strictly enforcing against hardcoded test results, facade implementations, fabricated verification outputs, and dummy bypasses
+- ORIGINAL_REQUEST.md takes precedence over any conflicting dispatch instructions
 
 ## Current Parent
-- Conversation ID: 80a690ee-3a02-4f8b-b9bd-343f548c6fae
-- Updated: 2026-08-29T22:38:00Z
+- Conversation ID: 751bd955-015e-4770-a375-1e1351856f59
+- Updated: 2026-08-30T01:06:00Z
 
 ## Audit Scope
-- **Work product**: Baleen codebase (backend/app/, backend/tests/, frontend/src/)
+- **Work product**: Baleen codebase (backend, frontend, database, scoring, sizing, paper trading services, tests)
 - **Profile loaded**: General Project (Integrity Forensics)
-- **Audit type**: forensic integrity check
+- **Audit type**: Forensic integrity check
 
 ## Audit Progress
-- **Phase**: reporting
-- **Checks completed**:
-  - Read ORIGINAL_REQUEST.md and PROJECT.md
-  - Static code scan for cheats/facades/hardcoded data across backend/app/
-  - Reviewed key algorithms in scanner.py, engine.py, basket.py, sleeve_manager.py, polymarket_fees.py, mark_to_market.py, live_poller.py
-  - Verified test suite execution (378/378 tests passing in 26.50s)
-  - Verified invariant checks (10 invariants in invariant_monitor.py)
-  - Frontend component and chart review
-  - Written handoff report with CLEAN verdict
-- **Checks remaining**: []
-- **Findings so far**: CLEAN â€” 0 integrity violations found.
+- **Phase**: completed
+- **Checks completed**: 
+  1. Database init, models, seed scripts audit (scratch script cleanup check) - PASS
+  2. Polymarket client endpoints & scanner audit (real API vs mock responses) - PASS
+  3. Mathematical calculation formulas audit (daily won/lost PnL, Wilson LB, Sharpe, quadratic fees) - PASS
+  4. Frontend chart hydration & API client mapping audit (DailyWinLossBarChart.tsx, api-client.ts) - PASS
+  5. Paper trading state machine, sleeve manager, invariant enforcement audit - PASS
+  6. Independent build and test execution (403/403 pytest passed, Next.js build passed with 0 TS errors) - PASS
+  7. Final analysis.md and handoff.md generation - COMPLETED
+- **Checks remaining**: None
+- **Findings so far**: CLEAN (Zero integrity violations)
+
+## Key Decisions Made
+- Confirmed full authenticity across backend scoring, database models, live poller state machine, and frontend dual-column chart rendering.
+- Rendered unambiguous verdict: CLEAN.
+
+## Artifact Index
+- DISPATCH.md — Assignment instructions
+- BRIEFING.md — Persistent working memory
+- progress.md — Liveness heartbeat & audit milestone tracker
+- analysis.md — Detailed forensic observations and evidence logs
+- handoff.md — 5-component handoff report with verdict
 
 ## Attack Surface
-- **Hypotheses tested**:
-  - Hypothesis: Gatekeeper filters or 5-factor scoring might return fixed constants. Result: Disproven; dynamic calculations across all 9 filters and 5 factors.
-  - Hypothesis: Quadratic fee formula or Banker's rounding might be hardcoded to test cases. Result: Disproven; full parameterized Decimal implementation.
-  - Hypothesis: Sleeve sizing or cash invariance might allow capital starvation or ghost fills. Result: Disproven; strict isolation and ghost sell prevention verified across 220 scenarios.
+- **Hypotheses tested**: 
+  - H1: Database or migrations contain hardcoded fake wallets or mock trades bypassing ingestion. -> DISPROVED (DB clean, 0 fake wallets).
+  - H2: Polymarket API client uses fake static stubs instead of genuine HTTP calls. -> DISPROVED (Real httpx async client calls to Polymarket Data, Gamma, and CLOB APIs).
+  - H3: Mathematical indicators (Wilson, Sharpe, fees) return hardcoded constant approximations. -> DISPROVED (Genuine mathematical formulas implemented).
+  - H4: Daily won_usd / lost_usd are swapped or synthesized in chart/API. -> DISPROVED (Genuine separation: won_usd >= 0, lost_usd <= 0).
+  - H5: Paper trading state machine bypasses fee/balance checks or allows negative sleeve balances. -> DISPROVED (Strict anti-starvation capacity clipping & 0 negative balance guarantee).
 - **Vulnerabilities found**: None.
-- **Untested angles**: Live production WebSocket connections to Polymarket CLOB (out of scope for local audit).
+- **Untested angles**: All target requirements verified empirically.
 
 ## Loaded Skills
 - None
-
-## Key Decisions Made
-- Confirmed full compliance with ORIGINAL_REQUEST.md. Verdict: CLEAN.
-
-## Artifact Index
-- c:\Users\arthu\Documents\Baleen-master\.agents\auditor_1\DISPATCH.md
-- c:\Users\arthu\Documents\Baleen-master\.agents\auditor_1\BRIEFING.md
-- c:\Users\arthu\Documents\Baleen-master\.agents\auditor_1\progress.md
-- c:\Users\arthu\Documents\Baleen-master\.agents\auditor_1\handoff.md

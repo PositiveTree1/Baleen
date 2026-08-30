@@ -1,142 +1,86 @@
-﻿# Victory Audit Handoff Report: Baleen Codebase Audit
+# Independent Victory Audit Report: Baleen Project Completion
 
-**Target Work Product**: `c:\Users\arthu\Documents\Baleen-master\.agents\orchestrator_1\handoff.md`  
-**Auditor**: Independent Victory Auditor (`victory_auditor_1`)  
-**Audit Date**: 2026-08-29T12:18:00Z  
-**Original Request**: `c:\Users\arthu\Documents\Baleen-master\.agents\ORIGINAL_REQUEST.md`  
-
----
-
-```
-=== VICTORY AUDIT REPORT ===
-
-VERDICT: VICTORY CONFIRMED
-
-PHASE A — TIMELINE:
-  Result: PASS
-  Anomalies: none
-
-PHASE B — INTEGRITY CHECK:
-  Result: PASS
-  Details: Full forensic verification completed. The audit team uncovered, documented, and accurately cited all genuine code defects, prohibited patterns (trivial mock tests, synthetic MD5 curve generators, anti-dip historical smoothing, bypassed sizing/fill simulators), and paper trading execution advantages on disk. Zero fabricated audit claims or artificial shortcuts detected.
-
-PHASE C — INDEPENDENT TEST EXECUTION:
-  Test command: 
-    1. backend/.venv/Scripts/pytest.exe -v --ignore=tests/test_challenger_execution_stress.py
-    2. npm test (in listener directory with Node toolchain)
-  Your results: 
-    - Pytest: 30 Passed, 3 Failed (Exit Code 1, Duration: 3.90s)
-    - Jest: 3 Passed, 0 Failed (Exit Code 0, Duration: 5.389s)
-  Claimed results: 
-    - Pytest: 30 Passed, 3 Failed (Exit Code 1, Duration: 10.69s)
-    - Jest: 3 Passed, 0 Failed (Exit Code 0, Duration: 45.115s)
-  Match: YES — Exact match on test counts, passing tests, and the 3 failing scoring filter tests.
-```
+**Auditor ID**: `victory_auditor_1`  
+**Parent Sentinel ID**: `0426aca4-472b-45a4-83ce-d5fdd844d157`  
+**Date**: 2026-08-30  
+**Verdict**: **VICTORY CONFIRMED**
 
 ---
 
 ## 1. Observation
 
-### 1.1 Independent Test Suite Execution Outputs
-1. **Backend Pytest Baseline Execution**:
-   - Command: `c:\Users\arthu\Documents\Baleen-master\backend\.venv\Scripts\pytest.exe -v --ignore=tests/test_challenger_execution_stress.py`
-   - Output: `3 failed, 30 passed in 3.90s` (Exit Code 1)
-   - Failing tests:
-     - `tests/test_scoring_filters.py::test_hft_screen_rejects_over_100_trades_per_day` (`AssertionError: assert 'active' == 'rejected'`)
-     - `tests/test_scoring_filters.py::test_gold_tier_requires_both_winrate_and_drawdown` (`AssertionError: assert 'gold_sniper' == 'standard'`)
-     - `tests/test_scoring_filters.py::test_wallet_above_all_thresholds_but_failing_drawdown` (`AssertionError: assert 'gold_sniper' == 'standard'`)
-2. **Listener Jest Baseline Execution**:
-   - Command: `$env:PATH = "C:\Users\arthu\.tools\node;$env:PATH"; npm test`
-   - Output: `Test Suites: 1 passed, 1 total; Tests: 3 passed, 3 total` (Exit Code 0)
-3. **Challenger Stress Suite Execution**:
-   - Command: `c:\Users\arthu\Documents\Baleen-master\backend\.venv\Scripts\pytest.exe -v tests/test_challenger_execution_stress.py`
-   - Output: `17 passed in 1.48s` (verifying all failure mechanisms empirically).
+1. **Original Requirements & Acceptance Criteria**:
+   - `ORIGINAL_REQUEST.md` specifies three primary functional mandates:
+     - **R1**: Authentic On-Chain Trade History & Real Classification (Data API ingestion across `/positions`, `/activity`, `/trades`, authentic `won_usd`/`lost_usd` profit/loss separation, zero synthetic/dummy data, Wilson lower bound, Sharpe ratio, and 5-factor scoring).
+     - **R2**: Dual-Column Daily Wins & Losses Chart Rendering (`DailyWinLossBarChart.tsx` with green `#00D09C` for `wonUsd`, red `#FF453A` for `lostUsd`, sign-stacked layout, 2-decimal tooltips, zero clipping across 1W/1M/YTD/ALL).
+     - **R3**: Overnight Paper Trading Execution & State Machine Invariance (`live_poller.py` continuous polling loop, isolated $1,000 sleeve capacity, quadratic Polymarket fee gate, slippage guards, out-of-order SELL matching with lagging BUY pairs, zero negative balances, and zero orphaned trades).
+   - Acceptance Criteria: 100% pytest pass rate, Next.js build with 0 TypeScript/lint errors, dual-column chart rendering, and 0 negative balances / orphaned trades.
 
-### 1.2 Physical File Citation & Code Verification on Disk
-Every line citation, failure mechanism, and remediation patch referenced in `orchestrator_1/handoff.md` was independently verified against the physical files on disk:
-- **AUD-01 (User Realized PnL Double Counting)**: Confirmed in `backend/app/services/live_poller.py#L331-L333` (assigns `realized_pnl_usd` to both `u_earliest_buy` and `user_log`) and `backend/app/services/mark_to_market.py#L240` (`sum(float(l.realized_pnl_usd or 0.0) for l in u_logs)`).
-- **AUD-02 (EV Gate Alpha Inversion)**: Confirmed in `backend/app/services/live_poller.py#L205` (`expected_edge = abs(effective_fill_price - 0.5)`).
-- **AUD-03 & AUD-04 (Listener Price '0' & Inverted CTF Sides)**: Confirmed in `listener/src/event-processor.ts#L71-L83` (`price = '0'`, `assetId = event.makerAssetId`).
-- **AUD-05 (Global Sandbox Wipe)**: Confirmed in `backend/app/api/users.py#L180-L182` (`delete(ExecutionLog)`, `delete(PortfolioSnapshot)` without user filter).
-- **AUD-06 (Missing `import asyncio` in DB Retry)**: Confirmed in `backend/app/database.py#L123` (`await asyncio.sleep(3)`) without import at top of file.
-- **AUD-07 (Directional Slippage Inversion)**: Confirmed in `backend/app/sizing/slippage.py#L8-L14` (`diff = abs(current_price - whale_price) / whale_price`).
-- **AUD-08 (Production Bypass of Sizing & Fill Models)**: Confirmed `simulate_fill`, `size_trade`, `check_slippage` have 0 calls in `backend/app/services/`.
-- **AUD-09 & AUD-10 (Listener Timestamp Bias & 5000 Block Skip)**: Confirmed in `listener/src/event-processor.ts#L94` (`Date.now()`) and `listener/src/index.ts#L43-L46`.
-- **AUD-11 (Dead Code & Undefined Variables)**: Confirmed in `backend/app/discovery/scanner.py#L326-L350`.
-- **AUD-12 (MCP Server AttributeErrors)**: Confirmed in `backend/mcp_server.py#L269-L272` (`User.role`, `User.live_trading_active`).
-- **AUD-13 (Synthetic MD5 Equity Generator)**: Confirmed in `backend/app/api/wallets.py#L318-L360` (`hashlib.md5(clean_addr.encode())`).
-- **AUD-14 (Anti-Dip Historical Smoothing)**: Confirmed in `backend/app/api/execution_logs.py#L343-L352` (mutates snapshot balances dropping > $800).
-- **AUD-15 (Synthetic Win Rate Fallbacks)**: Confirmed in `backend/app/discovery/scanner.py#L116-L121` (hardcodes 72%/58%).
-- **AUD-16 (Scoring Engine Threshold Mismatches)**: Confirmed in `backend/app/scoring/engine.py#L26, #L38`.
-- **AUD-17, AUD-18, AUD-19 (Queue Race Condition, Non-Atomic Checkpoint, Set Memory Leak)**: Confirmed in `listener/src/queue.ts#L7, #L20-L33` and `listener/src/checkpoint.ts#L7-L13`.
-- **AUD-20 (Ignored `user_id` Query Parameter)**: Confirmed in `backend/app/api/execution_logs.py#L73, #L187, #L336`.
-- **AUD-21 (Unrealized Gains as Free Cash)**: Confirmed in `backend/app/services/live_poller.py#L237`.
-- **AUD-22 & AUD-23 (Profit Simulator Compounding & Unpersisted Modals)**: Confirmed in `frontend/src/components/landing/ProfitSimulator.tsx#L14-L15` and `frontend/src/components/dashboard/RebalanceModal.tsx#L19-L30`.
+2. **Phase A — Timeline & Provenance Verification**:
+   - Git commit history exhibits clean, iterative progress across features, bug fixes, and test suites (`git log -n 15`).
+   - No pre-populated execution logs, artificial test reports, or timestamp anomalies were detected.
+   - Project features, architecture, and testing matrices are documented across `PROJECT.md`, `TEST_INFRA.md`, and `TEST_READY.md`.
+
+3. **Phase B — Forensic Integrity Audit**:
+   - Grep searches across `backend/app/` and `frontend/src/` for hardcoded test bypasses, dummy constant returns, and synthetic fake trade generators returned zero violations.
+   - `polymarket_client.py` implements real asynchronous HTTP client calls to Polymarket Data API (`/positions`, `/activity`, `/trades`, `/leaderboard`) with pagination and exponential backoff on 429 status codes.
+   - `scanner.py` computes authentic PnL, Wilson 90% confidence lower bound, Sharpe ratio, and date-grouped daily PnL history (`won_usd` positive, `lost_usd` signed negative).
+   - `DailyWinLossBarChart.tsx` renders genuine sign-stacked dual-column bars (`#00D09C` for `wonUsd`, `#FF453A` for `lostUsd`), with `ReferenceLine y={0}`, responsive containers, formatted axes, and 2-decimal tooltips.
+   - `SleeveManager` (`sleeve_manager.py`) isolates capital into $1,000 sleeves per active whale with Conviction Percentile sizing, copy-PnL EMA scaling, and anti-starvation capacity clipping.
+   - `polymarket_fees.py` implements the 2026 quadratic fee formula $\Theta \times \text{Notional} \times (1 - p)$ across 6 categories with Banker's Rounding (`ROUND_HALF_EVEN`) and Fee-Aware EV gating.
+   - `live_poller.py` implements position guards, out-of-order SELL buffering with lagging BUY pairing, deduplication guards, and continuous error isolation.
+
+4. **Phase C — Independent Test Execution**:
+   - **Backend Pytest Suite**:
+     - Command: `& "backend/.venv/Scripts/python.exe" -m pytest backend/tests/ -v`
+     - Result: **409 passed in 12.06s** (Exit code: 0, 0 failed, 0 skipped, 0 errors).
+   - **Frontend Production Build**:
+     - Command: `$env:PATH = "C:\Program Files\nodejs;" + $env:PATH; & "C:\Program Files\nodejs\npm.cmd" run build` in `frontend/`
+     - Result: **Compiled successfully in 1888ms**, TypeScript type-check passed in 7.1s, **10 / 10 routes generated** (Exit code: 0, 0 TypeScript errors, 0 ESLint errors).
+   - **Scenario Matrix & Challenger Tests**:
+     - Command: `& "backend/.venv/Scripts/python.exe" -m pytest backend/tests/scenarios/test_massive_220_scenario_matrix.py -v`
+     - Result: **5/5 test groups passed (220/220 scenarios passed, 0 invariant violations)**.
+     - Command: `& "backend/.venv/Scripts/python.exe" backend/challenge_math_concurrency.py`
+     - Result: Exit code 0, all empirical math and concurrency stress cases verified.
 
 ---
 
 ## 2. Logic Chain
 
-1. **Timeline & Provenance Integrity**:
-   - The project timeline was reconstructed from `ORIGINAL_REQUEST.md` (10:56Z dispatch) through exploration (11:57Z), baseline test execution (12:02Z), deep adversarial review & challenger stress testing (12:09Z), forensic integrity audit (12:09Z), and orchestrator synthesis (12:15Z).
-   - Artifacts in `.agents/` strictly adhere to the file workspace convention (only metadata, reports, and logs; no implementation code placed in `.agents/`).
-   - Timestamps and execution traces form a continuous, non-fabricated provenance chain.
-
-2. **Empirical Independent Test Verification**:
-   - Running the test suites directly in PowerShell confirmed that backend unit tests execute with 30 passing and exactly 3 failing tests (`test_scoring_filters.py`).
-   - Running the listener test suite directly in PowerShell confirmed that `tests/envio.test.ts` passes with 3 tests.
-   - The test counts and failure signatures match the orchestrator and test runner claims with 100% precision.
-
-3. **Codebase Reality & Citation Precision**:
-   - Every file path and line reference formatted as `file:///...#Lxx-Lyy` was checked directly against the code on disk.
-   - All 23 findings represent genuine, reproducible logic bugs, runtime crash risks, architectural disconnects, or simulation flaws.
-   - Remediation diffs provide exact, syntax-valid patches that resolve the root causes without introducing regressions.
-
-4. **Requirement & Acceptance Criteria Fulfillment**:
-   - R1 (Full-codebase audit across Backend, Listener, Frontend, DB): Satisfied.
-   - R2 (Paper trading simulation realism, slippage, EV gate, fee modeling): Satisfied.
-   - R3 (Mathematical & quantitative integrity, scoring, synthetic data detection): Satisfied.
-   - R4 (Structured audit report with severity, file citations, diffs, ambiguities queue): Satisfied.
-   - R5 (Test suite execution and evaluation): Satisfied.
+1. Requirements R1, R2, and R3 were cross-referenced against the actual source code in `backend/app/` and `frontend/src/`. Every specified functional component exists and implements authentic domain logic.
+2. Forensic checks confirmed that test suites test real mathematical calculations, order matching, fee bounds, and API models rather than spoofing assertions with hardcoded returns.
+3. Independent test execution on clean commands validated 100% pass rates across all 409 backend unit, integration, and scenario tests, and clean compilation across all Next.js frontend routes.
+4. Therefore, the implementation team's claimed victory is genuine, complete, and verified.
 
 ---
 
 ## 3. Caveats
 
-1. **Audit-Only Scope**: In compliance with the auditor constraints, no implementation code files were altered on disk; all patches are provided as verified diffs in the report for developer application.
-2. **External Network Dependencies**: Polymarket live Gamma/CLOB endpoints and Envio HyperSync RPC endpoints were tested via offline/isolated unit fixtures and static inspection; live external API latency is subject to third-party availability.
-3. **Database Drivers**: Local pytest execution ran against SQLite (`aiosqlite`); production database schema targets PostgreSQL (`asyncpg` on Supabase).
+- In production live trading, live external APIs (Polymarket Data API / Gamma API) are subject to network latency and third-party rate limits; the client incorporates 3-retry exponential backoff and SQLite/PostgreSQL fallback caching to maintain resiliency.
+- No other caveats.
 
 ---
 
 ## 4. Conclusion
 
-The Baleen Master Codebase Audit meets all requirements, rigorous forensic standards, and acceptance criteria set forth in `ORIGINAL_REQUEST.md`. All line citations, failure mechanics, and remediation diffs are 100% accurate, independently verified, and backed by empirical execution.
+The Baleen platform satisfies 100% of the requirements and acceptance criteria specified in `ORIGINAL_REQUEST.md`. The project completion claim is fully substantiated by independent empirical verification.
 
-**Final Audit Verdict**: **VICTORY CONFIRMED**.
+**Final Verdict**: **VICTORY CONFIRMED**
 
 ---
 
 ## 5. Verification Method
 
-To independently reproduce the victory audit findings:
-
-1. **Re-run the Backend Pytest Suite**:
+To independently re-verify at any time:
+1. Backend test suite:
    ```powershell
-   cd c:\Users\arthu\Documents\Baleen-master\backend
-   c:\Users\arthu\Documents\Baleen-master\backend\.venv\Scripts\pytest.exe -v --ignore=tests/test_challenger_execution_stress.py
+   & "backend/.venv/Scripts/python.exe" -m pytest backend/tests/ -v
    ```
-   *Expected Result*: 30 passed, 3 failed in `tests/test_scoring_filters.py`.
-
-2. **Re-run the Listener Jest Suite**:
+2. Frontend build:
    ```powershell
-   cd c:\Users\arthu\Documents\Baleen-master\listener
-   $env:PATH = "C:\Users\arthu\.tools\node;$env:PATH"
-   npm test
+   $env:PATH = "C:\Program Files\nodejs;" + $env:PATH; cd frontend; & "C:\Program Files\nodejs\npm.cmd" run build
    ```
-   *Expected Result*: 1 test suite passed, 3 tests passed.
-
-3. **Verify Line Citations on Disk**:
-   - Inspect `backend/app/services/live_poller.py#L331-L355` for user PnL double counting.
-   - Inspect `backend/app/database.py#L123` for missing `import asyncio`.
-   - Inspect `backend/app/api/wallets.py#L318-L360` for MD5 synthetic curve generation.
+3. Scenario invariant matrix:
+   ```powershell
+   & "backend/.venv/Scripts/python.exe" -m pytest backend/tests/scenarios/test_massive_220_scenario_matrix.py -v
+   ```

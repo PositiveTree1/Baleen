@@ -1,38 +1,33 @@
 ﻿# Original User Request
 
-## 2026-08-29T22:21:35Z
+## 2026-08-30T00:46:29Z
 
-Deploy a specialized multi-agent team to perform comprehensive scenario stress testing, invariant verification, quantitative audit, and cross-platform frontend UI validation across the entire Baleen codebase (`c:\Users\arthu\Documents\Baleen-master`).
+Deploy a specialized multi-agent engineering team to perform end-to-end verification, on-chain trade classification audit, dual-column chart rendering, and overnight paper-trading readiness across the entire Baleen codebase (`c:\Users\arthu\Documents\Baleen-master`).
 
 Working directory: c:\Users\arthu\Documents\Baleen-master
 Integrity mode: development
 
 ## Requirements
 
-### R1. Quantitative Filter & Scoring Verification
-Audit all newly implemented gatekeeper filters and 5-factor scoring in `backend/app/discovery/scanner.py`, `backend/app/scoring/engine.py`, and `backend/app/scoring/basket.py`:
-- 150+ lifetime trades & 60+ active days
-- Anti-HFT / Maker-Rebate (<= 15 trades/day)
-- Closed position concentration cap (<= 25% of positive realized PnL)
-- Minimum scale (>= $50k PnL, >= $150k volume)
-- Sleeve size compatibility ($20 to $3,000 median trade size)
-- Wash-trading detection (<120s BUY<->SELL pairs <= 10%)
-- Intra-pool normalization (0-100 min-max across candidate pool)
-- Top 10 roster selection with 5-point hysteresis buffer
+### R1. Authentic On-Chain Trade History & Real Classification
+- Audit Polymarket Data API trade and position ingestion across all active candidate whales (`/positions`, `/activity`, `/trades`).
+- Guarantee real date grouping, authentic profit/loss separation (`won_usd` vs `lost_usd`), and zero fabricated/synthetic data.
+- Ensure all candidate whales are accurately classified with genuine on-chain win rates, Sharpe ratios, and copyability parameters.
 
-### R2. Multi-Scenario Stress & Invariant Validation
-Execute 200+ operational, market, and execution scenarios:
-- Sleeve isolation and zero capital starvation between wallets
-- Cash invariance (no negative balances or MTM phantom cash inflation)
-- Quadratic Polymarket taker fee invariance across all 6 asset categories
-- Zero division safety on zero-volume / single-trade inputs
+### R2. Dual-Column Daily Wins & Losses Chart Rendering
+- Update the frontend daily chart (`DailyWinLossBarChart.tsx`) to render true dual-column bars per day:
+  - Green bar (`#00D09C`) for daily gross won profits (`wonUsd`)
+  - Red bar (`#FF453A`) for daily gross losses (`lostUsd`)
+- Ensure clean visual alignment, zero chart clipping across timeframes (1W, 1M, YTD, ALL), and accurate interactive tooltips.
 
-### R3. Cross-Platform Frontend UI & Responsiveness Audit
-Inspect all Next.js dashboard components in `frontend/src/`:
-- Test mobile (375px), tablet (768px), and desktop (1440px) viewports
-- Ensure zero text overlap, smooth drawer transitions, clean daily win/loss charts, and flawless theme toggling
+### R3. Overnight Paper Trading Execution & State Machine Invariance
+- Verify `live_poller.py` continuous polling loop, isolated $1,000 sleeve capacity, quadratic Polymarket fee gate, and slippage guards.
+- Ensure automated rebalance, out-of-order sell matching, and zero memory leaks or unhandled task crashes for continuous 24/7 overnight operation.
 
 ## Acceptance Criteria
+
+### Verification & Automated Tests
 - [ ] 100% of backend tests pass (`pytest`).
-- [ ] All edge case failures or logic leaks are documented and fixed.
-- [ ] Frontend dashboard renders cleanly across all viewports without visual overlap or layout breaks.
+- [ ] Next.js frontend builds with 0 TypeScript and 0 lint errors (`npm run build`).
+- [ ] Dual-column daily win/loss charts render both gross wins and losses cleanly on every wallet profile.
+- [ ] Live poller executes isolated sleeve sizing with 0 negative balances and 0 orphaned trades.

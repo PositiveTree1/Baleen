@@ -497,6 +497,26 @@ async def reset_sandbox(
         active_trades_count=0
     ))
     
+    # Archive previous active sandbox run and start new run instance
+    try:
+        from app.models import SandboxRun
+        stmt_prev = select(SandboxRun).where(SandboxRun.status == "ACTIVE")
+        prev_runs = (await db.execute(stmt_prev)).scalars().all()
+        for pr in prev_runs:
+            pr.status = "RESET"
+            pr.ended_at = now_dt
+            pr.final_balance_usd = 10000.0
+
+        # Create new active run
+        new_run = SandboxRun(
+            started_at=now_dt,
+            initial_balance_usd=10000.0,
+            status="ACTIVE"
+        )
+        db.add(new_run)
+    except Exception as run_err:
+        logger.warning(f"Note on SandboxRun tracking in reset: {run_err}")
+
     # Reset live poller started_at to now
     try:
         from app.services.live_poller import live_trade_mirror
@@ -512,6 +532,15 @@ async def reset_sandbox(
         _consensus_cache.clear()
     except Exception:
         pass
+
+    await db.commit()
+
+    # Re-evaluate and record initial reevaluation for the new run
+    try:
+        from app.scoring.basket import refresh_basket
+        await refresh_basket(db, trigger_type="SANDBOX_RESET")
+    except Exception as reeval_err:
+        logger.warning(f"Note on initial re-evaluation during reset: {reeval_err}")
 
     # Log initial reset event
     try:
