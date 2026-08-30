@@ -59,6 +59,7 @@ export default function DashboardPage() {
   const [portfolio, setPortfolio] = useState<PortfolioSummary | null>(() => getCachedPortfolioSummary(session?.user?.id) || null);
 
   const loadData = async () => {
+    if (typeof document !== 'undefined' && document.hidden) return;
     try {
       const [userData, portfolioData, logsData] = await Promise.all([
         session?.user?.id ? fetchUserSettings(session.user.id) : null,

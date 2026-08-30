@@ -27,6 +27,7 @@ export function WalletLeaderboard({ userId, onSelectWallet }: WalletLeaderboardP
   }, [wallets]);
 
   const load = async () => {
+    if (typeof document !== 'undefined' && document.hidden) return;
     const [walletsData, logsData, copiedData] = await Promise.all([
       fetchWallets(),
       fetchExecutionLogs(userId, { limit: '1000' }),

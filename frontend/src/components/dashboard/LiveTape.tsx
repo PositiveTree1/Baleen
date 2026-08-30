@@ -19,6 +19,7 @@ export function LiveTape({ userId, onSelectTrade }: LiveTapeProps) {
 
   useEffect(() => {
     async function load() {
+      if (typeof document !== 'undefined' && document.hidden) return;
       const data = await fetchExecutionLogs(userId, { limit: '30' });
       if (Array.isArray(data)) {
         setLogs(data);
@@ -26,7 +27,7 @@ export function LiveTape({ userId, onSelectTrade }: LiveTapeProps) {
       setLoading(false);
     }
     load();
-    const interval = setInterval(load, 4000);
+    const interval = setInterval(load, 6000);
     return () => clearInterval(interval);
   }, [userId]);
 

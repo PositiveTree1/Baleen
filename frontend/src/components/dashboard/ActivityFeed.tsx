@@ -44,6 +44,7 @@ export function ActivityFeed({ isOpen, onClose }: ActivityFeedProps) {
   const [filter, setFilter] = useState<string>('all');
 
   const loadEvents = useCallback(async () => {
+    if (typeof document !== 'undefined' && document.hidden) return;
     const data = await fetchSystemEvents(200, filter === 'all' ? undefined : filter);
     if (data && data.length > 0) setEvents(data as any);
     setLoading(false);

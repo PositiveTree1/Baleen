@@ -1,12 +1,15 @@
 #!/bin/bash
-
-# Exit on any error
 set -e
 
-# Start the Node.js listener in the background
-echo "Starting Node.js signal listener..."
-cd /app/listener && npm start &
+# Dynamic port binding for Railway ($PORT) and local fallback (8000)
+PORT="${PORT:-8000}"
 
-# Start the Python FastAPI backend in the foreground
-echo "Starting Python FastAPI backend..."
-cd /app/backend && uvicorn app.main:app --host 0.0.0.0 --port 8000
+# Start Node.js signal listener in the background if present
+if [ -d "/app/listener" ]; then
+    echo "Starting Node.js signal listener..."
+    (cd /app/listener && npm start) &
+fi
+
+# Start Python FastAPI backend in the foreground
+echo "Starting Python FastAPI backend on port $PORT..."
+cd /app/backend && exec uvicorn app.main:app --host 0.0.0.0 --port "$PORT"

@@ -29,6 +29,7 @@ export function TradeLog({
 
   useEffect(() => {
     async function load() {
+      if (typeof document !== 'undefined' && document.hidden) return;
       const data = await fetchExecutionLogs(userId, { limit: '100' });
       if (Array.isArray(data)) {
         setLogs(data);
