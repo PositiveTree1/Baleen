@@ -11,5 +11,5 @@ if [ -d "/app/listener" ]; then
 fi
 
 # Start Python FastAPI backend in the foreground
-echo "Starting Python FastAPI backend on port $PORT..."
-cd /app/backend && exec uvicorn app.main:app --host 0.0.0.0 --port "$PORT"
+echo "Starting Python FastAPI backend..."
+cd /app/backend && exec python run.py
