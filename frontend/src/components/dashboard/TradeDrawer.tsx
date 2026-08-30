@@ -1,4 +1,5 @@
 'use client';
+import { useEffect } from 'react';
 import { ExecutionLog } from '@/types';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, ExternalLink, Activity, ArrowUpRight, ArrowDownRight, Users, ShieldCheck, Clock, DollarSign, Wallet, CheckCircle2 } from 'lucide-react';
