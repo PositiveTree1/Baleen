@@ -92,21 +92,21 @@ export function DailyWinLossBarChart({ data }: DailyWinLossBarChartProps) {
             }}
           />
           <Bar 
-            dataKey="dailyPnL" 
-            maxBarSize={28}
-            radius={[4, 4, 4, 4]}
+            dataKey="wonUsd" 
+            name="Gross Won"
+            fill="#00D09C" 
+            maxBarSize={18}
+            radius={[4, 4, 0, 0]}
             isAnimationActive={false}
-          >
-            {data.map((entry, index) => {
-              const net = entry.netPnL ?? entry.dailyPnL ?? 0;
-              return (
-                <Cell 
-                  key={`cell-${index}`} 
-                  fill={net >= 0 ? '#10B981' : '#F43F5E'} 
-                />
-              );
-            })}
-          </Bar>
+          />
+          <Bar 
+            dataKey="lostUsd" 
+            name="Gross Lost"
+            fill="#FF453A" 
+            maxBarSize={18}
+            radius={[0, 0, 4, 4]}
+            isAnimationActive={false}
+          />
         </BarChart>
       </ResponsiveContainer>
     </div>

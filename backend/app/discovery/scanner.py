@@ -237,6 +237,38 @@ def calculate_authentic_wallet_stats(
             daily_map[d_str]["lost"] += abs(pnl_val)
         daily_map[d_str]["net"] += pnl_val
 
+    # Fallback to activity log (redemptions and settled sales) if positions are empty
+    if not daily_map and activity:
+        for act in (activity or []):
+            if not isinstance(act, dict):
+                continue
+            act_type = str(act.get("type") or "").upper()
+            size = float(act.get("usdcSize") or act.get("size") or 0.0)
+            price = float(act.get("price") or 0.5)
+            ts_raw = act.get("timestamp") or act.get("time") or act.get("createdAt")
+            d_str = today_utc
+            if ts_raw:
+                try:
+                    ts_sec = float(ts_raw) / 1000.0 if float(ts_raw) > 1e11 else float(ts_raw)
+                    d_str = datetime.fromtimestamp(ts_sec, timezone.utc).strftime("%Y-%m-%d")
+                except Exception:
+                    d_str = today_utc
+
+            if d_str not in daily_map:
+                daily_map[d_str] = {"won": 0.0, "lost": 0.0, "net": 0.0, "count": 0}
+
+            daily_map[d_str]["count"] += 1
+            if act_type in ["REDEMPTION", "REDEEM"]:
+                daily_map[d_str]["won"] += size
+                daily_map[d_str]["net"] += size
+            elif act_type == "SELL":
+                pnl_est = size * (price - 0.5)
+                if pnl_est >= 0:
+                    daily_map[d_str]["won"] += pnl_est
+                else:
+                    daily_map[d_str]["lost"] += abs(pnl_est)
+                daily_map[d_str]["net"] += pnl_est
+
     daily_pnl_history = []
     running_cum = 0.0
     for d_str in sorted(daily_map.keys()):
