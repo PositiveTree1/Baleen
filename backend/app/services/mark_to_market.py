@@ -168,7 +168,6 @@ class MarkToMarketService:
                         price_entry = _live_price_cache.get(cache_key)
 
                     price_is_fresh = (price_entry is not None and (time.time() - price_entry.get("ts", 0)) < 3600.0)
-
                     if price_is_fresh:
                         cur_p = price_entry["price"]
                         if cur_p > 0 and fill_p > 0:
@@ -177,39 +176,29 @@ class MarkToMarketService:
                             else:
                                 gross_pnl = notional * ((fill_p - cur_p) / fill_p)
                             net_pnl = gross_pnl - fee
-                            elog.realized_pnl_usd = round(net_pnl, 2)
-                            _last_known_pnl[str(elog.id)] = elog.realized_pnl_usd
+                            _last_known_pnl[str(elog.id)] = round(net_pnl, 2)
                     else:
-                        # Use last known PnL from memory or DB to preserve valuation
-                        last_pnl = _last_known_pnl.get(str(elog.id))
-                        if last_pnl is not None:
-                            elog.realized_pnl_usd = last_pnl
-                        elif elog.realized_pnl_usd is not None:
-                            _last_known_pnl[str(elog.id)] = elog.realized_pnl_usd
-                        else:
-                            elog.realized_pnl_usd = round(-fee, 2)
-                            _last_known_pnl[str(elog.id)] = elog.realized_pnl_usd
+                        if str(elog.id) not in _last_known_pnl:
+                            _last_known_pnl[str(elog.id)] = round(-fee, 2)
 
                 # 4. Synchronize authoritative sandbox balance & snapshots
                 from app.models import PortfolioSnapshot
                 from datetime import datetime
 
                 now_dt = datetime.utcnow()
-                # Deduplicate: only sum platform logs (user_id IS NULL) for global balance
                 platform_logs = [l for l in all_logs if l.user_id is None]
                 if not platform_logs:
                     platform_logs = all_logs
 
                 total_open = len([l for l in platform_logs if l.status == "FILLED"])
                 
-                # Fetch the last known good balance from database
                 stmt_latest_snap = select(PortfolioSnapshot.balance).where(
                     PortfolioSnapshot.user_id.is_(None)
                 ).order_by(PortfolioSnapshot.timestamp.desc()).limit(1)
                 last_db_bal = float((await db.execute(stmt_latest_snap)).scalar() or _last_snapshot_balance or 10000.0)
 
-                # Sum PnL from all platform logs
-                total_portfolio_pnl = sum(float(l.realized_pnl_usd or 0.0) for l in platform_logs)
+                # Sum PnL from all platform logs (settled realized PnL + open unrealized MTM marks)
+                total_portfolio_pnl = sum((float(l.realized_pnl_usd) if (l.status != "FILLED" and l.realized_pnl_usd is not None) else _last_known_pnl.get(str(l.id), 0.0)) for l in platform_logs)
                 computed_bal = round(10000.0 + total_portfolio_pnl, 2)
                 trades_count = len(platform_logs)
 
@@ -225,11 +214,18 @@ class MarkToMarketService:
                     balance_changed = abs(canonical_balance - _last_snapshot_balance) > 0.50
                     should_snapshot = balance_changed or time_since_last >= 30.0
 
-                logger.debug(
-                    f"MTM cycle: open={total_open}, computed=${computed_bal:,.2f}, canonical=${canonical_balance:,.2f}, write={should_snapshot}"
-                )
+                if should_snapshot:
+                    db.add(PortfolioSnapshot(
+                        user_id=None,
+                        timestamp=now_dt,
+                        balance=canonical_balance,
+                        total_pnl=round(total_portfolio_pnl, 2),
+                        active_trades_count=trades_count
+                    ))
+                    _last_snapshot_time = time.time()
+                    _last_snapshot_balance = canonical_balance
 
-                # Update all users to their authoritative balance
+                # 5. User balance sync
                 try:
                     stmt_users = select(User)
                     users = (await db.execute(stmt_users)).scalars().all()
@@ -237,30 +233,19 @@ class MarkToMarketService:
                         u_logs = [l for l in all_logs if l.user_id == u.id]
                         if not u_logs:
                             u_logs = platform_logs
-                        u_pnl = sum(float(l.realized_pnl_usd or 0.0) for l in u_logs)
+                        u_pnl = sum((float(l.realized_pnl_usd) if (l.status != "FILLED" and l.realized_pnl_usd is not None) else _last_known_pnl.get(str(l.id), 0.0)) for l in u_logs)
                         u_start = float(u.sandbox_starting_balance_usd or 10000.0)
                         u_bal = round(u_start + u_pnl, 2)
                         u.sandbox_balance_usd = u_bal
                         current_hwm = float(u.sandbox_high_water_mark_usd or u_start)
                         u.sandbox_high_water_mark_usd = max(current_hwm, u_bal)
+                except Exception as user_sync_err:
+                    logger.debug(f"User sync note: {user_sync_err}")
 
-                    if should_snapshot:
-                        # Global platform sandbox snapshot (no per-user snapshots)
-                        db.add(PortfolioSnapshot(
-                            user_id=None,
-                            timestamp=now_dt,
-                            balance=canonical_balance,
-                            total_pnl=round(total_portfolio_pnl, 2),
-                            active_trades_count=trades_count
-                        ))
-
-                        _last_snapshot_time = time.time()
-                        _last_snapshot_balance = canonical_balance
-
+                try:
                     await db.commit()
                 except Exception as snap_err:
                     logger.error(f"❌ MTM snapshot write failed: {snap_err}", exc_info=True)
-                    # Still try to commit the PnL updates even if snapshot failed
                     try:
                         await db.commit()
                     except Exception:

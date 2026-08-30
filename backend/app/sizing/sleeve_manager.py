@@ -71,15 +71,19 @@ class SleeveManager:
         return round((1.0 - alpha) * current_ema + alpha * new_realized_pnl, 4)
 
     @staticmethod
-    def calculate_adjusted_sleeve_budget(base_budget: float, copy_pnl_ema: float) -> float:
+    def calculate_adjusted_sleeve_budget(base_budget: float, copy_pnl_ema: float = 0.0, baleen_score: float = 80.0) -> float:
         """
-        Adjusts sleeve budget off copy-PnL EMA with a strict 0.30x ($300) floor and 1.50x ($1,500) cap.
+        Adjusts sleeve budget dynamically off Baleen Score base weight + copy-PnL EMA
+        with a strict 0.30x ($300) floor and 1.50x ($1,500) cap.
         """
         if base_budget <= 0:
             return 0.0
         
+        # Base multiplier from Baleen Score normalized against benchmark 80.0
+        score_factor = (baleen_score / 80.0) if baleen_score > 0 else 1.0
         # Scaling: each $100 in average realized copy-PnL adjusts budget by ~20%
-        multiplier = 1.0 + (copy_pnl_ema / 500.0)
+        pnl_factor = (copy_pnl_ema / 500.0)
+        multiplier = score_factor + pnl_factor
         clamped_multiplier = max(0.30, min(1.50, multiplier))
         return round(base_budget * clamped_multiplier, 2)
 

@@ -16,6 +16,33 @@ from app.services.event_logger import log_event
 
 logger = logging.getLogger(__name__)
 
+def parse_date_to_utc_str(ts_raw: Any, fallback_str: str) -> str:
+    if not ts_raw:
+        return fallback_str
+    if isinstance(ts_raw, (int, float)):
+        val = float(ts_raw)
+        ts_sec = val / 1000.0 if val > 1e11 else val
+        try:
+            return datetime.fromtimestamp(ts_sec, timezone.utc).strftime("%Y-%m-%d")
+        except Exception:
+            return fallback_str
+    if isinstance(ts_raw, str):
+        try:
+            val = float(ts_raw)
+            ts_sec = val / 1000.0 if val > 1e11 else val
+            return datetime.fromtimestamp(ts_sec, timezone.utc).strftime("%Y-%m-%d")
+        except ValueError:
+            pass
+        try:
+            clean_s = ts_raw.replace("Z", "+00:00")
+            dt = datetime.fromisoformat(clean_s)
+            return dt.strftime("%Y-%m-%d")
+        except Exception:
+            pass
+        if len(ts_raw) >= 10 and ts_raw[4] == '-' and ts_raw[7] == '-':
+            return ts_raw[:10]
+    return fallback_str
+
 # Global Live Progress State for UI
 discovery_state = {
     "status": "idle", # "idle" | "running" | "completed" | "error"
@@ -216,16 +243,11 @@ def calculate_authentic_wallet_stats(
     daily_map = {}
     today_utc = datetime.now(timezone.utc).strftime("%Y-%m-%d")
 
-    for pos in closed_positions:
+    # A. Process closed positions with authentic realized PnL
+    for pos in (closed_positions or []):
         pnl_val = float(pos.get("cashPnl") or pos.get("realizedPnl") or 0.0)
-        ts_raw = pos.get("updatedAt") or pos.get("endDate") or pos.get("timestamp")
-        d_str = today_utc
-        if ts_raw:
-            try:
-                ts_sec = float(ts_raw) / 1000.0 if float(ts_raw) > 1e11 else float(ts_raw)
-                d_str = datetime.fromtimestamp(ts_sec, timezone.utc).strftime("%Y-%m-%d")
-            except Exception:
-                d_str = today_utc
+        ts_raw = pos.get("resolvedAt") or pos.get("updatedAt") or pos.get("endDate") or pos.get("timestamp") or pos.get("createdAt")
+        d_str = parse_date_to_utc_str(ts_raw, today_utc)
 
         if d_str not in daily_map:
             daily_map[d_str] = {"won": 0.0, "lost": 0.0, "net": 0.0, "count": 0}
@@ -237,8 +259,8 @@ def calculate_authentic_wallet_stats(
             daily_map[d_str]["lost"] += abs(pnl_val)
         daily_map[d_str]["net"] += pnl_val
 
-    # Fallback to activity log (redemptions and settled sales) if positions are empty
-    if not daily_map and activity:
+    # B. Process activity log (redemptions and closed sales)
+    if activity:
         for act in (activity or []):
             if not isinstance(act, dict):
                 continue
@@ -246,22 +268,17 @@ def calculate_authentic_wallet_stats(
             size = float(act.get("usdcSize") or act.get("size") or 0.0)
             price = float(act.get("price") or 0.5)
             ts_raw = act.get("timestamp") or act.get("time") or act.get("createdAt")
-            d_str = today_utc
-            if ts_raw:
-                try:
-                    ts_sec = float(ts_raw) / 1000.0 if float(ts_raw) > 1e11 else float(ts_raw)
-                    d_str = datetime.fromtimestamp(ts_sec, timezone.utc).strftime("%Y-%m-%d")
-                except Exception:
-                    d_str = today_utc
+            d_str = parse_date_to_utc_str(ts_raw, today_utc)
 
             if d_str not in daily_map:
                 daily_map[d_str] = {"won": 0.0, "lost": 0.0, "net": 0.0, "count": 0}
 
-            daily_map[d_str]["count"] += 1
             if act_type in ["REDEMPTION", "REDEEM"]:
+                daily_map[d_str]["count"] += 1
                 daily_map[d_str]["won"] += size
                 daily_map[d_str]["net"] += size
-            elif act_type == "SELL":
+            elif act_type == "SELL" and daily_map[d_str]["count"] == 0:
+                daily_map[d_str]["count"] += 1
                 pnl_est = size * (price - 0.5)
                 if pnl_est >= 0:
                     daily_map[d_str]["won"] += pnl_est
