@@ -45,14 +45,12 @@ export default function LoginPage() {
     setGuestLoading(true);
     setError('');
 
-    // Fire NextAuth in background
     signIn('credentials', {
       email: 'guest@baleen.local',
       password: 'baleen_shared_guest_sandbox_password',
       redirect: false,
     }).catch(() => {});
 
-    // Instant zero-lag navigation into dashboard
     router.push('/dashboard');
   };
 
@@ -62,10 +60,10 @@ export default function LoginPage() {
       <div className="absolute top-6 right-6">
         <button
           onClick={toggleTheme}
-          className="w-10 h-10 rounded-full bg-white dark:bg-[#16171B] hover:bg-slate-100 dark:hover:bg-[#24262E] border border-black/[0.08] dark:border-white/10 text-slate-700 dark:text-white flex items-center justify-center transition-all cursor-pointer shadow-xs"
-          title={theme === 'light' ? 'Switch to Dark Mode' : 'Switch to Light Mode'}
+          className="w-10 h-10 rounded-full bg-white dark:bg-[#16171B] hover:bg-slate-100 dark:hover:bg-[#24262E] border border-black/[0.08] dark:border-white/10 text-slate-700 dark:text-white flex items-center justify-center transition-all cursor-pointer shadow-xs focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00D09C]"
+          aria-label={theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'}
         >
-          {theme === 'light' ? <Moon size={16} /> : <Sun size={16} className="text-amber-400" />}
+          {theme === 'light' ? <Moon size={16} aria-hidden="true" /> : <Sun size={16} aria-hidden="true" className="text-amber-400" />}
         </button>
       </div>
 
@@ -79,40 +77,47 @@ export default function LoginPage() {
         </div>
 
         {error && (
-          <div className="p-3.5 rounded-2xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800/60 text-rose-700 dark:text-rose-400 text-xs text-center font-semibold">
+          <div className="p-3.5 rounded-2xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800/60 text-rose-700 dark:text-rose-400 text-xs text-center font-semibold" role="alert">
             {error}
           </div>
         )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-[11px] text-slate-600 dark:text-[#8E8F99] mb-1.5 font-bold">Email Address</label>
+            <label htmlFor="login-email" className="block text-[11px] text-slate-600 dark:text-[#8E8F99] mb-1.5 font-bold">Email Address</label>
             <input 
+              id="login-email"
               type="email" 
+              name="email"
+              autoComplete="email"
+              spellCheck={false}
               required
               value={email}
               onChange={e => setEmail(e.target.value)}
-              className="w-full bg-slate-50 dark:bg-[#1C1D22] border border-black/[0.08] dark:border-white/10 rounded-2xl px-4 py-3 text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:border-slate-500 transition-colors"
+              className="w-full bg-slate-50 dark:bg-[#1C1D22] border border-black/[0.08] dark:border-white/10 rounded-2xl px-4 py-3 text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00D09C] transition-colors"
               placeholder="you@domain.com"
             />
           </div>
           <div>
-            <label className="block text-[11px] text-slate-600 dark:text-[#8E8F99] mb-1.5 font-bold">Password</label>
+            <label htmlFor="login-password" className="block text-[11px] text-slate-600 dark:text-[#8E8F99] mb-1.5 font-bold">Password</label>
             <input 
+              id="login-password"
               type="password" 
+              name="password"
+              autoComplete="current-password"
               required
               value={password}
               onChange={e => setPassword(e.target.value)}
-              className="w-full bg-slate-50 dark:bg-[#1C1D22] border border-black/[0.08] dark:border-white/10 rounded-2xl px-4 py-3 text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:border-slate-500 transition-colors"
+              className="w-full bg-slate-50 dark:bg-[#1C1D22] border border-black/[0.08] dark:border-white/10 rounded-2xl px-4 py-3 text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00D09C] transition-colors"
               placeholder="••••••••"
             />
           </div>
           <button 
             type="submit" 
-            className="w-full py-3.5 mt-2 rounded-full bg-slate-950 dark:bg-white text-white dark:text-black text-xs font-bold hover:bg-slate-800 dark:hover:bg-slate-200 transition-all shadow-md cursor-pointer disabled:opacity-50"
+            className="w-full py-3.5 mt-2 rounded-full bg-slate-950 dark:bg-white text-white dark:text-black text-xs font-bold hover:bg-slate-800 dark:hover:bg-slate-200 transition-all shadow-md cursor-pointer disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00D09C] active:scale-[0.98]"
             disabled={loading || guestLoading}
           >
-            {loading ? 'Authenticating...' : 'Sign In'}
+            {loading ? 'Authenticating…' : 'Sign In'}
           </button>
         </form>
 
@@ -124,16 +129,16 @@ export default function LoginPage() {
 
         <button 
           type="button"
-          className="w-full py-3.5 rounded-full bg-[#F1F3F5] dark:bg-[#1C1D22] hover:bg-[#E2E6EA] dark:hover:bg-[#2C2D35] border border-black/[0.08] dark:border-white/10 text-slate-900 dark:text-white text-xs font-bold transition-all shadow-xs cursor-pointer flex items-center justify-center gap-2"
+          className="w-full py-3.5 rounded-full bg-[#F1F3F5] dark:bg-[#1C1D22] hover:bg-[#E2E6EA] dark:hover:bg-[#2C2D35] border border-black/[0.08] dark:border-white/10 text-slate-900 dark:text-white text-xs font-bold transition-all shadow-xs cursor-pointer flex items-center justify-center gap-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00D09C] active:scale-[0.98]"
           onClick={handleGuestLogin}
         >
-          <Sparkles size={14} className="text-amber-500" />
-          <span>{guestLoading ? 'Opening Dashboard...' : 'Explore as Guest (Instant Demo)'}</span>
+          <Sparkles size={14} className="text-amber-500" aria-hidden="true" />
+          <span>{guestLoading ? 'Opening Dashboard…' : 'Explore as Guest (Instant Demo)'}</span>
         </button>
 
         <p className="text-center text-xs text-slate-500 dark:text-[#8E8F99] pt-2">
           Don&apos;t have an account?{' '}
-          <Link href="/auth/signup" className="text-slate-950 dark:text-white hover:underline font-bold">
+          <Link href="/auth/signup" className="text-slate-950 dark:text-white hover:underline font-bold focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00D09C] rounded-md px-1 py-0.5">
             Create Free Sandbox
           </Link>
         </p>

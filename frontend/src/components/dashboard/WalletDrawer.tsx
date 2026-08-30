@@ -17,6 +17,14 @@ interface WalletDrawerProps {
 }
 
 export function WalletDrawer({ address, onClose }: WalletDrawerProps) {
+  useEffect(() => {
+    if (!address) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [address, onClose]);
   const [wallet, setWallet] = useState<WalletDetail | null>(null);
   const [loading, setLoading] = useState(false);
   const [copied, setCopied] = useState(false);

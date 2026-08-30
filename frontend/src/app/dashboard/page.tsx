@@ -30,7 +30,7 @@ import {
   LogOut, 
   Volume2, 
   VolumeX, 
-  Bell,
+  Bell, 
   Search,
   Sun,
   Moon
@@ -108,7 +108,7 @@ export default function DashboardPage() {
   return (
     <div className="min-h-screen flex flex-col bg-[#F8F9FB] dark:bg-[#000000] text-slate-900 dark:text-white selection:bg-[#00D09C] selection:text-black relative overflow-x-hidden font-sans transition-colors duration-150">
       
-      {/* Top Bar Navigation (Clean Baleen Brand) */}
+      {/* Top Bar Navigation */}
       <nav className="flex items-center justify-between py-3 px-3.5 sm:px-6 lg:px-12 border-b border-black/[0.06] dark:border-white/[0.08] bg-white/80 dark:bg-[#000000]/90 backdrop-blur-2xl sticky top-0 z-40">
         
         {/* Left: Baleen Brand Logo */}
@@ -116,12 +116,21 @@ export default function DashboardPage() {
           <BrandLogo href="/" />
         </div>
 
-        {/* Center: Search Command Bar (Clickable) */}
+        {/* Center: Search Command Bar */}
         <div 
           onClick={() => setCommandPaletteOpen(true)}
-          className="hidden md:flex items-center gap-2 px-4 py-2 rounded-full bg-[#F1F3F5] dark:bg-[#1C1D22] border border-black/[0.06] dark:border-white/5 text-xs text-[#8E8F99] w-64 hover:border-black/20 dark:hover:border-white/20 transition-all cursor-pointer shadow-2xs"
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              setCommandPaletteOpen(true);
+            }
+          }}
+          role="button"
+          tabIndex={0}
+          aria-label="Open command palette search (Command + K)"
+          className="hidden md:flex items-center gap-2 px-4 py-2 rounded-full bg-[#F1F3F5] dark:bg-[#1C1D22] border border-black/[0.06] dark:border-white/5 text-xs text-[#8E8F99] w-64 hover:border-black/20 dark:hover:border-white/20 transition-all cursor-pointer shadow-2xs focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00D09C]"
         >
-          <Search size={14} className="text-[#8E8F99]" />
+          <Search size={14} className="text-[#8E8F99]" aria-hidden="true" />
           <span className="text-slate-600 dark:text-[#8E8F99]">Search markets, whales...</span>
           <span className="ml-auto text-[10px] font-mono bg-white dark:bg-[#2C2D35] px-1.5 py-0.5 rounded text-slate-700 dark:text-white shadow-2xs">⌘K</span>
         </div>
@@ -131,42 +140,54 @@ export default function DashboardPage() {
           {/* Light / Dark Mode Toggle */}
           <button
             onClick={toggleTheme}
-            className="w-8 h-8 sm:w-9 sm:h-9 md:w-10 md:h-10 rounded-full bg-[#F1F3F5] dark:bg-[#1C1D22] hover:bg-[#E2E6EA] dark:hover:bg-[#2C2D35] border border-black/[0.08] dark:border-white/10 text-slate-700 dark:text-white flex items-center justify-center transition-all cursor-pointer shadow-2xs shrink-0"
-            title={theme === 'light' ? 'Switch to Dark Mode' : 'Switch to Light Mode'}
+            className="w-8 h-8 sm:w-9 sm:h-9 md:w-10 md:h-10 rounded-full bg-[#F1F3F5] dark:bg-[#1C1D22] hover:bg-[#E2E6EA] dark:hover:bg-[#2C2D35] border border-black/[0.08] dark:border-white/10 text-slate-700 dark:text-white flex items-center justify-center transition-all cursor-pointer shadow-2xs shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00D09C]"
+            aria-label={theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'}
           >
-            {theme === 'light' ? <Moon size={14} className="sm:w-[15px] sm:h-[15px]" /> : <Sun size={14} className="text-amber-400 sm:w-[15px] sm:h-[15px]" />}
+            {theme === 'light' ? <Moon size={14} aria-hidden="true" className="sm:w-[15px] sm:h-[15px]" /> : <Sun size={14} aria-hidden="true" className="text-amber-400 sm:w-[15px] sm:h-[15px]" />}
           </button>
 
           <button
             onClick={() => setActivityOpen(true)}
-            className="w-8 h-8 sm:w-9 sm:h-9 md:w-10 md:h-10 rounded-full bg-[#F1F3F5] dark:bg-[#1C1D22] hover:bg-[#E2E6EA] dark:hover:bg-[#2C2D35] border border-black/[0.08] dark:border-white/10 text-slate-700 dark:text-white flex items-center justify-center transition-all cursor-pointer shadow-2xs shrink-0"
-            title="Activity Feed & Notifications"
+            className="w-8 h-8 sm:w-9 sm:h-9 md:w-10 md:h-10 rounded-full bg-[#F1F3F5] dark:bg-[#1C1D22] hover:bg-[#E2E6EA] dark:hover:bg-[#2C2D35] border border-black/[0.08] dark:border-white/10 text-slate-700 dark:text-white flex items-center justify-center transition-all cursor-pointer shadow-2xs shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00D09C]"
+            aria-label="Open activity feed and notifications"
           >
-            <Bell size={14} className="sm:w-[15px] sm:h-[15px]" />
+            <Bell size={14} aria-hidden="true" className="sm:w-[15px] sm:h-[15px]" />
           </button>
 
           <button
             onClick={toggleSound}
-            className={`w-8 h-8 sm:w-9 sm:h-9 md:w-10 md:h-10 rounded-full border transition-all cursor-pointer flex items-center justify-center shrink-0 ${
+            className={`w-8 h-8 sm:w-9 sm:h-9 md:w-10 md:h-10 rounded-full border transition-all cursor-pointer flex items-center justify-center shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00D09C] ${
               soundActive 
                 ? 'bg-[#00D09C]/10 text-[#00D09C] border-[#00D09C]/30' 
                 : 'bg-[#F1F3F5] dark:bg-[#1C1D22] hover:bg-[#E2E6EA] dark:hover:bg-[#2C2D35] border-black/[0.08] dark:border-white/10 text-slate-700 dark:text-[#8E8F99]'
             }`}
-            title={soundActive ? 'Mute Trade Signal Chimes' : 'Enable Real-time Sound Chimes'}
+            aria-label={soundActive ? 'Mute trade signal sound effects' : 'Enable real-time trade signal sound effects'}
           >
-            {soundActive ? <Volume2 size={14} className="sm:w-[15px] sm:h-[15px]" /> : <VolumeX size={14} className="sm:w-[15px] sm:h-[15px]" />}
+            {soundActive ? <Volume2 size={14} aria-hidden="true" className="sm:w-[15px] sm:h-[15px]" /> : <VolumeX size={14} aria-hidden="true" className="sm:w-[15px] sm:h-[15px]" />}
           </button>
 
-          <Link href="/admin" className="text-[10px] sm:text-xs font-bold text-slate-900 dark:text-white px-2 sm:px-3 py-1 sm:py-1.5 rounded-full bg-[#F1F3F5] dark:bg-[#1C1D22] hover:bg-[#E2E6EA] dark:hover:bg-[#2C2D35] border border-black/[0.08] dark:border-white/10 transition-all shrink-0">
+          <Link 
+            href="/admin" 
+            className="text-[10px] sm:text-xs font-bold text-slate-900 dark:text-white px-2 sm:px-3 py-1 sm:py-1.5 rounded-full bg-[#F1F3F5] dark:bg-[#1C1D22] hover:bg-[#E2E6EA] dark:hover:bg-[#2C2D35] border border-black/[0.08] dark:border-white/10 transition-all shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00D09C]"
+            aria-label="Go to Admin Panel"
+          >
             Admin
           </Link>
           
-          <Link href="/settings" className="w-8 h-8 sm:w-9 sm:h-9 md:w-10 md:h-10 rounded-full bg-[#F1F3F5] dark:bg-[#1C1D22] hover:bg-[#E2E6EA] dark:hover:bg-[#2C2D35] border border-black/[0.08] dark:border-white/10 text-slate-700 dark:text-white flex items-center justify-center transition-all shrink-0">
-            <Settings size={14} className="sm:w-[15px] sm:h-[15px]" />
+          <Link 
+            href="/settings" 
+            className="w-8 h-8 sm:w-9 sm:h-9 md:w-10 md:h-10 rounded-full bg-[#F1F3F5] dark:bg-[#1C1D22] hover:bg-[#E2E6EA] dark:hover:bg-[#2C2D35] border border-black/[0.08] dark:border-white/10 text-slate-700 dark:text-white flex items-center justify-center transition-all shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00D09C]"
+            aria-label="Go to User Settings"
+          >
+            <Settings size={14} aria-hidden="true" className="sm:w-[15px] sm:h-[15px]" />
           </Link>
           
-          <button onClick={() => signOut()} className="w-8 h-8 sm:w-9 sm:h-9 md:w-10 md:h-10 rounded-full bg-[#F1F3F5] dark:bg-[#1C1D22] hover:bg-rose-50 dark:hover:bg-rose-950/60 border border-black/[0.08] dark:border-white/10 text-slate-700 dark:text-[#8E8F99] hover:text-[#FF453A] flex items-center justify-center transition-all cursor-pointer shrink-0">
-            <LogOut size={14} className="sm:w-[15px] sm:h-[15px]" />
+          <button 
+            onClick={() => signOut()} 
+            className="w-8 h-8 sm:w-9 sm:h-9 md:w-10 md:h-10 rounded-full bg-[#F1F3F5] dark:bg-[#1C1D22] hover:bg-rose-50 dark:hover:bg-rose-950/60 border border-black/[0.08] dark:border-white/10 text-slate-700 dark:text-[#8E8F99] hover:text-[#FF453A] flex items-center justify-center transition-all cursor-pointer shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-500"
+            aria-label="Sign out of Baleen"
+          >
+            <LogOut size={14} aria-hidden="true" className="sm:w-[15px] sm:h-[15px]" />
           </button>
         </div>
       </nav>
@@ -174,7 +195,7 @@ export default function DashboardPage() {
       {/* Main Container */}
       <main className="flex-1 p-3.5 sm:p-6 lg:p-12 max-w-7xl mx-auto w-full flex flex-col gap-6 sm:gap-8 relative z-10">
         
-        {/* Hero Section: Balance & 4-Action Row (Fully Functional) */}
+        {/* Hero Section: Balance & 4-Action Row */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-5 sm:gap-6 pt-1 sm:pt-2">
           <BalanceCounter 
             balance={liveBalance} 

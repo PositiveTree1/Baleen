@@ -36,7 +36,7 @@ export function AdvantageSection() {
   ];
 
   return (
-    <section id="advantage" className="py-14 sm:py-24 px-4 sm:px-6 lg:px-20 border-t border-black/[0.06] dark:border-white/10 bg-[#FAFAFC] dark:bg-[#0A0B0E] transition-colors duration-150">
+    <section id="advantage" className="py-14 sm:py-24 px-4 sm:px-6 lg:px-20 border-t border-black/[0.06] dark:border-white/10 bg-[#FAFAFC] dark:bg-[#0A0B0E] transition-colors duration-150 scroll-mt-20">
       <div className="max-w-7xl mx-auto space-y-10 sm:space-y-16">
         
         {/* Header Title */}
@@ -44,7 +44,7 @@ export function AdvantageSection() {
           <span className="text-[11px] font-bold tracking-[0.2em] uppercase text-slate-400 dark:text-[#8E8F99] font-mono">
             How It Works
           </span>
-          <h2 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-slate-950 dark:text-white tracking-tight leading-[1.12]">
+          <h2 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-slate-950 dark:text-white tracking-tight leading-[1.12] text-balance">
             Trade with the best, <br />
             automatically.
           </h2>
@@ -53,7 +53,7 @@ export function AdvantageSection() {
           </p>
         </div>
 
-        {/* 4 Step Process Grid with Revolut Matte Monochrome Cards */}
+        {/* 4 Step Process Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
           {steps.map((s, idx) => (
             <motion.div 
@@ -62,13 +62,13 @@ export function AdvantageSection() {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ duration: 0.4, delay: idx * 0.08 }}
-              className="p-8 rounded-[26px] bg-white dark:bg-[#16171B] border border-black/[0.06] dark:border-white/10 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 space-y-5 flex flex-col justify-between group"
+              className="p-8 rounded-[26px] bg-white dark:bg-[#16171B] border border-black/[0.06] dark:border-white/10 shadow-2xs hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 space-y-5 flex flex-col justify-between group"
             >
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold font-mono text-slate-400 dark:text-[#8E8F99] tracking-wider">{s.num}</span>
+                  <span className="text-xs font-bold font-mono text-slate-400 dark:text-[#8E8F99] tracking-wider tabular-nums">{s.num}</span>
                   <div className="w-10 h-10 rounded-2xl flex items-center justify-center border border-black/[0.06] dark:border-white/10 bg-slate-100 dark:bg-[#1C1D22] text-slate-900 dark:text-white">
-                    <s.icon size={17} />
+                    <s.icon size={17} aria-hidden="true" />
                   </div>
                 </div>
 
@@ -82,7 +82,7 @@ export function AdvantageSection() {
 
               <div className="pt-4 border-t border-black/[0.04] dark:border-white/5 flex items-center gap-1.5 text-xs font-bold text-slate-950 dark:text-white group-hover:text-slate-600 dark:group-hover:text-slate-300 transition-colors">
                 <span>View Methodology</span>
-                <ArrowRight size={13} />
+                <ArrowRight size={13} aria-hidden="true" />
               </div>
             </motion.div>
           ))}

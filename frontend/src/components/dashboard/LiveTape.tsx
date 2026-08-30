@@ -112,12 +112,14 @@ export function LiveTape({ userId, onSelectTrade }: LiveTapeProps) {
           placeholder="Filter live order executions..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="w-full pl-9 pr-3 py-2 bg-[#F1F3F5] dark:bg-[#1C1D22] border border-black/[0.04] dark:border-white/5 rounded-full text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-[#8E8F99] focus:outline-none focus:border-black/20 dark:focus:border-white/20"
+          aria-label="Filter live order executions"
+          spellCheck={false}
+          className="w-full pl-9 pr-3 py-2 bg-[#F1F3F5] dark:bg-[#1C1D22] border border-black/[0.04] dark:border-white/5 rounded-full text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-[#8E8F99] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00D09C]"
         />
       </div>
 
       {/* Execution Feed */}
-      <div className="flex-1 overflow-y-auto space-y-1.5 pr-1 divide-y divide-black/[0.04] dark:divide-white/5">
+      <div className="flex-1 overflow-y-auto space-y-1.5 pr-1 divide-y divide-black/[0.04] dark:divide-white/5" aria-live="polite">
         {loading ? (
           <div className="space-y-3 pt-1">
             {[1, 2, 3, 4, 5, 6].map((i) => (
@@ -192,7 +194,7 @@ export function LiveTape({ userId, onSelectTrade }: LiveTapeProps) {
                 </div>
 
                 <div className="text-right shrink-0 pl-1.5">
-                  <div className="text-xs font-bold font-mono text-slate-950 dark:text-white">
+                  <div className="text-xs font-bold font-mono tabular-nums text-slate-950 dark:text-white">
                     ${notional.toFixed(2)}
                   </div>
                   <span className="text-[10px] text-slate-400 dark:text-[#8E8F99] font-mono">{timeStr}</span>

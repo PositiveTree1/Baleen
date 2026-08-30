@@ -12,6 +12,14 @@ interface TradeDrawerProps {
 }
 
 export function TradeDrawer({ trade, onClose, onSelectWallet }: TradeDrawerProps) {
+  useEffect(() => {
+    if (!trade) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [trade, onClose]);
   if (!trade) return null;
 
   const isBuy = trade.side === 'BUY';
@@ -44,6 +52,9 @@ export function TradeDrawer({ trade, onClose, onSelectWallet }: TradeDrawerProps
           animate={{ x: 0 }}
           exit={{ x: '100%' }}
           transition={{ type: 'spring', damping: 28, stiffness: 280 }}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Trade Execution Drawer"
           className="relative w-full max-w-full sm:max-w-lg bg-white dark:bg-[#16171B] text-slate-900 dark:text-white shadow-2xl z-10 flex flex-col h-full border-l border-black/[0.08] dark:border-white/10"
         >
           {/* Header */}
@@ -73,7 +84,8 @@ export function TradeDrawer({ trade, onClose, onSelectWallet }: TradeDrawerProps
             </div>
             <button
               onClick={onClose}
-              className="p-2 rounded-xl text-slate-400 dark:text-[#8E8F99] hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-[#24262E] transition-colors cursor-pointer"
+              aria-label="Close trade details drawer"
+              className="p-2 rounded-xl text-slate-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00D09C] dark:text-[#8E8F99] hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-[#24262E] transition-colors cursor-pointer"
             >
               <X size={18} />
             </button>

@@ -4,7 +4,7 @@ import { AdvantageSection } from '@/components/landing/AdvantageSection';
 import { InfrastructureSection } from '@/components/landing/InfrastructureSection';
 import { BrandLogo } from '@/components/ui/BrandLogo';
 import { useTheme } from '@/context/ThemeContext';
-import { Sun, Moon } from 'lucide-react';
+import { Sun, Moon, ArrowRight } from 'lucide-react';
 import Link from 'next/link';
 
 export default function LandingPage() {
@@ -18,13 +18,13 @@ export default function LandingPage() {
         
         {/* Navigation Links */}
         <div className="hidden md:flex items-center gap-8 text-xs font-semibold text-slate-600 dark:text-[#8E8F99]">
-          <Link href="#advantage" className="hover:text-slate-950 dark:hover:text-white transition-colors">
+          <Link href="#advantage" className="hover:text-slate-950 dark:hover:text-white transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00D09C] rounded-md px-1 py-0.5">
             Features
           </Link>
-          <Link href="#advantage" className="hover:text-slate-950 dark:hover:text-white transition-colors">
+          <Link href="#advantage" className="hover:text-slate-950 dark:hover:text-white transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00D09C] rounded-md px-1 py-0.5">
             How It Works
           </Link>
-          <Link href="#infrastructure" className="hover:text-slate-950 dark:hover:text-white transition-colors">
+          <Link href="#infrastructure" className="hover:text-slate-950 dark:hover:text-white transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00D09C] rounded-md px-1 py-0.5">
             Architecture
           </Link>
         </div>
@@ -33,19 +33,22 @@ export default function LandingPage() {
         <div className="flex items-center gap-2 sm:gap-4">
           <button
             onClick={toggleTheme}
-            className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-[#F1F3F5] dark:bg-[#1C1D22] hover:bg-[#E2E6EA] dark:hover:bg-[#2C2D35] border border-black/[0.08] dark:border-white/10 text-slate-700 dark:text-white flex items-center justify-center transition-all cursor-pointer shadow-2xs"
-            title={theme === 'light' ? 'Switch to Dark Mode' : 'Switch to Light Mode'}
+            className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-[#F1F3F5] dark:bg-[#1C1D22] hover:bg-[#E2E6EA] dark:hover:bg-[#2C2D35] border border-black/[0.08] dark:border-white/10 text-slate-700 dark:text-white flex items-center justify-center transition-all cursor-pointer shadow-2xs focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00D09C]"
+            aria-label={theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'}
           >
-            {theme === 'light' ? <Moon size={14} /> : <Sun size={14} className="text-amber-400" />}
+            {theme === 'light' ? <Moon size={14} aria-hidden="true" /> : <Sun size={14} aria-hidden="true" className="text-amber-400" />}
           </button>
 
-          <Link href="/auth/login" className="text-xs font-bold text-slate-700 dark:text-white hover:text-slate-950 dark:hover:text-[#00D09C] transition-colors">
+          <Link href="/auth/login" className="text-xs font-bold text-slate-700 dark:text-white hover:text-slate-950 dark:hover:text-[#00D09C] transition-colors px-2 py-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00D09C] rounded-md">
             Sign in
           </Link>
           <Link href="/auth/signup">
-            <button className="flex items-center gap-1.5 px-3.5 sm:px-4 py-1.5 sm:py-2 bg-slate-950 dark:bg-white text-white dark:text-black hover:bg-slate-800 dark:hover:bg-slate-200 rounded-full text-xs font-bold transition-all shadow-xs active:scale-[0.98] cursor-pointer">
+            <button 
+              className="flex items-center gap-1.5 px-3.5 sm:px-4 py-1.5 sm:py-2 bg-slate-950 dark:bg-white text-white dark:text-black hover:bg-slate-800 dark:hover:bg-slate-200 rounded-full text-xs font-bold transition-all shadow-xs active:scale-[0.98] cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00D09C]"
+              aria-label="Get Started with Baleen"
+            >
               <span>Get Started</span>
-              <span className="text-slate-400 dark:text-slate-600">→</span>
+              <span className="text-slate-400 dark:text-slate-600" aria-hidden="true">→</span>
             </button>
           </Link>
         </div>

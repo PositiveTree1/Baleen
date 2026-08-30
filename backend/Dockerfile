@@ -3,8 +3,7 @@ FROM python:3.12-slim
 
 # Set environment variables
 ENV PYTHONUNBUFFERED=1 \
-    PYTHONDONTWRITEBYTECODE=1 \
-    PORT=8000
+    PYTHONDONTWRITEBYTECODE=1
 
 # Set working directory
 WORKDIR /app
@@ -25,6 +24,6 @@ COPY . .
 # Expose port
 EXPOSE 8000
 
-# Start FastAPI on dynamic $PORT
-CMD ["sh", "-c", "exec uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"]
+# Start FastAPI via python run.py
+CMD ["python", "run.py"]
 
