@@ -31,12 +31,16 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           };
         }
 
-        const backendUrl = (
+        let backendUrl = (
           process.env.BACKEND_URL || 
           process.env.NEXT_PUBLIC_BACKEND_URL || 
           process.env.NEXT_PUBLIC_API_URL || 
           'http://localhost:8000'
-        ).replace(/\/$/, '');
+        ).trim().replace(/\/$/, '');
+
+        if (backendUrl && !backendUrl.startsWith('http://') && !backendUrl.startsWith('https://')) {
+          backendUrl = `https://${backendUrl}`;
+        }
 
         try {
           // 3s timeout prevents long hanging if backend is cold starting

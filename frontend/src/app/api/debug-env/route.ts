@@ -1,18 +1,22 @@
 import { NextResponse } from 'next/server';
 
 export async function GET() {
-  const backendUrl = (
+  let backendUrl = (
     process.env.BACKEND_URL || 
     process.env.NEXT_PUBLIC_BACKEND_URL || 
     process.env.NEXT_PUBLIC_API_URL || 
     'NONE_SET'
-  );
+  ).trim().replace(/\/$/, '');
+
+  if (backendUrl && backendUrl !== 'NONE_SET' && !backendUrl.startsWith('http://') && !backendUrl.startsWith('https://')) {
+    backendUrl = `https://${backendUrl}`;
+  }
 
   // Test if we can actually reach the backend
   let backendReachable = false;
   let backendError = '';
   try {
-    const res = await fetch(`${backendUrl.replace(/\/$/, '')}/health`, { 
+    const res = await fetch(`${backendUrl}/health`, { 
       signal: AbortSignal.timeout(5000) 
     });
     backendReachable = res.ok;
