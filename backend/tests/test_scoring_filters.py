@@ -120,18 +120,18 @@ def test_active_days_gate_high_pnl_exemption():
 
 
 # -------------------------------------------------------------------------
-# Filter 3: Anti-HFT / Maker-Rebate (<= 15 trades/day)
+# Filter 3: Anti-HFT / Maker-Rebate (<= 65 trades/day)
 # -------------------------------------------------------------------------
 
-def test_hft_screen_rejects_over_15_trades_per_day():
-    stats = _valid_stats(avg_trades_per_day=15.1)
+def test_hft_screen_rejects_over_65_trades_per_day():
+    stats = _valid_stats(avg_trades_per_day=65.1)
     res = score_wallet(stats)
     assert res.status == "rejected"
     assert res.rejection_reason == "HFT_MAKER_BOT_EXCEEDED"
 
 
-def test_hft_screen_accepts_15_trades_per_day():
-    stats = _valid_stats(avg_trades_per_day=15.0)
+def test_hft_screen_accepts_65_trades_per_day():
+    stats = _valid_stats(avg_trades_per_day=65.0)
     res = score_wallet(stats)
     assert res.status == "active"
     assert res.rejection_reason is None

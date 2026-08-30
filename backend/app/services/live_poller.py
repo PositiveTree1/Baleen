@@ -165,12 +165,12 @@ class LiveTradeMirrorService:
                     ))
                     return
 
-            # Query active basket wallets and users (strictly <= 15 trades/day, non-dormant, non-HFT)
+            # Query active basket wallets and users (strictly <= 65 trades/day, non-dormant, non-HFT)
             stmt_wallets = select(Wallet).where(
                 Wallet.status == "active",
                 Wallet.dormant == False,
                 Wallet.is_hft == False,
-                (Wallet.avg_trades_per_day.is_(None) | (Wallet.avg_trades_per_day <= 15.0))
+                (Wallet.avg_trades_per_day.is_(None) | (Wallet.avg_trades_per_day <= 65.0))
             )
             active_wallets = (await db.execute(stmt_wallets)).scalars().all()
             basket_addrs = {w.address.lower() for w in active_wallets}
@@ -905,12 +905,12 @@ class LiveTradeMirrorService:
 
     async def _poll_active_whales(self):
         async with SessionLocal() as db:
-            # 1. Dynamically select Top 10 highest-scoring whales (strictly <= 15 trades/day, non-HFT, non-dormant)
+            # 1. Dynamically select Top 10 highest-scoring whales (strictly <= 65 trades/day, non-HFT, non-dormant)
             stmt = select(Wallet).where(
                 Wallet.status == "active",
                 Wallet.dormant == False,
                 Wallet.is_hft == False,
-                (Wallet.avg_trades_per_day.is_(None) | (Wallet.avg_trades_per_day <= 15.0))
+                (Wallet.avg_trades_per_day.is_(None) | (Wallet.avg_trades_per_day <= 65.0))
             ).order_by(Wallet.baleen_score.desc()).limit(10)
             active_wallets = (await db.execute(stmt)).scalars().all()
             

@@ -37,8 +37,8 @@ def score_wallet(wallet_stats: dict) -> ScoringResult:
     if active_days < 60.0 and pnl < 500000.0:
         return ScoringResult("rejected", None, "INSUFFICIENT_ACTIVE_HISTORY_DAYS", False)
 
-    # FILTER 3: Not an HFT/market-making bot (trades_per_day <= 15.0)
-    if trades_per_day > 15.0:
+    # FILTER 3: Not an HFT/market-making bot (trades_per_day <= 65.0)
+    if trades_per_day > 65.0:
         return ScoringResult("rejected", None, "HFT_MAKER_BOT_EXCEEDED", False)
 
     # FILTER 4: Position concentration cap (no single position > 25% of positive realized PnL sum)

@@ -30,10 +30,10 @@ def test_hard_filters_outlier_concentration_25pct():
     assert res_fail.rejection_reason == "OUTLIER_CONCENTRATION_TOO_HIGH"
 
 def test_anti_hft_maker_bot_filter():
-    """Verifies that bots with > 15 trades/day are rejected."""
+    """Verifies that bots with > 65 trades/day are rejected."""
     stats_hft = {
         'all_time_pnl_usd': 100000.0,
-        'avg_trades_per_day': 18.0, # > 15 trades/day
+        'avg_trades_per_day': 70.0, # > 65 trades/day
         'outlier_concentration_pct': 0.10,
         'win_rate_pct': 70.0,
         'max_drawdown_pct': 5.0,

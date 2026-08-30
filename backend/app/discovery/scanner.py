@@ -302,7 +302,7 @@ def calculate_authentic_wallet_stats(
         "avg_trades_per_day": trades_per_day,
         "max_drawdown_pct": max_drawdown,
         "outlier_concentration_pct": outlier_concentration,
-        "is_hft": bool(trades_per_day > 15.0),
+        "is_hft": bool(trades_per_day > 65.0),
         "is_dormant": False,
         "is_wash_trading": is_wash_trading,
         "wash_ratio": wash_ratio,

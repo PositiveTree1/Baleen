@@ -144,6 +144,20 @@ async def startup_event():
     # Auto-trigger discovery if the database is empty (e.g. fresh deploy)
     asyncio.create_task(_auto_discovery_if_empty())
 
+    # Auto-synchronize thresholds and rescore active basket on startup
+    from app.scoring.basket import refresh_basket
+    from app.database import SessionLocal
+    async def _auto_rescore_startup():
+        await asyncio.sleep(3)
+        try:
+            async with SessionLocal() as db:
+                await refresh_basket(db)
+                logger.info("✅ Automatic startup basket rescore and threshold synchronization complete.")
+        except Exception as e:
+            logger.warning(f"Startup basket rescore note: {e}")
+
+    asyncio.create_task(_auto_rescore_startup())
+
 @app.on_event("shutdown")
 async def shutdown_event():
     from app.services.live_poller import live_trade_mirror

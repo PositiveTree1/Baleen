@@ -68,50 +68,45 @@ def compute_raw_factors(stats: dict) -> dict:
 
 def normalize_and_score_pool(candidate_stats_list: List[dict]) -> List[float]:
     """
-    Intra-Pool Normalization & 5-Factor Composite Scoring:
-    Normalizes each metric to 0 - 100 within the filtered pool:
-    - Odds-Weighted Win Rate: 30%
-    - Risk-Adjusted Return: 30%
-    - Recency-Weighted PnL: 20%
-    - Category Consistency: 10%
-    - Copyability Penalty: -10% (subtracted)
+    5-Factor Composite Scoring across Candidate Pool:
+    Calibrated benchmark scoring ensuring scores reflect genuine hedge-fund quantitative performance (0 - 100 scale):
+    - Odds-Weighted Win Rate Edge: 30% weight (benchmark +25% edge = 100 pts)
+    - Risk-Adjusted Sharpe Ratio: 30% weight (benchmark 2.5 Sharpe = 100 pts)
+    - Recency-Weighted PnL EMA: 20% weight (log-scaled benchmark $10k/day = 100 pts)
+    - Category Consistency: 10% weight (3+ distinct categories = 100 pts)
+    - Copyability Penalty: -10% weight subtracted for trade sizes exceeding liquidity
     """
     if not candidate_stats_list:
         return []
 
     raw_factors_list = [compute_raw_factors(s) for s in candidate_stats_list]
-
-    # Find min and max for each metric across the pool
-    keys = ["odds_edge", "sharpe", "recency_ema", "category_count", "copy_penalty"]
-    min_vals = {k: min(rf[k] for rf in raw_factors_list) for k in keys}
-    max_vals = {k: max(rf[k] for rf in raw_factors_list) for k in keys}
-
     final_scores = []
+
     for rf in raw_factors_list:
-        # Min-max normalize to 0 - 100
-        def norm(k: str) -> float:
-            low = min_vals[k]
-            high = max_vals[k]
-            if high - low <= 1e-7:
-                return 50.0
-            return max(0.0, min(100.0, ((rf[k] - low) / (high - low)) * 100.0))
+        # 1. Odds Edge: -0.10 to +0.25 mapped to 0 - 100
+        norm_odds = max(0.0, min(100.0, ((rf["odds_edge"] + 0.10) / 0.35) * 100.0))
 
-        norm_odds = norm("odds_edge")
-        norm_sharpe = norm("sharpe")
-        norm_recency = norm("recency_ema")
-        norm_cat = norm("category_count")
-        norm_penalty = norm("copy_penalty")
+        # 2. Risk-adjusted Sharpe: 0.0 to 2.5 mapped to 0 - 100
+        norm_sharpe = max(0.0, min(100.0, (rf["sharpe"] / 2.5) * 100.0))
 
-        # Apply exact weights
+        # 3. Recency EMA: Logarithmic scaling ($10 to $10,000/day mapped to 0 - 100)
+        norm_recency = max(0.0, min(100.0, (math.log10(max(10.0, rf["recency_ema"])) / 4.0) * 100.0))
+
+        # 4. Category count: 1 to 3+ categories mapped to 33 - 100
+        norm_cat = max(0.0, min(100.0, (rf["category_count"] / 3.0) * 100.0))
+
+        # 5. Copyability Penalty (0 to 10 points subtracted)
+        copy_penalty = min(1.0, rf["copy_penalty"]) * 10.0
+
+        # Weighted composite
         composite = (
             (0.30 * norm_odds) +
             (0.30 * norm_sharpe) +
             (0.20 * norm_recency) +
             (0.10 * norm_cat) -
-            (0.10 * norm_penalty)
+            copy_penalty
         )
-        # Shift penalty offset so scores sit on intuitive 0 - 100 scale
-        scaled_score = round(max(0.0, min(100.0, composite + 10.0)), 1)
+        scaled_score = round(max(0.0, min(100.0, composite)), 1)
         final_scores.append(scaled_score)
 
     return final_scores
@@ -119,20 +114,20 @@ def normalize_and_score_pool(candidate_stats_list: List[dict]) -> List[float]:
 def compute_baleen_score(stats: dict) -> float:
     """Computes standalone Baleen Score for a single wallet."""
     raw = compute_raw_factors(stats)
-    norm_odds = max(0.0, min(100.0, (raw["odds_edge"] + 0.20) / 0.40 * 100.0))
-    norm_sharpe = max(0.0, min(100.0, (raw["sharpe"] / 3.0) * 100.0))
-    norm_recency = max(0.0, min(100.0, (raw["recency_ema"] / 5000.0) * 100.0))
-    norm_cat = max(0.0, min(100.0, (raw["category_count"] / 4.0) * 100.0))
-    norm_penalty = max(0.0, min(100.0, raw["copy_penalty"] * 100.0))
+    norm_odds = max(0.0, min(100.0, ((raw["odds_edge"] + 0.10) / 0.35) * 100.0))
+    norm_sharpe = max(0.0, min(100.0, (raw["sharpe"] / 2.5) * 100.0))
+    norm_recency = max(0.0, min(100.0, (math.log10(max(10.0, raw["recency_ema"])) / 4.0) * 100.0))
+    norm_cat = max(0.0, min(100.0, (raw["category_count"] / 3.0) * 100.0))
+    copy_penalty = min(1.0, raw["copy_penalty"]) * 10.0
 
     composite = (
         (0.30 * norm_odds) +
         (0.30 * norm_sharpe) +
         (0.20 * norm_recency) +
         (0.10 * norm_cat) -
-        (0.10 * norm_penalty)
+        copy_penalty
     )
-    return round(max(0.0, min(100.0, composite + 10.0)), 1)
+    return round(max(0.0, min(100.0, composite)), 1)
 
 def select_top_10_roster(
     candidates: List[Wallet], 
