@@ -234,17 +234,11 @@ export function WalletLeaderboard({ userId, onSelectWallet }: WalletLeaderboardP
                 {/* Left: Circular Avatar & Name */}
                 <div className="flex items-center gap-3 min-w-0">
                   <div className="relative shrink-0">
-                    {w.profileImage ? (
-                      <img 
-                        src={w.profileImage} 
-                        alt="" 
-                        className="w-10 h-10 rounded-full object-cover border border-black/10 dark:border-white/10" 
-                      />
-                    ) : (
-                      <div className="w-10 h-10 rounded-full bg-slate-200 dark:bg-[#2C2D35] border border-black/[0.04] dark:border-white/10 flex items-center justify-center font-bold text-sm text-slate-800 dark:text-white uppercase">
-                        {name.slice(0, 2)}
-                      </div>
-                    )}
+                    <img 
+                      src={w.profileImage || `https://api.dicebear.com/7.x/identicon/svg?seed=${w.address || name}`} 
+                      alt="" 
+                      className="w-10 h-10 rounded-full object-cover border border-black/10 dark:border-white/10 bg-slate-100 dark:bg-[#1C1D22]" 
+                    />
                     {isGold && (
                       <span className="absolute -top-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-amber-400 border-2 border-white dark:border-[#16171B] shadow-2xs" />
                     )}

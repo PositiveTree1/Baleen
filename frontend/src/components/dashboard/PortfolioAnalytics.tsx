@@ -239,7 +239,7 @@ export function PortfolioAnalytics({
     };
   }, [targetLogs, allTimeWins, allTimeLosses, allTimeWinRate, logs]);
 
-  // 4. Authentic Active Capital Allocation (Open Positions Only)
+  // 4. Authentic Active Capital Allocation (Sleeve Breakdown & Total Bankroll %)
   const activeHoldingLogs = useMemo(() => {
     return logs.filter((l) => l.status === 'FILLED' && l.side === 'BUY');
   }, [logs]);
@@ -255,48 +255,58 @@ export function PortfolioAnalytics({
       totalNotional += size;
     });
 
+    const bankroll = currentBalance > 0 ? currentBalance : 10000;
+    const sleeveBudget = bankroll / 10.0; // $1,000 sleeve per whale
+
+    const colors = ['#00D09C', '#FF7A00', '#FF2D78', '#00A3FF', '#A855F7', '#EC4899', '#EAB308', '#06B6D4'];
+
     const sorted = Array.from(whaleMap.entries())
-      .map(([name, notional]) => ({
-        name,
-        notional,
-        pct: totalNotional > 0 ? (notional / totalNotional) * 100 : 0
-      }))
+      .map(([name, notional], idx) => {
+        const bankrollPct = Math.round((notional / bankroll) * 1000) / 10;
+        const sleevePct = Math.round((notional / sleeveBudget) * 100);
+        return {
+          name,
+          notional,
+          bankrollPct,
+          sleevePct,
+          color: colors[idx % colors.length]
+        };
+      })
       .sort((a, b) => b.notional - a.notional);
 
-    const top3 = sorted.slice(0, 3);
-    const top3PctSum = top3.reduce((acc, x) => acc + x.pct, 0);
-    const othersPct = Math.max(0, 100 - top3PctSum);
+    const totalInvestedBankrollPct = Math.round((totalNotional / bankroll) * 1000) / 10;
+    const freeCashPct = Math.max(0, Math.round((100 - totalInvestedBankrollPct) * 10) / 10);
+    const freeCash = Math.max(0, bankroll - totalNotional);
 
-    const colors = ['#00D09C', '#FF7A00', '#FF2D78', '#787985'];
-
-    const segments = top3.map((item, idx) => ({
+    const segments = sorted.map((item) => ({
       name: item.name,
-      pct: Math.max(1, Math.round(item.pct)),
-      color: colors[idx]
+      pct: item.bankrollPct,
+      sleevePct: item.sleevePct,
+      notional: item.notional,
+      color: item.color
     }));
 
-    if (sorted.length > 3 && othersPct > 0) {
+    if (freeCashPct > 0) {
       segments.push({
-        name: 'Others',
-        pct: Math.max(1, Math.round(othersPct)),
-        color: colors[3]
+        name: 'Free Cash',
+        pct: freeCashPct,
+        sleevePct: 100,
+        notional: freeCash,
+        color: '#2C2D35'
       });
     }
 
     if (segments.length === 0) {
-      segments.push({ name: '100% Cash Balance', pct: 100, color: '#00D09C' });
+      segments.push({ name: '100% Cash Balance', pct: 100, sleevePct: 100, notional: bankroll, color: '#00D09C' });
     }
-
-    const effectiveInvested = currentBalance > 0 ? Math.min(totalNotional, currentBalance) : totalNotional;
-    const freeCash = currentBalance > 0 ? Math.max(0, currentBalance - effectiveInvested) : 0;
-    const allocatedPct = currentBalance > 0 ? Math.min(100, Math.round((effectiveInvested / currentBalance) * 100)) : 0;
 
     return {
       segments,
-      totalNotional: effectiveInvested,
-      grossNotional: totalNotional,
+      activeWhales: sorted,
+      totalNotional,
       freeCash,
-      allocatedPct,
+      allocatedPct: totalInvestedBankrollPct,
+      sleeveBudget,
       count: activeHoldingLogs.length
     };
   }, [activeHoldingLogs, currentBalance]);
@@ -684,11 +694,11 @@ export function PortfolioAnalytics({
       {/* ========================================================= */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
         
-        {/* Card 1: Active Capital Invested (Live Open Positions Only) */}
+        {/* Card 1: 10-Wallet Sleeve Capital Allocation (Isolated Sleeves) */}
         <div className="revolut-card p-5 space-y-4 rounded-[26px]">
           <div className="space-y-1">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-slate-500 dark:text-[#8E8F99]">Active Capital Invested</span>
+              <span className="text-xs font-semibold text-slate-500 dark:text-[#8E8F99]">10-Wallet Sleeve Capital</span>
               <span className="text-[10px] font-mono font-bold text-emerald-600 dark:text-[#00D09C] bg-emerald-50 dark:bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-200/50 dark:border-emerald-500/20">
                 {activeAllocationStats.count} Live Position{activeAllocationStats.count === 1 ? '' : 's'}
               </span>
@@ -698,31 +708,43 @@ export function PortfolioAnalytics({
                 ${activeAllocationStats.totalNotional.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </div>
               <span className="text-[11px] font-mono font-medium text-slate-500 dark:text-[#8E8F99]">
-                {activeAllocationStats.allocatedPct}% of Equity
+                {activeAllocationStats.allocatedPct}% of $10,000 Bankroll
               </span>
             </div>
           </div>
 
-          {/* Dynamic Segmented Progress Bar */}
+          {/* Dynamic 10-Sleeve Segmented Progress Bar */}
           <div className="h-2.5 w-full rounded-full bg-slate-100 dark:bg-[#1C1D22] overflow-hidden flex gap-1">
             {activeAllocationStats.segments.map((seg) => (
               <div 
                 key={seg.name} 
                 className="h-full rounded-full transition-all"
-                style={{ width: `${seg.pct}%`, backgroundColor: seg.color }} 
+                style={{ width: `${Math.max(1, seg.pct)}%`, backgroundColor: seg.color }} 
+                title={`${seg.name}: $${seg.notional.toLocaleString()} (${seg.pct}% of Bankroll)`}
               />
             ))}
           </div>
 
-          {/* Dynamic Legend */}
-          <div className="grid grid-cols-2 gap-2 text-[11px] font-semibold text-slate-600 dark:text-[#8E8F99]">
-            {activeAllocationStats.segments.map((seg) => (
-              <div key={seg.name} className="flex items-center gap-1.5 truncate">
-                <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: seg.color }} />
-                <span className="text-slate-900 dark:text-white truncate">{seg.name}</span>
-                <span className="shrink-0">({seg.pct}%)</span>
+          {/* Dynamic Sleeve Allocation Legend */}
+          <div className="space-y-1.5 text-[11px] font-semibold text-slate-600 dark:text-[#8E8F99]">
+            {activeAllocationStats.activeWhales.length > 0 ? (
+              activeAllocationStats.activeWhales.slice(0, 3).map((w) => (
+                <div key={w.name} className="flex items-center justify-between text-[11px]">
+                  <div className="flex items-center gap-1.5 truncate">
+                    <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: w.color }} />
+                    <span className="text-slate-900 dark:text-white font-bold truncate">{w.name}</span>
+                  </div>
+                  <div className="font-mono text-slate-700 dark:text-slate-300 shrink-0">
+                    ${w.notional.toLocaleString()} <span className="text-slate-400 text-[10px]">({w.sleevePct}% of $1k Sleeve • {w.bankrollPct}% Portfolio)</span>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <div className="flex items-center justify-between text-[11px] text-slate-500">
+                <span>10 Isolated $1,000 Sleeves Ready</span>
+                <span className="font-mono text-emerald-500 font-bold">$10,000 Free Cash</span>
               </div>
-            ))}
+            )}
           </div>
         </div>
 

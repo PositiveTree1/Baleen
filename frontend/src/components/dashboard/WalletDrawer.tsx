@@ -116,21 +116,11 @@ export function WalletDrawer({ address, onClose }: WalletDrawerProps) {
               {/* Header */}
               <div className="flex items-center justify-between mb-4 sm:mb-6 pb-3 sm:pb-4 border-b border-black/[0.06] dark:border-white/10">
                 <div className="flex items-center gap-3">
-                  {wallet?.profileImage ? (
-                    <img 
-                      src={wallet.profileImage} 
-                      alt="" 
-                      className="w-10 h-10 rounded-full object-cover border border-black/10 dark:border-white/10 shadow-2xs shrink-0" 
-                    />
-                  ) : (
-                    <div className="flex items-center gap-2">
-                      {isGold ? (
-                        <span className="w-3 h-3 rounded-full bg-amber-400 shadow-[0_0_8px_rgba(245,158,11,0.6)]" />
-                      ) : (
-                        <span className="w-3 h-3 rounded-full bg-[#00D09C]" />
-                      )}
-                    </div>
-                  )}
+                  <img 
+                    src={wallet?.profileImage || `https://api.dicebear.com/7.x/identicon/svg?seed=${address}`} 
+                    alt="" 
+                    className="w-10 h-10 rounded-full object-cover border border-black/10 dark:border-white/10 shadow-2xs shrink-0 bg-slate-100 dark:bg-[#1C1D22]" 
+                  />
                   <div>
                     <div className="flex items-center gap-2">
                       <h2 className="text-base font-bold text-slate-950 dark:text-white tracking-tight">
