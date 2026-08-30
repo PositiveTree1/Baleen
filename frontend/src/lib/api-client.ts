@@ -1,10 +1,16 @@
 import { Wallet, WalletDetail, ExecutionLog, User, PlatformStats } from '../types';
 
-const API_BASE_URL = (
+let rawBackendUrl = (
   process.env.NEXT_PUBLIC_BACKEND_URL || 
   process.env.NEXT_PUBLIC_API_URL || 
   'http://localhost:8000'
-).replace(/\/$/, '');
+).trim().replace(/\/$/, '');
+
+if (rawBackendUrl && !rawBackendUrl.startsWith('http://') && !rawBackendUrl.startsWith('https://')) {
+  rawBackendUrl = `https://${rawBackendUrl}`;
+}
+
+const API_BASE_URL = rawBackendUrl;
 
 // Global In-Memory Cache (persists across Next.js page navigations in browser)
 const memoryCache = new Map<string, { data: any; ts: number }>();
