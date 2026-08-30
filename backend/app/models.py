@@ -182,6 +182,8 @@ class SystemEvent(Base):
     related_market = Column(String, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow, index=True)
 
+from sqlalchemy import Column, String, Float, Integer, Boolean, DateTime, ForeignKey, UniqueConstraint, CheckConstraint, JSON
+
 class SandboxRun(Base):
     __tablename__ = "sandbox_runs"
 
@@ -200,7 +202,7 @@ class SandboxRun(Base):
     max_drawdown_pct = Column(Float, default=0.0)
     high_water_mark_usd = Column(Float, default=10000.0)
     total_reevaluations_count = Column(Integer, default=0)
-    active_whales_roster = Column(String, nullable=True) # JSON string of active roster
+    active_whales_roster = Column(JSON, nullable=True) # Native JSON / JSONB
     status = Column(String, default="ACTIVE") # ACTIVE, COMPLETED, RESET
 
 class SandboxReevaluation(Base):
@@ -213,9 +215,9 @@ class SandboxReevaluation(Base):
     total_candidates_scanned = Column(Integer, default=0)
     qualified_whales_count = Column(Integer, default=0)
     rejected_whales_count = Column(Integer, default=0)
-    top10_active_roster = Column(String, nullable=True) # JSON string
-    promotions = Column(String, nullable=True) # JSON string
-    demotions = Column(String, nullable=True) # JSON string
+    top10_active_roster = Column(JSON, nullable=True) # Native JSON / JSONB
+    promotions = Column(JSON, nullable=True) # Native JSON / JSONB
+    demotions = Column(JSON, nullable=True) # Native JSON / JSONB
     execution_duration_ms = Column(Float, default=0.0)
 
 

@@ -262,17 +262,16 @@ async def refresh_basket(db: AsyncSession, trigger_type: str = "SCHEDULED_CRON")
             trigger_type=trigger_type,
             total_candidates_scanned=len(wallets),
             qualified_whales_count=len(qualifying_wallets),
-            rejected_whales_count=len(wallets) - len(qualifying_wallets),
-            top10_active_roster=json.dumps(top10_roster_json),
-            promotions=json.dumps(promotions),
-            demotions=json.dumps(demotions),
+            top10_active_roster=top10_roster_json,
+            promotions=promotions,
+            demotions=demotions,
             execution_duration_ms=round(duration_ms, 1)
         )
         db.add(reeval_log)
 
         if active_run:
             active_run.total_reevaluations_count = (active_run.total_reevaluations_count or 0) + 1
-            active_run.active_whales_roster = json.dumps(top10_roster_json)
+            active_run.active_whales_roster = top10_roster_json
     except Exception as audit_err:
         logger.warning(f"Note on re-evaluation audit log: {audit_err}")
 
