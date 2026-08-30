@@ -1,43 +1,59 @@
-# BRIEFING — 2026-08-29T11:22:00Z
+# BRIEFING — 2026-08-31T00:44:30Z
 
 ## Mission
-Independently inspect, verify, and stress-test all code-level findings across backend Python (`backend/app/`), database (`db/`, `database.py`), listener (`listener/src/`), and test suites for the Baleen codebase comprehensive audit, producing an adversarial critique, code remediation diffs, and an explicit review verdict.
+Perform objective, rigorous code review and adversarial challenge across all modified quantitative core files for R1, R2, R3, R4.
 
 ## 🔒 My Identity
-- Archetype: reviewer / critic
+- Archetype: reviewer_and_critic
 - Roles: reviewer, critic
 - Working directory: c:\Users\arthu\Documents\Baleen-master\.agents\reviewer_code_and_pipeline
-- Original parent: d751e07b-83a8-45f8-b1a6-dc64b9f42d3b
-- Milestone: M2/M3/M7 (Code & Ingestion Pipeline Review)
+- Original parent: 6594f42a-45c8-4563-84dc-424bdd63433f
+- Milestone: Review of Quantitative Core Fixes (R1, R2, R3, R4)
 - Instance: 1 of 1
 
 ## 🔒 Key Constraints
-- Review-only — do NOT modify implementation code
-- Genuine independent verification with zero tolerance for integrity violations
-- Verify all line citations, failure mechanics, and proposed diffs against actual source files
-- Maintain persistent memory in BRIEFING.md and heartbeat in progress.md
+- Review-only — do NOT modify implementation code.
+- Actively check for integrity violations (hardcoded test returns, dummy/facade implementations, bypassed logic, fake verification).
+- Strictly adhere to AGENTS.md Python rules (strong typing, no dict for domain objects, class models, no silent fails, etc.).
+- Deliverable must include full pytest suite run and frontend build validation.
 
 ## Current Parent
-- Conversation ID: d751e07b-83a8-45f8-b1a6-dc64b9f42d3b
-- Updated: 2026-08-29T11:22:00Z
+- Conversation ID: 6594f42a-45c8-4563-84dc-424bdd63433f
+- Updated: 2026-08-31T00:44:30Z
 
 ## Review Scope
-- **Files to review**: `backend/app/**/*.py`, `backend/*.py`, `backend/tests/**/*.py`, `listener/src/**/*.ts`, `listener/tests/**/*.ts`, `db/schema.sql`
-- **Interface contracts**: `PROJECT.md`, `ORIGINAL_REQUEST.md`
-- **Review criteria**: Correctness, paper trading realism, edge case handling, concurrency/race conditions, connection leaks, mathematical precision, code quality, test integrity
-
-## Review Checklist
-- **Items reviewed**: 100% of Backend, Database, Listener, and Test Suite source files.
-- **Verdict**: REQUEST_CHANGES (Issued with 13 Backend/DB findings, 10 Listener findings, and 7 concrete remediation diffs).
-- **Unverified claims**: 0 (all verified independently against source code).
-
-## Attack Surface
-- **Hypotheses tested**: Slippage price improvement inversion, CTF Maker/Taker token inversion, MTM equity margin cascade, SQLite/PostgreSQL connection retry failover, Multi-tenant sandbox isolation.
-- **Vulnerabilities found**: Confirmed Critical and Major defects across B1-B13 and LST-01 to LST-10.
-- **Untested angles**: Hardware-level Envio Cloud outage failover (out of scope).
+- **Files to review**:
+  - `backend/app/sizing/slippage.py`
+  - `backend/app/sizing/fill_simulator.py`
+  - `backend/app/sizing/sleeve_manager.py`
+  - `backend/app/services/live_poller.py`
+  - `backend/app/services/mark_to_market.py`
+  - `backend/app/api/execution_logs.py`
+  - `backend/tests/test_quant_core_fixes_r1_r2_r3.py`
+- **Interface contracts**: `c:\Users\arthu\Documents\Baleen-master\.agents\ORIGINAL_REQUEST.md`
+- **Review criteria**: correctness, logical completeness, quality, risk/adversarial robustness, integrity.
 
 ## Key Decisions Made
-- Issued explicit verdict **REQUEST_CHANGES** due to Critical integrity violations (mock tests, synthetic equity curves) and core simulation defects (0.50 default fill, inverted CTF side/asset IDs, inverted slippage, and user PnL double counting).
+- Confirmed full compliance with all R1-R4 requirements.
+- Confirmed zero integrity violations, no dummy facades, no hardcoded cheating.
+- Verified test suite: 1,410 / 1,410 tests passing in 15.75s.
+- Verified frontend build: Next.js production build succeeded with TypeScript validation in 17.2s and 10 static pages generated.
+- Issue verdict: APPROVE.
 
 ## Artifact Index
-- `c:\Users\arthu\Documents\Baleen-master\.agents\reviewer_code_and_pipeline\handoff.md` — Final Code & Pipeline Review Report
+- `c:\Users\arthu\Documents\Baleen-master\.agents\reviewer_code_and_pipeline\handoff.md` — Final review report and verdict
+
+## Review Checklist
+- **Items reviewed**: all 7 files in scope
+- **Verdict**: APPROVE
+- **Unverified claims**: none; all claims independently verified
+
+## Attack Surface
+- **Hypotheses tested**:
+  - Boundary price execution ($p \le 0.005, p \ge 0.995$) -> non-zero slippage and non-zero delta verified.
+  - Zero / single-level order books in fill simulator -> positive slippage floor and latency verified.
+  - Extreme shock PnL on small sample whales ($N < 15$) -> strictly bounded within $\pm 10\%$ ($\$900-\$1100$).
+  - Cold-cache MTM startup -> balance preservation verified.
+  - Timeframe bucket convergence across 1H, 1D, 1W, ALL -> verified.
+- **Vulnerabilities found**: None.
+- **Untested angles**: None.

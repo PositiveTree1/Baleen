@@ -63,26 +63,38 @@ class SleeveManager:
         return round(max(0.05, min(1.0, percentile)), 4)
 
     @staticmethod
-    def update_copy_pnl_ema(current_ema: float, new_realized_pnl: float, alpha: float = 0.05) -> float:
+    def update_copy_pnl_ema(
+        current_ema: float,
+        new_realized_pnl: float,
+        alpha: float = 0.05,
+        max_trade_pnl_clip: float = 500.0
+    ) -> float:
         """
         Slow Exponential Moving Average of Baleen's actual copy-PnL on this wallet.
         alpha = 0.05 ensures a long window (20+ trades) so we don't cut skilled wallets on short drawdown.
+        Trade innovations are clipped to +/- max_trade_pnl_clip ($500) for bounded single-trade sensitivity.
         """
-        return round((1.0 - alpha) * current_ema + alpha * new_realized_pnl, 4)
+        clamped_pnl = max(-max_trade_pnl_clip, min(max_trade_pnl_clip, new_realized_pnl))
+        return round((1.0 - alpha) * current_ema + alpha * clamped_pnl, 4)
 
     @staticmethod
     def calculate_adjusted_sleeve_budget(
         base_budget: float,
         copy_pnl_ema: float = 0.0,
         baleen_score: float = 80.0,
+        trades_count: Optional[int] = None,
         trades_analyzed: Optional[int] = None
     ) -> float:
         """
         Adjusts sleeve budget dynamically off Baleen Score base weight + copy-PnL EMA
         with a strict 0.30x ($300) floor and 1.50x ($1,500) cap.
-        Applies Bayesian sample-size shrinkage prior when trades_analyzed < 15 so that
-        whales with few trades (e.g. SitsToPee with 2 trades) remain anchored near base ($900-$1,100)
-        and cannot have their budget violently slashed without statistically significant evidence.
+        Applies a continuous 2-stage Bayesian Credibility / Sample-Size Shrinkage Prior Z(N):
+          - For 0 <= N < 15: Z(N) = (1/7) * (N / 15)
+            Strictly guarantees low-sample whales (N < 15, e.g. N=1, 2, 5) remain anchored
+            within $900.00 - $1,100.00 (+/- 10% of $1,000 base) under all extreme PnL or score shocks.
+          - For N >= 15: Z(N) = (1/7) + (6/7) * ((N - 15) / ((N - 15) + 20.0))
+            Continuous C^0 transition smoothly expanding dynamic range over dozens of trades.
+          - Defaults to full credibility (Z=1.0) when trades_count is None (backward compatibility).
         """
         if base_budget <= 0:
             return 0.0
@@ -92,16 +104,22 @@ class SleeveManager:
         # Scaling: each $100 in average realized copy-PnL adjusts budget by ~20%
         pnl_factor = (copy_pnl_ema / 500.0)
         raw_multiplier = score_factor + pnl_factor
-        
-        # When trade count is explicitly provided, apply Bayesian shrinkage for low sample (N < 15)
-        if trades_analyzed is not None and trades_analyzed < 15:
-            damping_lambda = min(1.0, max(0.05, float(trades_analyzed) / 15.0))
-            damped_multiplier = 1.0 + damping_lambda * (raw_multiplier - 1.0)
-        else:
-            damped_multiplier = raw_multiplier
+        clamped_raw = max(0.30, min(1.50, raw_multiplier))
 
-        clamped_multiplier = max(0.30, min(1.50, damped_multiplier))
-        return round(base_budget * clamped_multiplier, 2)
+        n_trades = trades_count if trades_count is not None else trades_analyzed
+        if n_trades is None:
+            return round(base_budget * clamped_raw, 2)
+
+        n = max(0, int(n_trades))
+        if n < 15:
+            z_n = (1.0 / 7.0) * (float(n) / 15.0)
+        else:
+            k_post = 20.0
+            z_n = (1.0 / 7.0) + (6.0 / 7.0) * (float(n - 15) / (float(n - 15) + k_post))
+
+        damped_multiplier = 1.0 + z_n * (clamped_raw - 1.0)
+        final_multiplier = max(0.30, min(1.50, damped_multiplier))
+        return round(base_budget * final_multiplier, 2)
 
     @classmethod
     def size_sleeve_trade(

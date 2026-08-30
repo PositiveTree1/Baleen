@@ -412,16 +412,15 @@ async def get_portfolio_snapshots(
         else:
             bucket_secs = 60    # 1-min buckets for 1 hour
 
-        bucketed_rows = []
-        seen_buckets = set()
+        bucket_map = {}
         for r in rows:
             if r.timestamp:
                 b_key = int(r.timestamp.timestamp() // bucket_secs)
-                if b_key not in seen_buckets:
-                    seen_buckets.add(b_key)
-                    bucketed_rows.append(r)
+                bucket_map[b_key] = r  # Last-of-bucket selection
             else:
-                bucketed_rows.append(r)
+                bucket_map[id(r)] = r
+
+        bucketed_rows = sorted(bucket_map.values(), key=lambda x: x.timestamp if x.timestamp else datetime.min)
 
         # Always include the exact latest live snapshot at the end
         if rows and (not bucketed_rows or bucketed_rows[-1].id != rows[-1].id):

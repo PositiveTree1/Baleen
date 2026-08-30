@@ -74,29 +74,29 @@ class TestFillSimulatorExtremes:
 
     def test_none_levels_crash_vulnerability(self):
         """
-        VULNERABILITY PROOF 1:
+        REMEDIATION VERIFICATION 1:
         When order_book contains {'asks': None} or {'bids': None},
-        `order_book.get('asks', [])` returns None (bypassing default []),
-        causing `sorted(raw_levels)` to crash with TypeError: 'NoneType' object is not iterable.
+        simulate_fill safely null-coalesces to [] and returns 0 filled without crashing.
         """
-        with pytest.raises(TypeError):
-            simulate_fill(100.0, {"asks": None}, "BUY")
+        res_buy = simulate_fill(100.0, {"asks": None}, "BUY")
+        assert res_buy.total_filled == 0.0
+        assert res_buy.avg_price == 0.0
 
-        with pytest.raises(TypeError):
-            simulate_fill(100.0, {"bids": None}, "SELL")
+        res_sell = simulate_fill(100.0, {"bids": None}, "SELL")
+        assert res_sell.total_filled == 0.0
+        assert res_sell.avg_price == 0.0
 
     def test_none_price_or_size_crash_vulnerability(self):
         """
-        VULNERABILITY PROOF 2:
+        REMEDIATION VERIFICATION 2:
         When an order level contains {'price': None} or {'size': None},
-        x.get('price', 0) returns None (key exists with value None).
-        float(None) then raises TypeError: float() argument must be a string or a real number, not 'NoneType'.
+        simulate_fill safely handles None and skips corrupt levels without crashing.
         """
-        with pytest.raises(TypeError, match="must be a string or a real number, not 'NoneType'"):
-            simulate_fill(100.0, {"asks": [{"price": None, "size": 10.0}]}, "BUY")
+        res1 = simulate_fill(100.0, {"asks": [{"price": None, "size": 10.0}]}, "BUY")
+        assert res1.total_filled == 0.0
 
-        with pytest.raises(TypeError, match="must be a string or a real number, not 'NoneType'"):
-            simulate_fill(100.0, {"asks": [{"price": 0.50, "size": None}]}, "BUY")
+        res2 = simulate_fill(100.0, {"asks": [{"price": 0.50, "size": None}]}, "BUY")
+        assert res2.total_filled == 0.0
 
     def test_non_positive_and_corrupt_levels(self):
         """Levels with price <= 0, size <= 0, or missing fields must be skipped."""

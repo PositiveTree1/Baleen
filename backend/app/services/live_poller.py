@@ -345,6 +345,7 @@ class LiveTradeMirrorService:
                 price=price,
                 side=side,
                 notional_usd=cash_usd,
+                latency_ms=calc_latency_ms,
                 live_p=live_p
             )
 
@@ -385,16 +386,26 @@ class LiveTradeMirrorService:
             # 2. Dynamic 10-sleeve base budget ($1,000 each on $10k/10)
             base_sleeve_budget = SleeveManager.calculate_sleeve_budget(settled_cash, active_roster_size=10)
 
-            # 3. Fetch wallet's realized copy-PnL EMA
-            stmt_wallet_copy_pnl = select(func.sum(ExecutionLog.realized_pnl_usd)).where(
+            # 3. Fetch wallet's realized copy-PnL EMA and closed trade count
+            stmt_wallet_stats = select(
+                func.coalesce(func.sum(ExecutionLog.realized_pnl_usd), 0.0),
+                func.count(ExecutionLog.id)
+            ).where(
                 ExecutionLog.user_id.is_(None),
                 ExecutionLog.source_wallet_address.ilike(wallet_address),
                 ExecutionLog.status == "CLOSED"
             )
-            wallet_copy_pnl = float((await db.execute(stmt_wallet_copy_pnl)).scalar() or 0.0)
+            stats_row = (await db.execute(stmt_wallet_stats)).first()
+            wallet_copy_pnl = float(stats_row[0]) if stats_row else 0.0
+            wallet_closed_count = int(stats_row[1]) if stats_row else 0
             
-            # Dynamic sleeve budget adjusted off our own copy-PnL EMA (floored at 0.30x = $300, capped at 1.50x = $1500)
-            adjusted_sleeve_budget = SleeveManager.calculate_adjusted_sleeve_budget(base_sleeve_budget, wallet_copy_pnl)
+            # Dynamic sleeve budget adjusted off our own copy-PnL EMA with Bayesian shrinkage prior
+            adjusted_sleeve_budget = SleeveManager.calculate_adjusted_sleeve_budget(
+                base_budget=base_sleeve_budget,
+                copy_pnl_ema=wallet_copy_pnl,
+                baleen_score=float(source_whale.baleen_score or 80.0) if source_whale else 80.0,
+                trades_count=wallet_closed_count
+            )
 
             # 4. Fetch this specific wallet's open invested notional
             stmt_wallet_open = select(func.sum(ExecutionLog.notional_usd)).where(
@@ -682,7 +693,8 @@ class LiveTradeMirrorService:
                             is_sandbox=True,
                             status="FILLED",
                             realized_pnl_usd=None,
-                            executed_at=open_buy.executed_at
+                            executed_at=open_buy.executed_at,
+                            latency_ms=open_buy.latency_ms or calc_latency_ms or 350.0
                         )
                         db.add(split_buy)
                         remaining_sell_notional = 0.0
@@ -803,7 +815,7 @@ class LiveTradeMirrorService:
                                 status="FILLED",
                                 realized_pnl_usd=None,
                                 executed_at=u_buy.executed_at,
-                                latency_ms=calc_latency_ms
+                                latency_ms=u_buy.latency_ms or calc_latency_ms or 350.0
                             )
                             db.add(u_split_buy)
                             remaining_u_sell_notional = 0.0

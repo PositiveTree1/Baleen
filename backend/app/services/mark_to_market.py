@@ -179,7 +179,7 @@ class MarkToMarketService:
                             _last_known_pnl[str(elog.id)] = round(net_pnl, 2)
                     else:
                         if str(elog.id) not in _last_known_pnl:
-                            _last_known_pnl[str(elog.id)] = round(-fee, 2)
+                            _last_known_pnl[str(elog.id)] = 0.0
 
                 # 4. Synchronize authoritative sandbox balance & snapshots
                 from app.models import PortfolioSnapshot
