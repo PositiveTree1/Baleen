@@ -605,27 +605,6 @@ class LiveTradeMirrorService:
                     )
                     db.add(u_sell_log)
 
-                # Snapshot update
-                try:
-                    from app.models import PortfolioSnapshot
-                    stmt_latest = select(PortfolioSnapshot).where(PortfolioSnapshot.user_id.is_(None)).order_by(PortfolioSnapshot.timestamp.desc()).limit(1)
-                    latest_snap = (await db.execute(stmt_latest)).scalar_one_or_none()
-                    cur_bal = float(latest_snap.balance) if latest_snap and latest_snap.balance else 10000.0
-                    cur_pnl = float(latest_snap.total_pnl) if latest_snap and latest_snap.total_pnl is not None else 0.0
-                    cur_bal = round(cur_bal + matched_realized_pnl, 2)
-                    cur_pnl = round(cur_pnl + matched_realized_pnl, 2)
-                    stmt_count = select(func.count(ExecutionLog.id)).where(ExecutionLog.user_id.is_(None), ExecutionLog.status == "FILLED")
-                    cur_count = int((await db.execute(stmt_count)).scalar() or 0)
-                    db.add(PortfolioSnapshot(
-                        user_id=None,
-                        timestamp=dt,
-                        balance=cur_bal,
-                        total_pnl=cur_pnl,
-                        active_trades_count=cur_count
-                    ))
-                except Exception as snap_err:
-                    logger.debug(f"Poller snapshot note: {snap_err}")
-
                 await db.commit()
 
                 from app.services.event_logger import log_event
@@ -846,32 +825,7 @@ class LiveTradeMirrorService:
                 )
                 db.add(user_log)
 
-            # Record running snapshot directly from live poller
-            try:
-                from app.models import PortfolioSnapshot
-                stmt_latest = select(PortfolioSnapshot).where(PortfolioSnapshot.user_id.is_(None)).order_by(PortfolioSnapshot.timestamp.desc()).limit(1)
-                latest_snap = (await db.execute(stmt_latest)).scalar_one_or_none()
-                
-                cur_bal = float(latest_snap.balance) if latest_snap and latest_snap.balance else 10000.0
-                cur_pnl = float(latest_snap.total_pnl) if latest_snap and latest_snap.total_pnl is not None else 0.0
-                
-                if sys_realized_pnl_val is not None:
-                    cur_pnl = round(cur_pnl + float(sys_realized_pnl_val), 2)
-                    cur_bal = round(cur_bal + float(sys_realized_pnl_val), 2)
-                
-                stmt_count = select(func.count(ExecutionLog.id)).where(ExecutionLog.user_id.is_(None))
-                cur_count = int((await db.execute(stmt_count)).scalar() or 0)
-
-                db.add(PortfolioSnapshot(
-                    user_id=None,
-                    timestamp=dt,
-                    balance=cur_bal,
-                    total_pnl=cur_pnl,
-                    active_trades_count=cur_count
-                ))
-                await db.commit()
-            except Exception as snap_err:
-                logger.debug(f"Poller snapshot note: {snap_err}")
+            await db.commit()
 
             whale_name = source_whale.name or source_whale.pseudonym or addr[:10] if source_whale else addr[:10]
             logger.info(f"🎯 COPIED WHALE TRADE: {addr[:10]}... {side} ${cash_usd:,.2f} on '{title[:30]}' @ {effective_fill_price:.3f} (Consensus: {consensus.get('is_consensus')})")
@@ -1108,36 +1062,7 @@ class LiveTradeMirrorService:
 
                 settled_count += 1
 
-            # Update platform snapshot
-            try:
-                from app.models import PortfolioSnapshot
-                stmt_latest = select(PortfolioSnapshot).where(
-                    PortfolioSnapshot.user_id.is_(None)
-                ).order_by(PortfolioSnapshot.timestamp.desc()).limit(1)
-                latest_snap = (await db.execute(stmt_latest)).scalar_one_or_none()
 
-                cur_bal = float(latest_snap.balance) if latest_snap and latest_snap.balance else 10000.0
-                cur_pnl = float(latest_snap.total_pnl) if latest_snap and latest_snap.total_pnl is not None else 0.0
-
-                new_bal = round(cur_bal + total_system_pnl, 2)
-                new_pnl = round(cur_pnl + total_system_pnl, 2)
-
-                stmt_count = select(func.count(ExecutionLog.id)).where(
-                    ExecutionLog.user_id.is_(None),
-                    ExecutionLog.status == "FILLED"
-                )
-                open_remaining = int((await db.execute(stmt_count)).scalar() or 0)
-                system_open_settled = len([l for l in open_lots if l.user_id is None])
-
-                db.add(PortfolioSnapshot(
-                    user_id=None,
-                    timestamp=settle_dt,
-                    balance=new_bal,
-                    total_pnl=new_pnl,
-                    active_trades_count=max(0, open_remaining - system_open_settled)
-                ))
-            except Exception as snap_err:
-                logger.debug(f"Resolution snapshot note: {snap_err}")
 
             # Update User balances
             stmt_users = select(User)
