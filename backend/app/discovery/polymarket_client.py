@@ -537,41 +537,42 @@ class PolymarketClient:
         except Exception as e:
             logger.debug(f"Gamma bulk markets fetch note: {e}")
 
-        # 2. For missing condition IDs, fetch gently in small batches (max 12) with pause to never trigger 429
+        # 2. For missing condition IDs, fetch all concurrently with controlled concurrency (max 10 parallel)
         missing_cids = [cid for cid in clean_cids if cid not in results]
         if missing_cids:
-            for cid in missing_cids[:12]:
-                try:
-                    m_data = await self._fetch_with_retry(
-                        f"{self.gamma_api_url}/markets",
-                        params={"condition_id": cid}
-                    )
-                    if isinstance(m_data, list) and m_data and isinstance(m_data[0], dict):
-                        m = m_data[0]
-                        outcomes = m.get("outcomes") or ["Yes", "No"]
-                        outcome_prices = m.get("outcomePrices") or []
-                        if isinstance(outcomes, str):
-                            try: outcomes = json.loads(outcomes)
-                            except Exception: outcomes = ["Yes", "No"]
-                        if isinstance(outcome_prices, str):
-                            try: outcome_prices = json.loads(outcome_prices)
-                            except Exception: outcome_prices = []
+            sem = asyncio.Semaphore(10)
+            async def _fetch_single_cid(cid: str) -> None:
+                async with sem:
+                    try:
+                        m_data = await self._fetch_with_retry(
+                            f"{self.gamma_api_url}/markets",
+                            params={"condition_id": cid}
+                        )
+                        if isinstance(m_data, list) and m_data and isinstance(m_data[0], dict):
+                            m = m_data[0]
+                            outcomes = m.get("outcomes") or ["Yes", "No"]
+                            outcome_prices = m.get("outcomePrices") or []
+                            if isinstance(outcomes, str):
+                                try: outcomes = json.loads(outcomes)
+                                except Exception: outcomes = ["Yes", "No"]
+                            if isinstance(outcome_prices, str):
+                                try: outcome_prices = json.loads(outcome_prices)
+                                except Exception: outcome_prices = []
 
-                        m_map = {}
-                        for idx, outc in enumerate(outcomes):
-                            if idx < len(outcome_prices):
-                                try:
-                                    p_flt = float(outcome_prices[idx])
-                                    if 0.001 <= p_flt <= 0.999:
-                                        m_map[str(outc).lower().strip()] = round(p_flt, 4)
-                                except Exception:
-                                    pass
-                        if m_map:
-                            results[cid] = m_map
-                    await asyncio.sleep(0.04)
-                except Exception:
-                    pass
+                            m_map = {}
+                            for idx, outc in enumerate(outcomes):
+                                if idx < len(outcome_prices):
+                                    try:
+                                        p_flt = float(outcome_prices[idx])
+                                        if 0.001 <= p_flt <= 0.999:
+                                            m_map[str(outc).lower().strip()] = round(p_flt, 4)
+                                    except Exception:
+                                        pass
+                            if m_map:
+                                results[cid] = m_map
+                    except Exception:
+                        pass
+
+            await asyncio.gather(*[_fetch_single_cid(c) for c in missing_cids], return_exceptions=True)
 
         return results
-
-
