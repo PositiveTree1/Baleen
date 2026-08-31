@@ -138,7 +138,16 @@ def calculate_authentic_wallet_stats(
         total_volume = sum(float(t.get("usdcSize") or t.get("size") or 0.0) for t in (trades or []))
 
     # 2. Closed/Settled Positions Only (Strictly ignore open MTM marks for scoring)
-    closed_positions = [p for p in (positions or []) if isinstance(p, dict) and (p.get("redeemable") or float(p.get("cashPnl") or 0.0) != 0.0)]
+    closed_positions = [
+        p for p in (positions or []) 
+        if isinstance(p, dict) and (
+            p.get("closed") 
+            or p.get("redeemable") 
+            or float(p.get("curPrice") or 0.5) in (0.0, 1.0) 
+            or float(p.get("size") or 0.0) == 0.0 
+            or float(p.get("realizedPnl") or 0.0) != 0.0
+        )
+    ]
     if not closed_positions:
         closed_positions = [p for p in (positions or []) if isinstance(p, dict)]
 
@@ -239,52 +248,111 @@ def calculate_authentic_wallet_stats(
     wash_ratio = round(wash_pair_count / max(1, len(trades or [])), 3)
     is_wash_trading = bool(wash_ratio > 0.10 and wash_pair_count >= 2)
 
-    # 8. Daily PnL history & Recency-Weighted EMA (30-day half-life)
-    daily_map = {}
+    # 8. Authentic Daily PnL history from chronological trades & redemptions
     today_utc = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    daily_map: Dict[str, Dict[str, float]] = {}
+    holdings: Dict[str, Dict[str, float]] = {} # asset -> {'shares': float, 'cost': float, 'avg_price': float}
+    accounted_assets: Set[str] = set()
 
-    # A. Process closed positions with authentic realized PnL
-    for pos in (closed_positions or []):
-        pnl_val = float(pos.get("cashPnl") or pos.get("realizedPnl") or 0.0)
-        ts_raw = pos.get("resolvedAt") or pos.get("updatedAt") or pos.get("endDate") or pos.get("timestamp") or pos.get("createdAt")
-        d_str = parse_date_to_utc_str(ts_raw, today_utc)
+    # A. Chronological trade matching (Fills & Sells)
+    sorted_trades = sorted((trades or []), key=lambda x: float(x.get("timestamp") or 0.0) if isinstance(x, dict) else 0.0)
+    for t in sorted_trades:
+        if not isinstance(t, dict):
+            continue
+        ts_val = float(t.get("timestamp") or t.get("time") or t.get("match_time") or 0.0)
+        if ts_val <= 0.0:
+            continue
+        ts_sec = ts_val / 1000.0 if ts_val > 1e11 else ts_val
+        try:
+            dt_str = datetime.fromtimestamp(ts_sec, timezone.utc).strftime("%Y-%m-%d")
+        except Exception:
+            continue
 
-        if d_str not in daily_map:
-            daily_map[d_str] = {"won": 0.0, "lost": 0.0, "net": 0.0, "count": 0}
-        
-        daily_map[d_str]["count"] += 1
-        if pnl_val > 0:
-            daily_map[d_str]["won"] += pnl_val
-        elif pnl_val < 0:
-            daily_map[d_str]["lost"] += abs(pnl_val)
-        daily_map[d_str]["net"] += pnl_val
+        asset = str(t.get("asset") or t.get("conditionId") or "")
+        side = str(t.get("side") or "").upper()
+        size = float(t.get("size") or 0.0)
+        price = float(t.get("price") or 0.0)
 
-    # B. Process activity log (redemptions and closed sales)
+        if asset not in holdings:
+            holdings[asset] = {"shares": 0.0, "cost": 0.0, "avg_price": 0.0}
+
+        h = holdings[asset]
+        if side == "BUY":
+            h["shares"] += size
+            h["cost"] += size * price
+            h["avg_price"] = h["cost"] / h["shares"] if h["shares"] > 0 else price
+        elif side == "SELL" and h["shares"] > 0:
+            sold_shares = min(size, h["shares"])
+            cost_basis = sold_shares * h["avg_price"]
+            proceeds = sold_shares * price
+            pnl = proceeds - cost_basis
+            h["shares"] -= sold_shares
+            h["cost"] -= cost_basis
+            accounted_assets.add(asset)
+
+            if dt_str not in daily_map:
+                daily_map[dt_str] = {"won": 0.0, "lost": 0.0, "net": 0.0, "count": 0.0}
+            daily_map[dt_str]["count"] += 1.0
+            if pnl >= 0:
+                daily_map[dt_str]["won"] += pnl
+            else:
+                daily_map[dt_str]["lost"] += abs(pnl)
+            daily_map[dt_str]["net"] += pnl
+
+    # B. Process Redemptions from activity
     if activity:
-        for act in (activity or []):
+        for act in activity:
             if not isinstance(act, dict):
                 continue
             act_type = str(act.get("type") or "").upper()
-            size = float(act.get("usdcSize") or act.get("size") or 0.0)
-            price = float(act.get("price") or 0.5)
-            ts_raw = act.get("timestamp") or act.get("time") or act.get("createdAt")
-            d_str = parse_date_to_utc_str(ts_raw, today_utc)
-
-            if d_str not in daily_map:
-                daily_map[d_str] = {"won": 0.0, "lost": 0.0, "net": 0.0, "count": 0}
-
             if act_type in ["REDEMPTION", "REDEEM"]:
-                daily_map[d_str]["count"] += 1
-                daily_map[d_str]["won"] += size
-                daily_map[d_str]["net"] += size
-            elif act_type == "SELL" and daily_map[d_str]["count"] == 0:
-                daily_map[d_str]["count"] += 1
-                pnl_est = size * (price - 0.5)
-                if pnl_est >= 0:
-                    daily_map[d_str]["won"] += pnl_est
+                ts_val = float(act.get("timestamp") or act.get("time") or 0.0)
+                if ts_val <= 0.0:
+                    continue
+                ts_sec = ts_val / 1000.0 if ts_val > 1e11 else ts_val
+                try:
+                    dt_str = datetime.fromtimestamp(ts_sec, timezone.utc).strftime("%Y-%m-%d")
+                except Exception:
+                    continue
+
+                asset = str(act.get("asset") or act.get("conditionId") or "")
+                size = float(act.get("size") or act.get("usdcSize") or 0.0)
+                h = holdings.get(asset, {"avg_price": 0.50, "shares": size, "cost": size * 0.50})
+                avg_p = h["avg_price"] if h["avg_price"] > 0 else 0.50
+                cost_basis = size * avg_p
+                pnl = size - cost_basis
+                accounted_assets.add(asset)
+
+                if dt_str not in daily_map:
+                    daily_map[dt_str] = {"won": 0.0, "lost": 0.0, "net": 0.0, "count": 0.0}
+                daily_map[dt_str]["count"] += 1.0
+                if pnl >= 0:
+                    daily_map[dt_str]["won"] += pnl
                 else:
-                    daily_map[d_str]["lost"] += abs(pnl_est)
-                daily_map[d_str]["net"] += pnl_est
+                    daily_map[dt_str]["lost"] += abs(pnl)
+                daily_map[dt_str]["net"] += pnl
+
+    # C. Process verified settled closed positions if not already captured in trades/activity
+    for pos in (closed_positions or []):
+        if not isinstance(pos, dict):
+            continue
+        asset = str(pos.get("asset") or pos.get("conditionId") or "")
+        if asset in accounted_assets:
+            continue
+
+        c_pnl = float(pos.get("realizedPnl") or pos.get("cashPnl") or 0.0)
+        is_settled = bool(pos.get("closed") or pos.get("redeemable") or float(pos.get("curPrice") or 0.5) in (0.0, 1.0) or float(pos.get("realizedPnl") or 0.0) != 0.0)
+        if is_settled and c_pnl != 0.0:
+            ts_raw = pos.get("resolvedAt") or pos.get("timestamp") or pos.get("createdAt")
+            dt_str = parse_date_to_utc_str(ts_raw, today_utc)
+            if dt_str not in daily_map:
+                daily_map[dt_str] = {"won": 0.0, "lost": 0.0, "net": 0.0, "count": 0.0}
+            daily_map[dt_str]["count"] += 1.0
+            if c_pnl >= 0:
+                daily_map[dt_str]["won"] += c_pnl
+            else:
+                daily_map[dt_str]["lost"] += abs(c_pnl)
+            daily_map[dt_str]["net"] += c_pnl
 
     daily_pnl_history = []
     running_cum = 0.0
@@ -298,7 +366,7 @@ def calculate_authentic_wallet_stats(
             "net_pnl": round(d_info["net"], 2),
             "daily_pnl": round(d_info["net"], 2),
             "cumulative_pnl": round(running_cum, 2),
-            "trades_count": d_info["count"]
+            "trades_count": int(d_info["count"])
         })
 
     # Recency EMA over realized PnL series (30-day half-life decay)
