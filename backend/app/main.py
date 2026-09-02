@@ -66,29 +66,27 @@ async def keep_alive_job():
         last_cron_ping_time = time.time()
 
 async def _auto_discovery_if_empty():
-    """Check if the wallets table is empty and auto-trigger discovery if so.
-    This ensures a fresh deploy immediately populates data instead of waiting
-    for the first scheduled interval (20 minutes).
+    """Check if the active basket has fewer than 30 qualified wallets (Top 10 + 20 bench)
+    and auto-trigger discovery with curated priority seeds if needed.
     """
     from app.database import SessionLocal
     from app.models import Wallet
     try:
         async with SessionLocal() as db:
-            wallet_count = (await db.execute(
-                select(func.count()).select_from(Wallet)
+            active_count = (await db.execute(
+                select(func.count()).select_from(Wallet).where(Wallet.status == "active")
             )).scalar() or 0
             
-            if wallet_count == 0:
+            if active_count < 30:
                 logger.info(
-                    "🔍 Database is empty (0 wallets). "
-                    "Auto-triggering initial discovery scan..."
+                    f"🔍 Active basket has {active_count}/30 required whales (Top 10 + 20 bench). "
+                    "Auto-triggering discovery scan with curated priority seeds..."
                 )
-                # Small delay to let the rest of startup complete
-                await asyncio.sleep(5)
+                await asyncio.sleep(4)
                 await run_discovery()
-                logger.info("✅ Initial auto-discovery completed.")
+                logger.info("✅ Auto-discovery completed.")
             else:
-                logger.info(f"Database has {wallet_count} wallets. Skipping auto-discovery.")
+                logger.info(f"Database has {active_count} active qualified wallets. Skipping auto-discovery.")
     except Exception as e:
         logger.error(f"Auto-discovery check failed: {e}")
 

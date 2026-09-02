@@ -470,10 +470,17 @@ async def evaluate_pending_wallets(db: AsyncSession, client: Optional[Polymarket
             discovery_state["step_description"] = f"Deep evaluation {addr[:6]}...{addr[-4:]} ({idx}/{total_pending})"
             
             try:
-                raw_positions = await client.fetch_wallet_positions(addr)
-                raw_activity = await client.fetch_wallet_activity(addr, max_items=1000)
-                raw_profile = await client.fetch_wallet_profile(addr)
-                raw_trades = await client.fetch_wallet_trades(addr, max_trades=200)
+                results = await asyncio.gather(
+                    client.fetch_wallet_positions(addr),
+                    client.fetch_wallet_activity(addr, max_items=1000),
+                    client.fetch_wallet_profile(addr),
+                    client.fetch_wallet_trades(addr, max_trades=200),
+                    return_exceptions=True
+                )
+                raw_positions = results[0] if not isinstance(results[0], Exception) else []
+                raw_activity = results[1] if not isinstance(results[1], Exception) else []
+                raw_profile = results[2] if not isinstance(results[2], Exception) else {}
+                raw_trades = results[3] if not isinstance(results[3], Exception) else []
                 
                 stats = calculate_authentic_wallet_stats(
                     address=addr,
@@ -657,8 +664,21 @@ async def scan_for_wallets(db: AsyncSession, full_refresh: bool = False):
         discovery_state["step_description"] = "Stage 1: Multi-Period Leaderboard & Trade Scraping..."
         
         candidates = await client.discover_candidates()
+        
+        # Merge curated verified whale addresses from previous run as high-priority seeds
+        from app.discovery.curated_whales import CURATED_WHALE_ADDRESSES
+        for seed_addr in CURATED_WHALE_ADDRESSES:
+            s_clean = seed_addr.lower().strip()
+            if s_clean not in candidates:
+                candidates[s_clean] = {
+                    "address": s_clean,
+                    "source": "curated_seed",
+                    "profit": 100000.0,
+                    "volume": 500000.0
+                }
+
         total_candidates = len(candidates)
-        logger.info(f"Discovered {total_candidates} candidate addresses from Polymarket.")
+        logger.info(f"Discovered {total_candidates} candidate addresses (including {len(CURATED_WHALE_ADDRESSES)} curated seeds).")
         
         if not candidates:
             discovery_state["step_description"] = "Polymarket API returned 0 candidates. Retrying..."

@@ -905,7 +905,21 @@ class LiveTradeMirrorService:
         now = time.time()
         if (now - self._cached_whales_ts) > 60.0 or not self._cached_whales:
             async with SessionLocal() as db:
-                # 1. Dynamically select Top 10 highest-scoring whales with column pruning
+                # 1. Enforce Quorum Gate: Ensure Top 10 + 20 bench confirmation
+                stmt_active_count = select(func.count(Wallet.address)).where(
+                    Wallet.status == "active",
+                    Wallet.dormant == False,
+                    Wallet.is_hft == False,
+                    (Wallet.avg_trades_per_day.is_(None) | (Wallet.avg_trades_per_day <= 65.0))
+                )
+                total_active = (await db.execute(stmt_active_count)).scalar() or 0
+
+                stmt_evaluated = select(func.count(Wallet.address)).where(
+                    Wallet.status.in_(["active", "rejected"])
+                )
+                total_evaluated = (await db.execute(stmt_evaluated)).scalar() or 0
+
+                # 2. Dynamically select Top 10 highest-scoring whales with column pruning
                 stmt = select(Wallet).options(
                     load_only(
                         Wallet.address,
@@ -930,7 +944,7 @@ class LiveTradeMirrorService:
                 ).order_by(Wallet.baleen_score.desc()).limit(10)
                 active_wallets = (await db.execute(stmt)).scalars().all()
                 
-                # 2. Fetch any open position source wallets (even if flagged/demoted) to follow their SELL signals!
+                # 3. Fetch any open position source wallets (even if flagged/demoted) to follow their SELL signals!
                 stmt_open_sources = select(ExecutionLog.source_wallet_address).where(
                     ExecutionLog.status == "FILLED",
                     ExecutionLog.side == "BUY",
@@ -941,7 +955,7 @@ class LiveTradeMirrorService:
                 active_addrs = set(w.address.lower() for w in active_wallets)
                 missing_source_addrs = open_source_addrs - active_addrs
                 
-                all_wallets_to_poll = list(active_wallets)
+                legacy_wallets = []
                 if missing_source_addrs:
                     stmt_legacy = select(Wallet).options(
                         load_only(
@@ -961,90 +975,101 @@ class LiveTradeMirrorService:
                         )
                     ).where(Wallet.address.in_(list(missing_source_addrs)))
                     legacy_wallets = (await db.execute(stmt_legacy)).scalars().all()
-                    all_wallets_to_poll.extend(legacy_wallets)
 
-                self._cached_whales = all_wallets_to_poll
+                # Quorum gate verification: Top 10 confirmed + at least 20 more evaluated/bench
+                has_quorum = (total_active >= 10 and (total_active >= 30 or total_evaluated >= 30))
+                if not has_quorum:
+                    logger.info(
+                        f"⏳ Quorum Gate Active: {total_active}/10 Top Whales confirmed, "
+                        f"{max(0, total_evaluated - 10)}/20 bench candidates evaluated (Total: {total_evaluated}/30). "
+                        f"Copy trading deferred until full selection basket is qualified."
+                    )
+                    # Only poll legacy wallets holding open positions so exits/sells are never blocked
+                    self._cached_whales = list(legacy_wallets)
+                else:
+                    self._cached_whales = list(active_wallets) + list(legacy_wallets)
+
                 self._cached_whales_ts = now
 
         all_wallets_to_poll = self._cached_whales
         if not all_wallets_to_poll:
             return
 
-            for w in all_wallets_to_poll:
-                addr = w.address.lower()
-                try:
-                    res = await self.client.get(
-                        f"{self.data_api_url}/trades",
-                        params={"user": addr, "limit": 50}
-                    )
-                    if res.status_code != 200:
-                        continue
-                    trades = res.json()
-                    if not isinstance(trades, list) or not trades:
-                        continue
-
-                    for t in trades:
-                        if not isinstance(t, dict):
-                            continue
-                        ts_raw = t.get("timestamp") or t.get("match_time") or t.get("created_at")
-                        if not ts_raw:
-                            continue
-                        try:
-                            ts_sec = float(ts_raw) / 1000.0 if float(ts_raw) > 1e11 else float(ts_raw)
-                        except Exception:
-                            continue
-
-                        cid = str(t.get("conditionId") or t.get("condition_id") or "")
-                        side = str(t.get("side") or "BUY").upper()
-                        price = float(t.get("price") or 0.5)
-                        size = float(t.get("size") or 0.0)
-                        cash = float(t.get("usdcSize") or 0.0) or (size * price)
-                        outcome = str(t.get("outcome") or "Yes")
-                        asset = str(t.get("asset") or "")
-                        tx_hash = str(t.get("transactionHash") or t.get("id") or "")
-
-                        trade_key = f"{addr}:{cid}:{side}:{ts_sec}:{price:.4f}:{size:.2f}:{tx_hash}"
-
-                        # 1. Real-time Live Guard: Skip trades that occurred before server start
-                        if ts_sec < self.started_at:
-                            self.seen_trade_keys.add(trade_key)
-                            continue
-
-                        # 2. Strict Price Boundary Guard (0.04 <= price <= 0.96)
-                        if price < 0.04 or price > 0.96:
-                            self.seen_trade_keys.add(trade_key)
-                            continue
-
-                        if trade_key in self.seen_trade_keys:
-                            continue
-                        self.seen_trade_keys.add(trade_key)
-
-                        trade_dt = datetime.fromtimestamp(ts_sec, timezone.utc).replace(tzinfo=None)
-
-                        if not w.last_trade_at or trade_dt > w.last_trade_at:
-                            w.last_trade_at = trade_dt
-                            w.dormant = False
-
-                        await self.process_trade_fill(
-                            wallet_address=w.address,
-                            condition_id=cid,
-                            title=str(t.get("title") or t.get("slug") or "Polymarket Prediction"),
-                            side=side,
-                            price=price,
-                            cash_usd=cash,
-                            dt=trade_dt,
-                            outcome=outcome,
-                            asset=asset,
-                            event_slug=str(t.get("eventSlug") or t.get("event_slug") or t.get("slug") or ""),
-                            icon=str(t.get("icon") or t.get("image") or ""),
-                            tx_hash=tx_hash
-                        )
-
-                except Exception as w_err:
-                    logger.error(f"Error polling live trades for {addr}: {w_err}", exc_info=True)
+        for w in all_wallets_to_poll:
+            addr = w.address.lower()
+            try:
+                res = await self.client.get(
+                    f"{self.data_api_url}/trades",
+                    params={"user": addr, "limit": 50}
+                )
+                if res.status_code != 200:
                     continue
-                
-                await asyncio.sleep(0.05)
+                trades = res.json()
+                if not isinstance(trades, list) or not trades:
+                    continue
+
+                for t in trades:
+                    if not isinstance(t, dict):
+                        continue
+                    ts_raw = t.get("timestamp") or t.get("match_time") or t.get("created_at")
+                    if not ts_raw:
+                        continue
+                    try:
+                        ts_sec = float(ts_raw) / 1000.0 if float(ts_raw) > 1e11 else float(ts_raw)
+                    except Exception:
+                        continue
+
+                    cid = str(t.get("conditionId") or t.get("condition_id") or "")
+                    side = str(t.get("side") or "BUY").upper()
+                    price = float(t.get("price") or 0.5)
+                    size = float(t.get("size") or 0.0)
+                    cash = float(t.get("usdcSize") or 0.0) or (size * price)
+                    outcome = str(t.get("outcome") or "Yes")
+                    asset = str(t.get("asset") or "")
+                    tx_hash = str(t.get("transactionHash") or t.get("id") or "")
+
+                    trade_key = f"{addr}:{cid}:{side}:{ts_sec}:{price:.4f}:{size:.2f}:{tx_hash}"
+
+                    # 1. Real-time Live Guard: Skip trades that occurred before server start
+                    if ts_sec < self.started_at:
+                        self.seen_trade_keys.add(trade_key)
+                        continue
+
+                    # 2. Strict Price Boundary Guard (0.04 <= price <= 0.96)
+                    if price < 0.04 or price > 0.96:
+                        self.seen_trade_keys.add(trade_key)
+                        continue
+
+                    if trade_key in self.seen_trade_keys:
+                        continue
+                    self.seen_trade_keys.add(trade_key)
+
+                    trade_dt = datetime.fromtimestamp(ts_sec, timezone.utc).replace(tzinfo=None)
+
+                    if not w.last_trade_at or trade_dt > w.last_trade_at:
+                        w.last_trade_at = trade_dt
+                        w.dormant = False
+
+                    await self.process_trade_fill(
+                        wallet_address=w.address,
+                        condition_id=cid,
+                        title=str(t.get("title") or t.get("slug") or "Polymarket Prediction"),
+                        side=side,
+                        price=price,
+                        cash_usd=cash,
+                        dt=trade_dt,
+                        outcome=outcome,
+                        asset=asset,
+                        event_slug=str(t.get("eventSlug") or t.get("event_slug") or t.get("slug") or ""),
+                        icon=str(t.get("icon") or t.get("image") or ""),
+                        tx_hash=tx_hash
+                    )
+
+            except Exception as w_err:
+                logger.error(f"Error polling live trades for {addr}: {w_err}", exc_info=True)
+                continue
+            
+            await asyncio.sleep(0.05)
 
     async def settle_market_resolution(
         self,
