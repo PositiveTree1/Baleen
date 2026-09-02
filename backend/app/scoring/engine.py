@@ -23,6 +23,10 @@ def score_wallet(wallet_stats: dict) -> ScoringResult:
     trades_count = int(wallet_stats.get('trades_count', 0) or wallet_stats.get('total_trades_analyzed', 0) or 0)
     active_days = float(wallet_stats.get('active_days', 60.0) or 60.0)
 
+    # FILTER 0: Conflicting Positions / Hedging Disqualification (Kick them out immediately)
+    if wallet_stats.get('is_conflicting_positions'):
+        return ScoringResult("rejected", None, "CONFLICTING_POSITIONS_DETECTED", False)
+
     # FILTER 1: Minimum Realized PnL >= $50,000 and Minimum Volume >= $150,000
     if pnl < 50000.0:
         return ScoringResult("rejected", None, "PNL_BELOW_THRESHOLD", False)
@@ -78,6 +82,14 @@ def score_wallet(wallet_stats: dict) -> ScoringResult:
     # FILTER 12: Maximum Drawdown Hard Cap (Must not exceed 25.0%)
     if max_drawdown > 25.0:
         return ScoringResult("rejected", None, "DRAWDOWN_TOO_HIGH", False)
+
+    # FILTER 13: Conflicting Positions / Hedging Disqualification
+    if wallet_stats.get('is_conflicting_positions'):
+        return ScoringResult("rejected", None, "CONFLICTING_POSITIONS_DETECTED", False)
+
+    # FILTER 14: Inconsistent / Deceptive Lumpy Profile Disqualification
+    if wallet_stats.get('is_inconsistent_profile'):
+        return ScoringResult("rejected", None, "INCONSISTENT_LUMPY_PROFILE", False)
 
     # TIER: Gold Sniper requires win_rate >= 80.0%, max_drawdown <= 12.0%, and healthy open positions
     if win_rate >= 80.0 and max_drawdown <= 12.0 and unrealized_open_pnl >= -5000.0:

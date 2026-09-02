@@ -196,6 +196,32 @@ class PolymarketClient:
             logger.debug(f"Error fetching positions for {address}: {e}")
         return []
 
+    async def fetch_wallet_closed_positions(self, address: str, max_items: int = 4000) -> List[Dict]:
+        """Pulls authentic historical closed & settled positions with exact resolution dates and realized PnL."""
+        all_closed = []
+        batch_size = 50
+        offset = 0
+        while len(all_closed) < max_items:
+            url = f"{self.data_api_url}/closed-positions"
+            data = await self._fetch_with_retry(url, params={
+                "user": address,
+                "limit": batch_size,
+                "offset": offset
+            })
+            batch = []
+            if isinstance(data, list):
+                batch = data
+            elif isinstance(data, dict):
+                batch = data.get("data") or data.get("results") or []
+            if not batch:
+                break
+            all_closed.extend(batch)
+            if len(batch) < batch_size:
+                break
+            offset += len(batch)
+            await asyncio.sleep(0.03)
+        return all_closed
+
     async def fetch_wallet_profile(self, address: str) -> Optional[Dict]:
         """Pulls verified Polymarket leaderboard profile stats."""
         try:

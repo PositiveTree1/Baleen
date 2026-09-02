@@ -3,7 +3,7 @@ import asyncio
 import math
 import json
 import time
-from typing import List, Dict, Optional, Tuple, Any
+from typing import List, Dict, Optional, Tuple, Any, Set
 from datetime import datetime, timezone
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, delete, text, func
@@ -117,12 +117,13 @@ def calculate_authentic_wallet_stats(
     positions: List[Dict], 
     activity: List[Dict], 
     profile: Optional[Dict] = None, 
-    trades: Optional[List[Dict]] = None
+    trades: Optional[List[Dict]] = None,
+    closed_positions: Optional[List[Dict]] = None
 ) -> Dict:
     """
     Titan Quantitative Scoring Engine:
     Calculates authentic PnL, win rate, Wilson lower bound, profit factor, and daily history
-    directly from Polymarket's official positions, activity closures, and profile endpoints.
+    directly from Polymarket's official positions, activity closures, closed-positions, and profile endpoints.
     """
     # 1. Total All-time Realized PnL & Volume
     all_time_pnl = 0.0
@@ -131,28 +132,34 @@ def calculate_authentic_wallet_stats(
         all_time_pnl = float(profile.get("pnl") or profile.get("profit") or profile.get("profile_profit") or 0.0)
         total_volume = float(profile.get("volume") or profile.get("vol") or 0.0)
     
-    if all_time_pnl == 0.0 and positions:
+    if all_time_pnl == 0.0 and closed_positions:
+        all_time_pnl = sum(float(p.get("realizedPnl") or p.get("cashPnl") or 0.0) for p in closed_positions)
+    elif all_time_pnl == 0.0 and positions:
         all_time_pnl = sum(float(p.get("cashPnl") or 0.0) for p in positions)
     
     if total_volume == 0.0:
         total_volume = sum(float(t.get("usdcSize") or t.get("size") or 0.0) for t in (trades or []))
 
-    # 2. Closed/Settled Positions Only (Strictly ignore open MTM marks for scoring)
-    closed_positions = [
-        p for p in (positions or []) 
+    # 2. Closed/Settled Positions (Merge explicit closed_positions endpoint data with any closed marks)
+    raw_closed = list(closed_positions or [])
+    for p in (positions or []):
         if isinstance(p, dict) and (
             p.get("closed") 
             or p.get("redeemable") 
             or float(p.get("curPrice") or 0.5) in (0.0, 1.0) 
             or float(p.get("size") or 0.0) == 0.0 
             or float(p.get("realizedPnl") or 0.0) != 0.0
-        )
-    ]
-    if not closed_positions:
-        closed_positions = [p for p in (positions or []) if isinstance(p, dict)]
+        ):
+            p_aid = str(p.get("asset") or "")
+            p_cid = str(p.get("conditionId") or "")
+            if not any(str(c.get("asset") or "") == p_aid and str(c.get("conditionId") or "") == p_cid for c in raw_closed):
+                raw_closed.append(p)
 
-    wins = sum(1 for p in closed_positions if float(p.get("cashPnl") or 0.0) > 0)
-    losses = sum(1 for p in closed_positions if float(p.get("cashPnl") or 0.0) < 0)
+    if not raw_closed:
+        raw_closed = [p for p in (positions or []) if isinstance(p, dict)]
+
+    wins = sum(1 for p in raw_closed if float(p.get("realizedPnl") or p.get("cashPnl") or 0.0) > 0)
+    losses = sum(1 for p in raw_closed if float(p.get("realizedPnl") or p.get("cashPnl") or 0.0) < 0)
     total_resolved = wins + losses
 
     if total_resolved > 0:
@@ -161,6 +168,8 @@ def calculate_authentic_wallet_stats(
     else:
         win_rate = 0.0
         wilson_lb = 0.0
+
+    closed_positions = raw_closed
 
     # 3. Position Concentration Cap (Closed positions positive PnL sum)
     pos_pnl_sum = sum(float(p.get("cashPnl") or 0.0) for p in closed_positions if float(p.get("cashPnl") or 0.0) > 0)
@@ -254,8 +263,70 @@ def calculate_authentic_wallet_stats(
     holdings: Dict[str, Dict[str, float]] = {} # asset -> {'shares': float, 'cost': float, 'avg_price': float}
     accounted_assets: Set[str] = set()
 
+    # Index timestamps for condition IDs and assets to resolve un-dated position closures accurately
+    condition_timestamps: Dict[str, List[float]] = {}
+    asset_timestamps: Dict[str, List[float]] = {}
+    for item in list(trades or []) + list(activity or []):
+        if isinstance(item, dict):
+            cid = str(item.get("conditionId") or "")
+            aid = str(item.get("asset") or "")
+            raw_t = item.get("timestamp") or item.get("time") or item.get("createdAt") or item.get("updatedAt")
+            if raw_t:
+                try:
+                    t_val = float(raw_t)
+                    t_sec = t_val / 1000.0 if t_val > 1e11 else t_val
+                    if t_sec > 1e8:
+                        if cid:
+                            condition_timestamps.setdefault(cid, []).append(t_sec)
+                        if aid:
+                            asset_timestamps.setdefault(aid, []).append(t_sec)
+                except Exception:
+                    pass
+
+    # Map positions by asset and conditionId for avgPrice lookups when older trade logs were truncated
+    pos_by_asset: Dict[str, Dict] = {}
+    pos_by_condition: Dict[str, Dict] = {}
+    for p in list(positions or []):
+        if isinstance(p, dict):
+            a_key = str(p.get("asset") or "")
+            c_key = str(p.get("conditionId") or "")
+            if a_key and a_key not in pos_by_asset:
+                pos_by_asset[a_key] = p
+            if c_key and c_key not in pos_by_condition:
+                pos_by_condition[c_key] = p
+
     # A. Chronological trade matching (Fills & Sells)
-    sorted_trades = sorted((trades or []), key=lambda x: float(x.get("timestamp") or 0.0) if isinstance(x, dict) else 0.0)
+    # Merge activity trades with raw trades for comprehensive coverage across older months
+    combined_trades = list(trades or [])
+    seen_trade_sigs = set()
+    for t in combined_trades:
+        if isinstance(t, dict):
+            sig = (
+                str(t.get("id") or t.get("transactionHash") or ""),
+                str(t.get("timestamp") or t.get("time") or ""),
+                str(t.get("asset") or t.get("conditionId") or ""),
+                str(t.get("side") or "").upper(),
+                float(t.get("size") or 0.0)
+            )
+            seen_trade_sigs.add(sig)
+
+    for act in list(activity or []):
+        if isinstance(act, dict):
+            act_type = str(act.get("type") or "").upper()
+            act_side = str(act.get("side") or "").upper()
+            if act_type in ("TRADE", "BUY", "SELL") or act_side in ("BUY", "SELL"):
+                sig = (
+                    str(act.get("id") or act.get("transactionHash") or ""),
+                    str(act.get("timestamp") or act.get("time") or ""),
+                    str(act.get("asset") or act.get("conditionId") or ""),
+                    act_side or act_type,
+                    float(act.get("size") or 0.0)
+                )
+                if sig not in seen_trade_sigs:
+                    seen_trade_sigs.add(sig)
+                    combined_trades.append(act)
+
+    sorted_trades = sorted(combined_trades, key=lambda x: float(x.get("timestamp") or x.get("time") or 0.0) if isinstance(x, dict) else 0.0)
     for t in sorted_trades:
         if not isinstance(t, dict):
             continue
@@ -317,8 +388,17 @@ def calculate_authentic_wallet_stats(
 
                 asset = str(act.get("asset") or act.get("conditionId") or "")
                 size = float(act.get("size") or act.get("usdcSize") or 0.0)
-                h = holdings.get(asset, {"avg_price": 0.50, "shares": size, "cost": size * 0.50})
-                avg_p = h["avg_price"] if h["avg_price"] > 0 else 0.50
+                
+                # Retrieve true cost basis: from matched holdings or official position avgPrice
+                if asset in holdings and holdings[asset]["shares"] > 0:
+                    avg_p = holdings[asset]["avg_price"]
+                elif asset in pos_by_asset and float(pos_by_asset[asset].get("avgPrice") or 0.0) > 0:
+                    avg_p = float(pos_by_asset[asset]["avgPrice"])
+                elif asset in pos_by_condition and float(pos_by_condition[asset].get("avgPrice") or 0.0) > 0:
+                    avg_p = float(pos_by_condition[asset]["avgPrice"])
+                else:
+                    avg_p = 0.50
+
                 cost_basis = size * avg_p
                 pnl = size - cost_basis
                 accounted_assets.add(asset)
@@ -333,11 +413,13 @@ def calculate_authentic_wallet_stats(
                 daily_map[dt_str]["net"] += pnl
 
     # C. Process verified settled closed positions if not already captured in trades/activity
+    # Uses authentic resolution dates from closed-positions timestamp, resolvedAt, endDate, or condition trade dates
     for pos in (closed_positions or []):
         if not isinstance(pos, dict):
             continue
         asset = str(pos.get("asset") or pos.get("conditionId") or "")
-        if asset in accounted_assets:
+        cid = str(pos.get("conditionId") or "")
+        if asset in accounted_assets or (cid and cid in accounted_assets):
             continue
 
         c_pnl = float(pos.get("realizedPnl") or pos.get("cashPnl") or 0.0)
@@ -346,11 +428,35 @@ def calculate_authentic_wallet_stats(
             or pos.get("redeemable") 
             or float(pos.get("curPrice") or 0.5) in (0.0, 1.0) 
             or float(pos.get("size") or 0.0) == 0.0
+            or pos.get("timestamp")
         )
         if is_settled and c_pnl != 0.0:
-            ts_raw = pos.get("resolvedAt") or pos.get("timestamp") or pos.get("createdAt")
-            fallback_dt = min(daily_map.keys()) if daily_map else today_utc
-            dt_str = parse_date_to_utc_str(ts_raw, fallback_dt)
+            cid_latest_ts = max(condition_timestamps[cid]) if cid in condition_timestamps else None
+            aid_latest_ts = max(asset_timestamps[asset]) if asset in asset_timestamps else None
+
+            # Priority order for authentic settlement date:
+            # 1. Exact resolution timestamp from official closed-positions endpoint
+            # 2. resolvedAt / endDate / updatedAt
+            # 3. Latest trade/redemption timestamp on this condition or asset
+            # 4. createdAt / today_utc fallback
+            ts_raw = (
+                pos.get("timestamp")
+                or pos.get("resolvedAt")
+                or pos.get("endDate")
+                or pos.get("updatedAt")
+                or cid_latest_ts
+                or aid_latest_ts
+                or pos.get("createdAt")
+                or today_utc
+            )
+            dt_str = parse_date_to_utc_str(ts_raw, today_utc)
+            if dt_str > today_utc:
+                dt_str = parse_date_to_utc_str(cid_latest_ts or aid_latest_ts or today_utc, today_utc)
+
+            accounted_assets.add(asset)
+            if cid:
+                accounted_assets.add(cid)
+
             if dt_str not in daily_map:
                 daily_map[dt_str] = {"won": 0.0, "lost": 0.0, "net": 0.0, "count": 0.0}
             daily_map[dt_str]["count"] += 1.0
@@ -428,6 +534,118 @@ def calculate_authentic_wallet_stats(
 
     category_count = max(1, len(all_categories))
 
+    # 10. Conflicting Positions Detection (Mutually exclusive opposing legs)
+    # Detects wallets buying both Yes and No / Up and Down or conflicting outcome legs on the same market/event
+    market_buys: Dict[str, Set[str]] = {}
+    market_sides: Dict[str, Set[str]] = {}
+    market_trade_vol: Dict[str, float] = {}
+
+    for t in list(trades or []):
+        if not isinstance(t, dict):
+            continue
+        side = str(t.get("side") or t.get("maker_direction") or "").upper()
+        if side == "BUY":
+            cid = str(t.get("conditionId") or t.get("market_id") or "")
+            asset = str(t.get("asset") or t.get("nonusdc_side") or t.get("asset_id") or "")
+            outcome = str(t.get("outcome") or "").upper()
+            sz = float(t.get("usdcSize") or t.get("usd_amount") or (float(t.get("size") or 0) * float(t.get("price") or 0.5)))
+
+            if cid:
+                market_buys.setdefault(cid, set())
+                if asset:
+                    market_buys[cid].add(asset)
+                market_sides.setdefault(cid, set())
+                if outcome in ("YES", "NO", "UP", "DOWN"):
+                    market_sides[cid].add(outcome)
+                market_trade_vol[cid] = market_trade_vol.get(cid, 0.0) + sz
+
+    for p in list(positions or []):
+        if not isinstance(p, dict):
+            continue
+        cid = str(p.get("conditionId") or "")
+        asset = str(p.get("asset") or "")
+        outcome = str(p.get("outcome") or "").upper()
+        pos_size = float(p.get("size") or 0.0)
+        pos_val = float(p.get("currentValue") or (pos_size * float(p.get("avgPrice") or 0.5)))
+
+        if cid and pos_size > 0:
+            market_buys.setdefault(cid, set())
+            if asset:
+                market_buys[cid].add(asset)
+            market_sides.setdefault(cid, set())
+            if outcome in ("YES", "NO", "UP", "DOWN"):
+                market_sides[cid].add(outcome)
+            market_trade_vol[cid] = market_trade_vol.get(cid, 0.0) + pos_val
+
+    conflicting_markets = set()
+    for cid, assets in market_buys.items():
+        if len(assets) > 1:
+            conflicting_markets.add(cid)
+    for cid, sides in market_sides.items():
+        if ("YES" in sides and "NO" in sides) or ("UP" in sides and "DOWN" in sides):
+            conflicting_markets.add(cid)
+
+    total_markets_traded = max(len(market_buys), len(market_sides), 1)
+    conflicting_markets_count = len(conflicting_markets)
+    conflicting_ratio = round(conflicting_markets_count / total_markets_traded, 3)
+
+    conflicting_vol = sum(market_trade_vol.get(cid, 0.0) for cid in conflicting_markets)
+    total_vol_calc = sum(market_trade_vol.values()) or 1.0
+    conflicting_vol_ratio = round(conflicting_vol / total_vol_calc, 3)
+
+    # Check concurrent opposing open positions with heavy paper losses
+    open_conflicts = 0
+    open_conflict_unrealized_loss = 0.0
+    open_by_cid: Dict[str, Set[str]] = {}
+    for p in (positions or []):
+        if isinstance(p, dict) and float(p.get("size") or 0.0) > 0 and not p.get("closed"):
+            p_cid = str(p.get("conditionId") or "")
+            p_out = str(p.get("outcome") or "").upper()
+            if p_cid:
+                open_by_cid.setdefault(p_cid, set())
+                if p_out:
+                    open_by_cid[p_cid].add(p_out)
+                if float(p.get("cashPnl") or 0.0) < 0:
+                    open_conflict_unrealized_loss += abs(float(p.get("cashPnl") or 0.0))
+
+    for p_cid, p_outs in open_by_cid.items():
+        if ("YES" in p_outs and "NO" in p_outs) or ("UP" in p_outs and "DOWN" in p_outs) or len(p_outs) > 1:
+            open_conflicts += 1
+
+    is_conflicting_positions = bool(
+        (conflicting_markets_count >= 1 and conflicting_ratio >= 0.75) or
+        (conflicting_markets_count >= 2 and (conflicting_ratio > 0.20 or conflicting_vol_ratio > 0.25)) or
+        (open_conflicts >= 2 and open_conflict_unrealized_loss > 10000.0)
+    )
+
+    # 11. Deceptive / Inconsistent Lumpy Profile Detection
+    # Detects step-jump artifacts and one-hit-wonder profiles where >60% of total PnL occurred in 1 day
+    pos_daily = [h["daily_pnl"] for h in daily_pnl_history if h.get("daily_pnl", 0) > 0]
+    total_pos_pnl = sum(pos_daily)
+    max_single_day_pnl = max(pos_daily, default=0.0)
+    top_2_days_pnl = sum(sorted(pos_daily, reverse=True)[:2]) if len(pos_daily) >= 2 else max_single_day_pnl
+
+    max_single_day_pnl_ratio = round(max_single_day_pnl / total_pos_pnl, 3) if total_pos_pnl > 0 else 0.0
+    top_2_days_pnl_ratio = round(top_2_days_pnl / total_pos_pnl, 3) if total_pos_pnl > 0 else 0.0
+
+    active_pnl_days = len(daily_pnl_history)
+    profitable_days_count = len(pos_daily)
+    profit_day_consistency = round(profitable_days_count / max(1, active_pnl_days), 3)
+
+    is_inconsistent_profile = bool(
+        active_pnl_days >= 3 and (
+            (max_single_day_pnl_ratio > 0.60 and total_pos_pnl > 10000.0) or
+            (top_2_days_pnl_ratio > 0.80 and active_pnl_days >= 5 and total_pos_pnl > 10000.0)
+        )
+    )
+
+    step_penalty = max(0.0, (max_single_day_pnl_ratio - 0.20) * 50.0)
+    sharpe_component = min(40.0, max(0.0, sharpe_ratio * 20.0))
+    winrate_component = min(30.0, (win_rate / 100.0) * 30.0)
+    breadth_component = min(30.0, profit_day_consistency * 30.0)
+    raw_consistency = sharpe_component + winrate_component + breadth_component - step_penalty
+    consistency_score = round(max(0.0, min(100.0, raw_consistency)), 1)
+
     return {
         "all_time_pnl_usd": round(all_time_pnl, 2),
         "total_volume_usd": round(total_volume, 2),
@@ -453,7 +671,13 @@ def calculate_authentic_wallet_stats(
         "category_count": category_count,
         "daily_pnl_history": daily_pnl_history,
         "first_trade_at": None,
-        "last_trade_at": datetime.utcnow()
+        "last_trade_at": datetime.utcnow(),
+        "is_conflicting_positions": is_conflicting_positions,
+        "conflicting_ratio": conflicting_ratio,
+        "conflicting_markets_count": conflicting_markets_count,
+        "is_inconsistent_profile": is_inconsistent_profile,
+        "max_single_day_pnl_ratio": max_single_day_pnl_ratio,
+        "consistency_score": consistency_score,
     }
 
 async def evaluate_pending_wallets(db: AsyncSession, client: Optional[PolymarketClient] = None):
@@ -491,24 +715,32 @@ async def evaluate_pending_wallets(db: AsyncSession, client: Optional[Polymarket
             discovery_state["step_description"] = f"Deep evaluation {addr[:6]}...{addr[-4:]} ({idx}/{total_pending})"
             
             try:
-                results = await asyncio.gather(
+                tasks = [
                     client.fetch_wallet_positions(addr),
                     client.fetch_wallet_activity(addr, max_items=1000),
                     client.fetch_wallet_profile(addr),
-                    client.fetch_wallet_trades(addr, max_trades=200),
-                    return_exceptions=True
-                )
+                    client.fetch_wallet_trades(addr, max_trades=2000),
+                ]
+                has_closed_fn = hasattr(client, "fetch_wallet_closed_positions")
+                if has_closed_fn:
+                    closed_call = client.fetch_wallet_closed_positions(addr, max_items=2000)
+                    if asyncio.iscoroutine(closed_call):
+                        tasks.append(closed_call)
+
+                results = await asyncio.gather(*tasks, return_exceptions=True)
                 raw_positions = results[0] if not isinstance(results[0], Exception) else []
                 raw_activity = results[1] if not isinstance(results[1], Exception) else []
                 raw_profile = results[2] if not isinstance(results[2], Exception) else {}
                 raw_trades = results[3] if not isinstance(results[3], Exception) else []
+                raw_closed = results[4] if len(results) > 4 and not isinstance(results[4], Exception) else []
                 
                 stats = calculate_authentic_wallet_stats(
                     address=addr,
                     positions=raw_positions,
                     activity=raw_activity,
                     profile=raw_profile,
-                    trades=raw_trades
+                    trades=raw_trades,
+                    closed_positions=raw_closed
                 )
                 
                 baleen_score = compute_baleen_score(stats)
@@ -561,6 +793,16 @@ async def evaluate_pending_wallets(db: AsyncSession, client: Optional[Polymarket
                     wallet.status = 'rejected'
                     wallet.tier = 'rejected'
                     wallet.rejection_reason = f'High-Frequency Bot detected ({stats.get("avg_trades_per_day", 0):.0f} trades/day > 65/day max)'
+                    discovery_state["rejected"] += 1
+                elif stats.get('is_conflicting_positions'):
+                    wallet.status = 'rejected'
+                    wallet.tier = 'rejected'
+                    wallet.rejection_reason = f'Conflicting positions detected ({stats.get("conflicting_ratio", 0)*100:.1f}% conflicting markets traded)'
+                    discovery_state["rejected"] += 1
+                elif stats.get('is_inconsistent_profile'):
+                    wallet.status = 'rejected'
+                    wallet.tier = 'rejected'
+                    wallet.rejection_reason = f'Inconsistent / deceptive profit profile (single-day step concentration {stats.get("max_single_day_pnl_ratio", 0)*100:.1f}%)'
                     discovery_state["rejected"] += 1
                 elif stats.get('is_crypto_only'):
                     wallet.status = 'rejected'

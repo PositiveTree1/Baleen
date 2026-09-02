@@ -295,7 +295,8 @@ async def get_wallet(address: str, db: AsyncSession = Depends(get_db)):
             raw_positions = await client.fetch_wallet_positions(clean_addr)
             raw_activity = await client.fetch_wallet_activity(clean_addr, max_items=1000)
             raw_profile = await client.fetch_wallet_profile(clean_addr)
-            raw_trades = await client.fetch_wallet_trades(clean_addr, max_trades=500)
+            raw_trades = await client.fetch_wallet_trades(clean_addr, max_trades=2000)
+            raw_closed = await client.fetch_wallet_closed_positions(clean_addr, max_items=2000) if hasattr(client, "fetch_wallet_closed_positions") else []
             await client.close()
 
             stats = calculate_authentic_wallet_stats(
@@ -303,7 +304,8 @@ async def get_wallet(address: str, db: AsyncSession = Depends(get_db)):
                 positions=raw_positions,
                 activity=raw_activity,
                 profile=raw_profile,
-                trades=raw_trades
+                trades=raw_trades,
+                closed_positions=raw_closed
             )
             real_hist = stats.get('daily_pnl_history', [])
             if real_hist:
