@@ -344,3 +344,48 @@ async def test_scanner_evaluate_pending_wallets_computes_baleen_score():
         async with SessionLocal() as db:
             await db.execute(delete(Wallet).where(Wallet.address == test_addr))
             await db.commit()
+
+
+# -------------------------------------------------------------------------
+# Filter 10: Cumulative Reconstructed PnL Verification
+# -------------------------------------------------------------------------
+
+def test_cumulative_pnl_rejects_negative_or_zero():
+    stats_zero = _valid_stats(all_time_pnl_usd=120000.0, cumulative_pnl=0.0)
+    res_zero = score_wallet(stats_zero)
+    assert res_zero.status == "rejected"
+    assert res_zero.rejection_reason == "RECONSTRUCTED_PNL_NON_POSITIVE"
+
+    stats_neg = _valid_stats(all_time_pnl_usd=120000.0, cumulative_pnl=-5000.0)
+    res_neg = score_wallet(stats_neg)
+    assert res_neg.status == "rejected"
+    assert res_neg.rejection_reason == "RECONSTRUCTED_PNL_NON_POSITIVE"
+
+
+# -------------------------------------------------------------------------
+# Filter 11: Open Position Paper Loss Bleed Gate
+# -------------------------------------------------------------------------
+
+def test_open_position_bleed_rejects_catastrophic_paper_drawdowns():
+    # Down $30,000 in open positions (like QMG-CORE)
+    stats_bleeding = _valid_stats(all_time_pnl_usd=120000.0, unrealized_open_pnl=-30000.0)
+    res_bleed = score_wallet(stats_bleeding)
+    assert res_bleed.status == "rejected"
+    assert res_bleed.rejection_reason == "OPEN_POSITION_DRAWDOWN_EXCEEDED"
+
+    # Healthy open positions
+    stats_healthy = _valid_stats(all_time_pnl_usd=120000.0, unrealized_open_pnl=-1000.0)
+    res_healthy = score_wallet(stats_healthy)
+    assert res_healthy.status == "active"
+
+
+# -------------------------------------------------------------------------
+# Filter 12: Historical Drawdown Cap
+# -------------------------------------------------------------------------
+
+def test_drawdown_filter_rejects_above_25_pct():
+    stats_dd = _valid_stats(max_drawdown_pct=28.0)
+    res_dd = score_wallet(stats_dd)
+    assert res_dd.status == "rejected"
+    assert res_dd.rejection_reason == "DRAWDOWN_TOO_HIGH"
+

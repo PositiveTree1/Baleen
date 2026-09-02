@@ -341,10 +341,16 @@ def calculate_authentic_wallet_stats(
             continue
 
         c_pnl = float(pos.get("realizedPnl") or pos.get("cashPnl") or 0.0)
-        is_settled = bool(pos.get("closed") or pos.get("redeemable") or float(pos.get("curPrice") or 0.5) in (0.0, 1.0) or float(pos.get("realizedPnl") or 0.0) != 0.0)
+        is_settled = bool(
+            pos.get("closed") 
+            or pos.get("redeemable") 
+            or float(pos.get("curPrice") or 0.5) in (0.0, 1.0) 
+            or float(pos.get("size") or 0.0) == 0.0
+        )
         if is_settled and c_pnl != 0.0:
             ts_raw = pos.get("resolvedAt") or pos.get("timestamp") or pos.get("createdAt")
-            dt_str = parse_date_to_utc_str(ts_raw, today_utc)
+            fallback_dt = min(daily_map.keys()) if daily_map else today_utc
+            dt_str = parse_date_to_utc_str(ts_raw, fallback_dt)
             if dt_str not in daily_map:
                 daily_map[dt_str] = {"won": 0.0, "lost": 0.0, "net": 0.0, "count": 0.0}
             daily_map[dt_str]["count"] += 1.0
@@ -368,6 +374,19 @@ def calculate_authentic_wallet_stats(
             "cumulative_pnl": round(running_cum, 2),
             "trades_count": int(d_info["count"])
         })
+
+    final_cum_pnl = daily_pnl_history[-1]["cumulative_pnl"] if daily_pnl_history else all_time_pnl
+
+    # Calculate active unrealized paper loss/gain on open positions
+    open_positions = [
+        p for p in (positions or []) 
+        if isinstance(p, dict) 
+        and float(p.get("size") or 0.0) > 0 
+        and not p.get("closed") 
+        and not p.get("redeemable") 
+        and 0.01 < float(p.get("curPrice") or 0.5) < 0.99
+    ]
+    unrealized_open_pnl = sum(float(p.get("cashPnl") or 0.0) for p in open_positions)
 
     # Recency EMA over realized PnL series (30-day half-life decay)
     recency_ema = 0.0
@@ -412,6 +431,8 @@ def calculate_authentic_wallet_stats(
     return {
         "all_time_pnl_usd": round(all_time_pnl, 2),
         "total_volume_usd": round(total_volume, 2),
+        "cumulative_pnl": round(final_cum_pnl, 2),
+        "unrealized_open_pnl": round(unrealized_open_pnl, 2),
         "win_rate_pct": win_rate,
         "wilson_lower_bound": wilson_lb,
         "trades_count": total_trade_count,
@@ -498,6 +519,9 @@ async def evaluate_pending_wallets(db: AsyncSession, client: Optional[Polymarket
                 reason = scoring.rejection_reason
                 has_history = bool(stats.get('daily_pnl_history') and len(stats.get('daily_pnl_history')) > 0)
 
+                final_cum = stats.get('cumulative_pnl', stats['all_time_pnl_usd'])
+                unrealized_open = stats.get('unrealized_open_pnl', 0.0)
+
                 if not has_history or stats.get('trades_count', 0) < 5:
                     wallet.status = 'rejected'
                     wallet.tier = 'rejected'
@@ -507,6 +531,21 @@ async def evaluate_pending_wallets(db: AsyncSession, client: Optional[Polymarket
                     wallet.status = 'rejected'
                     wallet.tier = 'rejected'
                     wallet.rejection_reason = f'All-time Polymarket realized PnL (${stats["all_time_pnl_usd"]:,.0f}) is outside verified whale threshold ($50k - $22M)'
+                    discovery_state["rejected"] += 1
+                elif final_cum <= 0.0:
+                    wallet.status = 'rejected'
+                    wallet.tier = 'rejected'
+                    wallet.rejection_reason = f'Cumulative reconstructed trade ledger is non-positive (${final_cum:,.2f} <= $0)'
+                    discovery_state["rejected"] += 1
+                elif unrealized_open < -25000.0 or (stats['all_time_pnl_usd'] > 0 and abs(min(0.0, unrealized_open)) > 0.35 * stats['all_time_pnl_usd']):
+                    wallet.status = 'rejected'
+                    wallet.tier = 'rejected'
+                    wallet.rejection_reason = f'Massive paper drawdown on open positions (${unrealized_open:,.2f}) exceeds risk safety threshold'
+                    discovery_state["rejected"] += 1
+                elif stats.get('max_drawdown_pct', 0.0) > 25.0:
+                    wallet.status = 'rejected'
+                    wallet.tier = 'rejected'
+                    wallet.rejection_reason = f'Historical drawdown too high ({stats.get("max_drawdown_pct", 0):.1f}% > 25% max limit)'
                     discovery_state["rejected"] += 1
                 elif stats['outlier_concentration_pct'] > 0.25:
                     wallet.status = 'rejected'
@@ -521,7 +560,7 @@ async def evaluate_pending_wallets(db: AsyncSession, client: Optional[Polymarket
                 elif stats['is_hft']:
                     wallet.status = 'rejected'
                     wallet.tier = 'rejected'
-                    wallet.rejection_reason = f'High-Frequency Bot detected ({stats.get("avg_trades_per_day", 0):.0f} trades/day > 100/day max)'
+                    wallet.rejection_reason = f'High-Frequency Bot detected ({stats.get("avg_trades_per_day", 0):.0f} trades/day > 65/day max)'
                     discovery_state["rejected"] += 1
                 elif stats.get('is_crypto_only'):
                     wallet.status = 'rejected'
@@ -543,19 +582,20 @@ async def evaluate_pending_wallets(db: AsyncSession, client: Optional[Polymarket
                     wallet.tier = 'dormant'
                     wallet.rejection_reason = 'Dormant wallet (Inactive > 21 days)'
                     discovery_state["rejected"] += 1
-                elif is_valid or stats['all_time_pnl_usd'] >= 50000.0:
+                elif not is_valid:
+                    wallet.status = 'rejected'
+                    wallet.tier = 'rejected'
+                    wallet.rejection_reason = reason or "Failed Titan risk scoring validation"
+                    discovery_state["rejected"] += 1
+                else:
+                    # ONLY wallets that pass all 12 quantitative filters become active
                     wallet.status = 'active'
-                    if baleen_score >= 80.0 or stats['all_time_pnl_usd'] >= 100000.0:
+                    if scoring.tier == 'gold_sniper' and baleen_score >= 70.0 and stats.get('max_drawdown_pct', 100.0) <= 12.0:
                         wallet.tier = 'gold_sniper'
                         discovery_state["gold_snipers"] += 1
                     else:
                         wallet.tier = 'standard'
                     discovery_state["active_whales_in_basket"] += 1
-                else:
-                    wallet.status = 'rejected'
-                    wallet.tier = 'rejected'
-                    wallet.rejection_reason = reason
-                    discovery_state["rejected"] += 1
                     
                 # Auto-generate AI summary
                 try:

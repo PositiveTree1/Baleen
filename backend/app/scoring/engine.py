@@ -65,8 +65,22 @@ def score_wallet(wallet_stats: dict) -> ScoringResult:
     if win_rate < 55.0:
         return ScoringResult("rejected", None, "WIN_RATE_TOO_LOW", False)
 
-    # TIER: Gold Sniper requires win_rate >= 80.0% AND max_drawdown <= 12.0%
-    if win_rate >= 80.0 and max_drawdown <= 12.0:
+    # FILTER 10: Reconstructed Cumulative PnL Verification (Must be strictly positive)
+    cum_pnl = float(wallet_stats.get('cumulative_pnl', pnl) if wallet_stats.get('cumulative_pnl') is not None else pnl)
+    if cum_pnl <= 0.0:
+        return ScoringResult("rejected", None, "RECONSTRUCTED_PNL_NON_POSITIVE", False)
+
+    # FILTER 11: Open Position Paper Loss Bleed Gate (Reject active bleed > $25k or > 35% of total PnL)
+    unrealized_open_pnl = float(wallet_stats.get('unrealized_open_pnl', 0.0) or 0.0)
+    if unrealized_open_pnl < -25000.0 or (pnl > 0 and abs(min(0.0, unrealized_open_pnl)) > 0.35 * pnl):
+        return ScoringResult("rejected", None, "OPEN_POSITION_DRAWDOWN_EXCEEDED", False)
+
+    # FILTER 12: Maximum Drawdown Hard Cap (Must not exceed 25.0%)
+    if max_drawdown > 25.0:
+        return ScoringResult("rejected", None, "DRAWDOWN_TOO_HIGH", False)
+
+    # TIER: Gold Sniper requires win_rate >= 80.0%, max_drawdown <= 12.0%, and healthy open positions
+    if win_rate >= 80.0 and max_drawdown <= 12.0 and unrealized_open_pnl >= -5000.0:
         tier = "gold_sniper"
     else:
         tier = "standard"
