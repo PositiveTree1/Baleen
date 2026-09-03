@@ -119,7 +119,7 @@ class PolymarketDataLoader:
              (matching Polymarket Leaderboard Profile API).
           3. Trade stats (win rate, trade frequency, consistency, drawdown, conflicting positions):
              uses trailing up to 4,000 trades prior to start_ts (matching Polymarket Data API pagination limit of 4,000).
-          4. Disqualifies high-frequency market maker bots (>65 trades/day).
+          4. Disqualifies high-frequency market maker bots (>20 trades/day).
           5. Checks conflicting positions (disqualifies wallets trading opposing tokens on the same market).
           6. Computes empirical Sharpe ratio and consistency metrics.
         """
@@ -248,8 +248,8 @@ class PolymarketDataLoader:
                         t_count = int(row["trades_4k"])
                         freq = round(t_count / span_days, 1)
 
-                        # Disqualify high-frequency maker bots
-                        if freq > 65.0:
+                        # Disqualify high-frequency market-maker bots (>20 trades/day)
+                        if freq > 20.0:
                             continue
 
                         # Anti-conflict check
@@ -297,7 +297,7 @@ class PolymarketDataLoader:
         results = []
         for pnl_thresh, wr_thresh in tiers:
             for w in pool:
-                if w.address not in seen and w.realized_pnl >= pnl_thresh and w.win_rate_pct >= wr_thresh:
+                if w.address not in seen and w.realized_pnl >= pnl_thresh and w.win_rate_pct >= wr_thresh and w.trades_per_day <= 20.0:
                     if tier_filter and w.tier != tier_filter:
                         continue
                     seen.add(w.address)
@@ -374,7 +374,8 @@ class PolymarketDataLoader:
             clean_addrs = [f"'{w.lower()}'" for w in whale_addresses]
             whale_filter = f"AND lower(t.maker) IN ({', '.join(clean_addrs)})"
 
-        limit_clause = f"LIMIT {limit_trades}" if limit_trades else ""
+        # For qualified directional whales, stream all their trades across the entire time window without premature truncation
+        limit_clause = f"LIMIT {limit_trades}" if (limit_trades and not whale_addresses) else ""
 
         query = f"""
         SELECT t.timestamp, t.maker, t.market_id, t.condition_id, t.asset_id,

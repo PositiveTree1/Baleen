@@ -36,7 +36,7 @@ def main():
                         help="Predefined historical period (1m: 1-Month Oct 2024, 3m: 3-Month Aug-Oct 2024, 6m: 6-Month May-Oct 2024, election: Oct-Nov 2024)")
     parser.add_argument("--start-ts", type=int, default=None, help="Custom start unix timestamp (seconds)")
     parser.add_argument("--end-ts", type=int, default=None, help="Custom end unix timestamp (seconds)")
-    parser.add_argument("--limit-trades", type=int, default=10000, help="Max trades to process per strategy")
+    parser.add_argument("--limit-trades", type=int, default=None, help="Max trades to process per strategy (default None for continuous full-window streaming)")
     parser.add_argument("--capital", type=float, default=10000.0, help="Initial portfolio capital ($1000, $5000, $10000)")
     parser.add_argument("--entry-usd", type=float, default=100.0, help="Fixed trade entry size in USD (default $100)")
     parser.add_argument("--lookback-days", type=int, default=60, help="Pre-qualification lookback window for zero-lookahead bias (default 60 days)")

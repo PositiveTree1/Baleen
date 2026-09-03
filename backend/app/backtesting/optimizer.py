@@ -312,7 +312,12 @@ class StrategyOptimizer:
                         whale_addresses=whale_addresses,
                         limit_trades=limit_trades
                     )
-                    score = (res.sharpe_ratio * res.profit_factor) / max(1.0, res.max_drawdown_pct)
+                    dd = max(1.0, res.max_drawdown_pct)
+                    pf = max(0.0, res.profit_factor)
+                    if res.total_net_pnl >= 0:
+                        score = (res.sharpe_ratio * max(1.0, pf)) / dd
+                    else:
+                        score = (res.roi_pct / dd) * (1.0 / (1.0 + pf))
                     sweep_records.append({
                         "latency_ms": lat,
                         "adverse_bias_bps": bias,
@@ -327,7 +332,7 @@ class StrategyOptimizer:
                         "composite_score": round(score, 3)
                     })
 
-        sweep_records.sort(key=lambda x: x["composite_score"], reverse=True)
+        sweep_records.sort(key=lambda x: (x["composite_score"], x["net_pnl"], x["win_rate_pct"]), reverse=True)
         return sweep_records
 
     def sweep_30_configurations(
@@ -439,7 +444,12 @@ class StrategyOptimizer:
             )
             results_map[c["id"]] = res
 
-            score = (res.sharpe_ratio * res.profit_factor) / max(1.0, res.max_drawdown_pct)
+            dd = max(1.0, res.max_drawdown_pct)
+            pf = max(0.0, res.profit_factor)
+            if res.total_net_pnl >= 0:
+                score = (res.sharpe_ratio * max(1.0, pf)) / dd
+            else:
+                score = (res.roi_pct / dd) * (1.0 / (1.0 + pf))
             records.append({
                 "config_id": c["id"],
                 "description": c["desc"],
@@ -462,8 +472,8 @@ class StrategyOptimizer:
                 "composite_score": round(score, 3)
             })
 
-        # Rank all 30 configurations by composite score and net PnL
-        records.sort(key=lambda r: (r["composite_score"], r["net_pnl"]), reverse=True)
+        # Rank all 30 configurations by composite score, net PnL, and win rate
+        records.sort(key=lambda r: (r["composite_score"], r["net_pnl"], r["win_rate_pct"]), reverse=True)
         for rank, r in enumerate(records, 1):
             r["rank"] = rank
 
