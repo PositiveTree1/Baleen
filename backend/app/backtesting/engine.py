@@ -44,13 +44,15 @@ class BacktestEngine:
 
         # 2. Discover whales if not provided
         if not whale_addresses:
-            whale_addresses = self.data_loader.find_top_whales_in_window(
+            whales_qual = self.data_loader.find_qualified_whales(
                 start_ts=start_ts,
                 end_ts=end_ts,
-                min_volume_usd=50000.0,
-                min_trades=20,
+                lookback_days=getattr(self.config, "lookback_days", 60),
                 max_whales=10
             )
+            whale_addresses = [q.address for q in whales_qual]
+            if hasattr(self.strategy, "set_qualified_roster"):
+                self.strategy.set_qualified_roster(whales_qual)
 
         self.portfolio.register_active_roster(whale_addresses)
         resolved_markets = set()
@@ -95,19 +97,21 @@ class BacktestEngine:
 
             # Process Signal
             if signal.side.upper() == "SELL":
-                # Check if we hold a position to exit alongside the whale
-                clean_w = signal.whale_address.lower()
-                pos_key = f"{signal.market_id}_{signal.nonusdc_side}_{clean_w}"
-                if pos_key in self.portfolio.open_positions:
-                    fill = self.execution_model.simulate_copy_execution(
-                        signal=signal,
-                        intended_size_usd=signal.whale_size_usd,
-                        available_cash=self.portfolio.cash,
-                        available_sleeve_cash=self.portfolio.get_available_sleeve_cash(clean_w)
-                    )
-                    closed_t = self.portfolio.close_position_on_whale_sell(signal, fill)
-                    if closed_t:
-                        self.strategy.on_trade_closed(closed_t)
+                # Check if strategy or config wants to mirror whale exit or hold until resolution
+                should_exit = getattr(self.strategy, "should_mirror_whale_exit", lambda s, p: True)(signal, self.portfolio)
+                if should_exit and not self.config.hold_to_resolution:
+                    clean_w = signal.whale_address.lower()
+                    pos_key = f"{signal.market_id}_{signal.nonusdc_side}_{clean_w}"
+                    if pos_key in self.portfolio.open_positions:
+                        fill = self.execution_model.simulate_copy_execution(
+                            signal=signal,
+                            intended_size_usd=signal.whale_size_usd,
+                            available_cash=self.portfolio.cash,
+                            available_sleeve_cash=self.portfolio.get_available_sleeve_cash(clean_w)
+                        )
+                        closed_t = self.portfolio.close_position_on_whale_sell(signal, fill)
+                        if closed_t:
+                            self.strategy.on_trade_closed(closed_t)
 
             elif signal.side.upper() == "BUY":
                 # Max open position guard

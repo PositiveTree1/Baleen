@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime
-from sqlalchemy import Column, String, Float, Integer, Boolean, DateTime, ForeignKey, UniqueConstraint, CheckConstraint
+from sqlalchemy import Column, String, Float, Integer, Boolean, DateTime, ForeignKey, UniqueConstraint, CheckConstraint, JSON
 from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.orm import relationship
 from app.database import Base
@@ -182,7 +182,6 @@ class SystemEvent(Base):
     related_market = Column(String, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow, index=True)
 
-from sqlalchemy import Column, String, Float, Integer, Boolean, DateTime, ForeignKey, UniqueConstraint, CheckConstraint, JSON
 
 class SandboxRun(Base):
     __tablename__ = "sandbox_runs"

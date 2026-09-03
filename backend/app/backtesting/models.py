@@ -6,6 +6,17 @@ from dataclasses import dataclass, field
 from typing import List, Dict, Optional, Any
 
 @dataclass
+class WhaleQualification:
+    address: str
+    realized_pnl: float
+    win_rate_pct: float
+    total_volume: float
+    trades_count: int
+    sharpe_ratio: float
+    tier: str  # "gold_sniper" or "standard"
+    is_conflicting: bool = False
+
+@dataclass
 class TradeSignal:
     timestamp: int
     whale_address: str

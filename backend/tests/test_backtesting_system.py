@@ -443,3 +443,241 @@ def test_data_loader_parse_outcome_prices_handles_split():
     assert tok == "token1"
     assert p1 == 0.505
     assert p2 == 0.495
+
+
+def test_fixed_amount_entry_strategy():
+    from app.backtesting.strategies import FixedAmountEntryStrategy
+    strategy = FixedAmountEntryStrategy(entry_usd=100.0)
+    portfolio = SimulatedPortfolio(BacktestConfig(initial_capital=10000.0))
+
+    sig = TradeSignal(
+        timestamp=1700000000,
+        whale_address="0xwhale1",
+        market_id="m1",
+        condition_id="c1",
+        token_id="tok1",
+        side="BUY",
+        whale_price=0.50,
+        whale_size_usd=1000.0,
+        whale_shares=2000.0
+    )
+    assert strategy.evaluate_signal(sig, portfolio) == 100.0
+
+    sig_sell = TradeSignal(
+        timestamp=1700000000,
+        whale_address="0xwhale1",
+        market_id="m1",
+        condition_id="c1",
+        token_id="tok1",
+        side="SELL",
+        whale_price=0.50,
+        whale_size_usd=1000.0,
+        whale_shares=2000.0
+    )
+    assert strategy.evaluate_signal(sig_sell, portfolio) is None
+
+
+def test_consensus_confirmation_strategy():
+    from app.backtesting.strategies import ConsensusConfirmationStrategy
+    strat = ConsensusConfirmationStrategy(min_whales=2, window_sec=86400.0)
+    portfolio = SimulatedPortfolio(BacktestConfig(initial_capital=10000.0))
+
+    # Whale 1 buys
+    sig1 = TradeSignal(
+        timestamp=1700000000,
+        whale_address="0xwhale1",
+        market_id="m_consensus",
+        condition_id="c1",
+        token_id="tok1",
+        side="BUY",
+        whale_price=0.50,
+        whale_size_usd=500.0,
+        whale_shares=1000.0,
+        nonusdc_side="token1"
+    )
+    # First whale alone: NO consensus yet
+    assert strat.evaluate_signal(sig1, portfolio) is None
+
+    # Whale 1 buys again on same market: still only 1 distinct whale -> NO consensus
+    sig1_repeat = TradeSignal(
+        timestamp=1700000100,
+        whale_address="0xwhale1",
+        market_id="m_consensus",
+        condition_id="c1",
+        token_id="tok1",
+        side="BUY",
+        whale_price=0.52,
+        whale_size_usd=500.0,
+        whale_shares=1000.0,
+        nonusdc_side="token1"
+    )
+    assert strat.evaluate_signal(sig1_repeat, portfolio) is None
+
+    # Whale 2 buys the SAME outcome on the SAME market within 24h: CONSENSUS CONFIRMED!
+    sig2 = TradeSignal(
+        timestamp=1700000500,
+        whale_address="0xwhale2",
+        market_id="m_consensus",
+        condition_id="c1",
+        token_id="tok1",
+        side="BUY",
+        whale_price=0.53,
+        whale_size_usd=800.0,
+        whale_shares=1500.0,
+        nonusdc_side="token1"
+    )
+    size = strat.evaluate_signal(sig2, portfolio)
+    assert size is not None
+    assert size == 400.0  # 4% of $10,000
+
+
+def test_gold_sniper_strategy_conviction_gate():
+    from app.backtesting.strategies import GoldSniperStrategy
+    from app.backtesting.models import WhaleQualification
+
+    strat = GoldSniperStrategy(min_conviction=0.70)
+    portfolio = SimulatedPortfolio(BacktestConfig(initial_capital=10000.0))
+    portfolio.register_active_roster(["0xgold", "0xstandard"])
+
+    roster = [
+        WhaleQualification(
+            address="0xgold",
+            realized_pnl=100000.0,
+            win_rate_pct=85.0,
+            total_volume=500000.0,
+            trades_count=100,
+            sharpe_ratio=3.5,
+            tier="gold_sniper"
+        ),
+        WhaleQualification(
+            address="0xstandard",
+            realized_pnl=30000.0,
+            win_rate_pct=65.0,
+            total_volume=200000.0,
+            trades_count=50,
+            sharpe_ratio=1.5,
+            tier="standard"
+        )
+    ]
+    strat.set_qualified_roster(roster)
+
+    # Standard whale trade should be disqualified
+    sig_standard = TradeSignal(
+        timestamp=1700000000,
+        whale_address="0xstandard",
+        market_id="m1",
+        condition_id="c1",
+        token_id="tok1",
+        side="BUY",
+        whale_price=0.50,
+        whale_size_usd=5000.0,
+        whale_shares=10000.0
+    )
+    assert strat.evaluate_signal(sig_standard, portfolio) is None
+
+    # Gold sniper with historical sizes: [100, 200, 300, 400, 500]
+    strat.trailing_sizes["0xgold"] = [100.0, 200.0, 300.0, 400.0, 500.0]
+
+    # Feeler trade ($50) -> low conviction -> skipped
+    sig_feeler = TradeSignal(
+        timestamp=1700000000,
+        whale_address="0xgold",
+        market_id="m1",
+        condition_id="c1",
+        token_id="tok1",
+        side="BUY",
+        whale_price=0.50,
+        whale_size_usd=50.0,
+        whale_shares=100.0
+    )
+    assert strat.evaluate_signal(sig_feeler, portfolio) is None
+
+    # High conviction trade ($2000) -> top percentile -> approved!
+    sig_heavy = TradeSignal(
+        timestamp=1700000100,
+        whale_address="0xgold",
+        market_id="m2",
+        condition_id="c2",
+        token_id="tok2",
+        side="BUY",
+        whale_price=0.50,
+        whale_size_usd=2000.0,
+        whale_shares=4000.0
+    )
+    size = strat.evaluate_signal(sig_heavy, portfolio)
+    assert size is not None
+    assert size > 0.0
+
+
+def test_top_sharpe_kelly_strategy():
+    from app.backtesting.strategies import TopSharpeKellyStrategy
+    from app.backtesting.models import WhaleQualification
+
+    strat = TopSharpeKellyStrategy(top_n=2)
+    portfolio = SimulatedPortfolio(BacktestConfig(initial_capital=10000.0))
+
+    roster = [
+        WhaleQualification("0xsharpe_high", 100000.0, 80.0, 500000.0, 100, 4.5, "gold_sniper"),
+        WhaleQualification("0xsharpe_med", 50000.0, 70.0, 250000.0, 80, 2.5, "standard"),
+        WhaleQualification("0xsharpe_low", 20000.0, 55.0, 100000.0, 40, 0.8, "standard"),
+    ]
+    strat.set_qualified_roster(roster)
+
+    # 0xsharpe_low should not be in top 2
+    assert "0xsharpe_low" not in strat.top_whales
+
+    # 0xsharpe_high gets dynamic half-kelly sizing
+    sig = TradeSignal(
+        timestamp=1700000000,
+        whale_address="0xsharpe_high",
+        market_id="m1",
+        condition_id="c1",
+        token_id="tok1",
+        side="BUY",
+        whale_price=0.50,
+        whale_size_usd=1000.0,
+        whale_shares=2000.0
+    )
+    size = strat.evaluate_signal(sig, portfolio)
+    assert size is not None
+    # For p=0.80 at price=0.50, b=1.0: Kelly = 0.5 * (0.8*2 - 1) = 0.30, clamped to max 8% = $800
+    assert size == 800.0
+
+
+def test_resolution_hold_strategy_refuses_whale_exit():
+    from app.backtesting.strategies import ResolutionHoldStrategy
+    strat = ResolutionHoldStrategy()
+    portfolio = SimulatedPortfolio(BacktestConfig(initial_capital=10000.0))
+
+    sig_sell = TradeSignal(
+        timestamp=1700000000,
+        whale_address="0xwhale1",
+        market_id="m1",
+        condition_id="c1",
+        token_id="tok1",
+        side="SELL",
+        whale_price=0.50,
+        whale_size_usd=500.0,
+        whale_shares=1000.0
+    )
+    assert strat.should_mirror_whale_exit(sig_sell, portfolio) is False
+
+
+def test_get_predefined_windows():
+    from app.backtesting.data_loader import get_predefined_window
+
+    s1, e1, l1 = get_predefined_window("1m")
+    assert s1 == 1727740800
+    assert e1 == 1730419200
+    assert "1-Month" in l1
+
+    s3, e3, l3 = get_predefined_window("3m")
+    assert s3 == 1722470400
+    assert e3 == 1730419200
+    assert "3-Month" in l3
+
+    s6, e6, l6 = get_predefined_window("6m")
+    assert s6 == 1714521600
+    assert e6 == 1730419200
+    assert "6-Month" in l6
+
