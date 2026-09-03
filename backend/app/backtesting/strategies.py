@@ -485,19 +485,21 @@ class BaleenDynamicSizerStrategy(BaseStrategy):
     def get_whale_net_worth(self, whale_address: str) -> float:
         """
         Calculates whale's net worth right before the trade point:
-        initial_net_worth + cumulative_realized_pnl + open_position_equity
+        initial_net_worth + cumulative_realized_pnl + open_position_unrealized_pnl
+        where open_position_unrealized_pnl = sum(pos.shares * curr_p - pos.cost_basis)
         """
         clean = whale_address.lower()
         base = self.whale_initial_net_worth.get(clean, self.default_whale_net_worth)
         realized = self.whale_realized_pnl.get(clean, 0.0)
 
-        open_equity = 0.0
+        unrealized_pnl = 0.0
         positions = self.whale_open_positions.get(clean, {})
         for key, pos in positions.items():
             curr_p = self.latest_prices.get(key, pos.last_price or pos.avg_price)
-            open_equity += pos.shares * curr_p
+            curr_val = pos.shares * curr_p
+            unrealized_pnl += (curr_val - pos.cost_basis)
 
-        net_worth = base + realized + open_equity
+        net_worth = base + realized + unrealized_pnl
         return max(1000.0, net_worth)
 
     def on_trade_signal(self, signal: TradeSignal):
@@ -601,17 +603,30 @@ class BaleenDynamicSizerStrategy(BaseStrategy):
         # 1. Anti-Conflict Gating (if enabled)
         if self.enable_anti_conflict:
             if clean_w in self.disqualified_whales:
+                self._record_whale_buy(signal)
                 return None
 
             m_dict = self.whale_market_sides.setdefault(clean_w, {})
             m_key = signal.condition_id or signal.market_id
             sides = m_dict.setdefault(m_key, set())
+
+            # Skip opposing trades on the same market (hedging prevention)
+            if len(sides) > 0 and signal.nonusdc_side not in sides:
+                sides.add(signal.nonusdc_side)
+                conflicts = sum(1 for s in m_dict.values() if len(s) > 1)
+                total_mkts = max(1, len(m_dict))
+                if (conflicts / total_mkts) > self.max_conflict_tolerance:
+                    self.disqualified_whales.add(clean_w)
+                self._record_whale_buy(signal)
+                return None
+
             sides.add(signal.nonusdc_side)
 
             conflicts = sum(1 for s in m_dict.values() if len(s) > 1)
             total_mkts = max(1, len(m_dict))
             if conflicts >= 1 and (conflicts / total_mkts) > self.max_conflict_tolerance:
                 self.disqualified_whales.add(clean_w)
+                self._record_whale_buy(signal)
                 return None
 
         # 2. Track latest price for the token

@@ -81,7 +81,7 @@ def main():
     try:
         # 1. Strategy Comparison
         print(">>> [1/3] RUNNING HEAD-TO-HEAD STRATEGY COMPARISON <<<")
-        logger.info(f"Evaluating 8 distinct strategy architectures on {period_label}...")
+        logger.info(f"Evaluating key strategy architectures on {period_label}...")
         results = optimizer.compare_strategies(
             start_ts=s_ts,
             end_ts=e_ts,
@@ -96,9 +96,12 @@ def main():
         print(f"   Net PnL: ${best.total_net_pnl:+,.2f} | ROI: {best.roi_pct:+.2f}% | Sharpe: {best.sharpe_ratio:.2f} | Max DD: {best.max_drawdown_pct:.1f}% | Win Rate: {best.win_rate_pct:.1f}%\n")
 
         # Generate & save comparison charts
-        brain_dir = "C:/Users/arthu/.gemini/antigravity/brain/3558f49c-622a-4113-ae69-0a73aba3f6a5"
         data_dir = os.path.join(backend_root, "data")
-        extra_dirs = [brain_dir] if os.path.exists(brain_dir) else []
+        extra_dirs = []
+        for cid in ["46b2eeba-fcaa-448d-b531-53aab065f8a0", "3558f49c-622a-4113-ae69-0a73aba3f6a5"]:
+            p = os.path.join("C:/Users/arthu/.gemini/antigravity/brain", cid)
+            if os.path.exists(p) and p not in extra_dirs:
+                extra_dirs.append(p)
         chart_files = generate_comparison_charts(results, output_dir=data_dir, extra_output_dirs=extra_dirs)
         print("[+] Generated strategy comparison graphs:")
         for k, p in chart_files.items():

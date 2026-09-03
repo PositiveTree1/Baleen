@@ -5,7 +5,7 @@ sleeve budgeting, market resolutions, and strategy implementations.
 """
 import pytest
 from app.backtesting.config import BacktestConfig
-from app.backtesting.models import TradeSignal, ExecutionFill, PortfolioPosition, ClosedTrade, BacktestResult
+from app.backtesting.models import TradeSignal, ExecutionFill, PortfolioPosition, ClosedTrade, BacktestResult, WhaleQualification
 from app.backtesting.execution import RealisticExecutionModel
 from app.backtesting.portfolio import SimulatedPortfolio
 from app.backtesting.strategies import (
@@ -914,13 +914,13 @@ def test_baleen_dynamic_sizer_strategy_tracks_net_worth_before_trade():
         nonusdc_side="token1"
     ))
 
-    # Whale held 10,000 shares, now valued at 0.70 = $7,000
-    # Base: 50,000, Realized: 0, Open equity: 7,000
-    # Net worth right before trade 2: 50,000 + 7,000 = 57,000
+    # Whale held 10,000 shares, now valued at 0.70 = $7,000 (cost basis = $5,000)
+    # Base: 50,000, Realized: 0, Unrealized paper gain: $7,000 - $5,000 = +$2,000
+    # Net worth right before trade 2: 50,000 + 2,000 = 52,000 (NOT double-counted $57,000)
     nw_before_2 = strat.get_whale_net_worth("0xwhale1")
-    assert nw_before_2 == 57000.0
+    assert nw_before_2 == 52000.0
 
-    # Trade 2: Whale bets $2,850 on m2 (2850 / 57000 = 5.0% risk)
+    # Trade 2: Whale bets $2,600 on m2 (2,600 / 52,000 = 5.0% risk)
     # Raw order = 1,000 * 5.0% = $50.0
     sig2 = TradeSignal(
         timestamp=1100,
@@ -930,12 +930,31 @@ def test_baleen_dynamic_sizer_strategy_tracks_net_worth_before_trade():
         token_id="tok2",
         side="BUY",
         whale_price=0.40,
-        whale_size_usd=2850.0,
-        whale_shares=7125.0,
+        whale_size_usd=2600.0,
+        whale_shares=6500.0,
         nonusdc_side="token1"
     )
     size2 = strat.evaluate_signal(sig2, portfolio)
     assert size2 == 50.0
+
+    # Simulate price drop on m2 token1 to 0.10 (paper loss)
+    strat.on_trade_signal(TradeSignal(
+        timestamp=1150,
+        whale_address="0xother",
+        market_id="m2",
+        condition_id="c2",
+        token_id="tok2",
+        side="BUY",
+        whale_price=0.10,
+        whale_size_usd=100.0,
+        whale_shares=1000.0,
+        nonusdc_side="token1"
+    ))
+    # m1: 10,000 * 0.70 = 7,000 (gain +2,000)
+    # m2: 6,500 * 0.10 = 650 (loss 650 - 2,600 = -1,950)
+    # Net worth: 50,000 + 2,000 - 1,950 = 50,050
+    nw_after_drop = strat.get_whale_net_worth("0xwhale1")
+    assert nw_after_drop == 50050.0
 
 
 def test_baleen_dynamic_sizer_strategy_realizes_pnl_on_whale_sell():
@@ -1049,6 +1068,46 @@ def test_baleen_dynamic_sizer_anti_conflict_gating():
     # Must be disqualified and skipped!
     assert res2 is None
     assert "0xhedger" in strat.disqualified_whales
+
+
+def test_baleen_dynamic_sizer_rejects_opposing_trade_on_same_market():
+    strat = BaleenDynamicSizerStrategy(enable_anti_conflict=True, max_conflict_tolerance=0.20)
+    config = BacktestConfig(initial_capital=10000.0)
+    portfolio = SimulatedPortfolio(config)
+
+    # Buy token1 on m1
+    sig1 = TradeSignal(
+        timestamp=1000,
+        whale_address="0xhedger",
+        market_id="m1",
+        condition_id="c1",
+        token_id="tok1",
+        side="BUY",
+        whale_price=0.50,
+        whale_size_usd=500.0,
+        whale_shares=1000.0,
+        nonusdc_side="token1"
+    )
+    s1 = strat.evaluate_signal(sig1, portfolio)
+    assert s1 is not None and s1 > 0
+
+    # Opposite buy token2 on m1 -> must be rejected even before exceeding global threshold
+    sig2 = TradeSignal(
+        timestamp=1050,
+        whale_address="0xhedger",
+        market_id="m1",
+        condition_id="c1",
+        token_id="tok2",
+        side="BUY",
+        whale_price=0.50,
+        whale_size_usd=500.0,
+        whale_shares=1000.0,
+        nonusdc_side="token2"
+    )
+    s2 = strat.evaluate_signal(sig2, portfolio)
+    assert s2 is None
+    # Whale buy was recorded in positions for accurate whale accounting
+    assert ("m1", "token2") in strat.whale_open_positions["0xhedger"]
 
 
 def test_generate_comparison_charts_creates_valid_images(tmp_path):

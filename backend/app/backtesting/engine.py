@@ -136,13 +136,13 @@ class BacktestEngine:
                             self.strategy.on_trade_closed(closed_t)
 
             elif signal.side.upper() == "BUY":
-                # Max open position guard
-                if len(self.portfolio.open_positions) >= self.config.max_open_positions:
-                    continue
-
                 # Ask strategy for sizing
                 intended_usd = self.strategy.evaluate_signal(signal, self.portfolio)
                 if not intended_usd or intended_usd < self.config.min_trade_size_usd:
+                    continue
+
+                # Max open position guard
+                if len(self.portfolio.open_positions) >= self.config.max_open_positions:
                     continue
 
                 # Market concentration guard

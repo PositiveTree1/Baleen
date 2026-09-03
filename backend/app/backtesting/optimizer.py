@@ -155,6 +155,8 @@ class StrategyOptimizer:
                 strat = FixedAmountEntryStrategy(entry_usd=eff_entry, name=f"FixedEntry_${int(eff_entry)}")
             elif strategy_type == "proportional":
                 strat = FixedProportionalStrategy(fraction=0.02, name=f"Proportional_2pct_Cap${int(cap)}")
+            elif strategy_type in ("dynamic", "baleen"):
+                strat = BaleenDynamicSizerStrategy(enable_anti_conflict=True, name=f"Baleen_DynamicSizer_Cap${int(cap)}")
             else:
                 strat = AdaptiveProductionStrategy(
                     ev_multiplier=2.5,
@@ -227,6 +229,8 @@ class StrategyOptimizer:
                 strat = FixedAmountEntryStrategy(entry_usd=entry_usd, name=f"FixedEntry_${int(entry_usd)}_{label[:6]}")
             elif strategy_type == "proportional":
                 strat = FixedProportionalStrategy(fraction=0.02, name=f"Proportional_2pct_{label[:6]}")
+            elif strategy_type in ("dynamic", "baleen"):
+                strat = BaleenDynamicSizerStrategy(enable_anti_conflict=True, name=f"Baleen_DynamicSizer_{label[:10]}")
             else:
                 strat = AdaptiveProductionStrategy(
                     ev_multiplier=2.5,
