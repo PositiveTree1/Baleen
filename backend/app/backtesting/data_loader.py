@@ -35,6 +35,7 @@ class PolymarketDataLoader:
         self.markets_path = f"{config.data_dir}/{config.markets_file}".replace("\\", "/")
         self.conn = duckdb.connect()
         self._market_resolutions_cache: Dict[str, Dict[str, Any]] = {}
+        self._whale_pool_cache: Dict[int, List[WhaleQualification]] = {}
 
     def parse_outcome_prices(self, prices_raw: str) -> Tuple[Optional[str], float, float]:
         """Parses outcome_prices string to determine winning outcome and authentic contract payouts."""
@@ -124,19 +125,8 @@ class PolymarketDataLoader:
         """
         cutoff_ts = int(start_ts)
 
-        # Progressive relaxation tiers to ensure robust discovery across diverse historical windows
-        tiers = [
-            (min_pnl, min_win_rate, 15),
-            (min_pnl / 2.0, max(55.0, min_win_rate - 5.0), 10),
-            (5000.0, 52.0, 5),
-            (0.0, 50.0, 1)
-        ]
-
-        results = []
-        seen = set()
-
-        for pnl_thresh, wr_thresh, trades_thresh in tiers:
-            # 1. Total Realized PnL: ALL historical trades up to cutoff_ts on markets resolved before cutoff_ts
+        # 1. Check in-memory pool cache for this cutoff_ts to avoid redundant 766M row scans
+        if cutoff_ts not in self._whale_pool_cache:
             cand_query = f"""
             WITH market_res AS (
                 SELECT id,
@@ -165,138 +155,155 @@ class PolymarketDataLoader:
                 WHERE t.timestamp <= {cutoff_ts}
                   AND t.price BETWEEN 0.02 AND 0.98
                 GROUP BY lower(t.maker)
-                HAVING total_realized_pnl >= {pnl_thresh} AND total_trades >= {trades_thresh}
+                HAVING total_realized_pnl >= 0.0 AND total_trades >= 5
                 ORDER BY total_realized_pnl DESC
-                LIMIT {max(50, max_whales * 5)}
+                LIMIT 100
             )
             SELECT wallet, total_realized_pnl, total_vol, total_trades FROM historical_pnl
             """
-            df_cand = self.conn.execute(cand_query).fetch_df()
-            if df_cand.empty:
-                continue
+            try:
+                df_cand = self.conn.execute(cand_query).fetch_df()
+            except Exception as e:
+                logger.warning(f"Error querying candidate whales: {e}")
+                import pandas as pd
+                df_cand = pd.DataFrame()
 
-            cand_wallets = [w for w in df_cand['wallet'].tolist() if w not in seen]
-            if not cand_wallets:
-                continue
-            cand_sql = ", ".join([f"'{w}'" for w in cand_wallets])
-
-            # 2. Trade stats from trailing up to 4,000 trades prior to cutoff_ts (Polymarket Data API parity)
-            stats_query = f"""
-            WITH market_res AS (
-                SELECT id,
-                    CASE WHEN TRY_CAST(regexp_extract(outcome_prices, '([0-9.]+)', 1) AS DOUBLE) > 0.5 THEN 1.0 ELSE 0.0 END as p1,
-                    CASE WHEN TRY_CAST(regexp_extract(outcome_prices, ',\\s*''?([0-9.]+)', 1) AS DOUBLE) > 0.5 THEN 1.0 ELSE 0.0 END as p2
-                FROM '{self.markets_path}'
-                WHERE closed = 1 AND outcome_prices IS NOT NULL
-                  AND epoch(end_date) <= {cutoff_ts}
-            ),
-            ranked_trades AS (
+            pool = []
+            if not df_cand.empty:
+                cand_wallets = df_cand['wallet'].tolist()
+                cand_sql = ", ".join([f"'{w}'" for w in cand_wallets])
+                stats_query = f"""
+                WITH market_res AS (
+                    SELECT id,
+                        CASE WHEN TRY_CAST(regexp_extract(outcome_prices, '([0-9.]+)', 1) AS DOUBLE) > 0.5 THEN 1.0 ELSE 0.0 END as p1,
+                        CASE WHEN TRY_CAST(regexp_extract(outcome_prices, ',\\s*''?([0-9.]+)', 1) AS DOUBLE) > 0.5 THEN 1.0 ELSE 0.0 END as p2
+                    FROM '{self.markets_path}'
+                    WHERE closed = 1 AND outcome_prices IS NOT NULL
+                      AND epoch(end_date) <= {cutoff_ts}
+                ),
+                ranked_trades AS (
+                    SELECT 
+                        lower(t.maker) as wallet,
+                        t.timestamp,
+                        t.market_id,
+                        t.nonusdc_side,
+                        t.maker_direction,
+                        t.usd_amount,
+                        t.token_amount,
+                        t.price,
+                        m.p1,
+                        m.p2,
+                        ROW_NUMBER() OVER (PARTITION BY lower(t.maker) ORDER BY t.timestamp DESC) as rn
+                    FROM '{self.trades_path}' t
+                    LEFT JOIN market_res m ON t.market_id = m.id
+                    WHERE t.timestamp <= {cutoff_ts}
+                      AND lower(t.maker) IN ({cand_sql})
+                      AND t.price BETWEEN 0.02 AND 0.98
+                ),
+                trailing_4k AS (
+                    SELECT *,
+                        CASE 
+                            WHEN maker_direction = 'BUY' AND nonusdc_side = 'token1' THEN (token_amount * COALESCE(p1, price) - usd_amount)
+                            WHEN maker_direction = 'BUY' AND nonusdc_side = 'token2' THEN (token_amount * COALESCE(p2, price) - usd_amount)
+                            WHEN maker_direction = 'SELL' AND nonusdc_side = 'token1' THEN (usd_amount - token_amount * COALESCE(p1, price))
+                            WHEN maker_direction = 'SELL' AND nonusdc_side = 'token2' THEN (usd_amount - token_amount * COALESCE(p2, price))
+                            ELSE 0.0
+                        END as trade_pnl
+                    FROM ranked_trades WHERE rn <= 4000
+                )
                 SELECT 
-                    lower(t.maker) as wallet,
-                    t.timestamp,
-                    t.market_id,
-                    t.nonusdc_side,
-                    t.maker_direction,
-                    t.usd_amount,
-                    t.token_amount,
-                    t.price,
-                    m.p1,
-                    m.p2,
-                    ROW_NUMBER() OVER (PARTITION BY lower(t.maker) ORDER BY t.timestamp DESC) as rn
-                FROM '{self.trades_path}' t
-                LEFT JOIN market_res m ON t.market_id = m.id
-                WHERE t.timestamp <= {cutoff_ts}
-                  AND lower(t.maker) IN ({cand_sql})
-                  AND t.price BETWEEN 0.02 AND 0.98
-            ),
-            trailing_4k AS (
-                SELECT *,
-                    CASE 
-                        WHEN maker_direction = 'BUY' AND nonusdc_side = 'token1' THEN (token_amount * COALESCE(p1, price) - usd_amount)
-                        WHEN maker_direction = 'BUY' AND nonusdc_side = 'token2' THEN (token_amount * COALESCE(p2, price) - usd_amount)
-                        WHEN maker_direction = 'SELL' AND nonusdc_side = 'token1' THEN (usd_amount - token_amount * COALESCE(p1, price))
-                        WHEN maker_direction = 'SELL' AND nonusdc_side = 'token2' THEN (usd_amount - token_amount * COALESCE(p2, price))
-                        ELSE 0.0
-                    END as trade_pnl
-                FROM ranked_trades WHERE rn <= 4000
-            )
-            SELECT 
-                wallet,
-                count(1) as trades_4k,
-                min(timestamp) as min_ts,
-                max(timestamp) as max_ts,
-                sum(CASE WHEN maker_direction = 'BUY' THEN 1 ELSE 0 END) as buys_4k,
-                sum(CASE WHEN maker_direction = 'BUY' AND (
-                    (nonusdc_side = 'token1' AND p1 = 1.0) OR 
-                    (nonusdc_side = 'token2' AND p2 = 1.0)
-                ) THEN 1 ELSE 0 END) as winning_buys_4k,
-                count(distinct case when maker_direction = 'BUY' then market_id || '_' || nonusdc_side end) as distinct_tokens,
-                count(distinct case when maker_direction = 'BUY' then market_id end) as distinct_markets,
-                max(trade_pnl) as max_single_gain,
-                sum(case when trade_pnl > 0 then trade_pnl else 0.0 end) as gross_gains_4k
-            FROM trailing_4k
-            GROUP BY wallet
-            """
-            df_stats = self.conn.execute(stats_query).fetch_df()
-            if df_stats.empty:
-                continue
+                    wallet,
+                    count(1) as trades_4k,
+                    min(timestamp) as min_ts,
+                    max(timestamp) as max_ts,
+                    sum(CASE WHEN maker_direction = 'BUY' THEN 1 ELSE 0 END) as buys_4k,
+                    sum(CASE WHEN maker_direction = 'BUY' AND (p1 IS NOT NULL OR p2 IS NOT NULL) THEN 1 ELSE 0 END) as resolved_buys_4k,
+                    sum(CASE WHEN maker_direction = 'BUY' AND (
+                        (nonusdc_side = 'token1' AND p1 = 1.0) OR 
+                        (nonusdc_side = 'token2' AND p2 = 1.0)
+                    ) THEN 1 ELSE 0 END) as winning_buys_4k,
+                    count(distinct case when maker_direction = 'BUY' then market_id || '_' || nonusdc_side end) as distinct_tokens,
+                    count(distinct case when maker_direction = 'BUY' then market_id end) as distinct_markets,
+                    max(trade_pnl) as max_single_gain,
+                    sum(case when trade_pnl > 0 then trade_pnl else 0.0 end) as gross_gains_4k
+                FROM trailing_4k
+                GROUP BY wallet
+                """
+                try:
+                    df_stats = self.conn.execute(stats_query).fetch_df()
+                    merged = df_cand.merge(df_stats, on="wallet")
+                    for _, row in merged.iterrows():
+                        addr = str(row["wallet"]).lower()
+                        buys_cnt = int(row.get("buys_4k") or 0)
+                        if buys_cnt < 5:
+                            continue
+                        resolved_buys = int(row.get("resolved_buys_4k") or 0)
+                        win_buys = int(row.get("winning_buys_4k") or 0)
+                        eval_denom = resolved_buys if resolved_buys >= 5 else buys_cnt
+                        wr = round((win_buys / eval_denom * 100.0), 1) if eval_denom > 0 else 0.0
 
-            merged = df_cand.merge(df_stats, on="wallet")
-            for _, row in merged.iterrows():
-                addr = str(row["wallet"]).lower()
-                if addr in seen:
-                    continue
+                        min_ts = float(row.get("min_ts") or cutoff_ts)
+                        max_ts = float(row.get("max_ts") or cutoff_ts)
+                        span_days = max(1.0, (max_ts - min_ts) / 86400.0)
+                        t_count = int(row["trades_4k"])
+                        freq = round(t_count / span_days, 1)
 
-                buys_cnt = int(row.get("buys_4k") or 0)
-                if buys_cnt < 5:
-                    continue
-                win_buys = int(row.get("winning_buys_4k") or 0)
-                wr = round((win_buys / buys_cnt * 100.0), 1)
-                if wr < wr_thresh:
-                    continue
+                        # Disqualify high-frequency maker bots
+                        if freq > 65.0:
+                            continue
 
-                min_ts = float(row.get("min_ts") or cutoff_ts)
-                max_ts = float(row.get("max_ts") or cutoff_ts)
-                span_days = max(1.0, (max_ts - min_ts) / 86400.0)
-                t_count = int(row["trades_4k"])
-                freq = round(t_count / span_days, 1)
+                        # Anti-conflict check
+                        conflict = int(row.get("distinct_tokens") or 0) > int(row.get("distinct_markets") or 0)
 
-                # Disqualify high-frequency maker bots
-                if freq > 65.0:
-                    continue
+                        # Consistency score
+                        max_gain = float(row.get("max_single_gain") or 0.0)
+                        gross_g = float(row.get("gross_gains_4k") or 0.0)
+                        dominance = (max_gain / gross_g) if gross_g > 0 else 0.5
+                        consistency = round(max(0.1, min(1.0, (wr / 100.0) * (1.0 - min(0.5, dominance * 0.5)))), 2)
 
-                # Anti-conflict check
-                conflict = int(row.get("distinct_tokens") or 0) > int(row.get("distinct_markets") or 0)
+                        pnl = float(row["total_realized_pnl"])
+                        tier = "gold_sniper" if wr >= 80.0 and pnl >= 50000.0 and not conflict and consistency >= 0.60 else "standard"
+                        sharpe = round(max(0.5, (wr - 50.0) / 10.0), 2)
 
-                # Consistency score
-                max_gain = float(row.get("max_single_gain") or 0.0)
-                gross_g = float(row.get("gross_gains_4k") or 0.0)
-                dominance = (max_gain / gross_g) if gross_g > 0 else 0.5
-                consistency = round(max(0.1, min(1.0, (wr / 100.0) * (1.0 - min(0.5, dominance * 0.5)))), 2)
+                        pool.append(WhaleQualification(
+                            address=addr,
+                            realized_pnl=round(pnl, 2),
+                            win_rate_pct=wr,
+                            total_volume=round(float(row["total_vol"]), 2),
+                            trades_count=t_count,
+                            sharpe_ratio=sharpe,
+                            tier=tier,
+                            is_conflicting=conflict,
+                            consistency_score=consistency,
+                            trades_per_day=freq,
+                            max_drawdown_pct=0.0
+                        ))
+                except Exception as e:
+                    logger.warning(f"Error querying trailing stats: {e}")
 
-                pnl = float(row["total_realized_pnl"])
-                tier = "gold_sniper" if wr >= 80.0 and pnl >= 50000.0 and not conflict and consistency >= 0.60 else "standard"
-                sharpe = round(max(0.5, (wr - 50.0) / 10.0), 2)
+            self._whale_pool_cache[cutoff_ts] = pool
 
-                if tier_filter and tier != tier_filter:
-                    continue
+        pool = self._whale_pool_cache.get(cutoff_ts, [])
 
-                seen.add(addr)
-                results.append(WhaleQualification(
-                    address=addr,
-                    realized_pnl=round(pnl, 2),
-                    win_rate_pct=wr,
-                    total_volume=round(float(row["total_vol"]), 2),
-                    trades_count=t_count,
-                    sharpe_ratio=sharpe,
-                    tier=tier,
-                    is_conflicting=conflict,
-                    consistency_score=consistency,
-                    trades_per_day=freq,
-                    max_drawdown_pct=0.0
-                ))
-                if len(results) >= max_whales:
-                    return results
+        # Progressive relaxation tiers to filter candidate pool
+        tiers = [
+            (min_pnl, min_win_rate),
+            (min_pnl / 2.0, max(55.0, min_win_rate - 5.0)),
+            (5000.0, 52.0),
+            (0.0, 50.0)
+        ]
+
+        seen = set()
+        results = []
+        for pnl_thresh, wr_thresh in tiers:
+            for w in pool:
+                if w.address not in seen and w.realized_pnl >= pnl_thresh and w.win_rate_pct >= wr_thresh:
+                    if tier_filter and w.tier != tier_filter:
+                        continue
+                    seen.add(w.address)
+                    results.append(w)
+                    if len(results) >= max_whales:
+                        return results
 
         if results:
             return results

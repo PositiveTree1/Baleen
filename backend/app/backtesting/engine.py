@@ -148,7 +148,8 @@ class BacktestEngine:
             elif signal.side.upper() == "BUY":
                 # Ask strategy for sizing
                 intended_usd = self.strategy.evaluate_signal(signal, self.portfolio)
-                if not intended_usd or intended_usd < self.config.min_trade_size_usd:
+                min_sz = getattr(self.strategy, "min_order_usd", self.config.min_trade_size_usd)
+                if not intended_usd or intended_usd < min_sz:
                     continue
 
                 # Max open position guard
@@ -162,7 +163,7 @@ class BacktestEngine:
                 max_market_cap = self.portfolio.initial_capital * self.config.max_market_fraction
                 if curr_market_notional + intended_usd > max_market_cap:
                     intended_usd = max(0.0, max_market_cap - curr_market_notional)
-                    if intended_usd < self.config.min_trade_size_usd:
+                    if intended_usd < min_sz:
                         continue
 
                 fill = self.execution_model.simulate_copy_execution(
@@ -215,4 +216,4 @@ class BacktestEngine:
                             self.portfolio.record_equity_snapshot(float(end_t), latest_prices=latest_prices)
 
         self.portfolio.record_equity_snapshot(float(end_ts), latest_prices=latest_prices)
-        return self.portfolio.compute_final_metrics(start_ts, end_ts, self.strategy.name)
+        return self.portfolio.compute_final_metrics(start_ts, end_ts, self.strategy.name, latest_prices=latest_prices)

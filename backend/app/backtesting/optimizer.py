@@ -427,6 +427,8 @@ class StrategyOptimizer:
             cfg = copy.deepcopy(self.base_config)
             cfg.initial_capital = initial_capital
             cfg.hold_to_resolution = c["hold_to_resolution"]
+            cfg.min_trade_size_usd = 1.0
+            cfg.max_sleeve_fraction = max(self.base_config.max_sleeve_fraction, 1.0 / c["n_wallets"])
 
             engine = BacktestEngine(config=cfg, strategy=strat, data_loader=self.data_loader)
             res = engine.run(

@@ -301,7 +301,8 @@ class SimulatedPortfolio:
         self,
         start_ts: int,
         end_ts: int,
-        strategy_name: str
+        strategy_name: str,
+        latest_prices: Optional[Dict[str, float]] = None
     ) -> BacktestResult:
         """Calculates comprehensive quantitative backtest metrics."""
         duration_sec = max(1.0, float(end_ts - start_ts))
@@ -309,7 +310,7 @@ class SimulatedPortfolio:
 
         # Ensure a final snapshot exists
         if not self.equity_curve:
-            self.record_equity_snapshot(float(end_ts))
+            self.record_equity_snapshot(float(end_ts), latest_prices=latest_prices)
 
         # Sort snapshots chronologically
         self.equity_curve.sort(key=lambda p: p.timestamp)
@@ -319,34 +320,65 @@ class SimulatedPortfolio:
         roi_pct = (total_net_pnl / self.initial_capital) * 100.0
         annualized_roi_pct = roi_pct * (365.0 / duration_days)
 
-        wins = [t for t in self.closed_trades if t.net_pnl > 0]
-        losses = [t for t in self.closed_trades if t.net_pnl < 0]
-        total_trades = len(self.closed_trades)
+        # Evaluate performance across closed trades and open positions marked-to-market
+        latest_prices = latest_prices or {}
+        eval_trades = []
+        for t in self.closed_trades:
+            eval_trades.append({
+                "whale_address": t.whale_address,
+                "category": t.category,
+                "net_pnl": t.net_pnl,
+                "fees": t.total_fees_usd
+            })
+
+        for pos in self.open_positions.values():
+            key = f"{pos.market_id}_{pos.outcome_token}"
+            curr_p = latest_prices.get(key, latest_prices.get(pos.market_id, pos.avg_fill_price))
+            net_u = (pos.shares * curr_p) - pos.total_cost_usd - pos.fees_paid_usd
+            eval_trades.append({
+                "whale_address": pos.whale_address.lower(),
+                "category": pos.category,
+                "net_pnl": round(net_u, 2),
+                "fees": pos.fees_paid_usd
+            })
+
+        total_trades = len(eval_trades)
+        wins = [t for t in eval_trades if t["net_pnl"] > 0]
+        losses = [t for t in eval_trades if t["net_pnl"] < 0]
         win_rate = (len(wins) / total_trades * 100.0) if total_trades > 0 else 0.0
 
-        gross_wins = sum(t.net_pnl for t in wins)
-        gross_losses = abs(sum(t.net_pnl for t in losses))
+        gross_wins = sum(t["net_pnl"] for t in wins)
+        gross_losses = abs(sum(t["net_pnl"] for t in losses))
         profit_factor = (gross_wins / gross_losses) if gross_losses > 0 else (99.0 if gross_wins > 0 else 1.0)
         profit_factor = min(99.0, round(profit_factor, 2))
 
-        # True Daily Return Sharpe & Sortino
+        # True Daily Return Sharpe & Sortino with forward-filling calendar days
+        start_day = int(start_ts // 86400)
+        end_day = int(end_ts // 86400)
         daily_equities = {}
         for p in self.equity_curve:
             day_idx = int(p.timestamp // 86400)
             daily_equities[day_idx] = p.total_equity
 
-        sorted_days = sorted(daily_equities.keys())
-        daily_returns = []
-        if len(sorted_days) >= 2:
-            for i in range(1, len(sorted_days)):
-                e_prev = daily_equities[sorted_days[i-1]]
-                e_curr = daily_equities[sorted_days[i]]
+        if end_day > start_day:
+            all_days = list(range(start_day, end_day + 1))
+            filled_equities = []
+            last_eq = self.initial_capital
+            for d in all_days:
+                if d in daily_equities:
+                    last_eq = daily_equities[d]
+                filled_equities.append(last_eq)
+
+            daily_returns = []
+            for i in range(1, len(filled_equities)):
+                e_prev = filled_equities[i - 1]
+                e_curr = filled_equities[i]
                 if e_prev > 0:
                     daily_returns.append((e_curr - e_prev) / e_prev)
         else:
-            # For intraday or sparse windows, compute step returns across equity curve
+            daily_returns = []
             for i in range(1, len(self.equity_curve)):
-                e_prev = self.equity_curve[i-1].total_equity
+                e_prev = self.equity_curve[i - 1].total_equity
                 e_curr = self.equity_curve[i].total_equity
                 if e_prev > 0 and not math.isclose(e_prev, e_curr, abs_tol=1e-4):
                     daily_returns.append((e_curr - e_prev) / e_prev)
@@ -360,33 +392,33 @@ class SimulatedPortfolio:
             downside_stdev = math.sqrt(downside_var)
 
             # Annualized Sharpe with 0% risk free rate
-            sharpe = (mean_r / (stdev + 1e-6)) * math.sqrt(365) if stdev > 0 else 0.0
-            sortino = (mean_r / (downside_stdev + 1e-6)) * math.sqrt(365) if downside_stdev > 0 else 0.0
+            sharpe = (mean_r / (stdev + 1e-6)) * math.sqrt(365) if stdev > 0 else (1.0 if total_net_pnl > 0 else 0.0)
+            sortino = (mean_r / (downside_stdev + 1e-6)) * math.sqrt(365) if downside_stdev > 0 else (sharpe if sharpe > 0 else 0.0)
         else:
             sharpe = 1.0 if total_net_pnl > 0 else 0.0
             sortino = 1.0 if total_net_pnl > 0 else 0.0
 
         # Wallet Breakdown
         wallet_perf = {}
-        for t in self.closed_trades:
-            w = t.whale_address
+        for t in eval_trades:
+            w = t["whale_address"]
             if w not in wallet_perf:
                 wallet_perf[w] = {"trades": 0, "net_pnl": 0.0, "wins": 0, "fees": 0.0}
             wallet_perf[w]["trades"] += 1
-            wallet_perf[w]["net_pnl"] += t.net_pnl
-            wallet_perf[w]["fees"] += t.total_fees_usd
-            if t.net_pnl > 0:
+            wallet_perf[w]["net_pnl"] += t["net_pnl"]
+            wallet_perf[w]["fees"] += t["fees"]
+            if t["net_pnl"] > 0:
                 wallet_perf[w]["wins"] += 1
 
         # Category Breakdown
         cat_perf = {}
-        for t in self.closed_trades:
-            c = t.category
+        for t in eval_trades:
+            c = t.get("category", "General")
             if c not in cat_perf:
                 cat_perf[c] = {"trades": 0, "net_pnl": 0.0, "wins": 0}
             cat_perf[c]["trades"] += 1
-            cat_perf[c]["net_pnl"] += t.net_pnl
-            if t.net_pnl > 0:
+            cat_perf[c]["net_pnl"] += t["net_pnl"]
+            if t["net_pnl"] > 0:
                 cat_perf[c]["wins"] += 1
 
         avg_trade_pnl = (total_net_pnl / total_trades) if total_trades > 0 else 0.0

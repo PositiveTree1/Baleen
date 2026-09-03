@@ -9,7 +9,7 @@ from typing import Optional
 class BacktestConfig:
     # Portfolio Capital & Limits
     initial_capital: float = 10000.0
-    min_trade_size_usd: float = 5.0
+    min_trade_size_usd: float = 1.0
     max_trade_size_usd: float = 1500.0
     max_sleeve_fraction: float = 0.15  # Max 15% of total capital allocated to any single whale sleeve
     max_market_fraction: float = 0.10  # Max 10% of total capital in any single market
