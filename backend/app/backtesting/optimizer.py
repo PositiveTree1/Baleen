@@ -370,7 +370,7 @@ class StrategyOptimizer:
             # Group 3: Min Whale Historical PnL variation ($25k, $50k, $100k) [Runs 11-13]
             {"id": 11, "n_wallets": 8, "min_wr": 70.0, "min_pnl": 25000.0, "sizing_mode": "pure_proportional", "anti_conflict": True, "hold_to_resolution": False, "desc": "N=8  | WR>=70% | PnL>=$25k | PureProp | AntiConflict | WhaleMirror"},
             {"id": 12, "n_wallets": 8, "min_wr": 70.0, "min_pnl": 50000.0, "sizing_mode": "pure_proportional", "anti_conflict": True, "hold_to_resolution": False, "desc": "N=8  | WR>=70% | PnL>=$50k | PureProp | AntiConflict | WhaleMirror"},
-            {"id": 13, "n_wallets": 8, "min_wr": 70.0, "min_pnl": 100000.0, "sizing_mode": "pure_proportional", "anti_conflict": True, "hold_to_resolution": False, "desc": "N=8  | WR>=70% | PnL>=$100k| PureProp | AntiConflict | WhaleMirror"},
+            {"id": 13, "n_wallets": 8, "min_wr": 70.0, "min_pnl": 100000.0, "sizing_mode": "pure_proportional", "anti_conflict": True, "hold_to_resolution": False, "desc": "N=8  | WR>=70% | PnL>=$100k | PureProp | AntiConflict | WhaleMirror"},
 
             # Group 4: Conviction Scaled Sizing across wallet counts & win rates [Runs 14-18]
             {"id": 14, "n_wallets": 5, "min_wr": 70.0, "min_pnl": 50000.0, "sizing_mode": "conviction_scaled", "anti_conflict": True, "hold_to_resolution": False, "desc": "N=5  | WR>=70% | PnL>=$50k | ConvictionProp | AntiConflict | WhaleMirror"},
@@ -383,8 +383,8 @@ class StrategyOptimizer:
             {"id": 19, "n_wallets": 5, "min_wr": 70.0, "min_pnl": 50000.0, "sizing_mode": "fee_aware", "anti_conflict": True, "hold_to_resolution": False, "desc": "N=5  | WR>=70% | PnL>=$50k | FeeAwareProp | AntiConflict | WhaleMirror"},
             {"id": 20, "n_wallets": 8, "min_wr": 70.0, "min_pnl": 50000.0, "sizing_mode": "fee_aware", "anti_conflict": True, "hold_to_resolution": False, "desc": "N=8  | WR>=70% | PnL>=$50k | FeeAwareProp | AntiConflict | WhaleMirror"},
             {"id": 21, "n_wallets": 10, "min_wr": 75.0, "min_pnl": 50000.0, "sizing_mode": "fee_aware", "anti_conflict": True, "hold_to_resolution": False, "desc": "N=10 | WR>=75% | PnL>=$50k | FeeAwareProp | AntiConflict | WhaleMirror"},
-            {"id": 22, "n_wallets": 12, "min_wr": 75.0, "min_pnl": 100000.0, "sizing_mode": "fee_aware", "anti_conflict": True, "hold_to_resolution": False, "desc": "N=12 | WR>=75% | PnL>=$100k| FeeAwareProp | AntiConflict | WhaleMirror"},
-            {"id": 23, "n_wallets": 15, "min_wr": 80.0, "min_pnl": 100000.0, "sizing_mode": "fee_aware", "anti_conflict": True, "hold_to_resolution": False, "desc": "N=15 | WR>=80% | PnL>=$100k| FeeAwareProp | AntiConflict | WhaleMirror"},
+            {"id": 22, "n_wallets": 12, "min_wr": 75.0, "min_pnl": 100000.0, "sizing_mode": "fee_aware", "anti_conflict": True, "hold_to_resolution": False, "desc": "N=12 | WR>=75% | PnL>=$100k | FeeAwareProp | AntiConflict | WhaleMirror"},
+            {"id": 23, "n_wallets": 15, "min_wr": 80.0, "min_pnl": 100000.0, "sizing_mode": "fee_aware", "anti_conflict": True, "hold_to_resolution": False, "desc": "N=15 | WR>=80% | PnL>=$100k | FeeAwareProp | AntiConflict | WhaleMirror"},
 
             # Group 6: Anti-Conflict Gating Comparison (Un-gated vs Gated) [Runs 24-26]
             {"id": 24, "n_wallets": 10, "min_wr": 70.0, "min_pnl": 50000.0, "sizing_mode": "pure_proportional", "anti_conflict": False, "hold_to_resolution": False, "desc": "N=10 | WR>=70% | PnL>=$50k | PureProp | Ungated | WhaleMirror"},
@@ -395,7 +395,7 @@ class StrategyOptimizer:
             {"id": 27, "n_wallets": 10, "min_wr": 70.0, "min_pnl": 50000.0, "sizing_mode": "pure_proportional", "anti_conflict": True, "hold_to_resolution": True, "desc": "N=10 | WR>=70% | PnL>=$50k | PureProp | AntiConflict | DiamondHands"},
             {"id": 28, "n_wallets": 5, "min_wr": 75.0, "min_pnl": 50000.0, "sizing_mode": "conviction_scaled", "anti_conflict": True, "hold_to_resolution": True, "desc": "N=5  | WR>=75% | PnL>=$50k | ConvictionProp | AntiConflict | DiamondHands"},
             {"id": 29, "n_wallets": 10, "min_wr": 75.0, "min_pnl": 50000.0, "sizing_mode": "fee_aware", "anti_conflict": True, "hold_to_resolution": True, "desc": "N=10 | WR>=75% | PnL>=$50k | FeeAwareProp | AntiConflict | DiamondHands"},
-            {"id": 30, "n_wallets": 12, "min_wr": 80.0, "min_pnl": 100000.0, "sizing_mode": "conviction_scaled", "anti_conflict": True, "hold_to_resolution": True, "desc": "N=12 | WR>=80% | PnL>=$100k| ConvictionProp | AntiConflict | DiamondHands"}
+            {"id": 30, "n_wallets": 12, "min_wr": 80.0, "min_pnl": 100000.0, "sizing_mode": "conviction_scaled", "anti_conflict": True, "hold_to_resolution": True, "desc": "N=12 | WR>=80% | PnL>=$100k | ConvictionProp | AntiConflict | DiamondHands"}
         ]
 
         whales_cache = {}
@@ -420,12 +420,19 @@ class StrategyOptimizer:
 
             whale_addrs = [q.address for q in whales_qual]
 
+            mode_lbl = {
+                "pure_proportional": "PureProp",
+                "conviction_scaled": "ConvictionProp",
+                "fee_aware": "FeeAwareProp",
+            }.get(c["sizing_mode"], "Prop")
+            exit_lbl = "DiamondHands" if c["hold_to_resolution"] else "WhaleMirror"
+
             strat = ProportionalSleeveStrategy(
                 sizing_mode=c["sizing_mode"],
                 enable_anti_conflict=c["anti_conflict"],
                 hold_to_resolution=c["hold_to_resolution"],
                 n_active=c["n_wallets"],
-                name=f"Config_{c['id']:02d}_{c['desc'].split(' | ')[3]}"
+                name=f"Config_{c['id']:02d}_{mode_lbl}_{exit_lbl}"
             )
             strat.set_qualified_roster(whales_qual)
 

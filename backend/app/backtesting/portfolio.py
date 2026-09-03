@@ -237,7 +237,7 @@ class SimulatedPortfolio:
                 net_pnl=round(net_pnl, 2),
                 roi_pct=round(roi_pct, 2),
                 opened_at=pos.opened_at,
-                closed_at=resolution_timestamp,
+                closed_at=max(pos.opened_at, resolution_timestamp),
                 hold_duration_sec=max(0.0, resolution_timestamp - pos.opened_at),
                 exit_reason=reason
             )

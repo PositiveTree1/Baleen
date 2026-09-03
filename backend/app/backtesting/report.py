@@ -172,7 +172,7 @@ def generate_comparison_charts(
 
     # 3. Multi-Metric Performance Comparison (2x2 Bar Chart)
     fig, axes = plt.subplots(2, 2, figsize=(14, 9.5))
-    strat_names = [r.strategy_name.replace("Baleen_", "").replace("_", "\n") for r in results]
+    strat_names = [r.strategy_name.replace("Baleen_", "").replace("Config_", "Config ").replace("_", "\n") for r in results]
 
     # Net PnL ($)
     pnls = [r.total_net_pnl for r in results]
