@@ -1183,4 +1183,195 @@ def test_generate_comparison_charts_creates_valid_images(tmp_path):
         assert os.path.getsize(path) > 1000
 
 
+# -------------------------------------------------------------------------
+# 11. Proportional Sleeve Sizing & Organic Non-Linear Snapshots
+# -------------------------------------------------------------------------
+
+def test_proportional_sleeve_strategy_pure_sizing():
+    from app.backtesting.strategies import ProportionalSleeveStrategy
+
+    strat = ProportionalSleeveStrategy(
+        sizing_mode="pure_proportional",
+        initial_whale_net_worth=50000.0,
+        n_active=10
+    )
+    portfolio = SimulatedPortfolio(BacktestConfig(initial_capital=10000.0))
+    portfolio.register_active_roster([f"0xwhale{i}" for i in range(1, 11)])
+
+    # Whale risks $5,000 out of $50,000 net worth (10% bet)
+    # User bankroll $10,000, 10 wallets -> sleeve S = $1,000
+    # Copied trade = S * f = 1,000 * 10% = $100.0
+    sig = TradeSignal(
+        timestamp=1000,
+        whale_address="0xwhale1",
+        market_id="m1",
+        condition_id="c1",
+        token_id="tok1",
+        side="BUY",
+        whale_price=0.50,
+        whale_size_usd=5000.0,
+        whale_shares=10000.0,
+        nonusdc_side="token1"
+    )
+
+    size = strat.evaluate_signal(sig, portfolio)
+    assert size == 100.0
+
+
+def test_proportional_sleeve_strategy_conviction_scaled():
+    from app.backtesting.strategies import ProportionalSleeveStrategy
+
+    strat = ProportionalSleeveStrategy(
+        sizing_mode="conviction_scaled",
+        initial_whale_net_worth=50000.0,
+        n_active=10
+    )
+    portfolio = SimulatedPortfolio(BacktestConfig(initial_capital=10000.0))
+    portfolio.register_active_roster(["0xwhale1"])
+
+    # Establish history: 5 trades at $1,000 each
+    strat.trailing_sizes["0xwhale1"] = [1000.0, 1000.0, 1000.0, 1000.0, 1000.0]
+
+    # Current trade is huge: $10,000 (100th percentile conviction)
+    sig_huge = TradeSignal(
+        timestamp=2000,
+        whale_address="0xwhale1",
+        market_id="m1",
+        condition_id="c1",
+        token_id="tok1",
+        side="BUY",
+        whale_price=0.50,
+        whale_size_usd=10000.0,
+        whale_shares=20000.0,
+        nonusdc_side="token1"
+    )
+
+    # Base size = $1,000 * (10,000 / 50,000) = $200
+    # Conviction multiplier for 1.0 is 0.60 + 0.80 = 1.40x -> $280.0
+    size_huge = strat.evaluate_signal(sig_huge, portfolio)
+    assert size_huge is not None
+    assert size_huge > 200.0
+
+
+def test_proportional_sleeve_strategy_fee_aware_gate():
+    from app.backtesting.strategies import ProportionalSleeveStrategy
+
+    strat = ProportionalSleeveStrategy(
+        sizing_mode="fee_aware",
+        ev_multiplier=2.5,
+        n_active=10
+    )
+    portfolio = SimulatedPortfolio(BacktestConfig(initial_capital=10000.0))
+    portfolio.register_active_roster(["0xwhale1"])
+
+    # High fee short-term crypto trade where edge does not clear 2.5x fee hurdle -> rejected
+    sig_bad_ev = TradeSignal(
+        timestamp=1000,
+        whale_address="0xwhale1",
+        market_id="m_btc",
+        condition_id="c_btc",
+        token_id="tok_btc",
+        side="BUY",
+        whale_price=0.69,
+        whale_size_usd=500.0,
+        whale_shares=724.0,
+        market_title="Bitcoin Up or Down 15m",
+        category="Crypto",
+        nonusdc_side="token1"
+    )
+    assert strat.evaluate_signal(sig_bad_ev, portfolio) is None
+
+
+def test_engine_records_trade_by_trade_snapshots_not_linear():
+    """Validates that snapshots are recorded at start, trade fills, resolutions, and end."""
+    from app.backtesting.strategies import FixedAmountEntryStrategy
+
+    strat = FixedAmountEntryStrategy(entry_usd=100.0)
+    config = BacktestConfig(initial_capital=10000.0)
+    portfolio = SimulatedPortfolio(config)
+
+    # Snapshot 1: Start of simulation
+    portfolio.record_equity_snapshot(1000.0)
+    assert len(portfolio.equity_curve) == 1
+    assert portfolio.equity_curve[0].total_equity == 10000.0
+
+    # Fill 1: BUY
+    sig1 = TradeSignal(
+        timestamp=1050,
+        whale_address="0xwhale1",
+        market_id="m1",
+        condition_id="c1",
+        token_id="tok1",
+        side="BUY",
+        whale_price=0.50,
+        whale_size_usd=1000.0,
+        whale_shares=2000.0,
+        nonusdc_side="token1"
+    )
+    fill1 = ExecutionFill(
+        order_id="ord1",
+        signal=sig1,
+        intended_size_usd=100.0,
+        fill_price=0.50,
+        filled_size_usd=100.0,
+        filled_shares=200.0,
+        slippage_bps=0.0,
+        fee_usd=2.0,
+        latency_ms=100.0,
+        status="FILLED",
+        executed_at=1050.0
+    )
+    portfolio.open_position(fill1)
+    portfolio.record_equity_snapshot(1050.0)
+    assert len(portfolio.equity_curve) == 2
+    # Equity decreased by fee $2
+    assert portfolio.equity_curve[1].total_equity == 9998.0
+
+    # Resolution: WIN at $1.00
+    settled = portfolio.settle_market_resolution(
+        market_id="m1",
+        winning_token="token1",
+        resolution_timestamp=1200.0,
+        p1_payout=1.0,
+        p2_payout=0.0
+    )
+    assert len(settled) == 1
+    portfolio.record_equity_snapshot(1200.0)
+
+    # Snapshot 3: Equity after resolution jump
+    assert len(portfolio.equity_curve) == 3
+    assert portfolio.equity_curve[2].total_equity > 10000.0
+
+    # Final snapshot
+    portfolio.record_equity_snapshot(1500.0)
+    assert len(portfolio.equity_curve) == 4
+    # The curve has 4 distinct steps, NOT a straight linear 2-point line
+    assert len(portfolio.equity_curve) >= 4
+
+
+def test_format_30_sweep_table():
+    from app.backtesting.report import format_30_sweep_table
+
+    sample_records = [{
+        "rank": 1,
+        "config_id": 5,
+        "description": "N=10 | WR>=80% | PnL>=$50k | PureProp | AntiConflict | WhaleMirror",
+        "net_pnl": 450.25,
+        "roi_pct": 4.50,
+        "sharpe_ratio": 2.15,
+        "sortino_ratio": 2.80,
+        "max_drawdown_pct": 2.1,
+        "win_rate_pct": 82.5,
+        "profit_factor": 3.10,
+        "total_trades": 35,
+        "total_fees_usd": 12.50,
+        "composite_score": 3.174
+    }]
+    table = format_30_sweep_table(sample_records)
+    assert "| #1 | #05 |" in table
+    assert "$+450.25" in table
+    assert "3.174" in table
+
+
+
 

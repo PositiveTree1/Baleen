@@ -31,6 +31,8 @@ from app.backtesting.strategies import (
     AntiConflictGatedStrategy,
     AdaptiveProductionStrategy,
     BaleenDynamicSizerStrategy,
+    ProportionalSleeveStrategy,
+    IntuitiveProportionalStrategy,
 )
 
 logger = logging.getLogger(__name__)
@@ -43,7 +45,9 @@ class StrategyOptimizer:
     def get_key_comparison_strategies(self, entry_usd: float = 100.0) -> List[BaseStrategy]:
         """Returns the core suite of key strategies for institutional head-to-head comparison."""
         return [
-            BaleenDynamicSizerStrategy(enable_anti_conflict=False, name="Baleen_DynamicSizer_NetWorth"),
+            ProportionalSleeveStrategy(sizing_mode="pure_proportional", enable_anti_conflict=True, name="Proportional_Sleeve_Base"),
+            ProportionalSleeveStrategy(sizing_mode="conviction_scaled", enable_anti_conflict=True, name="Proportional_Sleeve_Conviction"),
+            ProportionalSleeveStrategy(sizing_mode="fee_aware", enable_anti_conflict=True, name="Proportional_Sleeve_FeeAware"),
             BaleenDynamicSizerStrategy(enable_anti_conflict=True, name="Baleen_DynamicSizer_AntiConflict"),
             FixedAmountEntryStrategy(entry_usd=entry_usd, name=f"FixedEntry_${int(entry_usd)}"),
             GoldSniperStrategy(min_conviction=0.70, name="HighConviction_GoldSnipers"),
@@ -326,5 +330,147 @@ class StrategyOptimizer:
         sweep_records.sort(key=lambda x: x["composite_score"], reverse=True)
         return sweep_records
 
+    def sweep_30_configurations(
+        self,
+        start_ts: int,
+        end_ts: int,
+        limit_trades: Optional[int] = None,
+        initial_capital: float = 10000.0,
+    ) -> Tuple[List[Dict[str, Any]], Dict[str, Any], List[BacktestResult]]:
+        """
+        Executes a 30-configuration parameter sweep across structural settings:
+          - Active wallets count (N in [3, 5, 8, 10, 12, 15])
+          - Min whale win rate ([60%, 65%, 70%, 75%, 80%])
+          - Min whale historical PnL ([$25k, $50k, $100k])
+          - Sizing modes (pure proportional, conviction scaled, fee-aware EV gated)
+          - Anti-conflict gating (strict per-market blocking vs un-gated)
+          - Exit modes (whale mirror vs resolution hold)
+        Ranks all 30 runs, identifies the optimal configuration, and returns top results.
+        """
+        configs = [
+            # Group 1: Min Whale Win Rate variation (60%, 65%, 70%, 75%, 80%) [Runs 1-5]
+            {"id": 1, "n_wallets": 10, "min_wr": 60.0, "min_pnl": 25000.0, "sizing_mode": "pure_proportional", "anti_conflict": True, "hold_to_resolution": False, "desc": "N=10 | WR>=60% | PnL>=$25k | PureProp | AntiConflict | WhaleMirror"},
+            {"id": 2, "n_wallets": 10, "min_wr": 65.0, "min_pnl": 50000.0, "sizing_mode": "pure_proportional", "anti_conflict": True, "hold_to_resolution": False, "desc": "N=10 | WR>=65% | PnL>=$50k | PureProp | AntiConflict | WhaleMirror"},
+            {"id": 3, "n_wallets": 10, "min_wr": 70.0, "min_pnl": 50000.0, "sizing_mode": "pure_proportional", "anti_conflict": True, "hold_to_resolution": False, "desc": "N=10 | WR>=70% | PnL>=$50k | PureProp | AntiConflict | WhaleMirror"},
+            {"id": 4, "n_wallets": 10, "min_wr": 75.0, "min_pnl": 50000.0, "sizing_mode": "pure_proportional", "anti_conflict": True, "hold_to_resolution": False, "desc": "N=10 | WR>=75% | PnL>=$50k | PureProp | AntiConflict | WhaleMirror"},
+            {"id": 5, "n_wallets": 10, "min_wr": 80.0, "min_pnl": 50000.0, "sizing_mode": "pure_proportional", "anti_conflict": True, "hold_to_resolution": False, "desc": "N=10 | WR>=80% | PnL>=$50k | PureProp | AntiConflict | WhaleMirror (GoldSnipers)"},
+
+            # Group 2: Active Wallets Count N variation (N=3, 5, 8, 12, 15) [Runs 6-10]
+            {"id": 6, "n_wallets": 3, "min_wr": 70.0, "min_pnl": 50000.0, "sizing_mode": "pure_proportional", "anti_conflict": True, "hold_to_resolution": False, "desc": "N=3  | WR>=70% | PnL>=$50k | PureProp | AntiConflict | WhaleMirror"},
+            {"id": 7, "n_wallets": 5, "min_wr": 70.0, "min_pnl": 50000.0, "sizing_mode": "pure_proportional", "anti_conflict": True, "hold_to_resolution": False, "desc": "N=5  | WR>=70% | PnL>=$50k | PureProp | AntiConflict | WhaleMirror"},
+            {"id": 8, "n_wallets": 8, "min_wr": 70.0, "min_pnl": 50000.0, "sizing_mode": "pure_proportional", "anti_conflict": True, "hold_to_resolution": False, "desc": "N=8  | WR>=70% | PnL>=$50k | PureProp | AntiConflict | WhaleMirror"},
+            {"id": 9, "n_wallets": 12, "min_wr": 70.0, "min_pnl": 50000.0, "sizing_mode": "pure_proportional", "anti_conflict": True, "hold_to_resolution": False, "desc": "N=12 | WR>=70% | PnL>=$50k | PureProp | AntiConflict | WhaleMirror"},
+            {"id": 10, "n_wallets": 15, "min_wr": 70.0, "min_pnl": 50000.0, "sizing_mode": "pure_proportional", "anti_conflict": True, "hold_to_resolution": False, "desc": "N=15 | WR>=70% | PnL>=$50k | PureProp | AntiConflict | WhaleMirror"},
+
+            # Group 3: Min Whale Historical PnL variation ($25k, $50k, $100k) [Runs 11-13]
+            {"id": 11, "n_wallets": 8, "min_wr": 70.0, "min_pnl": 25000.0, "sizing_mode": "pure_proportional", "anti_conflict": True, "hold_to_resolution": False, "desc": "N=8  | WR>=70% | PnL>=$25k | PureProp | AntiConflict | WhaleMirror"},
+            {"id": 12, "n_wallets": 8, "min_wr": 70.0, "min_pnl": 50000.0, "sizing_mode": "pure_proportional", "anti_conflict": True, "hold_to_resolution": False, "desc": "N=8  | WR>=70% | PnL>=$50k | PureProp | AntiConflict | WhaleMirror"},
+            {"id": 13, "n_wallets": 8, "min_wr": 70.0, "min_pnl": 100000.0, "sizing_mode": "pure_proportional", "anti_conflict": True, "hold_to_resolution": False, "desc": "N=8  | WR>=70% | PnL>=$100k| PureProp | AntiConflict | WhaleMirror"},
+
+            # Group 4: Conviction Scaled Sizing across wallet counts & win rates [Runs 14-18]
+            {"id": 14, "n_wallets": 5, "min_wr": 70.0, "min_pnl": 50000.0, "sizing_mode": "conviction_scaled", "anti_conflict": True, "hold_to_resolution": False, "desc": "N=5  | WR>=70% | PnL>=$50k | ConvictionProp | AntiConflict | WhaleMirror"},
+            {"id": 15, "n_wallets": 8, "min_wr": 70.0, "min_pnl": 50000.0, "sizing_mode": "conviction_scaled", "anti_conflict": True, "hold_to_resolution": False, "desc": "N=8  | WR>=70% | PnL>=$50k | ConvictionProp | AntiConflict | WhaleMirror"},
+            {"id": 16, "n_wallets": 10, "min_wr": 75.0, "min_pnl": 50000.0, "sizing_mode": "conviction_scaled", "anti_conflict": True, "hold_to_resolution": False, "desc": "N=10 | WR>=75% | PnL>=$50k | ConvictionProp | AntiConflict | WhaleMirror"},
+            {"id": 17, "n_wallets": 12, "min_wr": 75.0, "min_pnl": 50000.0, "sizing_mode": "conviction_scaled", "anti_conflict": True, "hold_to_resolution": False, "desc": "N=12 | WR>=75% | PnL>=$50k | ConvictionProp | AntiConflict | WhaleMirror"},
+            {"id": 18, "n_wallets": 15, "min_wr": 80.0, "min_pnl": 50000.0, "sizing_mode": "conviction_scaled", "anti_conflict": True, "hold_to_resolution": False, "desc": "N=15 | WR>=80% | PnL>=$50k | ConvictionProp | AntiConflict | WhaleMirror"},
+
+            # Group 5: Fee-Aware EV Gated Sizing across wallet counts & win rates [Runs 19-23]
+            {"id": 19, "n_wallets": 5, "min_wr": 70.0, "min_pnl": 50000.0, "sizing_mode": "fee_aware", "anti_conflict": True, "hold_to_resolution": False, "desc": "N=5  | WR>=70% | PnL>=$50k | FeeAwareProp | AntiConflict | WhaleMirror"},
+            {"id": 20, "n_wallets": 8, "min_wr": 70.0, "min_pnl": 50000.0, "sizing_mode": "fee_aware", "anti_conflict": True, "hold_to_resolution": False, "desc": "N=8  | WR>=70% | PnL>=$50k | FeeAwareProp | AntiConflict | WhaleMirror"},
+            {"id": 21, "n_wallets": 10, "min_wr": 75.0, "min_pnl": 50000.0, "sizing_mode": "fee_aware", "anti_conflict": True, "hold_to_resolution": False, "desc": "N=10 | WR>=75% | PnL>=$50k | FeeAwareProp | AntiConflict | WhaleMirror"},
+            {"id": 22, "n_wallets": 12, "min_wr": 75.0, "min_pnl": 100000.0, "sizing_mode": "fee_aware", "anti_conflict": True, "hold_to_resolution": False, "desc": "N=12 | WR>=75% | PnL>=$100k| FeeAwareProp | AntiConflict | WhaleMirror"},
+            {"id": 23, "n_wallets": 15, "min_wr": 80.0, "min_pnl": 100000.0, "sizing_mode": "fee_aware", "anti_conflict": True, "hold_to_resolution": False, "desc": "N=15 | WR>=80% | PnL>=$100k| FeeAwareProp | AntiConflict | WhaleMirror"},
+
+            # Group 6: Anti-Conflict Gating Comparison (Un-gated vs Gated) [Runs 24-26]
+            {"id": 24, "n_wallets": 10, "min_wr": 70.0, "min_pnl": 50000.0, "sizing_mode": "pure_proportional", "anti_conflict": False, "hold_to_resolution": False, "desc": "N=10 | WR>=70% | PnL>=$50k | PureProp | Ungated | WhaleMirror"},
+            {"id": 25, "n_wallets": 10, "min_wr": 70.0, "min_pnl": 50000.0, "sizing_mode": "conviction_scaled", "anti_conflict": False, "hold_to_resolution": False, "desc": "N=10 | WR>=70% | PnL>=$50k | ConvictionProp | Ungated | WhaleMirror"},
+            {"id": 26, "n_wallets": 10, "min_wr": 70.0, "min_pnl": 50000.0, "sizing_mode": "fee_aware", "anti_conflict": False, "hold_to_resolution": False, "desc": "N=10 | WR>=70% | PnL>=$50k | FeeAwareProp | Ungated | WhaleMirror"},
+
+            # Group 7: Exit Modes Comparison (Resolution Hold 'Diamond Hands' vs Whale Mirror) [Runs 27-30]
+            {"id": 27, "n_wallets": 10, "min_wr": 70.0, "min_pnl": 50000.0, "sizing_mode": "pure_proportional", "anti_conflict": True, "hold_to_resolution": True, "desc": "N=10 | WR>=70% | PnL>=$50k | PureProp | AntiConflict | DiamondHands"},
+            {"id": 28, "n_wallets": 5, "min_wr": 75.0, "min_pnl": 50000.0, "sizing_mode": "conviction_scaled", "anti_conflict": True, "hold_to_resolution": True, "desc": "N=5  | WR>=75% | PnL>=$50k | ConvictionProp | AntiConflict | DiamondHands"},
+            {"id": 29, "n_wallets": 10, "min_wr": 75.0, "min_pnl": 50000.0, "sizing_mode": "fee_aware", "anti_conflict": True, "hold_to_resolution": True, "desc": "N=10 | WR>=75% | PnL>=$50k | FeeAwareProp | AntiConflict | DiamondHands"},
+            {"id": 30, "n_wallets": 12, "min_wr": 80.0, "min_pnl": 100000.0, "sizing_mode": "conviction_scaled", "anti_conflict": True, "hold_to_resolution": True, "desc": "N=12 | WR>=80% | PnL>=$100k| ConvictionProp | AntiConflict | DiamondHands"}
+        ]
+
+        whales_cache = {}
+        records = []
+        results_map = {}
+
+        logger.info(f"Executing 30-configuration parameter sweep from {start_ts} to {end_ts}...")
+        for c in configs:
+            cache_key = (c["min_pnl"], c["min_wr"], c["n_wallets"])
+            if cache_key not in whales_cache:
+                whales_qual = self.data_loader.find_qualified_whales(
+                    start_ts=start_ts,
+                    end_ts=end_ts,
+                    lookback_days=getattr(self.base_config, "lookback_days", 60),
+                    min_pnl=c["min_pnl"],
+                    min_win_rate=c["min_wr"],
+                    max_whales=c["n_wallets"]
+                )
+                whales_cache[cache_key] = whales_qual
+            else:
+                whales_qual = whales_cache[cache_key]
+
+            whale_addrs = [q.address for q in whales_qual]
+
+            strat = ProportionalSleeveStrategy(
+                sizing_mode=c["sizing_mode"],
+                enable_anti_conflict=c["anti_conflict"],
+                hold_to_resolution=c["hold_to_resolution"],
+                n_active=c["n_wallets"],
+                name=f"Config_{c['id']:02d}_{c['desc'].split(' | ')[3]}"
+            )
+            strat.set_qualified_roster(whales_qual)
+
+            cfg = copy.deepcopy(self.base_config)
+            cfg.initial_capital = initial_capital
+            cfg.hold_to_resolution = c["hold_to_resolution"]
+
+            engine = BacktestEngine(config=cfg, strategy=strat, data_loader=self.data_loader)
+            res = engine.run(
+                start_ts=start_ts,
+                end_ts=end_ts,
+                whale_addresses=whale_addrs,
+                limit_trades=limit_trades
+            )
+            results_map[c["id"]] = res
+
+            score = (res.sharpe_ratio * res.profit_factor) / max(1.0, res.max_drawdown_pct)
+            records.append({
+                "config_id": c["id"],
+                "description": c["desc"],
+                "n_wallets": c["n_wallets"],
+                "min_wr": c["min_wr"],
+                "min_pnl": c["min_pnl"],
+                "sizing_mode": c["sizing_mode"],
+                "anti_conflict": c["anti_conflict"],
+                "exit_mode": "DiamondHands" if c["hold_to_resolution"] else "WhaleMirror",
+                "net_pnl": res.total_net_pnl,
+                "roi_pct": res.roi_pct,
+                "annualized_roi_pct": res.annualized_roi_pct,
+                "sharpe_ratio": res.sharpe_ratio,
+                "sortino_ratio": res.sortino_ratio,
+                "max_drawdown_pct": res.max_drawdown_pct,
+                "win_rate_pct": res.win_rate_pct,
+                "profit_factor": res.profit_factor,
+                "total_trades": res.total_trades,
+                "total_fees_usd": res.total_fees_usd,
+                "composite_score": round(score, 3)
+            })
+
+        # Rank all 30 configurations by composite score and net PnL
+        records.sort(key=lambda r: (r["composite_score"], r["net_pnl"]), reverse=True)
+        for rank, r in enumerate(records, 1):
+            r["rank"] = rank
+
+        best_cfg = records[0]
+        # Return top 6 distinct BacktestResult objects for chart rendering
+        top_results = [results_map[r["config_id"]] for r in records[:6]]
+
+        return records, best_cfg, top_results
+
     def close(self):
         self.data_loader.close()
+

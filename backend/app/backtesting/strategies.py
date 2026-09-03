@@ -670,3 +670,274 @@ class BaleenDynamicSizerStrategy(BaseStrategy):
         self._record_whale_buy(signal)
         return round(final_size, 2)
 
+
+class ProportionalSleeveStrategy(BaseStrategy):
+    """
+    Intuitive Proportional Sleeve Sizing Strategy:
+    Simplifies proportional copy-trading to match real life:
+      - If user has bankroll B and tracks N wallets, sleeve per wallet is S = B / N.
+      - When a whale with net worth W (pre-trade) places a trade of size T_whale,
+        their bet percentage is f = T_whale / W.
+      - Our copied trade size is simply T_user = S * f.
+    
+    Modes & Options:
+      - sizing_mode:
+          * "pure_proportional": T_user = S * f
+          * "conviction_scaled": T_user = S * f * conviction_mult (scales with whale's percentile bet size)
+          * "fee_aware": T_user = S * f only if expected edge clears the fee hurdle
+      - enable_anti_conflict: bool (blocks opposing positions on same market)
+      - hold_to_resolution: bool (whale mirror vs resolution hold)
+      - risk_cap: float (e.g. 0.15 = 15% max portfolio risk per trade)
+      - n_active: Optional[int] (explicit override for N)
+      - min_order_usd: float = 1.0
+    """
+    def __init__(
+        self,
+        sizing_mode: str = "pure_proportional",  # "pure_proportional", "conviction_scaled", "fee_aware"
+        enable_anti_conflict: bool = True,
+        hold_to_resolution: bool = False,
+        initial_whale_net_worth: float = 50000.0,
+        max_conflict_tolerance: float = 0.15,
+        ev_multiplier: float = 2.5,
+        risk_cap: float = 0.15,
+        min_order_usd: float = 1.0,
+        n_active: Optional[int] = None,
+        name: Optional[str] = None
+    ):
+        mode_label = {
+            "pure_proportional": "PureProp",
+            "conviction_scaled": "ConvictionProp",
+            "fee_aware": "FeeAwareProp"
+        }.get(sizing_mode, "PropSleeve")
+        exit_label = "DiamondHands" if hold_to_resolution else "MirrorExit"
+        conflict_label = "AntiConflict" if enable_anti_conflict else "Ungated"
+        default_name = f"{mode_label}_{conflict_label}_{exit_label}"
+        super().__init__(name or default_name)
+
+        self.sizing_mode = sizing_mode
+        self.enable_anti_conflict = enable_anti_conflict
+        self.hold_to_resolution = hold_to_resolution
+        self.default_whale_net_worth = initial_whale_net_worth
+        self.max_conflict_tolerance = max_conflict_tolerance
+        self.ev_multiplier = ev_multiplier
+        self.risk_cap = risk_cap
+        self.min_order_usd = min_order_usd
+        self.n_active_override = n_active
+
+        # Accounting state
+        self.whale_initial_net_worth: Dict[str, float] = {}
+        self.whale_realized_pnl: Dict[str, float] = {}
+        self.whale_open_positions: Dict[str, Dict[Tuple[str, str], WhalePositionTracker]] = {}
+        self.latest_prices: Dict[Tuple[str, str], float] = {}
+        self.trailing_sizes: Dict[str, List[float]] = {}
+
+        # Anti-conflict state
+        self.whale_market_sides: Dict[str, Dict[str, Set[str]]] = {}
+        self.disqualified_whales: Set[str] = set()
+        self.active_roster_count: int = 10
+
+    def should_mirror_whale_exit(self, signal: TradeSignal, portfolio: SimulatedPortfolio) -> bool:
+        return not self.hold_to_resolution
+
+    def set_qualified_roster(self, roster: List[WhaleQualification]):
+        self.active_roster_count = max(1, len(roster))
+        for q in roster:
+            clean = q.address.lower()
+            base_nw = max(self.default_whale_net_worth, float(q.realized_pnl)) if q.realized_pnl > 0 else self.default_whale_net_worth
+            self.whale_initial_net_worth[clean] = base_nw
+            self.whale_realized_pnl.setdefault(clean, 0.0)
+            self.whale_open_positions.setdefault(clean, {})
+
+    def get_whale_net_worth(self, whale_address: str) -> float:
+        clean = whale_address.lower()
+        base = self.whale_initial_net_worth.get(clean, self.default_whale_net_worth)
+        realized = self.whale_realized_pnl.get(clean, 0.0)
+
+        unrealized_pnl = 0.0
+        positions = self.whale_open_positions.get(clean, {})
+        for key, pos in positions.items():
+            curr_p = self.latest_prices.get(key, pos.last_price or pos.avg_price)
+            curr_val = pos.shares * curr_p
+            unrealized_pnl += (curr_val - pos.cost_basis)
+
+        net_worth = base + realized + unrealized_pnl
+        return max(1000.0, net_worth)
+
+    def on_trade_signal(self, signal: TradeSignal):
+        key = (signal.market_id, signal.nonusdc_side)
+        self.latest_prices[key] = signal.whale_price
+        if signal.side.upper() == "SELL":
+            self._record_whale_sell(signal)
+
+    def _record_whale_buy(self, signal: TradeSignal):
+        clean_w = signal.whale_address.lower()
+        positions = self.whale_open_positions.setdefault(clean_w, {})
+        key = (signal.market_id, signal.nonusdc_side)
+
+        price = max(0.001, signal.whale_price)
+        shares_added = signal.whale_shares if signal.whale_shares > 0 else (signal.whale_size_usd / price)
+        cost_added = signal.whale_size_usd
+
+        if key in positions:
+            pos = positions[key]
+            new_shares = pos.shares + shares_added
+            new_cost = pos.cost_basis + cost_added
+            pos.avg_price = new_cost / new_shares if new_shares > 0 else price
+            pos.shares = new_shares
+            pos.cost_basis = new_cost
+            pos.last_price = price
+        else:
+            positions[key] = WhalePositionTracker(
+                shares=shares_added,
+                cost_basis=cost_added,
+                avg_price=price,
+                last_price=price,
+                market_id=signal.market_id,
+                outcome_token=signal.nonusdc_side
+            )
+
+    def _record_whale_sell(self, signal: TradeSignal):
+        clean_w = signal.whale_address.lower()
+        positions = self.whale_open_positions.setdefault(clean_w, {})
+        key = (signal.market_id, signal.nonusdc_side)
+
+        if key not in positions:
+            return
+
+        pos = positions[key]
+        price = max(0.001, signal.whale_price)
+        shares_sold = signal.whale_shares if signal.whale_shares > 0 else (signal.whale_size_usd / price)
+        shares_to_close = min(pos.shares, shares_sold)
+
+        if shares_to_close <= 0:
+            return
+
+        fraction = shares_to_close / pos.shares if pos.shares > 0 else 1.0
+        cost_sold = pos.cost_basis * fraction
+        proceeds = shares_to_close * price
+        realized_gain = proceeds - cost_sold
+
+        self.whale_realized_pnl[clean_w] = self.whale_realized_pnl.get(clean_w, 0.0) + realized_gain
+        pos.shares -= shares_to_close
+        pos.cost_basis -= cost_sold
+        pos.last_price = price
+
+        if pos.shares <= 0.001:
+            del positions[key]
+
+    def on_market_resolved(
+        self,
+        market_id: str,
+        winning_token: Optional[str],
+        resolution_timestamp: float,
+        p1_payout: Optional[float] = None,
+        p2_payout: Optional[float] = None
+    ):
+        for clean_w, positions in self.whale_open_positions.items():
+            matching_keys = [k for k in list(positions.keys()) if k[0] == market_id]
+            for key in matching_keys:
+                pos = positions.pop(key)
+                if p1_payout is not None and p2_payout is not None:
+                    payout_price = p1_payout if pos.outcome_token == "token1" else p2_payout
+                elif winning_token:
+                    payout_price = 1.00 if pos.outcome_token == winning_token else 0.00
+                else:
+                    payout_price = 0.50
+
+                gross_proceeds = pos.shares * payout_price
+                realized = gross_proceeds - pos.cost_basis
+                self.whale_realized_pnl[clean_w] = self.whale_realized_pnl.get(clean_w, 0.0) + realized
+
+    def evaluate_signal(self, signal: TradeSignal, portfolio: SimulatedPortfolio) -> Optional[float]:
+        if signal.side.upper() != "BUY":
+            return None
+
+        clean_w = signal.whale_address.lower()
+
+        # 1. Anti-Conflict Gating
+        if self.enable_anti_conflict:
+            if clean_w in self.disqualified_whales:
+                self._record_whale_buy(signal)
+                return None
+
+            m_dict = self.whale_market_sides.setdefault(clean_w, {})
+            m_key = signal.condition_id or signal.market_id
+            sides = m_dict.setdefault(m_key, set())
+
+            if len(sides) > 0 and signal.nonusdc_side not in sides:
+                sides.add(signal.nonusdc_side)
+                conflicts = sum(1 for s in m_dict.values() if len(s) > 1)
+                total_mkts = max(1, len(m_dict))
+                if (conflicts / total_mkts) > self.max_conflict_tolerance:
+                    self.disqualified_whales.add(clean_w)
+                self._record_whale_buy(signal)
+                return None
+
+            sides.add(signal.nonusdc_side)
+            conflicts = sum(1 for s in m_dict.values() if len(s) > 1)
+            total_mkts = max(1, len(m_dict))
+            if conflicts >= 1 and (conflicts / total_mkts) > self.max_conflict_tolerance:
+                self.disqualified_whales.add(clean_w)
+                self._record_whale_buy(signal)
+                return None
+
+        # 2. Track latest price
+        key = (signal.market_id, signal.nonusdc_side)
+        self.latest_prices[key] = signal.whale_price
+
+        # 3. Fee-Aware EV Gate (if fee_aware sizing mode)
+        if self.sizing_mode == "fee_aware":
+            p = max(0.01, min(0.99, signal.whale_price))
+            _, theta = classify_market_category(signal.market_title or signal.category)
+            fee_rate = theta * (1.0 - p)
+            min_required_edge = self.ev_multiplier * fee_rate
+            assumed_whale_edge = max(0.01, (0.70 - p)) if p < 0.70 else 0.03
+            if assumed_whale_edge < min_required_edge:
+                self._record_whale_buy(signal)
+                return None
+
+        # 4. Bankroll B and Active Wallets N -> Sleeve S = B / N
+        user_bankroll = max(100.0, portfolio.initial_capital + sum(t.net_pnl for t in portfolio.closed_trades))
+        n_active = self.n_active_override or max(1, len(portfolio.sleeve_budgets) if portfolio.sleeve_budgets else self.active_roster_count)
+        sleeve_s = user_bankroll / float(n_active)
+
+        # 5. Whale pre-trade Net Worth W and Bet Fraction f = T_whale / W
+        whale_nw = self.get_whale_net_worth(clean_w)
+        whale_portfolio_val = max(1000.0, signal.whale_size_usd, whale_nw)
+        f_whale = min(1.0, signal.whale_size_usd / whale_portfolio_val)
+
+        # 6. Copied Trade Size T_user = S * f
+        raw_t_user = sleeve_s * f_whale
+
+        # Optional Conviction Scaling
+        sizes = self.trailing_sizes.setdefault(clean_w, [])
+        sizes.append(signal.whale_size_usd)
+        if len(sizes) > 100:
+            sizes.pop(0)
+
+        if self.sizing_mode == "conviction_scaled":
+            conviction = SleeveManager.calculate_conviction_percentile(signal.whale_size_usd, sizes)
+            # Scale smoothly: 0.6x for low conviction, 1.4x for max conviction
+            conv_mult = 0.60 + (conviction * 0.80)
+            raw_t_user *= conv_mult
+
+        # Risk Cap
+        max_allowed = user_bankroll * self.risk_cap
+        capped_size = min(raw_t_user, max_allowed)
+
+        # Capital & Sleeve constraints
+        sleeve_cash = portfolio.get_available_sleeve_cash(clean_w)
+        final_size = min(capped_size, portfolio.cash, sleeve_cash)
+
+        if final_size < self.min_order_usd:
+            self._record_whale_buy(signal)
+            return None
+
+        self._record_whale_buy(signal)
+        return round(final_size, 2)
+
+
+# Alias for intuitive proportional strategy
+IntuitiveProportionalStrategy = ProportionalSleeveStrategy
+
+

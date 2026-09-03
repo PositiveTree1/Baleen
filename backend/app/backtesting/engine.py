@@ -58,7 +58,11 @@ class BacktestEngine:
         resolved_markets = set()
         latest_prices: Dict[str, float] = {}
         last_snapshot_ts = start_ts
-        snapshot_interval = 86400  # Daily equity snapshots
+        snapshot_interval = 3600  # Hourly periodic equity snapshots (or mark-to-market)
+        trades_processed = 0
+
+        # Initial equity snapshot at start of simulation
+        self.portfolio.record_equity_snapshot(float(start_ts), latest_prices=latest_prices)
 
         # 3. Stream trades chronologically
         trade_stream = self.data_loader.stream_trades_in_window(
@@ -69,6 +73,7 @@ class BacktestEngine:
         )
 
         for signal in trade_stream:
+            trades_processed += 1
             curr_ts = signal.timestamp
             latest_prices[f"{signal.market_id}_{signal.nonusdc_side}"] = signal.whale_price
             latest_prices[signal.market_id] = signal.whale_price
@@ -77,8 +82,8 @@ class BacktestEngine:
             if hasattr(self.strategy, "on_trade_signal"):
                 self.strategy.on_trade_signal(signal)
 
-            # Check daily equity snapshot
-            if curr_ts - last_snapshot_ts >= snapshot_interval:
+            # Periodic mark-to-market snapshot: hourly or every 25 trades when holding positions
+            if (curr_ts - last_snapshot_ts >= snapshot_interval) or (trades_processed % 25 == 0 and self.portfolio.open_positions):
                 self.portfolio.record_equity_snapshot(float(curr_ts), latest_prices=latest_prices)
                 last_snapshot_ts = curr_ts
 
@@ -103,17 +108,20 @@ class BacktestEngine:
                                 p1_payout=p1,
                                 p2_payout=p2
                             )
-                            for t in settled:
-                                self.strategy.on_trade_closed(t)
-                            if hasattr(self.strategy, "on_market_resolved"):
-                                self.strategy.on_market_resolved(
-                                    market_id=o_mid,
-                                    winning_token=winning_tok,
-                                    resolution_timestamp=float(end_t),
-                                    p1_payout=p1,
-                                    p2_payout=p2
-                                )
-                            resolved_markets.add(o_mid)
+                            if settled:
+                                for t in settled:
+                                    self.strategy.on_trade_closed(t)
+                                if hasattr(self.strategy, "on_market_resolved"):
+                                    self.strategy.on_market_resolved(
+                                        market_id=o_mid,
+                                        winning_token=winning_tok,
+                                        resolution_timestamp=float(end_t),
+                                        p1_payout=p1,
+                                        p2_payout=p2
+                                    )
+                                resolved_markets.add(o_mid)
+                                # Record snapshot on resolution settlement
+                                self.portfolio.record_equity_snapshot(float(curr_ts), latest_prices=latest_prices)
 
             # Process Signal
             if signal.side.upper() == "SELL":
@@ -134,6 +142,8 @@ class BacktestEngine:
                         closed_t = self.portfolio.close_position_on_whale_sell(signal, fill)
                         if closed_t:
                             self.strategy.on_trade_closed(closed_t)
+                            # Record snapshot on sell fill
+                            self.portfolio.record_equity_snapshot(float(curr_ts), latest_prices=latest_prices)
 
             elif signal.side.upper() == "BUY":
                 # Ask strategy for sizing
@@ -163,7 +173,10 @@ class BacktestEngine:
                 )
 
                 if fill.status in ("FILLED", "PARTIALLY_FILLED"):
-                    self.portfolio.open_position(fill)
+                    new_pos = self.portfolio.open_position(fill)
+                    if new_pos:
+                        # Record snapshot on buy fill
+                        self.portfolio.record_equity_snapshot(float(curr_ts), latest_prices=latest_prices)
 
         # 4. End of simulation settlement
         # STRICT ZERO LOOKAHEAD: Settle ONLY remaining open positions whose markets closed ON OR BEFORE end_ts
@@ -187,17 +200,19 @@ class BacktestEngine:
                             p1_payout=p1,
                             p2_payout=p2
                         )
-                        for t in settled:
-                            self.strategy.on_trade_closed(t)
-                        if hasattr(self.strategy, "on_market_resolved"):
-                            self.strategy.on_market_resolved(
-                                market_id=m_id,
-                                winning_token=winning_tok,
-                                resolution_timestamp=float(end_t),
-                                p1_payout=p1,
-                                p2_payout=p2
-                            )
-                        resolved_markets.add(m_id)
+                        if settled:
+                            for t in settled:
+                                self.strategy.on_trade_closed(t)
+                            if hasattr(self.strategy, "on_market_resolved"):
+                                self.strategy.on_market_resolved(
+                                    market_id=m_id,
+                                    winning_token=winning_tok,
+                                    resolution_timestamp=float(end_t),
+                                    p1_payout=p1,
+                                    p2_payout=p2
+                                )
+                            resolved_markets.add(m_id)
+                            self.portfolio.record_equity_snapshot(float(end_t), latest_prices=latest_prices)
 
         self.portfolio.record_equity_snapshot(float(end_ts), latest_prices=latest_prices)
         return self.portfolio.compute_final_metrics(start_ts, end_ts, self.strategy.name)

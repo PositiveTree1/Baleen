@@ -23,6 +23,7 @@ from app.backtesting.report import (
     format_parameter_sweep_table,
     format_capital_sweep_table,
     format_window_sweep_table,
+    format_30_sweep_table,
     generate_comparison_charts,
 )
 
@@ -44,7 +45,8 @@ def main():
     parser.add_argument("--sweep-capital", action="store_true", help="Run multi-capital sweep ($1,000, $5,000, $10,000)")
     parser.add_argument("--sweep-windows", action="store_true", help="Run multi-window duration sweep (1-Month, 3-Month, 6-Month)")
     parser.add_argument("--sweep-params", action="store_true", help="Run parameter optimization grid sweep")
-    parser.add_argument("--all", action="store_true", help="Run full comprehensive suite (strategies, capital sweep, window sweep)")
+    parser.add_argument("--sweep-30", action="store_true", help="Run 30-configuration structural parameter sweep")
+    parser.add_argument("--all", action="store_true", help="Run full comprehensive suite (strategies, capital sweep, window sweep, 30-sweep)")
 
     args = parser.parse_args()
 
@@ -80,7 +82,7 @@ def main():
 
     try:
         # 1. Strategy Comparison
-        print(">>> [1/3] RUNNING HEAD-TO-HEAD STRATEGY COMPARISON <<<")
+        print(">>> [1/4] RUNNING HEAD-TO-HEAD STRATEGY COMPARISON <<<")
         logger.info(f"Evaluating key strategy architectures on {period_label}...")
         results = optimizer.compare_strategies(
             start_ts=s_ts,
@@ -98,7 +100,11 @@ def main():
         # Generate & save comparison charts
         data_dir = os.path.join(backend_root, "data")
         extra_dirs = []
-        for cid in ["46b2eeba-fcaa-448d-b531-53aab065f8a0", "3558f49c-622a-4113-ae69-0a73aba3f6a5"]:
+        for cid in [
+            "46b2eeba-fcaa-448d-b531-53aab065f8a0",
+            "3558f49c-622a-4113-ae69-0a73aba3f6a5",
+            "6ea603d6-3089-42fa-9408-e2af7a110866"
+        ]:
             p = os.path.join("C:/Users/arthu/.gemini/antigravity/brain", cid)
             if os.path.exists(p) and p not in extra_dirs:
                 extra_dirs.append(p)
@@ -107,10 +113,26 @@ def main():
         for k, p in chart_files.items():
             print(f"    - {k}: {p}")
 
+        # 2. 30-Configuration Structural Parameter Sweep
+        if args.sweep_30 or args.all:
+            print("\n>>> [2/4] RUNNING 30-CONFIGURATION STRUCTURAL PARAMETER SWEEP <<<")
+            sweep_30_records, best_30_cfg, top_30_results = optimizer.sweep_30_configurations(
+                start_ts=s_ts,
+                end_ts=e_ts,
+                limit_trades=args.limit_trades,
+                initial_capital=args.capital
+            )
+            print("\n=== 30-CONFIGURATION STRUCTURAL PARAMETER SWEEP RESULTS ===")
+            print(format_30_sweep_table(sweep_30_records))
+            print(f"\n[+] OPTIMAL CONFIGURATION: Config #{best_30_cfg['config_id']:02d} ({best_30_cfg['description']})")
+            print(f"    Net PnL: ${best_30_cfg['net_pnl']:+,.2f} | ROI: {best_30_cfg['roi_pct']:+.2f}% | Sharpe: {best_30_cfg['sharpe_ratio']:.2f} | Win Rate: {best_30_cfg['win_rate_pct']:.1f}% | Composite Score: {best_30_cfg['composite_score']:.3f}\n")
 
-        # 2. Multi-Capital Sweep
+            # Update charts with top performing configurations
+            generate_comparison_charts(top_30_results, output_dir=data_dir, extra_output_dirs=extra_dirs)
+
+        # 3. Multi-Capital Sweep
         if args.sweep_capital or args.all:
-            print("\n>>> [2/3] RUNNING MULTI-CAPITAL SIZING SWEEP ($1,000, $5,000, $10,000) <<<")
+            print("\n>>> [3/4] RUNNING MULTI-CAPITAL SIZING SWEEP ($1,000, $5,000, $10,000) <<<")
             cap_records = optimizer.sweep_capital(
                 start_ts=s_ts,
                 end_ts=e_ts,
@@ -121,9 +143,9 @@ def main():
             print("\n=== MULTI-CAPITAL SCALING RESULTS ===")
             print(format_capital_sweep_table(cap_records))
 
-        # 3. Multi-Window Sweep
+        # 4. Multi-Window Sweep
         if args.sweep_windows or args.all:
-            print("\n>>> [3/3] RUNNING MULTI-WINDOW EXTENDED DURATION SWEEP <<<")
+            print("\n>>> [4/4] RUNNING MULTI-WINDOW EXTENDED DURATION SWEEP <<<")
             win_records = optimizer.sweep_windows(
                 capital=args.capital,
                 entry_usd=args.entry_usd,
@@ -132,7 +154,7 @@ def main():
             print("\n=== MULTI-WINDOW EXTENDED DURATION RESULTS ===")
             print(format_window_sweep_table(win_records))
 
-        # 4. Parameter Grid Sweep (if requested)
+        # 5. Parameter Grid Sweep (if requested)
         if args.sweep_params:
             print("\n>>> RUNNING PARAMETER OPTIMIZATION GRID SWEEP <<<")
             param_records = optimizer.sweep_parameters(

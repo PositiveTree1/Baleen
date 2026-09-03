@@ -38,6 +38,21 @@ def format_parameter_sweep_table(sweep_records: List[Dict[str, Any]]) -> str:
     return "\n".join(lines)
 
 
+def format_30_sweep_table(records: List[Dict[str, Any]]) -> str:
+    """Generates a comprehensive markdown table of the 30-configuration parameter sweep."""
+    lines = [
+        "| Rank | Config | Description | Net PnL ($) | ROI (%) | Sharpe | Sortino | Max DD (%) | Win Rate (%) | Profit Factor | Trades | Fees ($) | Composite Score |",
+        "| :---: | :---: | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |"
+    ]
+    for r in records:
+        lines.append(
+            f"| #{r['rank']} | #{r['config_id']:02d} | {r['description']} | ${r['net_pnl']:+,.2f} | {r['roi_pct']:+.2f}% | "
+            f"{r['sharpe_ratio']:.2f} | {r['sortino_ratio']:.2f} | {r['max_drawdown_pct']:.1f}% | {r['win_rate_pct']:.1f}% | "
+            f"{r['profit_factor']:.2f} | {r['total_trades']} | ${r['total_fees_usd']:,.2f} | **{r['composite_score']:.3f}** |"
+        )
+    return "\n".join(lines)
+
+
 def format_capital_sweep_table(records: List[Dict[str, Any]]) -> str:
     """Generates a markdown table of multi-capital simulation results."""
     lines = [

@@ -266,6 +266,14 @@ class SimulatedPortfolio:
         total_equity = self.cash + invested_notional + unrealized_pnl
         realized_pnl = sum(t.net_pnl for t in self.closed_trades)
 
+        ts = max(float(current_timestamp), self.last_snapshot_time)
+
+        # Avoid redundant duplicate points if timestamp and equity have not changed
+        if self.equity_curve:
+            last = self.equity_curve[-1]
+            if math.isclose(last.timestamp, ts, abs_tol=1e-3) and math.isclose(last.total_equity, total_equity, abs_tol=1e-2):
+                return
+
         if total_equity > self.peak_equity:
             self.peak_equity = total_equity
 
@@ -278,7 +286,7 @@ class SimulatedPortfolio:
             self.max_drawdown_pct = dd_pct
 
         point = EquityPoint(
-            timestamp=current_timestamp,
+            timestamp=ts,
             cash_balance=round(self.cash, 2),
             invested_notional=round(invested_notional, 2),
             total_equity=round(total_equity, 2),
@@ -287,7 +295,7 @@ class SimulatedPortfolio:
             drawdown_pct=round(dd_pct, 2)
         )
         self.equity_curve.append(point)
-        self.last_snapshot_time = current_timestamp
+        self.last_snapshot_time = ts
 
     def compute_final_metrics(
         self,
@@ -302,6 +310,9 @@ class SimulatedPortfolio:
         # Ensure a final snapshot exists
         if not self.equity_curve:
             self.record_equity_snapshot(float(end_ts))
+
+        # Sort snapshots chronologically
+        self.equity_curve.sort(key=lambda p: p.timestamp)
 
         final_equity = self.equity_curve[-1].total_equity
         total_net_pnl = final_equity - self.initial_capital
@@ -318,13 +329,26 @@ class SimulatedPortfolio:
         profit_factor = (gross_wins / gross_losses) if gross_losses > 0 else (99.0 if gross_wins > 0 else 1.0)
         profit_factor = min(99.0, round(profit_factor, 2))
 
-        # Daily Return Sharpe & Sortino
+        # True Daily Return Sharpe & Sortino
+        daily_equities = {}
+        for p in self.equity_curve:
+            day_idx = int(p.timestamp // 86400)
+            daily_equities[day_idx] = p.total_equity
+
+        sorted_days = sorted(daily_equities.keys())
         daily_returns = []
-        if len(self.equity_curve) >= 2:
+        if len(sorted_days) >= 2:
+            for i in range(1, len(sorted_days)):
+                e_prev = daily_equities[sorted_days[i-1]]
+                e_curr = daily_equities[sorted_days[i]]
+                if e_prev > 0:
+                    daily_returns.append((e_curr - e_prev) / e_prev)
+        else:
+            # For intraday or sparse windows, compute step returns across equity curve
             for i in range(1, len(self.equity_curve)):
                 e_prev = self.equity_curve[i-1].total_equity
                 e_curr = self.equity_curve[i].total_equity
-                if e_prev > 0:
+                if e_prev > 0 and not math.isclose(e_prev, e_curr, abs_tol=1e-4):
                     daily_returns.append((e_curr - e_prev) / e_prev)
 
         if daily_returns and len(daily_returns) >= 2:

@@ -15,6 +15,9 @@ class WhaleQualification:
     sharpe_ratio: float
     tier: str  # "gold_sniper" or "standard"
     is_conflicting: bool = False
+    consistency_score: float = 1.0
+    trades_per_day: float = 0.0
+    max_drawdown_pct: float = 0.0
 
 @dataclass
 class TradeSignal:
