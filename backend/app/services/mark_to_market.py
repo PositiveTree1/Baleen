@@ -260,7 +260,7 @@ class MarkToMarketService:
                 except Exception as snap_err:
                     logger.error(f"❌ MTM snapshot write failed: {snap_err}", exc_info=True)
                     try:
-                        await db.commit()
+                        await db.rollback()
                     except Exception:
                         pass
         finally:

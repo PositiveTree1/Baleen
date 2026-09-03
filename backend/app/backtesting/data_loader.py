@@ -40,14 +40,24 @@ class PolymarketDataLoader:
         """Parses outcome_prices string to determine winning outcome and authentic contract payouts."""
         winning_token = None
         p1, p2 = 0.0, 0.0
-        if prices_raw and prices_raw.startswith("[") and prices_raw.endswith("]"):
+        if prices_raw:
             try:
-                parsed = ast.literal_eval(prices_raw)
-                if isinstance(parsed, (list, tuple)) and len(parsed) >= 2:
-                    p1 = float(parsed[0] or 0.0)
-                    p2 = float(parsed[1] or 0.0)
+                if str(prices_raw).startswith("[") and str(prices_raw).endswith("]"):
+                    parsed = ast.literal_eval(str(prices_raw))
+                    if isinstance(parsed, (list, tuple)) and len(parsed) >= 2:
+                        p1 = float(parsed[0] or 0.0)
+                        p2 = float(parsed[1] or 0.0)
             except Exception:
                 pass
+            if p1 == 0.0 and p2 == 0.0:
+                import re
+                nums = re.findall(r'([0-9.]+)', str(prices_raw))
+                if len(nums) >= 2:
+                    try:
+                        p1 = float(nums[0])
+                        p2 = float(nums[1])
+                    except Exception:
+                        pass
         if p1 > p2:
             winning_token = "token1"
         elif p2 > p1:
@@ -131,10 +141,11 @@ class PolymarketDataLoader:
             query = f"""
             WITH market_res AS (
                 SELECT id,
-                    CASE WHEN outcome_prices LIKE '[1%' OR outcome_prices LIKE '[''1''%' THEN 1.0 ELSE 0.0 END as p1,
-                    CASE WHEN outcome_prices LIKE '%, 1]' OR outcome_prices LIKE '%, ''1'']' THEN 1.0 ELSE 0.0 END as p2
+                    CASE WHEN TRY_CAST(regexp_extract(outcome_prices, '([0-9.]+)', 1) AS DOUBLE) > 0.5 THEN 1.0 ELSE 0.0 END as p1,
+                    CASE WHEN TRY_CAST(regexp_extract(outcome_prices, ',\\s*''?([0-9.]+)', 1) AS DOUBLE) > 0.5 THEN 1.0 ELSE 0.0 END as p2
                 FROM '{self.markets_path}'
                 WHERE closed = 1 AND outcome_prices IS NOT NULL
+                  AND epoch(end_date) <= {q_end}
             ),
             wallet_trades AS (
                 SELECT 

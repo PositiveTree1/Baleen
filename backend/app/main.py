@@ -1,11 +1,15 @@
 import asyncio
 import logging
+import os
+import time
+import httpx
 from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
+from app.config import settings
 from app.database import init_db, get_db
 from app.api import wallets, execution_logs, users, admin, signals, events, copilot
 from app.workers.discovery_worker import run_discovery
@@ -38,10 +42,6 @@ app.include_router(events.router)
 app.include_router(copilot.router)
 
 scheduler = AsyncIOScheduler()
-import time
-import os
-import httpx
-from app.config import settings
 
 server_start_time = time.time()
 last_cron_ping_time = time.time()
@@ -182,7 +182,6 @@ async def health_check():
 @app.get("/api/stats")
 async def get_stats(db: AsyncSession = Depends(get_db)):
     from app.models import Wallet, ExecutionLog
-    from sqlalchemy import func
     
     wallet_count = (await db.execute(
         select(func.count()).select_from(Wallet).where(Wallet.status == "active")
@@ -201,7 +200,6 @@ async def get_stats(db: AsyncSession = Depends(get_db)):
 @app.get("/api/diagnostics")
 async def diagnostics(db: AsyncSession = Depends(get_db)):
     """Test all external API connections and report results."""
-    import httpx
     from app.models import Wallet, User
     from app.database import _using_sqlite_fallback, engine
     results = {}

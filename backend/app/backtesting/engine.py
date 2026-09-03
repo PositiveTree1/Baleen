@@ -56,6 +56,7 @@ class BacktestEngine:
 
         self.portfolio.register_active_roster(whale_addresses)
         resolved_markets = set()
+        latest_prices: Dict[str, float] = {}
         last_snapshot_ts = start_ts
         snapshot_interval = 86400  # Daily equity snapshots
 
@@ -69,31 +70,38 @@ class BacktestEngine:
 
         for signal in trade_stream:
             curr_ts = signal.timestamp
+            latest_prices[f"{signal.market_id}_{signal.nonusdc_side}"] = signal.whale_price
+            latest_prices[signal.market_id] = signal.whale_price
 
             # Check daily equity snapshot
             if curr_ts - last_snapshot_ts >= snapshot_interval:
-                self.portfolio.record_equity_snapshot(float(curr_ts))
+                self.portfolio.record_equity_snapshot(float(curr_ts), latest_prices=latest_prices)
                 last_snapshot_ts = curr_ts
 
-            # Check if this market was closed / resolved prior to this trade
-            m_id = signal.market_id
-            m_info = market_meta.get(m_id, {})
-            if m_info.get("closed") and m_id not in resolved_markets:
-                end_t = m_info.get("end_timestamp") or curr_ts
-                if end_t <= curr_ts:
-                    p1 = m_info.get("p1_payout")
-                    p2 = m_info.get("p2_payout")
-                    winning_tok = m_info.get("winning_token")
-                    settled = self.portfolio.settle_market_resolution(
-                        market_id=m_id,
-                        winning_token=winning_tok,
-                        resolution_timestamp=float(end_t),
-                        p1_payout=p1,
-                        p2_payout=p2
-                    )
-                    for t in settled:
-                        self.strategy.on_trade_closed(t)
-                    resolved_markets.add(m_id)
+            # In-stream market resolution: settle any open positions whose markets have reached resolution
+            open_market_ids = {p.market_id for p in self.portfolio.open_positions.values()}
+            for o_mid in open_market_ids:
+                if o_mid not in resolved_markets:
+                    m_info = market_meta.get(o_mid) or self.data_loader._market_resolutions_cache.get(o_mid)
+                    if not m_info:
+                        fetched = self.data_loader.get_market_metadata([o_mid])
+                        m_info = fetched.get(o_mid, {})
+                    if m_info.get("closed"):
+                        end_t = m_info.get("end_timestamp") or curr_ts
+                        if end_t <= curr_ts:
+                            p1 = m_info.get("p1_payout")
+                            p2 = m_info.get("p2_payout")
+                            winning_tok = m_info.get("winning_token")
+                            settled = self.portfolio.settle_market_resolution(
+                                market_id=o_mid,
+                                winning_token=winning_tok,
+                                resolution_timestamp=float(end_t),
+                                p1_payout=p1,
+                                p2_payout=p2
+                            )
+                            for t in settled:
+                                self.strategy.on_trade_closed(t)
+                            resolved_markets.add(o_mid)
 
             # Process Signal
             if signal.side.upper() == "SELL":
@@ -144,22 +152,30 @@ class BacktestEngine:
                     self.portfolio.open_position(fill)
 
         # 4. End of simulation settlement
-        # Settle any remaining positions whose markets are closed in market_meta
-        for m_id, m_info in market_meta.items():
-            if m_info.get("closed") and m_id not in resolved_markets:
-                p1 = m_info.get("p1_payout")
-                p2 = m_info.get("p2_payout")
-                winning_tok = m_info.get("winning_token")
-                settled = self.portfolio.settle_market_resolution(
-                    market_id=m_id,
-                    winning_token=winning_tok,
-                    resolution_timestamp=float(end_ts),
-                    p1_payout=p1,
-                    p2_payout=p2
-                )
-                for t in settled:
-                    self.strategy.on_trade_closed(t)
-                resolved_markets.add(m_id)
+        # STRICT ZERO LOOKAHEAD: Settle ONLY remaining open positions whose markets closed ON OR BEFORE end_ts
+        remaining_open_market_ids = {p.market_id for p in self.portfolio.open_positions.values()}
+        for m_id in remaining_open_market_ids:
+            if m_id not in resolved_markets:
+                m_info = market_meta.get(m_id) or self.data_loader._market_resolutions_cache.get(m_id)
+                if not m_info:
+                    fetched = self.data_loader.get_market_metadata([m_id])
+                    m_info = fetched.get(m_id, {})
+                if m_info.get("closed"):
+                    end_t = m_info.get("end_timestamp") or 0.0
+                    if end_t > 0 and end_t <= end_ts:
+                        p1 = m_info.get("p1_payout")
+                        p2 = m_info.get("p2_payout")
+                        winning_tok = m_info.get("winning_token")
+                        settled = self.portfolio.settle_market_resolution(
+                            market_id=m_id,
+                            winning_token=winning_tok,
+                            resolution_timestamp=float(end_t),
+                            p1_payout=p1,
+                            p2_payout=p2
+                        )
+                        for t in settled:
+                            self.strategy.on_trade_closed(t)
+                        resolved_markets.add(m_id)
 
-        self.portfolio.record_equity_snapshot(float(end_ts))
+        self.portfolio.record_equity_snapshot(float(end_ts), latest_prices=latest_prices)
         return self.portfolio.compute_final_metrics(start_ts, end_ts, self.strategy.name)

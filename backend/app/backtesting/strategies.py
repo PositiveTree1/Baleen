@@ -100,6 +100,10 @@ class GoldSniperStrategy(BaseStrategy):
         if len(sizes) > 100:
             sizes.pop(0)
 
+        # Require at least 2 trades to establish an empirical distribution
+        if len(sizes) < 2:
+            return None
+
         conviction = SleeveManager.calculate_conviction_percentile(signal.whale_size_usd, sizes)
         if conviction < self.min_conviction:
             return None  # Skip low-conviction feeler trades
@@ -117,14 +121,16 @@ class ConsensusConfirmationStrategy(BaseStrategy):
     Requires 2 or more distinct qualified whales to buy the SAME outcome token on the SAME market
     within a confirmation time window (e.g. 24 hours).
     Signals from a single whale are tracked as pending; once confirmed by a 2nd whale,
-    an aggressive high-conviction order is executed.
+    an aggressive high-conviction order is executed with cooldown protection.
     """
-    def __init__(self, min_whales: int = 2, window_sec: float = 86400.0, name: str = "Consensus_2Whales_Confirmation"):
+    def __init__(self, min_whales: int = 2, window_sec: float = 86400.0, name: str = "Consensus_2Whales_Confirm"):
         super().__init__(name)
         self.min_whales = min_whales
         self.window_sec = window_sec
         # (market_id, nonusdc_side) -> {whale_address: timestamp}
         self.pending_buys: Dict[Tuple[str, str], Dict[str, float]] = {}
+        # Track confirmed and executed consensus keys with cooldown timestamp
+        self.executed_consensus: Dict[Tuple[str, str], float] = {}
 
     def evaluate_signal(self, signal: TradeSignal, portfolio: SimulatedPortfolio) -> Optional[float]:
         if signal.side.upper() != "BUY":
@@ -132,6 +138,12 @@ class ConsensusConfirmationStrategy(BaseStrategy):
 
         key = (signal.market_id, signal.nonusdc_side)
         curr_ts = float(signal.timestamp)
+
+        # Enforce 6-hour cooldown on repeated consensus entries for the exact same market outcome
+        last_exec = self.executed_consensus.get(key, 0.0)
+        if curr_ts - last_exec < 21600.0:  # 6 hours
+            return None
+
         whales_dict = self.pending_buys.setdefault(key, {})
 
         # Prune expired signals older than window_sec
@@ -143,6 +155,8 @@ class ConsensusConfirmationStrategy(BaseStrategy):
         distinct_whales = len(active_whales)
         if distinct_whales < self.min_whales:
             return None  # Awaiting 2nd whale confirmation
+
+        self.executed_consensus[key] = curr_ts
 
         # Confirmed consensus: deploy 4% of portfolio capital per consensus signal
         intended = portfolio.initial_capital * 0.04
@@ -156,6 +170,7 @@ class TopSharpeKellyStrategy(BaseStrategy):
     2. Sizes each trade using the Half-Kelly formula:
        f* = 0.5 * [(p * (b + 1) - 1) / b]
        where p is whale's empirical win rate, b is payoff odds: (1 - price) / price.
+       If expected edge <= 0, trade is skipped (no negative EV bets).
     """
     def __init__(self, top_n: int = 5, name: str = "Top5_Whales_Sharpe_Kelly"):
         super().__init__(name)
@@ -179,12 +194,15 @@ class TopSharpeKellyStrategy(BaseStrategy):
             return None
 
         p = self.whale_win_rates.get(clean_whale, 0.70)
-        q = 1.0 - p
         price = max(0.02, min(0.98, signal.whale_price))
         b = (1.0 - price) / price  # Payoff odds: profit per dollar risked
 
         # Half-Kelly fraction
-        kelly_f = 0.5 * ((p * (b + 1.0) - 1.0) / max(0.01, b))
+        edge = (p * (b + 1.0) - 1.0)
+        if edge <= 0.0:
+            return None  # Skip negative expected value trades
+
+        kelly_f = 0.5 * (edge / max(0.01, b))
         safe_f = max(0.01, min(0.08, kelly_f))  # Clamp between 1% and 8% of portfolio
 
         intended = portfolio.initial_capital * safe_f

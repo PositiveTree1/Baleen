@@ -83,11 +83,7 @@ def score_wallet(wallet_stats: dict) -> ScoringResult:
     if max_drawdown > 25.0:
         return ScoringResult("rejected", None, "DRAWDOWN_TOO_HIGH", False)
 
-    # FILTER 13: Conflicting Positions / Hedging Disqualification
-    if wallet_stats.get('is_conflicting_positions'):
-        return ScoringResult("rejected", None, "CONFLICTING_POSITIONS_DETECTED", False)
-
-    # FILTER 14: Inconsistent / Deceptive Lumpy Profile Disqualification
+    # FILTER 13: Inconsistent / Deceptive Lumpy Profile Disqualification
     if wallet_stats.get('is_inconsistent_profile'):
         return ScoringResult("rejected", None, "INCONSISTENT_LUMPY_PROFILE", False)
 

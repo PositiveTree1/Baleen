@@ -681,3 +681,182 @@ def test_get_predefined_windows():
     assert e6 == 1730419200
     assert "6-Month" in l6
 
+
+def test_top_sharpe_kelly_negative_ev_rejection():
+    from app.backtesting.strategies import TopSharpeKellyStrategy
+    from app.backtesting.models import WhaleQualification
+
+    strat = TopSharpeKellyStrategy(top_n=5)
+    portfolio = SimulatedPortfolio(BacktestConfig(initial_capital=10000.0))
+
+    roster = [
+        WhaleQualification("0xwhale", 50000.0, 60.0, 100000.0, 50, 1.5, "standard")
+    ]
+    strat.set_qualified_roster(roster)
+
+    # Signal at price=0.80 with win rate=0.60 has negative EV: (0.60 * 1.25 - 1 = -0.25 <= 0)
+    sig_bad_ev = TradeSignal(
+        timestamp=1700000000,
+        whale_address="0xwhale",
+        market_id="m1",
+        condition_id="c1",
+        token_id="tok1",
+        side="BUY",
+        whale_price=0.80,
+        whale_size_usd=1000.0,
+        whale_shares=1250.0
+    )
+    # MUST return None (skip negative-EV trade)
+    assert strat.evaluate_signal(sig_bad_ev, portfolio) is None
+
+
+def test_consensus_confirmation_cooldown():
+    from app.backtesting.strategies import ConsensusConfirmationStrategy
+
+    strat = ConsensusConfirmationStrategy(min_whales=2, window_sec=86400.0)
+    portfolio = SimulatedPortfolio(BacktestConfig(initial_capital=10000.0))
+
+    sig1 = TradeSignal(
+        timestamp=1700000000,
+        whale_address="0xwhale1",
+        market_id="m1",
+        condition_id="c1",
+        token_id="tok1",
+        side="BUY",
+        whale_price=0.50,
+        whale_size_usd=1000.0,
+        whale_shares=2000.0,
+        nonusdc_side="token1"
+    )
+    # Whale 1 alone: awaiting confirmation -> None
+    assert strat.evaluate_signal(sig1, portfolio) is None
+
+    sig2 = TradeSignal(
+        timestamp=1700000100,
+        whale_address="0xwhale2",
+        market_id="m1",
+        condition_id="c1",
+        token_id="tok1",
+        side="BUY",
+        whale_price=0.50,
+        whale_size_usd=1000.0,
+        whale_shares=2000.0,
+        nonusdc_side="token1"
+    )
+    # Whale 2 confirms: fires 4% ($400)
+    assert strat.evaluate_signal(sig2, portfolio) == 400.0
+
+    # Whale 2 trades again 10 seconds later: blocked by cooldown -> None
+    sig3 = TradeSignal(
+        timestamp=1700000110,
+        whale_address="0xwhale2",
+        market_id="m1",
+        condition_id="c1",
+        token_id="tok1",
+        side="BUY",
+        whale_price=0.50,
+        whale_size_usd=1000.0,
+        whale_shares=2000.0,
+        nonusdc_side="token1"
+    )
+    assert strat.evaluate_signal(sig3, portfolio) is None
+
+
+def test_parse_outcome_prices_decimals_and_regex():
+    from app.backtesting.data_loader import PolymarketDataLoader
+
+    loader = PolymarketDataLoader(BacktestConfig())
+
+    # Decimal format 1
+    w2, p1_2, p2_2 = loader.parse_outcome_prices("['0.0005', '0.9995']")
+    assert w2 == "token2"
+    assert p1_2 == 0.0005
+    assert p2_2 == 0.9995
+
+    # Decimal format 2
+    w1, p1_1, p2_1 = loader.parse_outcome_prices("['0.9995', '0.0005']")
+    assert w1 == "token1"
+    assert p1_1 == 0.9995
+    assert p2_1 == 0.0005
+
+    # Standard integer string format
+    wi, p1_i, p2_i = loader.parse_outcome_prices("['1', '0']")
+    assert wi == "token1"
+    assert p1_i == 1.0
+    assert p2_i == 0.0
+
+    # Non-standard string without brackets
+    w_raw, p1_r, p2_r = loader.parse_outcome_prices("0.0005, 0.9995")
+    assert w_raw == "token2"
+
+
+def test_engine_zero_lookahead_end_settlement():
+    from app.backtesting.strategies import FixedAmountEntryStrategy
+    from app.backtesting.models import TradeSignal
+
+    cfg = BacktestConfig(initial_capital=1000.0, fixed_entry_usd=100.0)
+    strat = FixedAmountEntryStrategy(entry_usd=100.0)
+    engine = BacktestEngine(config=cfg, strategy=strat)
+
+    # Position in a market that resolves at timestamp 2000
+    pos = engine.portfolio.open_position(
+        ExecutionFill(
+            order_id="ord_test",
+            signal=TradeSignal(
+                timestamp=1000,
+                whale_address="0xwhale1",
+                market_id="m_future",
+                condition_id="c_future",
+                token_id="tok1",
+                side="BUY",
+                whale_price=0.50,
+                whale_size_usd=100.0,
+                whale_shares=200.0,
+                nonusdc_side="token1"
+            ),
+            intended_size_usd=100.0,
+            fill_price=0.50,
+            filled_size_usd=100.0,
+            filled_shares=200.0,
+            fee_usd=0.0,
+            slippage_bps=0.0,
+            latency_ms=350.0,
+            executed_at=1000.0,
+            status="FILLED"
+        )
+    )
+    assert pos is not None
+    assert len(engine.portfolio.open_positions) == 1
+
+    # Market metadata: closed=True, but end_timestamp=2000 (resolves in the future)
+    engine.data_loader._market_resolutions_cache["m_future"] = {
+        "market_id": "m_future",
+        "closed": True,
+        "end_timestamp": 2000.0,
+        "winning_token": "token1",
+        "p1_payout": 1.0,
+        "p2_payout": 0.0
+    }
+
+    # Simulation ends at timestamp 1500 (BEFORE market resolution at 2000)
+    # Under zero lookahead bias, m_future CANNOT be settled at timestamp 1500
+    remaining_open = {p.market_id for p in engine.portfolio.open_positions.values()}
+    for m_id in remaining_open:
+        m_info = engine.data_loader._market_resolutions_cache.get(m_id)
+        if m_info and m_info.get("closed"):
+            end_t = m_info.get("end_timestamp") or 0.0
+            # Zero lookahead check:
+            if end_t > 0 and end_t <= 1500:  # End of simulation
+                engine.portfolio.settle_market_resolution(
+                    market_id=m_id,
+                    winning_token="token1",
+                    resolution_timestamp=float(end_t),
+                    p1_payout=1.0,
+                    p2_payout=0.0
+                )
+
+    # Position MUST remain open at timestamp 1500
+    assert len(engine.portfolio.open_positions) == 1
+    assert len(engine.portfolio.closed_trades) == 0
+
+

@@ -423,15 +423,24 @@ class LiveTradeMirrorService:
             )
             wallet_open_notional = float((await db.execute(stmt_wallet_open)).scalar() or 0.0)
 
-            # 5. Extract trailing trade sizes for this whale
+            # 5. Extract trailing trade sizes for this whale from previous fills and per-trade estimates
             trailing_sizes = []
-            if source_whale and source_whale.cached_daily_pnl:
+            stmt_past_sizes = select(ExecutionLog.notional_usd).where(
+                ExecutionLog.user_id.is_(None),
+                ExecutionLog.source_wallet_address.ilike(wallet_address)
+            ).order_by(ExecutionLog.executed_at.desc()).limit(50)
+            past_logs = (await db.execute(stmt_past_sizes)).scalars().all()
+            if past_logs:
+                trailing_sizes = [float(s) for s in past_logs if s and float(s) > 0]
+
+            if not trailing_sizes and source_whale and source_whale.cached_daily_pnl:
                 try:
                     d_hist = json.loads(source_whale.cached_daily_pnl)
                     for item in d_hist:
-                        t_sz = float(item.get('won_usd') or item.get('lost_usd') or item.get('daily_pnl') or 0.0)
-                        if abs(t_sz) > 0:
-                            trailing_sizes.append(abs(t_sz))
+                        cnt = int(item.get('trades_count') or 1)
+                        total_d = float(item.get('won_usd', 0) or 0) + abs(float(item.get('lost_usd', 0) or 0))
+                        if total_d > 0 and cnt > 0:
+                            trailing_sizes.append(round(total_d / cnt, 2))
                 except Exception:
                     trailing_sizes = []
 
@@ -670,7 +679,7 @@ class LiveTradeMirrorService:
                             whale_entry_price=open_buy.whale_entry_price,
                             user_fill_price=open_buy.user_fill_price,
                             resolution_outcome=open_buy.resolution_outcome,
-                            onchain_tx_hash=open_buy.onchain_tx_hash,
+                            onchain_tx_hash=f"{open_buy.onchain_tx_hash}:split" if open_buy.onchain_tx_hash else None,
                             onchain_log_index=open_buy.onchain_log_index,
                             notional_usd=remaining_portion,
                             fee_usd=round(max(0.0, orig_buy_fee - closed_buy_fee), 4),
@@ -791,7 +800,7 @@ class LiveTradeMirrorService:
                                 whale_entry_price=u_buy.whale_entry_price,
                                 user_fill_price=u_buy.user_fill_price,
                                 resolution_outcome=u_buy.resolution_outcome,
-                                onchain_tx_hash=u_buy.onchain_tx_hash,
+                                onchain_tx_hash=f"{u_buy.onchain_tx_hash}:split" if u_buy.onchain_tx_hash else None,
                                 onchain_log_index=u_buy.onchain_log_index,
                                 notional_usd=rem_part,
                                 fee_usd=round(max(0.0, orig_u_fee - closed_u_buy_fee), 4),

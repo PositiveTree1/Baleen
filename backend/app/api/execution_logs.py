@@ -92,7 +92,7 @@ async def get_execution_logs(
     whale_addrs = list(set(log.source_wallet_address.lower() for log in raw_logs if log.source_wallet_address))
     whale_meta_map: Dict[str, Dict] = {}
     if whale_addrs:
-        w_records = (await db.execute(select(Wallet).where(Wallet.address.in_(whale_addrs)))).scalars().all()
+        w_records = (await db.execute(select(Wallet).where(func.lower(Wallet.address).in_(whale_addrs)))).scalars().all()
         for w in w_records:
             whale_meta_map[w.address.lower()] = {
                 "name": w.name,
