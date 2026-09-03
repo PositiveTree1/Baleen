@@ -23,6 +23,7 @@ from app.backtesting.report import (
     format_parameter_sweep_table,
     format_capital_sweep_table,
     format_window_sweep_table,
+    generate_comparison_charts,
 )
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
@@ -93,6 +94,16 @@ def main():
         best = results[0]
         print(f"\n[+] THE BEST PERFORMING STRATEGY IS: {best.strategy_name}")
         print(f"   Net PnL: ${best.total_net_pnl:+,.2f} | ROI: {best.roi_pct:+.2f}% | Sharpe: {best.sharpe_ratio:.2f} | Max DD: {best.max_drawdown_pct:.1f}% | Win Rate: {best.win_rate_pct:.1f}%\n")
+
+        # Generate & save comparison charts
+        brain_dir = "C:/Users/arthu/.gemini/antigravity/brain/3558f49c-622a-4113-ae69-0a73aba3f6a5"
+        data_dir = os.path.join(backend_root, "data")
+        extra_dirs = [brain_dir] if os.path.exists(brain_dir) else []
+        chart_files = generate_comparison_charts(results, output_dir=data_dir, extra_output_dirs=extra_dirs)
+        print("[+] Generated strategy comparison graphs:")
+        for k, p in chart_files.items():
+            print(f"    - {k}: {p}")
+
 
         # 2. Multi-Capital Sweep
         if args.sweep_capital or args.all:

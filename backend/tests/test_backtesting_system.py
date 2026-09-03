@@ -10,11 +10,17 @@ from app.backtesting.execution import RealisticExecutionModel
 from app.backtesting.portfolio import SimulatedPortfolio
 from app.backtesting.strategies import (
     FixedProportionalStrategy,
+    FixedAmountEntryStrategy,
+    GoldSniperStrategy,
+    ConsensusConfirmationStrategy,
+    ResolutionHoldStrategy,
     SleeveConvictionStrategy,
     FeeAwareGatedStrategy,
     AntiConflictGatedStrategy,
     AdaptiveProductionStrategy,
+    BaleenDynamicSizerStrategy,
 )
+from app.backtesting.report import generate_comparison_charts
 from app.backtesting.engine import BacktestEngine
 from app.sizing.slippage import calculate_simulated_fill_price
 from app.services.polymarket_fees import calculate_polymarket_fee
@@ -858,5 +864,264 @@ def test_engine_zero_lookahead_end_settlement():
     # Position MUST remain open at timestamp 1500
     assert len(engine.portfolio.open_positions) == 1
     assert len(engine.portfolio.closed_trades) == 0
+
+
+# -------------------------------------------------------------------------
+# 10. Baleen Authentic Dynamic Sizer (§5) Tests
+# -------------------------------------------------------------------------
+
+def test_baleen_dynamic_sizer_strategy_tracks_net_worth_before_trade():
+    strat = BaleenDynamicSizerStrategy(risk_profile="balanced", initial_whale_net_worth=50000.0)
+    config = BacktestConfig(initial_capital=10000.0)
+    portfolio = SimulatedPortfolio(config)
+    portfolio.register_active_roster(["0xwhale1", "0xwhale2", "0xwhale3", "0xwhale4", "0xwhale5",
+                                      "0xwhale6", "0xwhale7", "0xwhale8", "0xwhale9", "0xwhale10"])
+
+    # Trade 1: Whale risks $5,000 out of $50,000 net worth (10% risk)
+    # User balance: 10,000. 10 active wallets. Base notional = 1,000.
+    # Raw order = 1,000 * 10% = $100.
+    sig1 = TradeSignal(
+        timestamp=1000,
+        whale_address="0xwhale1",
+        market_id="m1",
+        condition_id="c1",
+        token_id="tok1",
+        side="BUY",
+        whale_price=0.50,
+        whale_size_usd=5000.0,
+        whale_shares=10000.0,
+        nonusdc_side="token1"
+    )
+
+    # Check net worth right before trade 1
+    nw_before_1 = strat.get_whale_net_worth("0xwhale1")
+    assert nw_before_1 == 50000.0
+
+    size1 = strat.evaluate_signal(sig1, portfolio)
+    assert size1 == 100.0
+
+    # Simulate price move on m1 token1 to 0.70
+    strat.on_trade_signal(TradeSignal(
+        timestamp=1050,
+        whale_address="0xother",
+        market_id="m1",
+        condition_id="c1",
+        token_id="tok1",
+        side="BUY",
+        whale_price=0.70,
+        whale_size_usd=100.0,
+        whale_shares=142.8,
+        nonusdc_side="token1"
+    ))
+
+    # Whale held 10,000 shares, now valued at 0.70 = $7,000
+    # Base: 50,000, Realized: 0, Open equity: 7,000
+    # Net worth right before trade 2: 50,000 + 7,000 = 57,000
+    nw_before_2 = strat.get_whale_net_worth("0xwhale1")
+    assert nw_before_2 == 57000.0
+
+    # Trade 2: Whale bets $2,850 on m2 (2850 / 57000 = 5.0% risk)
+    # Raw order = 1,000 * 5.0% = $50.0
+    sig2 = TradeSignal(
+        timestamp=1100,
+        whale_address="0xwhale1",
+        market_id="m2",
+        condition_id="c2",
+        token_id="tok2",
+        side="BUY",
+        whale_price=0.40,
+        whale_size_usd=2850.0,
+        whale_shares=7125.0,
+        nonusdc_side="token1"
+    )
+    size2 = strat.evaluate_signal(sig2, portfolio)
+    assert size2 == 50.0
+
+
+def test_baleen_dynamic_sizer_strategy_realizes_pnl_on_whale_sell():
+    strat = BaleenDynamicSizerStrategy(initial_whale_net_worth=50000.0)
+    config = BacktestConfig(initial_capital=10000.0)
+    portfolio = SimulatedPortfolio(config)
+    portfolio.register_active_roster(["0xwhale1"])
+
+    # Whale buys 1,000 shares at 0.50 for $500
+    sig_buy = TradeSignal(
+        timestamp=1000,
+        whale_address="0xwhale1",
+        market_id="m1",
+        condition_id="c1",
+        token_id="tok1",
+        side="BUY",
+        whale_price=0.50,
+        whale_size_usd=500.0,
+        whale_shares=1000.0,
+        nonusdc_side="token1"
+    )
+    strat.evaluate_signal(sig_buy, portfolio)
+
+    # Whale sells 1,000 shares at 0.80 for $800 (+$300 realized profit)
+    sig_sell = TradeSignal(
+        timestamp=1100,
+        whale_address="0xwhale1",
+        market_id="m1",
+        condition_id="c1",
+        token_id="tok1",
+        side="SELL",
+        whale_price=0.80,
+        whale_size_usd=800.0,
+        whale_shares=1000.0,
+        nonusdc_side="token1"
+    )
+    strat.on_trade_signal(sig_sell)
+
+    # Realized PnL is now +$300, open positions = 0
+    # Net worth right before next trade = 50,000 + 300 = 50,300
+    nw = strat.get_whale_net_worth("0xwhale1")
+    assert nw == 50300.0
+
+
+def test_baleen_dynamic_sizer_strategy_market_resolution():
+    strat = BaleenDynamicSizerStrategy(initial_whale_net_worth=50000.0)
+    config = BacktestConfig(initial_capital=10000.0)
+    portfolio = SimulatedPortfolio(config)
+    portfolio.register_active_roster(["0xwhale1"])
+
+    # Whale buys 2,000 shares at 0.40 ($800)
+    sig_buy = TradeSignal(
+        timestamp=1000,
+        whale_address="0xwhale1",
+        market_id="m1",
+        condition_id="c1",
+        token_id="tok1",
+        side="BUY",
+        whale_price=0.40,
+        whale_size_usd=800.0,
+        whale_shares=2000.0,
+        nonusdc_side="token1"
+    )
+    strat.evaluate_signal(sig_buy, portfolio)
+
+    # Market resolves with winning_token="token1" (1.00 payout)
+    # Payout = 2000 * 1.0 = $2,000. Realized profit = $2,000 - $800 = +$1,200
+    strat.on_market_resolved("m1", winning_token="token1", resolution_timestamp=2000.0)
+
+    nw = strat.get_whale_net_worth("0xwhale1")
+    assert nw == 51200.0
+
+
+def test_baleen_dynamic_sizer_anti_conflict_gating():
+    # Anti-conflict enabled
+    strat = BaleenDynamicSizerStrategy(enable_anti_conflict=True, max_conflict_tolerance=0.10)
+    config = BacktestConfig(initial_capital=10000.0)
+    portfolio = SimulatedPortfolio(config)
+    portfolio.register_active_roster(["0xhedger"])
+
+    # Whale buys token1 on m1
+    sig1 = TradeSignal(
+        timestamp=1000,
+        whale_address="0xhedger",
+        market_id="m1",
+        condition_id="c1",
+        token_id="tok1",
+        side="BUY",
+        whale_price=0.50,
+        whale_size_usd=500.0,
+        whale_shares=1000.0,
+        nonusdc_side="token1"
+    )
+    res1 = strat.evaluate_signal(sig1, portfolio)
+    assert res1 is not None and res1 > 0
+
+    # Whale now buys opposing token2 on the same market m1 (counter-trading/hedging)
+    sig2 = TradeSignal(
+        timestamp=1010,
+        whale_address="0xhedger",
+        market_id="m1",
+        condition_id="c1",
+        token_id="tok2",
+        side="BUY",
+        whale_price=0.50,
+        whale_size_usd=500.0,
+        whale_shares=1000.0,
+        nonusdc_side="token2"
+    )
+    res2 = strat.evaluate_signal(sig2, portfolio)
+    # Must be disqualified and skipped!
+    assert res2 is None
+    assert "0xhedger" in strat.disqualified_whales
+
+
+def test_generate_comparison_charts_creates_valid_images(tmp_path):
+    from app.backtesting.models import EquityPoint
+
+    r1 = BacktestResult(
+        strategy_name="Baleen_DynamicSizer_NetWorth",
+        config=None,
+        start_timestamp=1700000000,
+        end_timestamp=1700864000,
+        duration_days=10.0,
+        initial_capital=10000.0,
+        final_equity=11500.0,
+        total_net_pnl=1500.0,
+        roi_pct=15.0,
+        annualized_roi_pct=547.5,
+        sharpe_ratio=2.85,
+        sortino_ratio=4.12,
+        max_drawdown_pct=3.2,
+        max_drawdown_usd=320.0,
+        win_rate_pct=82.5,
+        profit_factor=3.4,
+        total_trades=40,
+        winning_trades=33,
+        losing_trades=7,
+        total_fees_usd=45.0,
+        total_slippage_usd=12.0,
+        avg_trade_pnl=37.5,
+        equity_curve=[
+            EquityPoint(timestamp=1700000000, cash_balance=10000, invested_notional=0, total_equity=10000, realized_pnl=0, unrealized_pnl=0, drawdown_pct=0),
+            EquityPoint(timestamp=1700432000, cash_balance=10200, invested_notional=500, total_equity=10700, realized_pnl=200, unrealized_pnl=0, drawdown_pct=0),
+            EquityPoint(timestamp=1700864000, cash_balance=11500, invested_notional=0, total_equity=11500, realized_pnl=1500, unrealized_pnl=0, drawdown_pct=0),
+        ]
+    )
+
+    r2 = BacktestResult(
+        strategy_name="FixedEntry_$100",
+        config=None,
+        start_timestamp=1700000000,
+        end_timestamp=1700864000,
+        duration_days=10.0,
+        initial_capital=10000.0,
+        final_equity=10600.0,
+        total_net_pnl=600.0,
+        roi_pct=6.0,
+        annualized_roi_pct=219.0,
+        sharpe_ratio=1.45,
+        sortino_ratio=1.90,
+        max_drawdown_pct=5.5,
+        max_drawdown_usd=550.0,
+        win_rate_pct=70.0,
+        profit_factor=1.8,
+        total_trades=40,
+        winning_trades=28,
+        losing_trades=12,
+        total_fees_usd=60.0,
+        total_slippage_usd=15.0,
+        avg_trade_pnl=15.0,
+        equity_curve=[
+            EquityPoint(timestamp=1700000000, cash_balance=10000, invested_notional=0, total_equity=10000, realized_pnl=0, unrealized_pnl=0, drawdown_pct=0),
+            EquityPoint(timestamp=1700432000, cash_balance=10100, invested_notional=300, total_equity=10400, realized_pnl=100, unrealized_pnl=0, drawdown_pct=0),
+            EquityPoint(timestamp=1700864000, cash_balance=10600, invested_notional=0, total_equity=10600, realized_pnl=600, unrealized_pnl=0, drawdown_pct=0),
+        ]
+    )
+
+    out_dir = str(tmp_path / "charts")
+    saved = generate_comparison_charts([r1, r2], output_dir=out_dir)
+
+    assert len(saved) == 3
+    for path in saved.values():
+        import os
+        assert os.path.exists(path)
+        assert os.path.getsize(path) > 1000
+
 
 

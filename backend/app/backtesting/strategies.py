@@ -12,11 +12,14 @@ Implements:
   9. Adaptive Production Strategy (Flagship Baleen Production Engine)
 """
 from abc import ABC, abstractmethod
+from dataclasses import dataclass
 from typing import Dict, List, Optional, Set, Tuple
 from app.backtesting.models import TradeSignal, ClosedTrade, WhaleQualification
 from app.backtesting.portfolio import SimulatedPortfolio
 from app.sizing.sleeve_manager import SleeveManager
+from app.sizing.dynamic_sizer import size_trade, SizingResult
 from app.services.polymarket_fees import classify_market_category
+
 
 class BaseStrategy(ABC):
     def __init__(self, name: str):
@@ -29,6 +32,21 @@ class BaseStrategy(ABC):
 
     def on_trade_closed(self, trade: ClosedTrade):
         """Optional hook called when an order exits or settles."""
+        pass
+
+    def on_trade_signal(self, signal: TradeSignal):
+        """Optional hook called on each incoming chronological trade signal in the event stream."""
+        pass
+
+    def on_market_resolved(
+        self,
+        market_id: str,
+        winning_token: Optional[str],
+        resolution_timestamp: float,
+        p1_payout: Optional[float] = None,
+        p2_payout: Optional[float] = None
+    ):
+        """Optional hook called when a market reaches resolution."""
         pass
 
     def should_mirror_whale_exit(self, signal: TradeSignal, portfolio: SimulatedPortfolio) -> bool:
@@ -407,3 +425,233 @@ class AdaptiveProductionStrategy(BaseStrategy):
             return None
 
         return round(final_size, 2)
+
+
+@dataclass
+class WhalePositionTracker:
+    shares: float
+    cost_basis: float
+    avg_price: float
+    last_price: float
+    market_id: str
+    outcome_token: str
+
+
+class BaleenDynamicSizerStrategy(BaseStrategy):
+    """
+    Authentic Baleen Production Dynamic Sizer Strategy (§5 Dynamic Sizer):
+    Accurately tracks each whale's net worth right before each trade point:
+      whale_net_worth = initial_net_worth + cumulative_realized_pnl + open_position_equity
+    and executes size_trade(user_balance, risk_profile, n_active, whale_trade_value, whale_portfolio_value).
+    Supports optional anti-conflict gating to filter out whales betting opposing tokens on the same market.
+    """
+    def __init__(
+        self,
+        risk_profile: str = "balanced",
+        initial_whale_net_worth: float = 50000.0,
+        enable_anti_conflict: bool = False,
+        max_conflict_tolerance: float = 0.15,
+        min_order_usd: float = 1.0,
+        name: Optional[str] = None
+    ):
+        default_name = "Baleen_DynamicSizer_AntiConflict" if enable_anti_conflict else "Baleen_DynamicSizer_NetWorth"
+        super().__init__(name or default_name)
+        self.risk_profile = risk_profile
+        self.default_whale_net_worth = initial_whale_net_worth
+        self.enable_anti_conflict = enable_anti_conflict
+        self.max_conflict_tolerance = max_conflict_tolerance
+        self.min_order_usd = min_order_usd
+
+        # Whale Accounting State
+        self.whale_initial_net_worth: Dict[str, float] = {}
+        self.whale_realized_pnl: Dict[str, float] = {}
+        self.whale_open_positions: Dict[str, Dict[Tuple[str, str], WhalePositionTracker]] = {}
+        self.latest_prices: Dict[Tuple[str, str], float] = {}
+
+        # Anti-Conflict State
+        self.whale_market_sides: Dict[str, Dict[str, Set[str]]] = {}
+        self.disqualified_whales: Set[str] = set()
+        self.active_roster_count: int = 10
+
+    def set_qualified_roster(self, roster: List[WhaleQualification]):
+        self.active_roster_count = max(1, len(roster))
+        for q in roster:
+            clean = q.address.lower()
+            base_nw = max(self.default_whale_net_worth, float(q.realized_pnl)) if q.realized_pnl > 0 else self.default_whale_net_worth
+            self.whale_initial_net_worth[clean] = base_nw
+            self.whale_realized_pnl.setdefault(clean, 0.0)
+            self.whale_open_positions.setdefault(clean, {})
+
+    def get_whale_net_worth(self, whale_address: str) -> float:
+        """
+        Calculates whale's net worth right before the trade point:
+        initial_net_worth + cumulative_realized_pnl + open_position_equity
+        """
+        clean = whale_address.lower()
+        base = self.whale_initial_net_worth.get(clean, self.default_whale_net_worth)
+        realized = self.whale_realized_pnl.get(clean, 0.0)
+
+        open_equity = 0.0
+        positions = self.whale_open_positions.get(clean, {})
+        for key, pos in positions.items():
+            curr_p = self.latest_prices.get(key, pos.last_price or pos.avg_price)
+            open_equity += pos.shares * curr_p
+
+        net_worth = base + realized + open_equity
+        return max(1000.0, net_worth)
+
+    def on_trade_signal(self, signal: TradeSignal):
+        """
+        Processes incoming trade signals to keep whale accounting & latest prices fully updated.
+        """
+        key = (signal.market_id, signal.nonusdc_side)
+        self.latest_prices[key] = signal.whale_price
+
+        if signal.side.upper() == "SELL":
+            self._record_whale_sell(signal)
+
+    def _record_whale_buy(self, signal: TradeSignal):
+        """Updates whale open positions on BUY."""
+        clean_w = signal.whale_address.lower()
+        positions = self.whale_open_positions.setdefault(clean_w, {})
+        key = (signal.market_id, signal.nonusdc_side)
+
+        price = max(0.001, signal.whale_price)
+        shares_added = signal.whale_shares if signal.whale_shares > 0 else (signal.whale_size_usd / price)
+        cost_added = signal.whale_size_usd
+
+        if key in positions:
+            pos = positions[key]
+            new_shares = pos.shares + shares_added
+            new_cost = pos.cost_basis + cost_added
+            pos.avg_price = new_cost / new_shares if new_shares > 0 else price
+            pos.shares = new_shares
+            pos.cost_basis = new_cost
+            pos.last_price = price
+        else:
+            positions[key] = WhalePositionTracker(
+                shares=shares_added,
+                cost_basis=cost_added,
+                avg_price=price,
+                last_price=price,
+                market_id=signal.market_id,
+                outcome_token=signal.nonusdc_side
+            )
+
+    def _record_whale_sell(self, signal: TradeSignal):
+        """Updates whale open positions and realizes PnL on SELL."""
+        clean_w = signal.whale_address.lower()
+        positions = self.whale_open_positions.setdefault(clean_w, {})
+        key = (signal.market_id, signal.nonusdc_side)
+
+        if key not in positions:
+            return
+
+        pos = positions[key]
+        price = max(0.001, signal.whale_price)
+        shares_sold = signal.whale_shares if signal.whale_shares > 0 else (signal.whale_size_usd / price)
+        shares_to_close = min(pos.shares, shares_sold)
+
+        if shares_to_close <= 0:
+            return
+
+        fraction = shares_to_close / pos.shares if pos.shares > 0 else 1.0
+        cost_sold = pos.cost_basis * fraction
+        proceeds = shares_to_close * price
+        realized_gain = proceeds - cost_sold
+
+        self.whale_realized_pnl[clean_w] = self.whale_realized_pnl.get(clean_w, 0.0) + realized_gain
+        pos.shares -= shares_to_close
+        pos.cost_basis -= cost_sold
+        pos.last_price = price
+
+        if pos.shares <= 0.001:
+            del positions[key]
+
+    def on_market_resolved(
+        self,
+        market_id: str,
+        winning_token: Optional[str],
+        resolution_timestamp: float,
+        p1_payout: Optional[float] = None,
+        p2_payout: Optional[float] = None
+    ):
+        """Settles whale open positions upon market resolution."""
+        for clean_w, positions in self.whale_open_positions.items():
+            matching_keys = [k for k in list(positions.keys()) if k[0] == market_id]
+            for key in matching_keys:
+                pos = positions.pop(key)
+                if p1_payout is not None and p2_payout is not None:
+                    payout_price = p1_payout if pos.outcome_token == "token1" else p2_payout
+                elif winning_token:
+                    payout_price = 1.00 if pos.outcome_token == winning_token else 0.00
+                else:
+                    payout_price = 0.50
+
+                gross_proceeds = pos.shares * payout_price
+                realized = gross_proceeds - pos.cost_basis
+                self.whale_realized_pnl[clean_w] = self.whale_realized_pnl.get(clean_w, 0.0) + realized
+
+    def evaluate_signal(self, signal: TradeSignal, portfolio: SimulatedPortfolio) -> Optional[float]:
+        if signal.side.upper() != "BUY":
+            return None
+
+        clean_w = signal.whale_address.lower()
+
+        # 1. Anti-Conflict Gating (if enabled)
+        if self.enable_anti_conflict:
+            if clean_w in self.disqualified_whales:
+                return None
+
+            m_dict = self.whale_market_sides.setdefault(clean_w, {})
+            m_key = signal.condition_id or signal.market_id
+            sides = m_dict.setdefault(m_key, set())
+            sides.add(signal.nonusdc_side)
+
+            conflicts = sum(1 for s in m_dict.values() if len(s) > 1)
+            total_mkts = max(1, len(m_dict))
+            if conflicts >= 1 and (conflicts / total_mkts) > self.max_conflict_tolerance:
+                self.disqualified_whales.add(clean_w)
+                return None
+
+        # 2. Track latest price for the token
+        key = (signal.market_id, signal.nonusdc_side)
+        self.latest_prices[key] = signal.whale_price
+
+        # 3. Calculate Whale Net Worth right before the trade point
+        whale_nw = self.get_whale_net_worth(clean_w)
+        # Ensure portfolio value is at least the trade value (as in live poller max(1000.0, whale_port_val))
+        whale_portfolio_val = max(1000.0, signal.whale_size_usd, whale_nw)
+
+        # 4. User balance and active wallets
+        # In Baleen, user_balance = sandbox_balance_usd = initial_capital + realized_pnl
+        user_balance = max(0.0, portfolio.initial_capital + sum(t.net_pnl for t in portfolio.closed_trades))
+        n_active = max(1, len(portfolio.sleeve_budgets) if portfolio.sleeve_budgets else self.active_roster_count)
+
+        # 5. Call Baleen Authentic §5 Dynamic Sizer
+        sizing_res = size_trade(
+            user_balance=user_balance,
+            risk_profile=self.risk_profile,
+            n_active=n_active,
+            whale_trade_value=signal.whale_size_usd,
+            whale_portfolio_value=whale_portfolio_val,
+            min_order_usd=self.min_order_usd
+        )
+
+        if sizing_res.status != "SUCCESS" or sizing_res.value <= 0:
+            # Still record whale buy to maintain accurate future net worth tracking
+            self._record_whale_buy(signal)
+            return None
+
+        # 6. Check available cash & sleeve limits
+        sleeve_cash = portfolio.get_available_sleeve_cash(clean_w)
+        final_size = min(sizing_res.value, portfolio.cash, sleeve_cash)
+
+        if final_size < self.min_order_usd:
+            self._record_whale_buy(signal)
+            return None
+
+        # Record whale buy state for subsequent net worth calculations
+        self._record_whale_buy(signal)
+        return round(final_size, 2)
+

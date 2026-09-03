@@ -61,7 +61,13 @@ class SimulatedPortfolio:
 
         total_debit = fill.filled_size_usd + fill.fee_usd
         if total_debit > self.cash:
-            return None
+            excess = total_debit - self.cash
+            if fill.filled_size_usd - excess >= self.config.min_trade_size_usd:
+                fill.filled_size_usd = round(fill.filled_size_usd - excess, 2)
+                fill.filled_shares = round(fill.filled_size_usd / fill.fill_price, 4) if fill.fill_price > 0 else 0.0
+                total_debit = fill.filled_size_usd + fill.fee_usd
+            else:
+                return None
 
         clean_whale = fill.signal.whale_address.lower()
         self.cash -= total_debit

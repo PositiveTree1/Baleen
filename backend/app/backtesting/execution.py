@@ -35,22 +35,29 @@ class RealisticExecutionModel:
         exec_timestamp = float(signal.timestamp) + (self.config.latency_ms / 1000.0)
 
         # 1. Capital Availability Gating
-        max_allowed_size = min(intended_size_usd, available_cash, available_sleeve_cash)
-        if max_allowed_size < self.config.min_trade_size_usd:
-            return ExecutionFill(
-                order_id=order_id,
-                signal=signal,
-                intended_size_usd=intended_size_usd,
-                fill_price=signal.whale_price,
-                filled_size_usd=0.0,
-                filled_shares=0.0,
-                slippage_bps=0.0,
-                fee_usd=0.0,
-                latency_ms=self.config.latency_ms,
-                status="SKIPPED_CAPITAL",
-                executed_at=exec_timestamp,
-                rejection_reason="Insufficient free cash or sleeve budget"
-            )
+        is_buy = signal.side.upper() == "BUY"
+        if is_buy:
+            # Reserve a small buffer (2%) for taker fees on BUY
+            safe_cash = max(0.0, available_cash * 0.98)
+            max_allowed_size = min(intended_size_usd, safe_cash, available_sleeve_cash)
+            if max_allowed_size < self.config.min_trade_size_usd:
+                return ExecutionFill(
+                    order_id=order_id,
+                    signal=signal,
+                    intended_size_usd=intended_size_usd,
+                    fill_price=signal.whale_price,
+                    filled_size_usd=0.0,
+                    filled_shares=0.0,
+                    slippage_bps=0.0,
+                    fee_usd=0.0,
+                    latency_ms=self.config.latency_ms,
+                    status="SKIPPED_CAPITAL",
+                    executed_at=exec_timestamp,
+                    rejection_reason="Insufficient free cash or sleeve budget"
+                )
+        else:
+            # SELL orders liquidate existing open positions and return cash, so cash balance does not gate sells
+            max_allowed_size = intended_size_usd
 
         # 2. Liquidity Participation Cap (Whale Order Slicing)
         # In real CLOB markets, a copy-trader cannot instantly take more than a fraction

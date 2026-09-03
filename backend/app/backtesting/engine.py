@@ -73,6 +73,10 @@ class BacktestEngine:
             latest_prices[f"{signal.market_id}_{signal.nonusdc_side}"] = signal.whale_price
             latest_prices[signal.market_id] = signal.whale_price
 
+            # Strategy signal hook
+            if hasattr(self.strategy, "on_trade_signal"):
+                self.strategy.on_trade_signal(signal)
+
             # Check daily equity snapshot
             if curr_ts - last_snapshot_ts >= snapshot_interval:
                 self.portfolio.record_equity_snapshot(float(curr_ts), latest_prices=latest_prices)
@@ -87,8 +91,8 @@ class BacktestEngine:
                         fetched = self.data_loader.get_market_metadata([o_mid])
                         m_info = fetched.get(o_mid, {})
                     if m_info.get("closed"):
-                        end_t = m_info.get("end_timestamp") or curr_ts
-                        if end_t <= curr_ts:
+                        end_t = m_info.get("end_timestamp") or 0.0
+                        if end_t > 0 and end_t <= curr_ts:
                             p1 = m_info.get("p1_payout")
                             p2 = m_info.get("p2_payout")
                             winning_tok = m_info.get("winning_token")
@@ -101,6 +105,14 @@ class BacktestEngine:
                             )
                             for t in settled:
                                 self.strategy.on_trade_closed(t)
+                            if hasattr(self.strategy, "on_market_resolved"):
+                                self.strategy.on_market_resolved(
+                                    market_id=o_mid,
+                                    winning_token=winning_tok,
+                                    resolution_timestamp=float(end_t),
+                                    p1_payout=p1,
+                                    p2_payout=p2
+                                )
                             resolved_markets.add(o_mid)
 
             # Process Signal
@@ -111,9 +123,11 @@ class BacktestEngine:
                     clean_w = signal.whale_address.lower()
                     pos_key = f"{signal.market_id}_{signal.nonusdc_side}_{clean_w}"
                     if pos_key in self.portfolio.open_positions:
+                        user_pos = self.portfolio.open_positions[pos_key]
+                        user_sell_size = user_pos.shares * signal.whale_price
                         fill = self.execution_model.simulate_copy_execution(
                             signal=signal,
-                            intended_size_usd=signal.whale_size_usd,
+                            intended_size_usd=user_sell_size,
                             available_cash=self.portfolio.cash,
                             available_sleeve_cash=self.portfolio.get_available_sleeve_cash(clean_w)
                         )
@@ -175,6 +189,14 @@ class BacktestEngine:
                         )
                         for t in settled:
                             self.strategy.on_trade_closed(t)
+                        if hasattr(self.strategy, "on_market_resolved"):
+                            self.strategy.on_market_resolved(
+                                market_id=m_id,
+                                winning_token=winning_tok,
+                                resolution_timestamp=float(end_t),
+                                p1_payout=p1,
+                                p2_payout=p2
+                            )
                         resolved_markets.add(m_id)
 
         self.portfolio.record_equity_snapshot(float(end_ts), latest_prices=latest_prices)

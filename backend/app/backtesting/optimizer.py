@@ -30,6 +30,7 @@ from app.backtesting.strategies import (
     FeeAwareGatedStrategy,
     AntiConflictGatedStrategy,
     AdaptiveProductionStrategy,
+    BaleenDynamicSizerStrategy,
 )
 
 logger = logging.getLogger(__name__)
@@ -39,9 +40,22 @@ class StrategyOptimizer:
         self.base_config = base_config
         self.data_loader = PolymarketDataLoader(base_config)
 
+    def get_key_comparison_strategies(self, entry_usd: float = 100.0) -> List[BaseStrategy]:
+        """Returns the core suite of key strategies for institutional head-to-head comparison."""
+        return [
+            BaleenDynamicSizerStrategy(enable_anti_conflict=False, name="Baleen_DynamicSizer_NetWorth"),
+            BaleenDynamicSizerStrategy(enable_anti_conflict=True, name="Baleen_DynamicSizer_AntiConflict"),
+            FixedAmountEntryStrategy(entry_usd=entry_usd, name=f"FixedEntry_${int(entry_usd)}"),
+            GoldSniperStrategy(min_conviction=0.70, name="HighConviction_GoldSnipers"),
+            ResolutionHoldStrategy(fraction=0.03, name="Resolution_Hold_DiamondHands"),
+            ConsensusConfirmationStrategy(min_whales=2, window_sec=86400.0, name="Consensus_2Whales_Confirm"),
+        ]
+
     def get_standard_strategy_suite(self, entry_usd: float = 100.0) -> List[BaseStrategy]:
         """Returns the full suite of distinct strategy architectures."""
         return [
+            BaleenDynamicSizerStrategy(enable_anti_conflict=False, name="Baleen_DynamicSizer_NetWorth"),
+            BaleenDynamicSizerStrategy(enable_anti_conflict=True, name="Baleen_DynamicSizer_AntiConflict"),
             FixedAmountEntryStrategy(entry_usd=entry_usd, name=f"FixedEntry_${int(entry_usd)}"),
             FixedProportionalStrategy(fraction=0.02, name="Baseline_Proportional_2%"),
             GoldSniperStrategy(min_conviction=0.70, name="HighConviction_GoldSnipers"),
@@ -58,7 +72,8 @@ class StrategyOptimizer:
         end_ts: int,
         whale_addresses: Optional[List[str]] = None,
         limit_trades: Optional[int] = None,
-        entry_usd: float = 100.0
+        entry_usd: float = 100.0,
+        strategies: Optional[List[BaseStrategy]] = None,
     ) -> List[BacktestResult]:
         """
         Runs all distinct strategy architectures on the exact same market events and compares them.
@@ -73,7 +88,9 @@ class StrategyOptimizer:
         if not whale_addresses:
             whale_addresses = [q.address for q in whales_qual]
 
-        strategies = self.get_standard_strategy_suite(entry_usd=entry_usd)
+        if strategies is None:
+            strategies = self.get_key_comparison_strategies(entry_usd=entry_usd)
+
         for s in strategies:
             if hasattr(s, "set_qualified_roster"):
                 s.set_qualified_roster(whales_qual)
