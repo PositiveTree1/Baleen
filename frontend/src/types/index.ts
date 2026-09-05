@@ -141,3 +141,44 @@ export interface SystemEvent {
   createdAt: string;
 }
 
+export interface LiveTradingCredentials {
+  is_configured: boolean;
+  polymarket_wallet_address: string;
+  clob_api_key_masked: string;
+  is_live_active: boolean;
+  live_balance_usdc: number;
+  last_verified_at: string | null;
+}
+
+export interface TestConnectionResult {
+  connected: boolean;
+  wallet_address: string;
+  balance_usdc: number;
+  verified_at: string;
+  status_message: string;
+}
+
+export interface LiveTradingDashboard {
+  is_configured: boolean;
+  is_live_active: boolean;
+  status_badge: string;
+  polymarket_wallet_address: string;
+  clob_api_key_masked: string;
+  usdc_balance: number;
+  open_positions_value: number;
+  portfolio_net_worth: number;
+  live_pnl: number;
+  last_verified_at: string | null;
+  execution_logs: ExecutionLog[];
+  active_positions: {
+    id: string;
+    marketQuestion: string;
+    conditionId: string;
+    outcome: string;
+    entryPrice: number;
+    notionalUsd: number;
+    executedAt: string;
+    sourceWallet: string;
+  }[];
+}
+

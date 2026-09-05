@@ -100,7 +100,12 @@ class LiveWalletLink(Base):
     provider_user_id = Column(String)
     polymarket_wallet_address = Column(String)
     clob_api_key_enc = Column(String)
-    kms_key_id = Column(String)
+    clob_api_secret_enc = Column(String, nullable=True)
+    clob_api_passphrase_enc = Column(String, nullable=True)
+    is_live_active = Column(Boolean, default=False)
+    live_balance_usdc = Column(Float, default=0.0)
+    last_verified_at = Column(DateTime, nullable=True)
+    kms_key_id = Column(String, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     last_used_at = Column(DateTime, nullable=True)
 

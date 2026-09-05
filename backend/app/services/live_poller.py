@@ -378,8 +378,8 @@ class LiveTradeMirrorService:
                 ))
                 return
 
-            # SleeveManager 10-Wallet Architecture: Conviction Percentile sizing within isolated sleeve
-            from app.sizing.sleeve_manager import SleeveManager
+            # Pure Proportional Sleeve Sizing: S_w = current_user_portfolio_balance / n_active, f = whale_trade_usd / whale_pnl_or_net_worth
+            from app.sizing.dynamic_sizer import calculate_pure_proportional_order_size
             import json
 
             # 1. Fetch settled portfolio value
@@ -389,98 +389,36 @@ class LiveTradeMirrorService:
             )
             total_realized_pnl = float((await db.execute(stmt_realized_pnl)).scalar() or 0.0)
             settled_cash = 10000.0 + total_realized_pnl
+            n_active = max(1, len(active_wallets))
 
-            # 2. Dynamic 10-sleeve base budget ($1,000 each on $10k/10)
-            base_sleeve_budget = SleeveManager.calculate_sleeve_budget(settled_cash, active_roster_size=10)
+            whale_port_val = float(source_whale.all_time_pnl_usd or 50000.0) if source_whale else 50000.0
+            whale_trade_val = float(cash_usd if (cash_usd is not None and cash_usd > 0) else 500.0)
+            whale_net_worth = max(1000.0, whale_port_val)
 
-            # 3. Fetch wallet's realized copy-PnL EMA and closed trade count
-            stmt_wallet_stats = select(
-                func.coalesce(func.sum(ExecutionLog.realized_pnl_usd), 0.0),
-                func.count(ExecutionLog.id)
-            ).where(
-                ExecutionLog.user_id.is_(None),
-                ExecutionLog.source_wallet_address.ilike(wallet_address),
-                ExecutionLog.status == "CLOSED"
-            )
-            stats_row = (await db.execute(stmt_wallet_stats)).first()
-            wallet_copy_pnl = float(stats_row[0]) if stats_row else 0.0
-            wallet_closed_count = int(stats_row[1]) if stats_row else 0
-            
-            # Dynamic sleeve budget adjusted off our own copy-PnL EMA with Bayesian shrinkage prior
-            adjusted_sleeve_budget = SleeveManager.calculate_adjusted_sleeve_budget(
-                base_budget=base_sleeve_budget,
-                copy_pnl_ema=wallet_copy_pnl,
-                baleen_score=float(source_whale.baleen_score or 80.0) if source_whale else 80.0,
-                trades_count=wallet_closed_count
+            # 2. Pure Proportional Sleeve Sizing calculation (no artificial multipliers, no arbitrary caps)
+            sys_sizing = calculate_pure_proportional_order_size(
+                user_balance=settled_cash,
+                n_active=n_active,
+                whale_trade_usd=whale_trade_val,
+                whale_pnl_or_net_worth=whale_net_worth,
+                min_order_usd=1.0,
+                available_cash=settled_cash
             )
 
-            # 4. Fetch this specific wallet's open invested notional
-            stmt_wallet_open = select(func.sum(ExecutionLog.notional_usd)).where(
-                ExecutionLog.user_id.is_(None),
-                ExecutionLog.source_wallet_address.ilike(wallet_address),
-                ExecutionLog.status == "FILLED",
-                ExecutionLog.side == "BUY"
-            )
-            wallet_open_notional = float((await db.execute(stmt_wallet_open)).scalar() or 0.0)
-
-            # 5. Extract trailing trade sizes for this whale from previous fills and per-trade estimates
-            trailing_sizes = []
-            stmt_past_sizes = select(ExecutionLog.notional_usd).where(
-                ExecutionLog.user_id.is_(None),
-                ExecutionLog.source_wallet_address.ilike(wallet_address)
-            ).order_by(ExecutionLog.executed_at.desc()).limit(50)
-            past_logs = (await db.execute(stmt_past_sizes)).scalars().all()
-            if past_logs:
-                trailing_sizes = [float(s) for s in past_logs if s and float(s) > 0]
-
-            if not trailing_sizes and source_whale and source_whale.cached_daily_pnl:
-                try:
-                    d_hist = json.loads(source_whale.cached_daily_pnl)
-                    for item in d_hist:
-                        cnt = int(item.get('trades_count') or 1)
-                        total_d = float(item.get('won_usd', 0) or 0) + abs(float(item.get('lost_usd', 0) or 0))
-                        if total_d > 0 and cnt > 0:
-                            trailing_sizes.append(round(total_d / cnt, 2))
-                except Exception:
-                    trailing_sizes = []
-
-            # 6. Size the trade within the isolated wallet sleeve using Conviction Percentile
-            sizing_res = SleeveManager.size_sleeve_trade(
-                wallet_address=wallet_address,
-                whale_trade_size_usd=cash_usd,
-                sleeve_budget_usd=adjusted_sleeve_budget,
-                open_notional_usd=wallet_open_notional,
-                trailing_sizes=trailing_sizes,
-                min_trade_usd=5.0,
-                quality_multiplier=sizing_multiplier
-            )
-
-            if side == "BUY" and sizing_res.status != "SUCCESS":
-                logger.info(f"🛑 Sleeve Cap: Skipping BUY on '{title[:25]}' - {sizing_res.status} (Sleeve rem: ${sizing_res.sleeve_remaining_usd:,.2f}).")
+            if side == "BUY" and sys_sizing.status != "SUCCESS":
+                logger.info(f"🛑 Pure Proportional Sizer: Skipping BUY on '{title[:25]}' - {sys_sizing.status} (Balance: ${settled_cash:,.2f}).")
                 from app.services.event_logger import log_event
                 asyncio.create_task(log_event(
                     "TRADE_SKIPPED_SLEEVE",
-                    f"Sleeve limit: {title[:50]}",
-                    detail=f"Status: {sizing_res.status}. Sleeve remaining: ${sizing_res.sleeve_remaining_usd:,.2f} / ${adjusted_sleeve_budget:,.2f}. Capture rate: {sizing_res.capture_rate_pct}%.",
+                    f"Sizing limit: {title[:50]}",
+                    detail=f"Status: {sys_sizing.status}. Balance: ${settled_cash:,.2f}, active whales: {n_active}.",
                     severity="warning",
                     related_address=wallet_address,
                     related_market=title,
                 ))
                 return
 
-            sys_notional = sizing_res.actual_size_usd if side == "BUY" else round(min(max(5.0, cash_usd * 0.1), 350.0), 2)
-
-            # Log clipping event if signal was trimmed due to sleeve capacity
-            if side == "BUY" and sizing_res.is_clipped:
-                from app.services.event_logger import log_event
-                asyncio.create_task(log_event(
-                    "TRADE_CLIPPED_SLEEVE",
-                    f"Signal clipped: {title[:50]}",
-                    detail=f"Intended: ${sizing_res.intended_size_usd:,.2f}, Actual: ${sizing_res.actual_size_usd:,.2f} ({sizing_res.capture_rate_pct}% capture rate). Conviction percentile: {sizing_res.conviction_percentile*100:.1f}%.",
-                    severity="info",
-                    related_address=wallet_address,
-                    related_market=title,
-                ))
+            sys_notional = sys_sizing.value if side == "BUY" else round(min(max(1.0, cash_usd * 0.1), 350.0), 2)
 
             # Record fill slippage in basis points
             fee_calc = calculate_polymarket_fee(
@@ -559,7 +497,16 @@ class LiveTradeMirrorService:
                 db.add(sys_sell_log)
 
                 for u in users:
-                    u_notional = round(min(max(5.0, cash_usd * 0.05 * sizing_multiplier), 150.0), 2)
+                    u_bal = float(u.sandbox_balance_usd or 10000.0)
+                    u_sizing = calculate_pure_proportional_order_size(
+                        user_balance=u_bal,
+                        n_active=n_active,
+                        whale_trade_usd=whale_trade_val,
+                        whale_pnl_or_net_worth=whale_net_worth,
+                        min_order_usd=1.0,
+                        available_cash=u_bal
+                    )
+                    u_notional = u_sizing.value if u_sizing.status == "SUCCESS" else round(max(1.0, (u_bal / n_active) * (whale_trade_val / whale_net_worth)), 2)
                     u_buy_fee_calc = calculate_polymarket_fee(u_notional, effective_fill_price, title, is_maker=False)
                     u_sell_fee_calc = calculate_polymarket_fee(u_notional, effective_sell_fill_price, title, is_maker=False)
                     u_buy_fee = float(u_buy_fee_calc["fee_usd"] or 0.0)
@@ -720,22 +667,21 @@ class LiveTradeMirrorService:
             )
             db.add(sys_log)
 
-            # Copy-trade for individual sandbox users
+            # Copy-trade for individual sandbox users with Pure Proportional Sleeve Sizing
             for u in users:
-                whale_port_val = float(source_whale.all_time_pnl_usd or 50000.0) if source_whale else 50000.0
-                whale_trade_val = float(cash_usd if (cash_usd is not None and cash_usd > 0) else 500.0)
-                sizing_res = size_trade(
-                    user_balance=float(u.sandbox_balance_usd or 10000.0),
-                    risk_profile=str(u.risk_profile or "balanced"),
-                    n_active=max(1, len(active_wallets)),
-                    whale_trade_value=whale_trade_val,
-                    whale_portfolio_value=max(1000.0, whale_port_val),
-                    min_order_usd=float(getattr(settings, 'POLYMARKET_MIN_ORDER_USD', 1.0))
+                u_bal = float(u.sandbox_balance_usd or 10000.0)
+                u_sizing = calculate_pure_proportional_order_size(
+                    user_balance=u_bal,
+                    n_active=n_active,
+                    whale_trade_usd=whale_trade_val,
+                    whale_pnl_or_net_worth=whale_net_worth,
+                    min_order_usd=float(getattr(settings, 'POLYMARKET_MIN_ORDER_USD', 1.0)),
+                    available_cash=u_bal
                 )
-                if sizing_res.status == 'SUCCESS':
-                    u_notional = sizing_res.value
+                if u_sizing.status == 'SUCCESS':
+                    u_notional = u_sizing.value
                 else:
-                    u_notional = round(min(max(5.0, cash_usd * 0.05 * sizing_multiplier), 150.0), 2)
+                    u_notional = round(max(1.0, (u_bal / n_active) * (whale_trade_val / whale_net_worth)), 2)
 
                 u_fee = calculate_polymarket_fee(
                     notional_usd=u_notional,

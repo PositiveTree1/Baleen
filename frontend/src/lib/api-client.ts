@@ -1,4 +1,4 @@
-import { Wallet, WalletDetail, ExecutionLog, User, PlatformStats } from '../types';
+import { Wallet, WalletDetail, ExecutionLog, User, PlatformStats, LiveTradingCredentials, LiveTradingDashboard, TestConnectionResult } from '../types';
 
 let rawBackendUrl = (
   process.env.NEXT_PUBLIC_BACKEND_URL || 
@@ -646,3 +646,115 @@ export async function fetchCopilotChat(messages: { role: string; content: string
     return null;
   }
 }
+
+// ---------------------------------------------------------------------------
+// L2 Live Trading & CLOB Credentials
+// ---------------------------------------------------------------------------
+
+export async function saveLiveCredentials(data: {
+  userId?: string;
+  polymarketWalletAddress: string;
+  clobApiKey: string;
+  clobApiSecret: string;
+  clobApiPassphrase: string;
+}): Promise<LiveTradingCredentials | null> {
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/live-trading/credentials`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        user_id: data.userId,
+        polymarket_wallet_address: data.polymarketWalletAddress,
+        clob_api_key: data.clobApiKey,
+        clob_api_secret: data.clobApiSecret,
+        clob_api_passphrase: data.clobApiPassphrase,
+      })
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || 'Failed to save live credentials');
+    }
+    return await res.json();
+  } catch (error) {
+    console.error('Error saving live credentials:', error);
+    throw error;
+  }
+}
+
+export async function fetchLiveCredentials(userId?: string): Promise<LiveTradingCredentials | null> {
+  try {
+    const url = new URL(`${API_BASE_URL}/api/live-trading/credentials`);
+    if (userId) url.searchParams.append('user_id', userId);
+    const res = await fetch(url.toString());
+    if (!res.ok) return null;
+    return await res.json();
+  } catch (error) {
+    console.debug('Error fetching live credentials:', error);
+    return null;
+  }
+}
+
+export async function testLiveConnection(data: {
+  userId?: string;
+  polymarketWalletAddress?: string;
+  clobApiKey?: string;
+  clobApiSecret?: string;
+  clobApiPassphrase?: string;
+}): Promise<TestConnectionResult> {
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/live-trading/test-connection`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        user_id: data.userId,
+        polymarket_wallet_address: data.polymarketWalletAddress,
+        clob_api_key: data.clobApiKey,
+        clob_api_secret: data.clobApiSecret,
+        clob_api_passphrase: data.clobApiPassphrase,
+      })
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || 'Connection test failed');
+    }
+    return await res.json();
+  } catch (error: any) {
+    console.error('Test connection error:', error);
+    throw error;
+  }
+}
+
+export async function toggleLiveTrading(enabled: boolean, userId?: string): Promise<{ success: boolean; is_live_active: boolean; status: string }> {
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/live-trading/toggle`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        user_id: userId,
+        enabled
+      })
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || 'Failed to toggle live trading');
+    }
+    return await res.json();
+  } catch (error) {
+    console.error('Toggle live trading error:', error);
+    throw error;
+  }
+}
+
+export async function fetchLiveDashboard(userId?: string): Promise<LiveTradingDashboard | null> {
+  try {
+    const url = new URL(`${API_BASE_URL}/api/live-trading/dashboard`);
+    if (userId) url.searchParams.append('user_id', userId);
+    const res = await fetch(url.toString(), { cache: 'no-store' });
+    if (!res.ok) return null;
+    return await res.json();
+  } catch (error) {
+    console.debug('Error fetching live dashboard:', error);
+    return null;
+  }
+}
+

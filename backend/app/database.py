@@ -80,6 +80,11 @@ NEW_COLS = [
     ("execution_logs", "realized_pnl_usd", "FLOAT"),
     ("execution_logs", "onchain_tx_hash", "VARCHAR(255)"),
     ("execution_logs", "onchain_log_index", "INTEGER"),
+    ("live_wallet_links", "clob_api_secret_enc", "TEXT"),
+    ("live_wallet_links", "clob_api_passphrase_enc", "TEXT"),
+    ("live_wallet_links", "is_live_active", "BOOLEAN DEFAULT FALSE"),
+    ("live_wallet_links", "live_balance_usdc", "FLOAT DEFAULT 0.0"),
+    ("live_wallet_links", "last_verified_at", "TIMESTAMP"),
 ]
 
 async def init_db():

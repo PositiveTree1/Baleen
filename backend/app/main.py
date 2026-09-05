@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 from app.config import settings
 from app.database import init_db, get_db
-from app.api import wallets, execution_logs, users, admin, signals, events, copilot
+from app.api import wallets, execution_logs, users, admin, signals, events, copilot, live_trading
 from app.workers.discovery_worker import run_discovery
 from app.workers.scoring_worker import run_rescoring
 from app.workers.analysis_worker import run_analysis
@@ -40,6 +40,7 @@ app.include_router(admin.router)
 app.include_router(signals.router)
 app.include_router(events.router)
 app.include_router(copilot.router)
+app.include_router(live_trading.router)
 
 scheduler = AsyncIOScheduler()
 

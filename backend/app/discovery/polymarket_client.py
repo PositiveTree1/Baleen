@@ -252,22 +252,24 @@ class PolymarketClient:
         return None
 
     async def fetch_wallet_trades(self, address: str, max_trades: int = 4000) -> List[Dict]:
-        """Pulls multi-page trade history up to 4,000 trades for a wallet."""
+        """Pulls multi-page trade history up to 4,000 trades in batches of 500 for a wallet."""
         all_trades = []
         batch_size = 500
         offset = 0
+        user_param = "user"
         
         while len(all_trades) < max_trades:
             url = f"{self.data_api_url}/trades"
-            data = await self._fetch_with_retry(url, params={"user": address, "limit": batch_size, "offset": offset})
+            data = await self._fetch_with_retry(url, params={user_param: address, "limit": batch_size, "offset": offset})
             trades_batch = []
             if isinstance(data, list):
                 trades_batch = data
             elif isinstance(data, dict):
                 trades_batch = data.get("data") or data.get("results") or []
                 
-            if not trades_batch and offset == 0:
-                data_maker = await self._fetch_with_retry(url, params={"maker_address": address, "limit": batch_size})
+            if not trades_batch and offset == 0 and user_param == "user":
+                user_param = "maker_address"
+                data_maker = await self._fetch_with_retry(url, params={user_param: address, "limit": batch_size, "offset": 0})
                 if isinstance(data_maker, list):
                     trades_batch = data_maker
                 elif isinstance(data_maker, dict):
@@ -283,7 +285,7 @@ class PolymarketClient:
             offset += len(trades_batch)
             await asyncio.sleep(0.05)
             
-        return all_trades
+        return all_trades[:max_trades]
 
     async def fetch_wallet_activity(self, address: str, max_items: int = 4000) -> List[Dict]:
         """Pulls trade fills, closures, and redemptions from Polymarket activity endpoint with multi-page pagination."""
