@@ -293,10 +293,10 @@ async def get_wallet(address: str, db: AsyncSession = Depends(get_db)):
             from app.discovery.scanner import calculate_authentic_wallet_stats
             client = PolymarketClient()
             raw_positions = await client.fetch_wallet_positions(clean_addr)
-            raw_activity = await client.fetch_wallet_activity(clean_addr, max_items=1000)
+            raw_activity = await client.fetch_wallet_activity(clean_addr, max_items=4000)
             raw_profile = await client.fetch_wallet_profile(clean_addr)
-            raw_trades = await client.fetch_wallet_trades(clean_addr, max_trades=2000)
-            raw_closed = await client.fetch_wallet_closed_positions(clean_addr, max_items=2000) if hasattr(client, "fetch_wallet_closed_positions") else []
+            raw_trades = await client.fetch_wallet_trades(clean_addr, max_trades=4000)
+            raw_closed = await client.fetch_wallet_closed_positions(clean_addr, max_items=4000) if hasattr(client, "fetch_wallet_closed_positions") else []
             await client.close()
 
             stats = calculate_authentic_wallet_stats(

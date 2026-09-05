@@ -4,6 +4,7 @@ import asyncio
 import math
 import json
 import time
+import inspect
 from typing import List, Dict, Optional, Tuple, Any, Set
 from datetime import datetime, timezone
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -837,9 +838,12 @@ async def evaluate_pending_wallets(db: AsyncSession, client: Optional[Polymarket
                 ]
                 has_closed_fn = hasattr(client, "fetch_wallet_closed_positions")
                 if has_closed_fn:
-                    closed_call = client.fetch_wallet_closed_positions(addr, max_items=4000)
-                    if asyncio.iscoroutine(closed_call):
-                        tasks.append(closed_call)
+                    try:
+                        closed_call = client.fetch_wallet_closed_positions(addr, max_items=4000)
+                        if inspect.isawaitable(closed_call):
+                            tasks.append(closed_call)
+                    except Exception:
+                        pass
 
                 results = await asyncio.gather(*tasks, return_exceptions=True)
                 raw_positions = results[0] if not isinstance(results[0], Exception) else []
@@ -868,12 +872,16 @@ async def evaluate_pending_wallets(db: AsyncSession, client: Optional[Polymarket
                 final_cum = stats.get('cumulative_pnl', stats['all_time_pnl_usd'])
                 unrealized_open = stats.get('unrealized_open_pnl', 0.0)
 
-                if not has_history or stats.get('trades_count', 0) < 5:
+                pnl_usd_val = float(stats.get('all_time_pnl_usd') or 0.0)
+                t_count_val = int(stats.get('trades_count') or 0)
+                max_dd_val = float(stats.get('max_drawdown_pct') or 0.0)
+
+                if not has_history or t_count_val < 5:
                     wallet.status = 'rejected'
                     wallet.tier = 'rejected'
                     wallet.rejection_reason = "No verifiable on-chain trade history from Polymarket API"
                     discovery_state["rejected"] += 1
-                elif stats.get('trades_count', 0) < 100 and stats['all_time_pnl_usd'] < 500000.0:
+                elif t_count_val < 100 and pnl_usd_val < 500000.0:
                     wallet.status = 'rejected'
                     wallet.tier = 'rejected'
                     wallet.rejection_reason = "Insufficient lifetime trades (Must have >= 100 lifetime trades)"
@@ -883,25 +891,25 @@ async def evaluate_pending_wallets(db: AsyncSession, client: Optional[Polymarket
                     wallet.tier = 'rejected'
                     wallet.rejection_reason = "Inactive wallet (No trades in past 7 days)"
                     discovery_state["rejected"] += 1
-                elif stats['all_time_pnl_usd'] < 50000.0 or stats['all_time_pnl_usd'] > 22000000.0:
+                elif pnl_usd_val < 50000.0 or pnl_usd_val > 22000000.0:
                     wallet.status = 'rejected'
                     wallet.tier = 'rejected'
-                    wallet.rejection_reason = f'All-time Polymarket realized PnL (${stats["all_time_pnl_usd"]:,.0f}) is outside verified whale threshold ($50k - $22M)'
+                    wallet.rejection_reason = f'All-time Polymarket realized PnL (${pnl_usd_val:,.0f}) is outside verified whale threshold ($50k - $22M)'
                     discovery_state["rejected"] += 1
                 elif final_cum <= 0.0:
                     wallet.status = 'rejected'
                     wallet.tier = 'rejected'
                     wallet.rejection_reason = f'Cumulative reconstructed trade ledger is non-positive (${final_cum:,.2f} <= $0)'
                     discovery_state["rejected"] += 1
-                elif unrealized_open < -25000.0 or (stats['all_time_pnl_usd'] > 0 and abs(min(0.0, unrealized_open)) > 0.35 * stats['all_time_pnl_usd']):
+                elif unrealized_open < -25000.0 or (pnl_usd_val > 0 and abs(min(0.0, unrealized_open)) > 0.35 * pnl_usd_val):
                     wallet.status = 'rejected'
                     wallet.tier = 'rejected'
                     wallet.rejection_reason = f'Massive paper drawdown on open positions (${unrealized_open:,.2f}) exceeds risk safety threshold'
                     discovery_state["rejected"] += 1
-                elif stats.get('max_drawdown_pct', 0.0) > 25.0:
+                elif max_dd_val > 25.0:
                     wallet.status = 'rejected'
                     wallet.tier = 'rejected'
-                    wallet.rejection_reason = f'Historical drawdown too high ({stats.get("max_drawdown_pct", 0):.1f}% > 25% max limit)'
+                    wallet.rejection_reason = f'Historical drawdown too high ({max_dd_val:.1f}% > 25% max limit)'
                     discovery_state["rejected"] += 1
                 elif stats['outlier_concentration_pct'] > 0.25:
                     wallet.status = 'rejected'
@@ -966,8 +974,12 @@ async def evaluate_pending_wallets(db: AsyncSession, client: Optional[Polymarket
                 else:
                     # ONLY wallets that pass all 12 quantitative filters become active
                     wallet.status = 'active'
-                    if scoring.tier == 'gold_sniper' and baleen_score >= 70.0 and stats.get('max_drawdown_pct', 100.0) <= 12.0:
-                        if stats.get('t_days', 0) >= 5 and (stats.get('beta', 0.0) <= 0.0 or stats.get('r_squared', 0.0) < 0.55):
+                    max_dd = float(stats.get('max_drawdown_pct') or 100.0)
+                    t_d = int(stats.get('t_days') or 0)
+                    b = float(stats.get('beta') or 0.0)
+                    r = float(stats.get('r_squared') or 0.0)
+                    if scoring.tier == 'gold_sniper' and baleen_score >= 70.0 and max_dd <= 12.0:
+                        if t_d >= 5 and (b <= 0.0 or r < 0.55):
                             wallet.tier = 'standard'
                         else:
                             wallet.tier = 'gold_sniper'

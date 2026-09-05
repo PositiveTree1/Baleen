@@ -22,6 +22,9 @@ class RejectionReason(str):
     def __ne__(self, other):
         return not self.__eq__(other)
 
+    def __hash__(self):
+        return super().__hash__()
+
 
 @dataclass
 class ScoringResult:
@@ -37,15 +40,15 @@ def score_wallet(wallet_stats: dict) -> ScoringResult:
     Computed once per wallet, re-checked every 24h rescore.
     Only wallets passing 100% of these hard filters advance to 5-factor ranking.
     """
-    pnl = float(wallet_stats.get('all_time_pnl_usd', 0) or 0)
-    vol = float(wallet_stats.get('total_volume_usd', 0) or 0)
-    trades_per_day = float(wallet_stats.get('trades_per_day', 0) or 0)
-    avg_trades_per_day = float(wallet_stats.get('avg_trades_per_day', 0) or 0)
-    outlier_pct = float(wallet_stats.get('outlier_concentration_pct', 0) or 0)
-    win_rate = float(wallet_stats.get('win_rate_pct', 0) or 0)
-    max_drawdown = float(wallet_stats.get('max_drawdown_pct', 0) or 0)
-    trades_count = int(wallet_stats.get('trades_count', 0) or wallet_stats.get('total_trades_analyzed', 0) or 0)
-    active_days = float(wallet_stats.get('active_days', 60.0) or 60.0)
+    pnl = float(wallet_stats.get('all_time_pnl_usd') or 0.0)
+    vol = float(wallet_stats.get('total_volume_usd') or 0.0)
+    trades_per_day = float(wallet_stats.get('trades_per_day') or 0.0)
+    avg_trades_per_day = float(wallet_stats.get('avg_trades_per_day') or 0.0)
+    outlier_pct = float(wallet_stats.get('outlier_concentration_pct') or 0.0)
+    win_rate = float(wallet_stats.get('win_rate_pct') or 0.0)
+    max_drawdown = float(wallet_stats.get('max_drawdown_pct') or 0.0)
+    trades_count = int(wallet_stats.get('trades_count') or wallet_stats.get('total_trades_analyzed') or 0)
+    active_days = float(wallet_stats.get('active_days') or 60.0)
 
     # FILTER 0: Conflicting Positions / Hedging Disqualification (Kick them out immediately)
     if wallet_stats.get('is_conflicting_positions'):
@@ -125,10 +128,13 @@ def score_wallet(wallet_stats: dict) -> ScoringResult:
 
     # TIER: Gold Sniper requires win_rate >= 80.0%, max_drawdown <= 12.0%, healthy open positions,
     # and if T >= 5 daily history, require beta > 0 and R^2 >= 0.55
-    r2 = float(wallet_stats.get('r_squared', wallet_stats.get('ols_r2', 1.0)) or 0.0)
-    beta = float(wallet_stats.get('beta', wallet_stats.get('ols_slope', 1.0)) or 0.0)
+    r2_raw = wallet_stats.get('r_squared') if wallet_stats.get('r_squared') is not None else wallet_stats.get('ols_r2', 1.0)
+    r2 = float(r2_raw or 0.0)
+    beta_raw = wallet_stats.get('beta') if wallet_stats.get('beta') is not None else wallet_stats.get('ols_slope', 1.0)
+    beta = float(beta_raw or 0.0)
     daily_history = wallet_stats.get('daily_pnl_history') or []
-    t_days = int(wallet_stats.get('t_days', len(daily_history)))
+    t_days_raw = wallet_stats.get('t_days')
+    t_days = int(t_days_raw) if t_days_raw is not None else len(daily_history)
     meets_ols = True
     if t_days >= 5 and (beta <= 0.0 or r2 < 0.55):
         meets_ols = False

@@ -9,7 +9,7 @@ import httpx
 from sqlalchemy import select, func
 from sqlalchemy.orm import load_only
 from app.database import SessionLocal
-from app.models import Wallet, ExecutionLog, User
+from app.models import Wallet, ExecutionLog, User, LiveWalletLink
 from app.config import settings
 from app.services.polymarket_fees import calculate_polymarket_fee
 
@@ -142,10 +142,10 @@ class LiveTradeMirrorService:
 
         async with SessionLocal() as db:
             # 1. Database Deduplication Guard: prevent duplicate execution under dual ingestion
-            if target_tx_hash:
+            if tx_hash:
                 dedup_stmt = select(ExecutionLog.id).where(
                     ExecutionLog.user_id.is_(None),
-                    ExecutionLog.onchain_tx_hash == target_tx_hash
+                    ExecutionLog.onchain_tx_hash == tx_hash
                 )
                 if log_index is not None:
                     dedup_stmt = dedup_stmt.where(ExecutionLog.onchain_log_index == log_index)
@@ -155,26 +155,26 @@ class LiveTradeMirrorService:
                 existing_exec = (await db.execute(dedup_stmt.limit(1))).scalars().first()
                 if existing_exec:
                     logger.info(
-                        f"🔁 Deduplication Guard: Platform execution log already exists for tx {target_tx_hash} "
+                        f"🔁 Deduplication Guard: Platform execution log already exists for tx {tx_hash} "
                         f"(log_index={log_index}). Skipping duplicate signal under dual ingestion."
                     )
                     from app.services.event_logger import log_event
                     asyncio.create_task(log_event(
                         "TRADE_SKIPPED_DUPLICATE",
                         f"Duplicate signal skipped: {title[:50]}",
-                        detail=f"Platform log already exists for tx {target_tx_hash} log_index={log_index}.",
+                        detail=f"Platform log already exists for tx {tx_hash} log_index={log_index}.",
                         severity="info",
                         related_address=wallet_address,
                         related_market=title,
                     ))
                     return
 
-            # Query active basket wallets and users (strictly <= 65 trades/day, non-dormant, non-HFT)
+            # Query active basket wallets and users (strictly <= 50 trades/day, non-dormant, non-HFT)
             stmt_wallets = select(Wallet).where(
                 Wallet.status == "active",
                 Wallet.dormant == False,
                 Wallet.is_hft == False,
-                (Wallet.avg_trades_per_day.is_(None) | (Wallet.avg_trades_per_day <= 65.0))
+                (Wallet.avg_trades_per_day.is_(None) | (Wallet.avg_trades_per_day <= 50.0))
             )
             active_wallets = (await db.execute(stmt_wallets)).scalars().all()
             basket_addrs = {w.address.lower() for w in active_wallets}
@@ -186,6 +186,8 @@ class LiveTradeMirrorService:
 
             if side == "SELL":
                 stmt_open_buys = select(ExecutionLog).where(
+                    ExecutionLog.user_id.is_(None),
+                    ExecutionLog.is_sandbox == True,
                     ExecutionLog.market_condition_id == condition_id,
                     ExecutionLog.resolution_outcome == outcome,
                     ExecutionLog.source_wallet_address.ilike(wallet_address),
@@ -194,7 +196,16 @@ class LiveTradeMirrorService:
                 ).order_by(ExecutionLog.executed_at.asc())
                 target_open_buys = (await db.execute(stmt_open_buys)).scalars().all()
                 
-                if not target_open_buys:
+                stmt_any_open = select(ExecutionLog.id).where(
+                    ExecutionLog.market_condition_id == condition_id,
+                    ExecutionLog.resolution_outcome == outcome,
+                    ExecutionLog.source_wallet_address.ilike(wallet_address),
+                    ExecutionLog.side == "BUY",
+                    ExecutionLog.status == "FILLED"
+                ).limit(1)
+                has_any_open_buy = (await db.execute(stmt_any_open)).scalar_one_or_none() is not None
+
+                if not has_any_open_buy:
                     # Safe audit and out-of-order sell registration
                     pending_sell = PendingOutOfOrderSell(
                         wallet_address=addr,
@@ -214,7 +225,7 @@ class LiveTradeMirrorService:
                     self.pending_out_of_order_sells.setdefault(ooo_key, []).append(pending_sell)
 
                     logger.info(
-                        f"🛡️ Position Guard: Whale {addr[:8]} sold '{title[:25]}', but sandbox holds 0 open positions from this whale. "
+                        f"🛡️ Position Guard: Whale {addr[:8]} sold '{title[:25]}', but platform holds 0 open positions from this whale. "
                         f"Registered out-of-order SELL to guard against lagging BUY orphans."
                     )
                     from app.services.event_logger import log_event
@@ -244,6 +255,9 @@ class LiveTradeMirrorService:
 
             stmt_users = select(User)
             users = (await db.execute(stmt_users)).scalars().all()
+
+            stmt_live = select(LiveWalletLink).where(LiveWalletLink.is_live_active == True)
+            live_links = (await db.execute(stmt_live)).scalars().all()
 
             # Check for sniper conviction weighting (e.g. Mr. Ozi / Gold snipers)
             source_whale = next((w for w in active_wallets if w.address.lower() == wallet_address.lower()), None)
@@ -570,6 +584,76 @@ class LiveTradeMirrorService:
                     )
                     db.add(u_sell_log)
 
+                for link in live_links:
+                    l_bal = float(link.live_balance_usdc or 0.0)
+                    l_sizing = calculate_pure_proportional_order_size(
+                        user_balance=l_bal,
+                        n_active=n_active,
+                        whale_trade_usd=whale_trade_val,
+                        whale_pnl_or_net_worth=whale_net_worth,
+                        min_order_usd=1.0,
+                        available_cash=l_bal
+                    )
+                    if l_sizing.status != "SUCCESS":
+                        continue
+                    l_notional = l_sizing.value
+                    l_buy_fee_calc = calculate_polymarket_fee(l_notional, effective_fill_price, title, is_maker=False)
+                    l_sell_fee_calc = calculate_polymarket_fee(l_notional, effective_sell_fill_price, title, is_maker=False)
+                    l_buy_fee = float(l_buy_fee_calc["fee_usd"] or 0.0)
+                    l_sell_fee = float(l_sell_fee_calc["fee_usd"] or 0.0)
+                    l_matched_realized_pnl = round(l_notional * price_ratio - (l_buy_fee + l_sell_fee), 2)
+                    link.live_balance_usdc = round(max(0.0, l_bal + l_matched_realized_pnl), 2)
+
+                    live_buy_log = ExecutionLog(
+                        user_id=link.user_id,
+                        source_wallet_address=wallet_address,
+                        market_condition_id=condition_id,
+                        market_question=title,
+                        event_slug=event_slug,
+                        icon=icon,
+                        side="BUY",
+                        whale_entry_price=price,
+                        user_fill_price=effective_fill_price,
+                        resolution_outcome=outcome,
+                        onchain_tx_hash=target_tx_hash,
+                        onchain_log_index=log_index,
+                        notional_usd=l_notional,
+                        fee_usd=l_buy_fee,
+                        market_category=l_buy_fee_calc["category"],
+                        active_basket_size_at_trade=len(active_wallets),
+                        is_sandbox=False,
+                        status="CLOSED",
+                        realized_pnl_usd=l_matched_realized_pnl,
+                        executed_at=dt,
+                        latency_ms=calc_latency_ms
+                    )
+                    db.add(live_buy_log)
+
+                    live_sell_log = ExecutionLog(
+                        user_id=link.user_id,
+                        source_wallet_address=wallet_address,
+                        market_condition_id=condition_id,
+                        market_question=title,
+                        event_slug=event_slug,
+                        icon=icon,
+                        side="SELL",
+                        whale_entry_price=pending_sell_match.price,
+                        user_fill_price=effective_sell_fill_price,
+                        resolution_outcome=outcome,
+                        onchain_tx_hash=pending_sell_match.tx_hash,
+                        onchain_log_index=pending_sell_match.log_index,
+                        notional_usd=l_notional,
+                        fee_usd=l_sell_fee,
+                        market_category=l_sell_fee_calc["category"],
+                        active_basket_size_at_trade=len(active_wallets),
+                        is_sandbox=False,
+                        status="CLOSED",
+                        realized_pnl_usd=None,
+                        executed_at=pending_sell_match.dt,
+                        latency_ms=calc_latency_ms
+                    )
+                    db.add(live_sell_log)
+
                 await db.commit()
 
                 from app.services.event_logger import log_event
@@ -590,6 +674,7 @@ class LiveTradeMirrorService:
                 remaining_sell_notional = sys_notional
                 sell_fee_total = float(fee_calc["fee_usd"] or 0.0)
                 sell_fee_rate = sell_fee_total / sys_notional if sys_notional > 0 else 0.0
+                sys_total_realized_pnl = 0.0
                 
                 for open_buy in target_open_buys:
                     if remaining_sell_notional <= 0:
@@ -602,7 +687,9 @@ class LiveTradeMirrorService:
                         open_buy.status = "CLOSED"
                         buy_fee = float(open_buy.fee_usd or 0.0)
                         allocated_sell_fee = buy_notional * sell_fee_rate
-                        open_buy.realized_pnl_usd = round(buy_notional * price_ratio - (buy_fee + allocated_sell_fee), 2)
+                        leg_pnl = round(buy_notional * price_ratio - (buy_fee + allocated_sell_fee), 2)
+                        open_buy.realized_pnl_usd = leg_pnl
+                        sys_total_realized_pnl += leg_pnl
                         remaining_sell_notional -= buy_notional
                     else:
                         closed_portion = remaining_sell_notional
@@ -615,7 +702,9 @@ class LiveTradeMirrorService:
                         open_buy.status = "CLOSED"
                         open_buy.notional_usd = closed_portion
                         open_buy.fee_usd = round(closed_buy_fee, 4)
-                        open_buy.realized_pnl_usd = round(closed_portion * price_ratio - (closed_buy_fee + allocated_sell_fee), 2)
+                        leg_pnl = round(closed_portion * price_ratio - (closed_buy_fee + allocated_sell_fee), 2)
+                        open_buy.realized_pnl_usd = leg_pnl
+                        sys_total_realized_pnl += leg_pnl
                         
                         split_buy = ExecutionLog(
                             user_id=None,
@@ -643,31 +732,33 @@ class LiveTradeMirrorService:
                         db.add(split_buy)
                         remaining_sell_notional = 0.0
                         break
+                sys_realized_pnl_val = round(sys_total_realized_pnl, 2)
 
             # System execution log
-            sys_log = ExecutionLog(
-                source_wallet_address=wallet_address,
-                market_condition_id=condition_id,
-                market_question=title,
-                event_slug=event_slug,
-                icon=icon,
-                side=side,
-                whale_entry_price=price,
-                user_fill_price=effective_fill_price,
-                resolution_outcome=outcome,
-                onchain_tx_hash=target_tx_hash,
-                onchain_log_index=log_index,
-                notional_usd=sys_notional,
-                fee_usd=fee_calc["fee_usd"],
-                market_category=fee_calc["category"],
-                active_basket_size_at_trade=len(active_wallets),
-                is_sandbox=True,
-                status="CLOSED" if side == "SELL" else "FILLED",
-                realized_pnl_usd=sys_realized_pnl_val if side == "SELL" else None,
-                executed_at=dt,
-                latency_ms=calc_latency_ms
-            )
-            db.add(sys_log)
+            if side == "BUY" or target_open_buys:
+                sys_log = ExecutionLog(
+                    source_wallet_address=wallet_address,
+                    market_condition_id=condition_id,
+                    market_question=title,
+                    event_slug=event_slug,
+                    icon=icon,
+                    side=side,
+                    whale_entry_price=price,
+                    user_fill_price=effective_fill_price,
+                    resolution_outcome=outcome,
+                    onchain_tx_hash=target_tx_hash,
+                    onchain_log_index=log_index,
+                    notional_usd=sys_notional,
+                    fee_usd=fee_calc["fee_usd"],
+                    market_category=fee_calc["category"],
+                    active_basket_size_at_trade=len(active_wallets),
+                    is_sandbox=True,
+                    status="CLOSED" if side == "SELL" else "FILLED",
+                    realized_pnl_usd=sys_realized_pnl_val if side == "SELL" else None,
+                    executed_at=dt,
+                    latency_ms=calc_latency_ms
+                )
+                db.add(sys_log)
 
             # Copy-trade for individual sandbox users with Pure Proportional Sleeve Sizing
             for u in users:
@@ -698,6 +789,7 @@ class LiveTradeMirrorService:
                 if side == "SELL":
                     stmt_u_buys = select(ExecutionLog).where(
                         ExecutionLog.user_id == u.id,
+                        ExecutionLog.is_sandbox == True,
                         ExecutionLog.market_condition_id == condition_id,
                         ExecutionLog.resolution_outcome == outcome,
                         ExecutionLog.source_wallet_address.ilike(wallet_address),
@@ -712,6 +804,7 @@ class LiveTradeMirrorService:
                     remaining_u_sell_notional = u_notional
                     u_sell_fee_total = float(u_fee["fee_usd"] or 0.0)
                     u_sell_fee_rate = u_sell_fee_total / u_notional if u_notional > 0 else 0.0
+                    user_total_realized_pnl = 0.0
                     
                     for u_buy in u_open_buys:
                         if remaining_u_sell_notional <= 0:
@@ -724,7 +817,9 @@ class LiveTradeMirrorService:
                             u_buy.status = "CLOSED"
                             u_buy_fee = float(u_buy.fee_usd or 0.0)
                             u_allocated_sell_fee = u_buy_notional * u_sell_fee_rate
-                            u_buy.realized_pnl_usd = round(u_buy_notional * u_ratio - (u_buy_fee + u_allocated_sell_fee), 2)
+                            leg_pnl = round(u_buy_notional * u_ratio - (u_buy_fee + u_allocated_sell_fee), 2)
+                            u_buy.realized_pnl_usd = leg_pnl
+                            user_total_realized_pnl += leg_pnl
                             remaining_u_sell_notional -= u_buy_notional
                         else:
                             closed_part = remaining_u_sell_notional
@@ -737,7 +832,9 @@ class LiveTradeMirrorService:
                             u_buy.status = "CLOSED"
                             u_buy.notional_usd = closed_part
                             u_buy.fee_usd = round(closed_u_buy_fee, 4)
-                            u_buy.realized_pnl_usd = round(closed_part * u_ratio - (closed_u_buy_fee + u_allocated_sell_fee), 2)
+                            leg_pnl = round(closed_part * u_ratio - (closed_u_buy_fee + u_allocated_sell_fee), 2)
+                            u_buy.realized_pnl_usd = leg_pnl
+                            user_total_realized_pnl += leg_pnl
                             
                             u_split_buy = ExecutionLog(
                                 user_id=u.id,
@@ -766,6 +863,12 @@ class LiveTradeMirrorService:
                             remaining_u_sell_notional = 0.0
                             break
 
+                    u_realized_pnl_val = round(user_total_realized_pnl, 2)
+                    u_bal = float(u.sandbox_balance_usd or 10000.0)
+                    u.sandbox_balance_usd = round(u_bal + user_total_realized_pnl, 2)
+                    cur_hwm = float(u.sandbox_high_water_mark_usd or 10000.0)
+                    u.sandbox_high_water_mark_usd = max(cur_hwm, u.sandbox_balance_usd)
+
                 user_log = ExecutionLog(
                     user_id=u.id,
                     source_wallet_address=wallet_address,
@@ -790,6 +893,165 @@ class LiveTradeMirrorService:
                     latency_ms=calc_latency_ms
                 )
                 db.add(user_log)
+
+            # Copy-trade for live users with Pure Proportional Sleeve Sizing
+            for link in live_links:
+                l_bal = float(link.live_balance_usdc or 0.0)
+                l_sizing = calculate_pure_proportional_order_size(
+                    user_balance=l_bal,
+                    n_active=n_active,
+                    whale_trade_usd=whale_trade_val,
+                    whale_pnl_or_net_worth=whale_net_worth,
+                    min_order_usd=float(getattr(settings, 'POLYMARKET_MIN_ORDER_USD', 1.0)),
+                    available_cash=l_bal
+                )
+                if side == "BUY":
+                    if l_sizing.status != 'SUCCESS':
+                        continue
+                    l_notional = l_sizing.value
+                    l_fee = calculate_polymarket_fee(
+                        notional_usd=l_notional,
+                        price=effective_fill_price,
+                        market_title=title,
+                        is_maker=False
+                    )
+                    link.live_balance_usdc = max(0.0, round(l_bal - l_notional, 2))
+                    live_log = ExecutionLog(
+                        user_id=link.user_id,
+                        source_wallet_address=wallet_address,
+                        market_condition_id=condition_id,
+                        market_question=title,
+                        event_slug=event_slug,
+                        icon=icon,
+                        side="BUY",
+                        whale_entry_price=price,
+                        user_fill_price=effective_fill_price,
+                        resolution_outcome=outcome,
+                        onchain_tx_hash=target_tx_hash,
+                        onchain_log_index=log_index,
+                        notional_usd=l_notional,
+                        fee_usd=l_fee["fee_usd"],
+                        market_category=l_fee["category"],
+                        active_basket_size_at_trade=len(active_wallets),
+                        is_sandbox=False,
+                        status="FILLED",
+                        realized_pnl_usd=None,
+                        executed_at=dt,
+                        latency_ms=calc_latency_ms
+                    )
+                    db.add(live_log)
+                else:
+                    stmt_l_buys = select(ExecutionLog).where(
+                        ExecutionLog.user_id == link.user_id,
+                        ExecutionLog.market_condition_id == condition_id,
+                        ExecutionLog.resolution_outcome == outcome,
+                        ExecutionLog.source_wallet_address.ilike(wallet_address),
+                        ExecutionLog.side == "BUY",
+                        ExecutionLog.status == "FILLED",
+                        ExecutionLog.is_sandbox == False
+                    ).order_by(ExecutionLog.executed_at.asc())
+                    l_open_buys = (await db.execute(stmt_l_buys)).scalars().all()
+                    if not l_open_buys:
+                        continue
+
+                    l_notional = l_sizing.value if l_sizing.status == 'SUCCESS' else round(max(1.0, (l_bal / n_active) * (whale_trade_val / whale_net_worth)), 2)
+                    l_fee = calculate_polymarket_fee(
+                        notional_usd=l_notional,
+                        price=effective_fill_price,
+                        market_title=title,
+                        is_maker=False
+                    )
+                    remaining_l_sell_notional = l_notional
+                    l_sell_fee_total = float(l_fee["fee_usd"] or 0.0)
+                    l_sell_fee_rate = l_sell_fee_total / l_notional if l_notional > 0 else 0.0
+                    live_total_realized_pnl = 0.0
+                    live_closed_notional = 0.0
+
+                    for l_buy in l_open_buys:
+                        if remaining_l_sell_notional <= 0:
+                            break
+                        l_buy_notional = float(l_buy.notional_usd or 0.0)
+                        l_orig_price = float(l_buy.user_fill_price or 0.5)
+                        l_ratio = ((effective_fill_price - l_orig_price) / l_orig_price) if l_orig_price > 0 else 0.0
+
+                        if l_buy_notional <= remaining_l_sell_notional + 0.01:
+                            l_buy.status = "CLOSED"
+                            l_buy_fee = float(l_buy.fee_usd or 0.0)
+                            l_allocated_sell_fee = l_buy_notional * l_sell_fee_rate
+                            leg_pnl = round(l_buy_notional * l_ratio - (l_buy_fee + l_allocated_sell_fee), 2)
+                            l_buy.realized_pnl_usd = leg_pnl
+                            live_total_realized_pnl += leg_pnl
+                            live_closed_notional += l_buy_notional
+                            remaining_l_sell_notional -= l_buy_notional
+                        else:
+                            closed_part = remaining_l_sell_notional
+                            rem_part = round(l_buy_notional - closed_part, 2)
+                            l_buy_fee_rate = float(l_buy.fee_usd or 0.0) / l_buy_notional if l_buy_notional > 0 else 0.0
+                            closed_l_buy_fee = closed_part * l_buy_fee_rate
+                            l_allocated_sell_fee = closed_part * l_sell_fee_rate
+
+                            orig_l_fee = float(l_buy.fee_usd or 0.0)
+                            l_buy.status = "CLOSED"
+                            l_buy.notional_usd = closed_part
+                            l_buy.fee_usd = round(closed_l_buy_fee, 4)
+                            leg_pnl = round(closed_part * l_ratio - (closed_l_buy_fee + l_allocated_sell_fee), 2)
+                            l_buy.realized_pnl_usd = leg_pnl
+                            live_total_realized_pnl += leg_pnl
+                            live_closed_notional += closed_part
+
+                            l_split_buy = ExecutionLog(
+                                user_id=link.user_id,
+                                source_wallet_address=l_buy.source_wallet_address,
+                                market_condition_id=l_buy.market_condition_id,
+                                market_question=l_buy.market_question,
+                                event_slug=l_buy.event_slug,
+                                icon=l_buy.icon,
+                                side="BUY",
+                                whale_entry_price=l_buy.whale_entry_price,
+                                user_fill_price=l_buy.user_fill_price,
+                                resolution_outcome=l_buy.resolution_outcome,
+                                onchain_tx_hash=f"{l_buy.onchain_tx_hash}:split" if l_buy.onchain_tx_hash else None,
+                                onchain_log_index=l_buy.onchain_log_index,
+                                notional_usd=rem_part,
+                                fee_usd=round(max(0.0, orig_l_fee - closed_l_buy_fee), 4),
+                                market_category=l_buy.market_category,
+                                active_basket_size_at_trade=l_buy.active_basket_size_at_trade,
+                                is_sandbox=False,
+                                status="FILLED",
+                                realized_pnl_usd=None,
+                                executed_at=l_buy.executed_at,
+                                latency_ms=l_buy.latency_ms or calc_latency_ms or 350.0
+                            )
+                            db.add(l_split_buy)
+                            remaining_l_sell_notional = 0.0
+                            break
+
+                    link.live_balance_usdc = round(max(0.0, l_bal + live_closed_notional + live_total_realized_pnl), 2)
+
+                    live_sell_log = ExecutionLog(
+                        user_id=link.user_id,
+                        source_wallet_address=wallet_address,
+                        market_condition_id=condition_id,
+                        market_question=title,
+                        event_slug=event_slug,
+                        icon=icon,
+                        side="SELL",
+                        whale_entry_price=price,
+                        user_fill_price=effective_fill_price,
+                        resolution_outcome=outcome,
+                        onchain_tx_hash=target_tx_hash,
+                        onchain_log_index=log_index,
+                        notional_usd=l_notional,
+                        fee_usd=l_fee["fee_usd"],
+                        market_category=l_fee["category"],
+                        active_basket_size_at_trade=len(active_wallets),
+                        is_sandbox=False,
+                        status="CLOSED",
+                        realized_pnl_usd=round(live_total_realized_pnl, 2),
+                        executed_at=dt,
+                        latency_ms=calc_latency_ms
+                    )
+                    db.add(live_sell_log)
 
             await db.commit()
 
@@ -899,7 +1161,7 @@ class LiveTradeMirrorService:
                     Wallet.status == "active",
                     Wallet.dormant == False,
                     Wallet.is_hft == False,
-                    (Wallet.avg_trades_per_day.is_(None) | (Wallet.avg_trades_per_day <= 65.0))
+                    (Wallet.avg_trades_per_day.is_(None) | (Wallet.avg_trades_per_day <= 50.0))
                 ).order_by(Wallet.baleen_score.desc()).limit(10)
                 active_wallets = (await db.execute(stmt)).scalars().all()
                 

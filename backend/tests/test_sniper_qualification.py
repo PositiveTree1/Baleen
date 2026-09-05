@@ -414,3 +414,172 @@ def test_pure_proportional_sleeve_sizing():
     )
     assert res_tiny.status == "SKIPPED_BELOW_MINIMUM"
     assert res_tiny.value == 0.0
+
+
+def test_rejection_reason_hashable():
+    from app.scoring.engine import RejectionReason
+    r1 = RejectionReason("PNL_BELOW_50K")
+    r2 = RejectionReason("INSUFFICIENT_TRADES_UNDER_100")
+    # Must be hashable for sets and dictionary keys
+    s = {r1, r2}
+    assert r1 in s
+    assert len(s) == 2
+    d = {r1: "reject_pnl", r2: "reject_trades"}
+    assert d[r1] == "reject_pnl"
+
+
+def test_score_wallet_resilient_to_none_values():
+    # Dictionary with explicit None values for numeric keys
+    stats_with_nones = {
+        "all_time_pnl_usd": 120000.0,
+        "total_volume_usd": None,
+        "trades_count": 200,
+        "active_days": None,
+        "trades_per_day": 2.5,
+        "avg_trades_per_day": None,
+        "win_rate_pct": 82.0,
+        "max_drawdown_pct": 9.0,
+        "cumulative_pnl": 120000.0,
+        "unrealized_open_pnl": None,
+        "t_days": None,
+        "beta": None,
+        "r_squared": None,
+    }
+    result = score_wallet(stats_with_nones)
+    assert result.status == "active"
+    assert result.tier in ["standard", "gold_sniper"]
+
+
+@pytest.mark.asyncio
+async def test_live_poller_executes_live_orders_for_live_active_links():
+    from app.database import SessionLocal, init_db
+    from app.models import User, LiveWalletLink, Wallet, ExecutionLog
+    from app.services.live_poller import LiveTradeMirrorService
+    from sqlalchemy import select, delete
+
+    await init_db()
+    whale_addr = "0x" + "a" * 40
+    user_email = "poller_live_test@baleen.ai"
+    cond_id = "0xcondLivePollerTest"
+
+    async with SessionLocal() as db:
+        # Clean prior state
+        await db.execute(delete(ExecutionLog).where(ExecutionLog.market_condition_id == cond_id))
+        await db.execute(delete(Wallet).where(Wallet.address == whale_addr))
+        stmt_u = select(User).where(User.email == user_email)
+        u_old = (await db.execute(stmt_u)).scalar_one_or_none()
+        if u_old:
+            await db.execute(delete(LiveWalletLink).where(LiveWalletLink.user_id == u_old.id))
+            await db.execute(delete(User).where(User.id == u_old.id))
+        await db.commit()
+
+        # Add active whale
+        whale = Wallet(
+            address=whale_addr,
+            status="active",
+            tier="gold_sniper",
+            all_time_pnl_usd=250000.0,
+            win_rate_pct=88.0,
+            avg_trades_per_day=3.0,
+            is_hft=False,
+            dormant=False
+        )
+        db.add(whale)
+
+        # Add live-enabled user with active link
+        u = User(
+            email=user_email,
+            password_hash="pwd",
+            sandbox_balance_usd=10000.0,
+            live_trading_enabled=True
+        )
+        db.add(u)
+        await db.flush()
+
+        link = LiveWalletLink(
+            user_id=u.id,
+            provider="polymarket_clob",
+            provider_user_id="0xproxyUser",
+            polymarket_wallet_address="0xproxyUser000000000000000000000000000000",
+            clob_api_key_enc="key123",
+            clob_api_secret_enc="sec123",
+            clob_api_passphrase_enc="pass123",
+            is_live_active=True,
+            live_balance_usdc=5000.0,
+            last_verified_at=datetime.utcnow()
+        )
+        db.add(link)
+        await db.commit()
+
+    service = LiveTradeMirrorService()
+
+    # Process BUY fill
+    await service.process_trade_fill(
+        wallet_address=whale_addr,
+        condition_id=cond_id,
+        title="Will Baleen L2 Live Mirror Succeed?",
+        side="BUY",
+        price=0.50,
+        cash_usd=5000.0,
+        dt=datetime.utcnow(),
+        outcome="Yes",
+        asset="0xassetLive1"
+    )
+
+    async with SessionLocal() as db:
+        # Check that BOTH sandbox and live execution logs were created
+        stmt_sandbox = select(ExecutionLog).where(
+            ExecutionLog.market_condition_id == cond_id,
+            ExecutionLog.is_sandbox == True
+        )
+        sandbox_logs = (await db.execute(stmt_sandbox)).scalars().all()
+        assert len(sandbox_logs) >= 1
+
+        stmt_live = select(ExecutionLog).where(
+            ExecutionLog.market_condition_id == cond_id,
+            ExecutionLog.is_sandbox == False
+        )
+        live_logs = (await db.execute(stmt_live)).scalars().all()
+        assert len(live_logs) >= 1
+        live_entry = live_logs[0]
+        assert live_entry.side == "BUY"
+        assert live_entry.status == "FILLED"
+        assert live_entry.notional_usd > 0.0
+
+        # Live balance should have been decremented
+        stmt_link_check = select(LiveWalletLink).where(LiveWalletLink.user_id == u.id)
+        updated_link = (await db.execute(stmt_link_check)).scalar_one()
+        assert updated_link.live_balance_usdc < 5000.0
+
+    # Process SELL fill
+    await service.process_trade_fill(
+        wallet_address=whale_addr,
+        condition_id=cond_id,
+        title="Will Baleen L2 Live Mirror Succeed?",
+        side="SELL",
+        price=0.80,  # Profitable exit
+        cash_usd=5000.0,
+        dt=datetime.utcnow(),
+        outcome="Yes",
+        asset="0xassetLive1"
+    )
+
+    async with SessionLocal() as db:
+        stmt_live_sell = select(ExecutionLog).where(
+            ExecutionLog.market_condition_id == cond_id,
+            ExecutionLog.is_sandbox == False,
+            ExecutionLog.side == "SELL"
+        )
+        live_sells = (await db.execute(stmt_live_sell)).scalars().all()
+        assert len(live_sells) >= 1
+        assert live_sells[0].status == "CLOSED"
+        assert live_sells[0].realized_pnl_usd is not None
+        assert live_sells[0].realized_pnl_usd > 0  # Sold at 0.80 vs bought at 0.50
+
+        # Clean test records
+        await db.execute(delete(ExecutionLog).where(ExecutionLog.market_condition_id == cond_id))
+        await db.execute(delete(LiveWalletLink).where(LiveWalletLink.user_id == u.id))
+        await db.execute(delete(User).where(User.id == u.id))
+        await db.execute(delete(Wallet).where(Wallet.address == whale_addr))
+        await db.commit()
+

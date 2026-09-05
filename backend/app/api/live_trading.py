@@ -57,6 +57,11 @@ async def _resolve_user(db: AsyncSession, user_id_str: Optional[str] = None) -> 
                 return user
         except Exception:
             pass
+        # If user_id_str is an email address
+        stmt = select(User).where(User.email == str(user_id_str).strip())
+        user = (await db.execute(stmt)).scalar_one_or_none()
+        if user:
+            return user
     # Default to first registered user
     stmt = select(User).order_by(User.created_at.asc()).limit(1)
     return (await db.execute(stmt)).scalars().first()
@@ -289,10 +294,16 @@ async def toggle_live_trading(req: ToggleLiveTradingRequest, db: AsyncSession = 
     link = (await db.execute(stmt)).scalar_one_or_none()
 
     if req.enabled:
-        if not link or not link.polymarket_wallet_address or not link.clob_api_key_enc:
+        if (
+            not link 
+            or not link.polymarket_wallet_address 
+            or not link.clob_api_key_enc 
+            or not link.clob_api_secret_enc 
+            or not link.clob_api_passphrase_enc
+        ):
             raise HTTPException(
                 status_code=400,
-                detail="Cannot enable live trading: Polymarket Proxy Address and CLOB API credentials must be configured first."
+                detail="Cannot enable live trading: Polymarket Proxy Address and complete CLOB API credentials (key, secret, passphrase) must be configured first."
             )
 
     if link:
