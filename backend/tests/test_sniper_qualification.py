@@ -239,7 +239,118 @@ def test_authentic_wallet_stats_calculations():
         activity=[],
         closed_positions=[]
     )
-    assert stats_conflict["is_conflicting_positions"] is True
+    # Conflicting BUY positions using outcomeIndex
+    conflict_trades_idx = [
+        {"timestamp": now_sec, "price": 0.50, "size": 100, "side": "BUY", "conditionId": "mkt2", "outcomeIndex": 0, "asset": "asset_0"},
+        {"timestamp": now_sec + 1, "price": 0.50, "size": 100, "side": "BUY", "conditionId": "mkt2", "outcomeIndex": 1, "asset": "asset_1"},
+    ]
+    stats_conflict_idx = calculate_authentic_wallet_stats(
+        address="0x123",
+        trades=conflict_trades_idx,
+        positions=[],
+        activity=[],
+        closed_positions=[]
+    )
+    assert stats_conflict_idx["is_conflicting_positions"] is True
+
+    # Empty trade history should be flagged inactive
+    stats_empty = calculate_authentic_wallet_stats(
+        address="0xempty",
+        trades=[],
+        positions=[],
+        activity=[],
+        closed_positions=[]
+    )
+    assert stats_empty["is_inactive_7d"] is True
+    assert stats_empty["days_since_last_trade"] == 999.0
+
+
+def test_trade_count_100_and_120_accepted():
+    # Exactly 100 lifetime trades passes
+    stats_100 = {
+        "all_time_pnl_usd": 80000.0,
+        "total_volume_usd": 250000.0,
+        "trades_count": 100,
+        "active_days": 65.0,
+        "trades_per_day": 1.5,
+        "win_rate_pct": 75.0,
+        "max_drawdown_pct": 10.0,
+        "cumulative_pnl": 80000.0,
+    }
+    res_100 = score_wallet(stats_100)
+    assert res_100.status == "active"
+
+    # 120 lifetime trades (which prior attempt failed because of leftover < 150 check)
+    stats_120 = {
+        "all_time_pnl_usd": 80000.0,
+        "total_volume_usd": 250000.0,
+        "trades_count": 120,
+        "active_days": 65.0,
+        "trades_per_day": 1.8,
+        "win_rate_pct": 75.0,
+        "max_drawdown_pct": 10.0,
+        "cumulative_pnl": 80000.0,
+    }
+    res_120 = score_wallet(stats_120)
+    assert res_120.status == "active"
+
+
+def test_stale_plateau_negative_second_half():
+    # Whale made money in first half but lost money in second half
+    trades = [
+        {"timestamp": 1700000000, "price": 0.40, "size": 100, "side": "BUY", "conditionId": "c1", "asset": "a1"},
+        {"timestamp": 1700000050, "price": 0.80, "size": 100, "side": "SELL", "conditionId": "c1", "asset": "a1"},
+        {"timestamp": 1700100000, "price": 0.50, "size": 100, "side": "BUY", "conditionId": "c2", "asset": "a2"},
+        {"timestamp": 1700100050, "price": 0.10, "size": 100, "side": "SELL", "conditionId": "c2", "asset": "a2"},
+    ]
+    stats = calculate_authentic_wallet_stats(
+        address="0xstale",
+        trades=trades,
+        positions=[],
+        activity=[],
+        closed_positions=[]
+    )
+    assert stats["is_stale_plateau"] is True
+
+
+def test_gold_sniper_ols_slope_and_r2():
+    # 5-day history with poor R^2 (< 0.55) fails gold sniper tier (falls back to standard)
+    stats_poor_r2 = {
+        "all_time_pnl_usd": 150000.0,
+        "total_volume_usd": 400000.0,
+        "trades_count": 200,
+        "active_days": 70.0,
+        "trades_per_day": 2.8,
+        "win_rate_pct": 88.0,
+        "max_drawdown_pct": 8.0,
+        "cumulative_pnl": 150000.0,
+        "unrealized_open_pnl": 0.0,
+        "t_days": 6,
+        "beta": 100.0,
+        "r_squared": 0.48,  # < 0.55
+    }
+    res_poor = score_wallet(stats_poor_r2)
+    assert res_poor.status == "active"
+    assert res_poor.tier == "standard"
+
+    # 5-day history with solid R^2 (>= 0.55) qualifies for gold sniper
+    stats_good_r2 = {
+        "all_time_pnl_usd": 150000.0,
+        "total_volume_usd": 400000.0,
+        "trades_count": 200,
+        "active_days": 70.0,
+        "trades_per_day": 2.8,
+        "win_rate_pct": 88.0,
+        "max_drawdown_pct": 8.0,
+        "cumulative_pnl": 150000.0,
+        "unrealized_open_pnl": 0.0,
+        "t_days": 6,
+        "beta": 150.0,
+        "r_squared": 0.82,  # >= 0.55
+    }
+    res_good = score_wallet(stats_good_r2)
+    assert res_good.status == "active"
+    assert res_good.tier == "gold_sniper"
 
 
 def test_pure_proportional_sleeve_sizing():

@@ -186,7 +186,41 @@ async def test_connection(req: TestConnectionRequest, db: AsyncSession = Depends
             except Exception as e:
                 logger.debug(f"CLOB ping error: {e}")
 
-            # 2. Fetch positions / cash balance from Polymarket Data API
+            # 2. Query Polygon RPC for on-chain USDC.e and native USDC token balances
+            try:
+                pad_addr = clean_addr[2:].lower().zfill(64)
+                data_payload = "0x70a08231" + pad_addr
+                usdc_tokens = [
+                    "0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174",  # USDC.e (Bridged)
+                    "0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359",  # Native USDC
+                ]
+                onchain_usdc = 0.0
+                for tok in usdc_tokens:
+                    try:
+                        rpc_resp = await client.post(
+                            "https://polygon-bor-rpc.publicnode.com",
+                            json={
+                                "jsonrpc": "2.0",
+                                "method": "eth_call",
+                                "params": [{"to": tok, "data": data_payload}, "latest"],
+                                "id": 1
+                            },
+                            timeout=3.5
+                        )
+                        if rpc_resp.status_code == 200:
+                            res_hex = rpc_resp.json().get("result")
+                            if res_hex and res_hex != "0x":
+                                onchain_usdc += int(res_hex, 16) / 1e6
+                                is_connected = True
+                    except Exception:
+                        pass
+                if onchain_usdc > 0.0:
+                    verified_balance = max(verified_balance, round(onchain_usdc, 2))
+                    details.append(f"Retrieved ${verified_balance:,.2f} on-chain USDC from Polygon RPC.")
+            except Exception as e:
+                logger.debug(f"Polygon RPC check error: {e}")
+
+            # 3. Fetch positions / cash balance from Polymarket Data API
             try:
                 data_resp = await client.get(f"{settings.POLYMARKET_DATA_API_URL}/positions", params={"user": clean_addr, "limit": 20})
                 if data_resp.status_code == 200:
@@ -208,9 +242,31 @@ async def test_connection(req: TestConnectionRequest, db: AsyncSession = Depends
         is_connected = True
 
     now = datetime.utcnow()
-    if link:
+    if not link and user:
+        link = LiveWalletLink(
+            user_id=user.id,
+            provider="polymarket_clob",
+            provider_user_id=clean_addr,
+            polymarket_wallet_address=clean_addr,
+            clob_api_key_enc=(req.clob_api_key or "").strip(),
+            clob_api_secret_enc=(req.clob_api_secret or "").strip(),
+            clob_api_passphrase_enc=(req.clob_api_passphrase or "").strip(),
+            is_live_active=False,
+            live_balance_usdc=verified_balance,
+            last_verified_at=now,
+            created_at=now
+        )
+        db.add(link)
+        await db.commit()
+    elif link:
         link.last_verified_at = now
         link.live_balance_usdc = verified_balance
+        if req.clob_api_key and not link.clob_api_key_enc:
+            link.clob_api_key_enc = req.clob_api_key.strip()
+        if req.clob_api_secret and not link.clob_api_secret_enc:
+            link.clob_api_secret_enc = req.clob_api_secret.strip()
+        if req.clob_api_passphrase and not link.clob_api_passphrase_enc:
+            link.clob_api_passphrase_enc = req.clob_api_passphrase.strip()
         await db.commit()
 
     return {

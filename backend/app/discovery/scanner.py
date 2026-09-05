@@ -199,14 +199,54 @@ def calculate_authentic_wallet_stats(
     else:
         sharpe_ratio = 1.0
 
+    # Pre-build unified combined trades (merging explicit trades with fills/trades from activity)
+    combined_trades = list(trades or [])
+    seen_trade_sigs = set()
+    for t in combined_trades:
+        if isinstance(t, dict):
+            sig = (
+                str(t.get("id") or t.get("transactionHash") or ""),
+                str(t.get("timestamp") or t.get("time") or ""),
+                str(t.get("asset") or t.get("conditionId") or ""),
+                str(t.get("side") or "").upper(),
+                float(t.get("size") or 0.0)
+            )
+            seen_trade_sigs.add(sig)
+
+    for act in list(activity or []):
+        if isinstance(act, dict):
+            act_type = str(act.get("type") or "").upper()
+            act_side = str(act.get("side") or "").upper()
+            if act_type in ("TRADE", "BUY", "SELL") or act_side in ("BUY", "SELL"):
+                sig = (
+                    str(act.get("id") or act.get("transactionHash") or ""),
+                    str(act.get("timestamp") or act.get("time") or ""),
+                    str(act.get("asset") or act.get("conditionId") or ""),
+                    act_side or act_type,
+                    float(act.get("size") or 0.0)
+                )
+                if sig not in seen_trade_sigs:
+                    seen_trade_sigs.add(sig)
+                    combined_trades.append(act)
+
     # 5. Track Record Length (Lifetime Trades, Active Days, & Recency)
     all_ts = []
-    for item in list(trades or []) + list(positions or []) + list(activity or []) + list(closed_positions or []):
+    for item in list(combined_trades) + list(positions or []) + list(closed_positions or []):
         if isinstance(item, dict):
             raw_t = item.get("timestamp") or item.get("time") or item.get("createdAt") or item.get("updatedAt")
             if raw_t:
                 try:
-                    ts_val = float(raw_t) / 1000.0 if float(raw_t) > 1e11 else float(raw_t)
+                    if isinstance(raw_t, (int, float)):
+                        ts_val = float(raw_t) / 1000.0 if float(raw_t) > 1e11 else float(raw_t)
+                    elif isinstance(raw_t, str):
+                        try:
+                            val = float(raw_t)
+                            ts_val = val / 1000.0 if val > 1e11 else val
+                        except ValueError:
+                            clean_s = raw_t.replace("Z", "+00:00")
+                            ts_val = datetime.fromisoformat(clean_s).timestamp()
+                    else:
+                        ts_val = 0.0
                     if ts_val > 1e8:
                         all_ts.append(ts_val)
                 except Exception:
@@ -223,28 +263,28 @@ def calculate_authentic_wallet_stats(
             ref_now = now_sec
         active_days = max(1.0, (max_ts - min_ts) / 86400.0)
         days_since_last_trade = max(0.0, (ref_now - max_ts) / 86400.0)
+        is_inactive_7d = bool(days_since_last_trade > 7.0)
     else:
         active_days = 60.0
-        days_since_last_trade = 0.0
+        days_since_last_trade = 999.0
+        is_inactive_7d = True
 
-    is_inactive_7d = bool(all_ts and days_since_last_trade > 7.0)
-
-    total_trade_count = max(len(trades or []), len(positions or []), len(activity or []), len(closed_positions or []), 0)
+    total_trade_count = max(len(combined_trades), len(positions or []), len(activity or []), len(closed_positions or []), 0)
     trades_per_day = round(total_trade_count / active_days, 1)
     is_hft = bool(trades_per_day > 50.0)
 
     # Boundary Sniping Check (Buy at >= 0.9999 or <= 0.0001)
     is_boundary_arb = False
     boundary_trades_count = 0
-    total_trades_checked = len(trades or [])
-    for t in (trades or []):
+    total_trades_checked = len(combined_trades)
+    for t in combined_trades:
         if isinstance(t, dict):
-            t_side = str(t.get("side") or "").upper()
+            t_side = str(t.get("side") or t.get("maker_direction") or t.get("type") or "").upper()
             t_price = float(t.get("price") or 0.0)
             if t_side == "BUY" and (t_price >= 0.9999 or (0.0 < t_price <= 0.0001)):
                 is_boundary_arb = True
                 boundary_trades_count += 1
-            elif t_side == "BUY" and (t_price >= 0.99 or t_price <= 0.01):
+            elif t_side == "BUY" and (t_price >= 0.99 or (0.0 < t_price <= 0.01)):
                 boundary_trades_count += 1
 
     boundary_ratio = round(boundary_trades_count / max(1, total_trades_checked), 3)
@@ -253,7 +293,7 @@ def calculate_authentic_wallet_stats(
 
     # 6. Trade Size Compatibility with Sleeve (Median usdcSize)
     trade_sizes = []
-    for t in (trades or []):
+    for t in combined_trades:
         if isinstance(t, dict):
             s_val = float(t.get("usdcSize") or t.get("size") or 0.0)
             if s_val > 0:
@@ -270,7 +310,7 @@ def calculate_authentic_wallet_stats(
 
     # 7. Wash-Trading / Round-Trip Pair Check (<120s BUY<->SELL pairs)
     wash_pair_count = 0
-    trade_list_sorted = sorted((trades or []), key=lambda x: float(x.get("timestamp") or 0))
+    trade_list_sorted = sorted(combined_trades, key=lambda x: float(x.get("timestamp") or x.get("time") or 0) if isinstance(x, dict) else 0)
     for i in range(len(trade_list_sorted) - 1):
         t1 = trade_list_sorted[i]
         t2 = trade_list_sorted[i+1]
@@ -284,7 +324,7 @@ def calculate_authentic_wallet_stats(
         if cid1 and cid1 == cid2 and side1 != side2 and 0 <= (ts2 - ts1) <= 120:
             wash_pair_count += 1
 
-    wash_ratio = round(wash_pair_count / max(1, len(trades or [])), 3)
+    wash_ratio = round(wash_pair_count / max(1, len(combined_trades)), 3)
     is_wash_trading = bool(wash_ratio > 0.10 and wash_pair_count >= 2)
 
     # 8. Authentic Daily PnL history from chronological trades & redemptions
@@ -326,36 +366,6 @@ def calculate_authentic_wallet_stats(
                 pos_by_condition[c_key] = p
 
     # A. Chronological trade matching (Fills & Sells)
-    # Merge activity trades with raw trades for comprehensive coverage across older months
-    combined_trades = list(trades or [])
-    seen_trade_sigs = set()
-    for t in combined_trades:
-        if isinstance(t, dict):
-            sig = (
-                str(t.get("id") or t.get("transactionHash") or ""),
-                str(t.get("timestamp") or t.get("time") or ""),
-                str(t.get("asset") or t.get("conditionId") or ""),
-                str(t.get("side") or "").upper(),
-                float(t.get("size") or 0.0)
-            )
-            seen_trade_sigs.add(sig)
-
-    for act in list(activity or []):
-        if isinstance(act, dict):
-            act_type = str(act.get("type") or "").upper()
-            act_side = str(act.get("side") or "").upper()
-            if act_type in ("TRADE", "BUY", "SELL") or act_side in ("BUY", "SELL"):
-                sig = (
-                    str(act.get("id") or act.get("transactionHash") or ""),
-                    str(act.get("timestamp") or act.get("time") or ""),
-                    str(act.get("asset") or act.get("conditionId") or ""),
-                    act_side or act_type,
-                    float(act.get("size") or 0.0)
-                )
-                if sig not in seen_trade_sigs:
-                    seen_trade_sigs.add(sig)
-                    combined_trades.append(act)
-
     sorted_trades = sorted(combined_trades, key=lambda x: float(x.get("timestamp") or x.get("time") or 0.0) if isinstance(x, dict) else 0.0)
     for t in sorted_trades:
         if not isinstance(t, dict):
@@ -570,14 +580,15 @@ def calculate_authentic_wallet_stats(
     market_sides: Dict[str, Set[str]] = {}
     market_trade_vol: Dict[str, float] = {}
 
-    for t in list(trades or []):
+    for t in list(combined_trades):
         if not isinstance(t, dict):
             continue
-        side = str(t.get("side") or t.get("maker_direction") or "").upper()
+        side = str(t.get("side") or t.get("maker_direction") or t.get("type") or "").upper()
         if side == "BUY":
             cid = str(t.get("conditionId") or t.get("market_id") or "")
             asset = str(t.get("asset") or t.get("nonusdc_side") or t.get("asset_id") or "")
             outcome = str(t.get("outcome") or "").upper()
+            outcome_idx = t.get("outcomeIndex")
             sz = float(t.get("usdcSize") or t.get("usd_amount") or (float(t.get("size") or 0) * float(t.get("price") or 0.5)))
 
             if cid:
@@ -587,6 +598,10 @@ def calculate_authentic_wallet_stats(
                 market_sides.setdefault(cid, set())
                 if outcome in ("YES", "NO", "UP", "DOWN"):
                     market_sides[cid].add(outcome)
+                elif outcome_idx is not None and str(outcome_idx) in ("0", "1"):
+                    market_sides[cid].add("YES" if str(outcome_idx) == "0" else "NO")
+                elif outcome:
+                    market_sides[cid].add(outcome)
                 market_trade_vol[cid] = market_trade_vol.get(cid, 0.0) + sz
 
     for p in list(positions or []):
@@ -595,6 +610,7 @@ def calculate_authentic_wallet_stats(
         cid = str(p.get("conditionId") or "")
         asset = str(p.get("asset") or "")
         outcome = str(p.get("outcome") or "").upper()
+        outcome_idx = p.get("outcomeIndex")
         pos_size = float(p.get("size") or 0.0)
         pos_val = float(p.get("currentValue") or (pos_size * float(p.get("avgPrice") or 0.5)))
 
@@ -605,6 +621,10 @@ def calculate_authentic_wallet_stats(
             market_sides.setdefault(cid, set())
             if outcome in ("YES", "NO", "UP", "DOWN"):
                 market_sides[cid].add(outcome)
+            elif outcome_idx is not None and str(outcome_idx) in ("0", "1"):
+                market_sides[cid].add("YES" if str(outcome_idx) == "0" else "NO")
+            elif outcome:
+                market_sides[cid].add(outcome)
             market_trade_vol[cid] = market_trade_vol.get(cid, 0.0) + pos_val
 
     conflicting_markets = set()
@@ -612,7 +632,7 @@ def calculate_authentic_wallet_stats(
         if len(assets) > 1:
             conflicting_markets.add(cid)
     for cid, sides in market_sides.items():
-        if ("YES" in sides and "NO" in sides) or ("UP" in sides and "DOWN" in sides):
+        if ("YES" in sides and "NO" in sides) or ("UP" in sides and "DOWN" in sides) or len(sides) > 1:
             conflicting_markets.add(cid)
 
     total_markets_traded = max(len(market_buys), len(market_sides), 1)
@@ -642,7 +662,12 @@ def calculate_authentic_wallet_stats(
         if ("YES" in p_outs and "NO" in p_outs) or ("UP" in p_outs and "DOWN" in p_outs) or len(p_outs) > 1:
             open_conflicts += 1
 
-    has_opposing_buys = any(("YES" in sides and "NO" in sides) or ("UP" in sides and "DOWN" in sides) for sides in market_sides.values())
+    has_opposing_buys = any(
+        ("YES" in sides and "NO" in sides) or 
+        ("UP" in sides and "DOWN" in sides) or 
+        len(sides) > 1 
+        for sides in market_sides.values()
+    )
     is_conflicting_positions = bool(
         conflicting_markets_count >= 1 or
         has_opposing_buys or
@@ -675,8 +700,8 @@ def calculate_authentic_wallet_stats(
         first_half_pnl = sum(daily_pnls[:mid])
         second_half_pnl = sum(daily_pnls[mid:])
         total_half_pnl = first_half_pnl + second_half_pnl
-        if total_half_pnl > 0:
-            if first_half_pnl > 0.90 * total_half_pnl and second_half_pnl <= 0.10 * total_half_pnl:
+        if first_half_pnl > 0:
+            if second_half_pnl <= 0.0 or (total_half_pnl > 0 and first_half_pnl > 0.90 * total_half_pnl and second_half_pnl <= 0.10 * total_half_pnl):
                 is_stale_plateau = True
 
     # Roller-Coaster Gambler Detection: Peak-to-trough drawdown > 25% or high variance
@@ -765,6 +790,7 @@ def calculate_authentic_wallet_stats(
         "r_squared": round(R_squared, 4),
         "ols_slope": round(beta, 4),
         "ols_r2": round(R_squared, 4),
+        "t_days": T,
         "consistency_score": consistency_score,
     }
 
@@ -941,8 +967,11 @@ async def evaluate_pending_wallets(db: AsyncSession, client: Optional[Polymarket
                     # ONLY wallets that pass all 12 quantitative filters become active
                     wallet.status = 'active'
                     if scoring.tier == 'gold_sniper' and baleen_score >= 70.0 and stats.get('max_drawdown_pct', 100.0) <= 12.0:
-                        wallet.tier = 'gold_sniper'
-                        discovery_state["gold_snipers"] += 1
+                        if stats.get('t_days', 0) >= 5 and (stats.get('beta', 0.0) <= 0.0 or stats.get('r_squared', 0.0) < 0.55):
+                            wallet.tier = 'standard'
+                        else:
+                            wallet.tier = 'gold_sniper'
+                            discovery_state["gold_snipers"] += 1
                     else:
                         wallet.tier = 'standard'
                     discovery_state["active_whales_in_basket"] += 1

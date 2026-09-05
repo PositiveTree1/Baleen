@@ -61,9 +61,6 @@ def score_wallet(wallet_stats: dict) -> ScoringResult:
     # FILTER 2: Strict Trade Count: Must have >= 100 lifetime trades (exempted if realized PnL >= $500k)
     if trades_count < 100 and pnl < 500000.0:
         return ScoringResult("rejected", None, RejectionReason("INSUFFICIENT_TRADES_UNDER_100"), False)
-
-    if trades_count < 150 and pnl < 500000.0:
-        return ScoringResult("rejected", None, RejectionReason("INSUFFICIENT_TRADES_UNDER_100"), False)
     
     if active_days < 60.0 and pnl < 500000.0:
         return ScoringResult("rejected", None, "INSUFFICIENT_ACTIVE_HISTORY_DAYS", False)
@@ -72,29 +69,29 @@ def score_wallet(wallet_stats: dict) -> ScoringResult:
     if wallet_stats.get('is_inactive_7d'):
         return ScoringResult("rejected", None, "INACTIVE_NO_TRADES_IN_PAST_WEEK", False)
 
-    # FILTER 4: Strict HFT Rate: trades_per_day > 50.0 or is_hft or legacy avg_trades_per_day > 65.0
-    if wallet_stats.get('is_hft') or (trades_per_day > 50.0) or avg_trades_per_day > 65.0:
+    # FILTER 4: Strict HFT Rate: trades_per_day > 50.0 or is_hft or avg_trades_per_day > 65.0
+    if wallet_stats.get('is_hft') or (trades_per_day > 50.0) or (avg_trades_per_day > 65.0):
         return ScoringResult("rejected", None, RejectionReason("HFT_BOT_EXCEEDED_50_PER_DAY"), False)
 
     # FILTER 5: Boundary Arbitrage Bot Filter (reject toxic snipers)
     if wallet_stats.get('is_boundary_arb'):
         return ScoringResult("rejected", None, RejectionReason("BOUNDARY_ARBITRAGE_BOT"), False)
 
-    # FILTER 6: Stale Plateau Detection (One-hit wonders)
+    # FILTER 6: Maximum Drawdown Hard Cap (Must not exceed 25.0%)
+    if max_drawdown > 25.0:
+        return ScoringResult("rejected", None, "DRAWDOWN_TOO_HIGH", False)
+
+    # FILTER 7: Stale Plateau Detection (One-hit wonders)
     if wallet_stats.get('is_stale_plateau'):
         return ScoringResult("rejected", None, "STALE_PLATEAU_PROFILE", False)
 
-    # FILTER 7: Roller-Coaster Gambler Detection (Drawdown > 25% or high variance)
+    # FILTER 8: Roller-Coaster Gambler Detection (Drawdown > 25% or high variance)
     if wallet_stats.get('is_roller_coaster'):
         return ScoringResult("rejected", None, "ROLLER_COASTER_GAMBLER_PROFILE", False)
 
-    # FILTER 8: Combined Inconsistent / Deceptive Lumpy Profile Disqualification
+    # FILTER 9: Combined Inconsistent / Deceptive Lumpy Profile Disqualification
     if wallet_stats.get('is_inconsistent_profile'):
         return ScoringResult("rejected", None, "INCONSISTENT_LUMPY_PROFILE", False)
-
-    # FILTER 9: Maximum Drawdown Hard Cap (Must not exceed 25.0%)
-    if max_drawdown > 25.0:
-        return ScoringResult("rejected", None, "DRAWDOWN_TOO_HIGH", False)
 
     # FILTER 10: Reconstructed Cumulative PnL Verification (Must be strictly positive)
     cum_pnl = float(wallet_stats.get('cumulative_pnl', pnl) if wallet_stats.get('cumulative_pnl') is not None else pnl)
@@ -126,8 +123,17 @@ def score_wallet(wallet_stats: dict) -> ScoringResult:
     if unrealized_open_pnl < -25000.0 or (pnl > 0 and abs(min(0.0, unrealized_open_pnl)) > 0.35 * pnl):
         return ScoringResult("rejected", None, "OPEN_POSITION_DRAWDOWN_EXCEEDED", False)
 
-    # TIER: Gold Sniper requires win_rate >= 80.0%, max_drawdown <= 12.0%, and healthy open positions
-    if win_rate >= 80.0 and max_drawdown <= 12.0 and unrealized_open_pnl >= -5000.0:
+    # TIER: Gold Sniper requires win_rate >= 80.0%, max_drawdown <= 12.0%, healthy open positions,
+    # and if T >= 5 daily history, require beta > 0 and R^2 >= 0.55
+    r2 = float(wallet_stats.get('r_squared', wallet_stats.get('ols_r2', 1.0)) or 0.0)
+    beta = float(wallet_stats.get('beta', wallet_stats.get('ols_slope', 1.0)) or 0.0)
+    daily_history = wallet_stats.get('daily_pnl_history') or []
+    t_days = int(wallet_stats.get('t_days', len(daily_history)))
+    meets_ols = True
+    if t_days >= 5 and (beta <= 0.0 or r2 < 0.55):
+        meets_ols = False
+
+    if win_rate >= 80.0 and max_drawdown <= 12.0 and unrealized_open_pnl >= -5000.0 and meets_ols:
         tier = "gold_sniper"
     else:
         tier = "standard"

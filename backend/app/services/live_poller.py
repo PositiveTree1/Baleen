@@ -418,7 +418,7 @@ class LiveTradeMirrorService:
                 ))
                 return
 
-            sys_notional = sys_sizing.value if side == "BUY" else round(min(max(1.0, cash_usd * 0.1), 350.0), 2)
+            sys_notional = sys_sizing.value if sys_sizing.status == "SUCCESS" else round(max(1.0, (settled_cash / n_active) * (whale_trade_val / whale_net_worth)), 2)
 
             # Record fill slippage in basis points
             fee_calc = calculate_polymarket_fee(
@@ -506,7 +506,9 @@ class LiveTradeMirrorService:
                         min_order_usd=1.0,
                         available_cash=u_bal
                     )
-                    u_notional = u_sizing.value if u_sizing.status == "SUCCESS" else round(max(1.0, (u_bal / n_active) * (whale_trade_val / whale_net_worth)), 2)
+                    if u_sizing.status != "SUCCESS":
+                        continue
+                    u_notional = u_sizing.value
                     u_buy_fee_calc = calculate_polymarket_fee(u_notional, effective_fill_price, title, is_maker=False)
                     u_sell_fee_calc = calculate_polymarket_fee(u_notional, effective_sell_fill_price, title, is_maker=False)
                     u_buy_fee = float(u_buy_fee_calc["fee_usd"] or 0.0)
@@ -678,10 +680,12 @@ class LiveTradeMirrorService:
                     min_order_usd=float(getattr(settings, 'POLYMARKET_MIN_ORDER_USD', 1.0)),
                     available_cash=u_bal
                 )
-                if u_sizing.status == 'SUCCESS':
+                if side == "BUY":
+                    if u_sizing.status != 'SUCCESS':
+                        continue
                     u_notional = u_sizing.value
                 else:
-                    u_notional = round(max(1.0, (u_bal / n_active) * (whale_trade_val / whale_net_worth)), 2)
+                    u_notional = u_sizing.value if u_sizing.status == 'SUCCESS' else round(max(1.0, (u_bal / n_active) * (whale_trade_val / whale_net_worth)), 2)
 
                 u_fee = calculate_polymarket_fee(
                     notional_usd=u_notional,

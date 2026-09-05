@@ -67,7 +67,7 @@ def test_volume_filter_high_pnl_exemption():
 
 
 # -------------------------------------------------------------------------
-# Filter 2: Track Record Length (>= 150 trades and >= 60 active days)
+# Filter 2: Track Record Length (>= 100 trades and >= 60 active days)
 # -------------------------------------------------------------------------
 
 def test_trade_count_gate_rejects_zero_trades():
@@ -77,11 +77,18 @@ def test_trade_count_gate_rejects_zero_trades():
     assert res.rejection_reason == "INSUFFICIENT_TRACK_RECORD_TRADES"
 
 
-def test_trade_count_gate_rejects_149_trades_below_500k_pnl():
-    stats = _valid_stats(all_time_pnl_usd=499999.0, trades_count=149)
+def test_trade_count_gate_rejects_99_trades_below_500k_pnl():
+    stats = _valid_stats(all_time_pnl_usd=499999.0, trades_count=99)
     res = score_wallet(stats)
     assert res.status == "rejected"
     assert res.rejection_reason == "INSUFFICIENT_TRACK_RECORD_TRADES"
+
+
+def test_trade_count_gate_accepts_100_trades_below_500k_pnl():
+    stats = _valid_stats(all_time_pnl_usd=100000.0, trades_count=100)
+    res = score_wallet(stats)
+    assert res.status == "active"
+    assert res.rejection_reason is None
 
 
 def test_trade_count_gate_accepts_150_trades_below_500k_pnl():
