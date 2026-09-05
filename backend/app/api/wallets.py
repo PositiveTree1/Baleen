@@ -9,6 +9,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.analysis.ai_summary import generate_summary
 from app.database import get_db
 from app.models import ExecutionLog, Wallet, WalletSnapshot
+from app.services.mark_to_market import _last_known_pnl, get_live_price
+from app.services.polymarket_fees import calculate_polymarket_fee
 
 logger = logging.getLogger(__name__)
 
@@ -111,10 +113,45 @@ async def get_copied_wallet_stats(
                 "gross_loss": 0.0,
             }
         
-        pnl = float(log.realized_pnl_usd or 0.0)
         notional = float(log.notional_usd or 0.0)
         wallet_stats[addr]["trades_copied"] += 1
         wallet_stats[addr]["total_notional"] += notional
+
+        # Determine trade PnL: Realized for closed/resolved trades, Mark-to-Market for open (FILLED) trades
+        if log.status != "FILLED" and log.realized_pnl_usd is not None:
+            pnl = float(log.realized_pnl_usd)
+        elif log.status == "FILLED":
+            log_id_str = str(log.id)
+            if log_id_str in _last_known_pnl:
+                pnl = float(_last_known_pnl[log_id_str])
+            else:
+                fill_p = float(log.user_fill_price or log.whale_entry_price or 0.5)
+                fee = float(log.fee_usd or 0.0)
+                if fee == 0.0 and notional > 0:
+                    fee_info = calculate_polymarket_fee(
+                        notional_usd=notional,
+                        price=fill_p,
+                        market_title=log.market_question or ""
+                    )
+                    fee = float(fee_info["fee_usd"])
+
+                cid = log.market_condition_id or ""
+                outc = log.resolution_outcome or "Yes"
+                asset_id = log.onchain_tx_hash or ""
+                cur_p = get_live_price(cid=cid, outcome=outc, asset=asset_id, fallback=fill_p)
+                if fill_p > 0 and cur_p > 0:
+                    if log.side == "BUY":
+                        gross_pnl = notional * ((cur_p - fill_p) / fill_p)
+                    else:
+                        gross_pnl = notional * ((fill_p - cur_p) / fill_p)
+                    pnl = round(gross_pnl - fee, 2)
+                else:
+                    pnl = round(-fee, 2)
+        elif log.realized_pnl_usd is not None:
+            pnl = float(log.realized_pnl_usd)
+        else:
+            pnl = 0.0
+
         wallet_stats[addr]["net_pnl"] += pnl
 
         if pnl > 0:
@@ -254,6 +291,21 @@ async def get_wallet(address: str, db: AsyncSession = Depends(get_db)):
     
     recent_trades = []
     for t in trades:
+        trade_pnl = t.realized_pnl_usd
+        if trade_pnl is None and t.status == "FILLED":
+            if str(t.id) in _last_known_pnl:
+                trade_pnl = _last_known_pnl[str(t.id)]
+            else:
+                tfp = float(t.user_fill_price or t.whale_entry_price or 0.5)
+                tnot = float(t.notional_usd or 0.0)
+                tfee = float(t.fee_usd or 0.0)
+                tcp = get_live_price(cid=t.market_condition_id or "", outcome=t.resolution_outcome or "Yes", asset=t.onchain_tx_hash or "", fallback=tfp)
+                if tfp > 0 and tcp > 0:
+                    gp = tnot * ((tcp - tfp) / tfp) if t.side == "BUY" else tnot * ((tfp - tcp) / tfp)
+                    trade_pnl = round(gp - tfee, 2)
+                else:
+                    trade_pnl = round(-tfee, 2)
+
         recent_trades.append({
             "id": str(t.id),
             "market_question": t.market_question,
@@ -264,7 +316,7 @@ async def get_wallet(address: str, db: AsyncSession = Depends(get_db)):
             "fill_price": t.user_fill_price or t.whale_entry_price,
             "executed_at": t.executed_at.isoformat() if t.executed_at else None,
             "status": t.status,
-            "pnl_usd": t.realized_pnl_usd
+            "pnl_usd": trade_pnl
         })
     
     # Compute daily P&L curve and dual-column wins/losses

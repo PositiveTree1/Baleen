@@ -21,7 +21,9 @@ import {
   getCachedExecutionLogs, 
   getCachedPortfolioSummary,
   getCachedPortfolioSnapshots,
-  fetchLiveDashboard
+  fetchLiveDashboard,
+  fetchWallets,
+  getCachedWallets
 } from '@/lib/api-client';
 import { User, ExecutionLog, PortfolioSummary, LiveTradingDashboard } from '@/types';
 import { useTheme } from '@/context/ThemeContext';
@@ -70,20 +72,23 @@ export default function DashboardPage() {
   const [logs, setLogs] = useState<ExecutionLog[]>(() => getCachedExecutionLogs(session?.user?.id) || []);
   const [user, setUser] = useState<User | null>(null);
   const [portfolio, setPortfolio] = useState<PortfolioSummary | null>(() => getCachedPortfolioSummary(session?.user?.id) || null);
+  const [wallets, setWallets] = useState<any[]>(() => getCachedWallets() || []);
 
   const loadData = async () => {
     if (typeof document !== 'undefined' && document.hidden) return;
     try {
-      const [userData, portfolioData, logsData, liveData] = await Promise.all([
+      const [userData, portfolioData, logsData, liveData, walletsData] = await Promise.all([
         session?.user?.id ? fetchUserSettings(session.user.id) : null,
         fetchPortfolioSummary(session?.user?.id),
         fetchExecutionLogs(session?.user?.id, { limit: '500' }),
-        fetchLiveDashboard(session?.user?.id)
+        fetchLiveDashboard(session?.user?.id),
+        fetchWallets()
       ]);
       if (userData) setUser(userData);
       if (portfolioData) setPortfolio(portfolioData);
       if (Array.isArray(logsData)) setLogs(logsData);
       if (liveData) setLiveDashboard(liveData);
+      if (Array.isArray(walletsData) && walletsData.length > 0) setWallets(walletsData);
     } catch (err) {
       console.debug("Dashboard polling note:", err);
     }
@@ -270,6 +275,7 @@ export default function DashboardPage() {
             {/* Section 1: Line Chart & Analytics Cards */}
             <PortfolioAnalytics
               logs={logs}
+              wallets={wallets}
               userId={session?.user?.id}
               startingBalance={portfolio?.startingBalance ?? user?.startingBalance ?? 10000.0}
               currentBalance={sandboxBalance}

@@ -1,7 +1,7 @@
 'use client';
 import { useMemo, useState, useEffect, useCallback } from 'react';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
-import { ExecutionLog } from '@/types';
+import { ExecutionLog, Wallet } from '@/types';
 import { 
   TrendingUp, 
   TrendingDown, 
@@ -18,11 +18,12 @@ import {
   CandlestickChart
 } from 'lucide-react';
 import { formatFrenchTime, formatFrenchDate } from '@/lib/formatters';
-import { resetSandboxLedger, clearAllCache, fetchPortfolioSnapshots } from '@/lib/api-client';
+import { resetSandboxLedger, clearAllCache, fetchPortfolioSnapshots, fetchWallets, getCachedWallets } from '@/lib/api-client';
 
 interface PortfolioAnalyticsProps {
   logs: ExecutionLog[];
   snapshots?: any[];
+  wallets?: Wallet[];
   userId?: string;
   startingBalance?: number;
   currentBalance?: number;
@@ -39,6 +40,7 @@ interface PortfolioAnalyticsProps {
 export function PortfolioAnalytics({
   logs,
   snapshots = [],
+  wallets: propWallets,
   userId,
   startingBalance = 10000.0,
   currentBalance = 10000.0,
@@ -51,6 +53,23 @@ export function PortfolioAnalytics({
   onSelectTrade,
   onResetComplete
 }: PortfolioAnalyticsProps) {
+  const [loadedWallets, setLoadedWallets] = useState<Wallet[]>(() => getCachedWallets() || []);
+
+  useEffect(() => {
+    fetchWallets().then((data) => {
+      if (Array.isArray(data) && data.length > 0) setLoadedWallets(data);
+    }).catch(() => {});
+  }, []);
+
+  const effectiveWallets = (propWallets && propWallets.length > 0) ? propWallets : loadedWallets;
+
+  const top10Addresses = useMemo(() => {
+    const sorted = [...effectiveWallets]
+      .filter((w) => w.tier !== 'dormant' && !w.dormant)
+      .sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
+    return new Set(sorted.slice(0, 10).map((w) => (w.address || '').toLowerCase()));
+  }, [effectiveWallets]);
+
   const [timeframe, setTimeframe] = useState<string>('ALL');
   const [chartType, setChartType] = useState<'area' | 'candles'>('area');
   const [selectedCategory, setSelectedCategory] = useState<string>('ALL');
@@ -245,40 +264,72 @@ export function PortfolioAnalytics({
   }, [logs]);
 
   const activeAllocationStats = useMemo(() => {
-    const whaleMap = new Map<string, number>();
-    let totalNotional = 0;
+    const bankroll = currentBalance > 0 ? currentBalance : 10000;
+    const sleeveBudget = bankroll / 10.0; // Strictly $bankroll / 10 per sleeve
+
+    // Determine Top 10 active addresses fallback if wallets not yet loaded
+    let activeAddresses = top10Addresses;
+    if (activeAddresses.size === 0) {
+      const addrTotals = new Map<string, number>();
+      activeHoldingLogs.forEach((l) => {
+        const addr = (l.walletAddress || '').toLowerCase();
+        if (addr) addrTotals.set(addr, (addrTotals.get(addr) || 0) + (l.size ?? 0.0));
+      });
+      const top10FromLogs = Array.from(addrTotals.entries())
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 10)
+        .map(([addr]) => addr);
+      activeAddresses = new Set(top10FromLogs);
+    }
+
+    const top10WhaleMap = new Map<string, { address: string; notional: number; name: string }>();
+    let top10Notional = 0;
+    let top10Count = 0;
+
+    let legacyNotional = 0;
+    let legacyCount = 0;
 
     activeHoldingLogs.forEach((l) => {
-      const name = l.whaleName || l.whalePseudonym || (l.walletAddress ? `${l.walletAddress.slice(0, 6)}...${l.walletAddress.slice(-4)}` : 'Whale');
+      const addr = (l.walletAddress || '').toLowerCase();
       const size = l.size ?? 0.0;
-      whaleMap.set(name, (whaleMap.get(name) || 0) + size);
-      totalNotional += size;
+      const name = l.whaleName || l.whalePseudonym || (addr ? `${addr.slice(0, 6)}...${addr.slice(-4)}` : 'Whale');
+
+      if (activeAddresses.has(addr)) {
+        top10Count += 1;
+        top10Notional += size;
+        if (!top10WhaleMap.has(addr)) {
+          top10WhaleMap.set(addr, { address: addr, notional: 0, name });
+        }
+        top10WhaleMap.get(addr)!.notional += size;
+      } else {
+        legacyCount += 1;
+        legacyNotional += size;
+      }
     });
 
-    const bankroll = currentBalance > 0 ? currentBalance : 10000;
-    const sleeveBudget = bankroll / 10.0; // $1,000 sleeve per whale
+    const colors = ['#00D09C', '#FF7A00', '#FF2D78', '#00A3FF', '#A855F7', '#EC4899', '#EAB308', '#06B6D4', '#6366F1', '#14B8A6'];
 
-    const colors = ['#00D09C', '#FF7A00', '#FF2D78', '#00A3FF', '#A855F7', '#EC4899', '#EAB308', '#06B6D4'];
-
-    const sorted = Array.from(whaleMap.entries())
-      .map(([name, notional], idx) => {
-        const bankrollPct = Math.round((notional / bankroll) * 1000) / 10;
-        const sleevePct = Math.round((notional / sleeveBudget) * 100);
+    const sortedActive = Array.from(top10WhaleMap.values())
+      .map((w, idx) => {
+        const bankrollPct = Math.round((w.notional / bankroll) * 1000) / 10;
+        const sleevePct = Math.round((w.notional / sleeveBudget) * 100);
         return {
-          name,
-          notional,
+          name: w.name,
+          address: w.address,
+          notional: w.notional,
           bankrollPct,
           sleevePct,
           color: colors[idx % colors.length]
         };
       })
-      .sort((a, b) => b.notional - a.notional);
+      .sort((a, b) => b.notional - a.notional)
+      .slice(0, 10); // Strictly at most 10 active whale sleeves
 
-    const totalInvestedBankrollPct = Math.round((totalNotional / bankroll) * 1000) / 10;
+    const totalInvestedBankrollPct = Math.round((top10Notional / bankroll) * 1000) / 10;
+    const freeCash = Math.max(0, bankroll - top10Notional);
     const freeCashPct = Math.max(0, Math.round((100 - totalInvestedBankrollPct) * 10) / 10);
-    const freeCash = Math.max(0, bankroll - totalNotional);
 
-    const segments = sorted.map((item) => ({
+    const segments = sortedActive.map((item) => ({
       name: item.name,
       pct: item.bankrollPct,
       sleevePct: item.sleevePct,
@@ -302,14 +353,17 @@ export function PortfolioAnalytics({
 
     return {
       segments,
-      activeWhales: sorted,
-      totalNotional,
+      activeWhales: sortedActive,
+      totalNotional: top10Notional,
       freeCash,
       allocatedPct: totalInvestedBankrollPct,
       sleeveBudget,
-      count: activeHoldingLogs.length
+      count: top10Count,
+      legacyCount,
+      legacyNotional,
+      totalAllNotional: top10Notional + legacyNotional
     };
-  }, [activeHoldingLogs, currentBalance]);
+  }, [activeHoldingLogs, currentBalance, top10Addresses]);
 
   // 5. Portfolio Snapshots Timeline
   const [serverSnapshots, setServerSnapshots] = useState<any[]>(snapshots);
@@ -698,7 +752,11 @@ export function PortfolioAnalytics({
         <div className="revolut-card p-5 space-y-4 rounded-[26px]">
           <div className="space-y-1">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-slate-500 dark:text-[#8E8F99]">10-Wallet Sleeve Capital</span>
+              <span className="text-xs font-semibold text-slate-500 dark:text-[#8E8F99]">
+                {activeAllocationStats.activeWhales.length > 0
+                  ? `${Math.min(10, activeAllocationStats.activeWhales.length)}-Wallet Sleeve Capital`
+                  : '10-Wallet Sleeve Capital'}
+              </span>
               <span className="text-[10px] font-mono font-bold text-emerald-600 dark:text-[#00D09C] bg-emerald-50 dark:bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-200/50 dark:border-emerald-500/20">
                 {activeAllocationStats.count} Live Position{activeAllocationStats.count === 1 ? '' : 's'}
               </span>
@@ -743,6 +801,12 @@ export function PortfolioAnalytics({
               <div className="flex items-center justify-between text-[11px] text-slate-500">
                 <span>10 Isolated ${Math.round(activeAllocationStats.sleeveBudget).toLocaleString()} Sleeves Ready</span>
                 <span className="font-mono text-emerald-500 font-bold">${Math.round(currentBalance || 10000).toLocaleString()} Free Cash</span>
+              </div>
+            )}
+            {activeAllocationStats.legacyCount > 0 && (
+              <div className="flex items-center justify-between text-[10px] text-amber-600 dark:text-amber-400 pt-1 border-t border-black/[0.04] dark:border-white/5 font-mono">
+                <span>Demoted / Legacy (Exiting):</span>
+                <span>${activeAllocationStats.legacyNotional.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ({activeAllocationStats.legacyCount} lots)</span>
               </div>
             )}
           </div>

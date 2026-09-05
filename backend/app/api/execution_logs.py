@@ -375,7 +375,7 @@ async def get_portfolio_snapshots(
         except Exception:
             pass
 
-    stmt = stmt.where(user_filter).order_by(PortfolioSnapshot.timestamp.asc()).limit(limit)
+    stmt = stmt.where(user_filter).order_by(PortfolioSnapshot.timestamp.asc())
     rows = list((await db.execute(stmt)).scalars().all())
 
     # If timeframe window has snapshots, ensure start boundary is cleanly anchored
@@ -431,6 +431,18 @@ async def get_portfolio_snapshots(
             bucketed_rows.append(rows[-1])
 
         rows = bucketed_rows
+
+    # Uniform downsampling across the ENTIRE queried timeframe if bucketed points exceed limit
+    target_limit = max(10, limit)
+    if len(rows) > target_limit and target_limit > 1:
+        step = (len(rows) - 1) / (target_limit - 1)
+        sampled_indices = [int(round(i * step)) for i in range(target_limit)]
+        unique_indices = sorted(list(set(sampled_indices)))
+        if 0 not in unique_indices:
+            unique_indices.insert(0, 0)
+        if (len(rows) - 1) not in unique_indices:
+            unique_indices.append(len(rows) - 1)
+        rows = [rows[idx] for idx in unique_indices]
 
     result = []
     for i, r in enumerate(rows):

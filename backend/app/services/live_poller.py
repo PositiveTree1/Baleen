@@ -169,13 +169,13 @@ class LiveTradeMirrorService:
                     ))
                     return
 
-            # Query active basket wallets and users (strictly <= 50 trades/day, non-dormant, non-HFT)
+            # Query Top 10 active basket wallets (strictly <= 50 trades/day, non-dormant, non-HFT, ordered by baleen_score)
             stmt_wallets = select(Wallet).where(
                 Wallet.status == "active",
                 Wallet.dormant == False,
                 Wallet.is_hft == False,
                 (Wallet.avg_trades_per_day.is_(None) | (Wallet.avg_trades_per_day <= 50.0))
-            )
+            ).order_by(func.coalesce(Wallet.baleen_score, 0.0).desc()).limit(10)
             active_wallets = (await db.execute(stmt_wallets)).scalars().all()
             basket_addrs = {w.address.lower() for w in active_wallets}
 
@@ -239,8 +239,12 @@ class LiveTradeMirrorService:
                     ))
                     return
             else:
-                # BUY: Must be an active, approved basket whale
+                # BUY: Must be an active, approved Top 10 basket whale
                 if addr not in basket_addrs:
+                    logger.info(
+                        f"🚫 Demoted / Non-Top 10 Whale Guard: Whale {addr[:10]}... is not in active Top 10 roster. "
+                        f"Skipping new BUY signal to preserve 10-sleeve capital integrity."
+                    )
                     return
 
                 # Check for matching pending out-of-order SELL
