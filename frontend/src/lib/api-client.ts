@@ -124,7 +124,8 @@ export async function fetchWallets(params?: Record<string, string>): Promise<Wal
       firstTradeAt: w.first_trade_at || null,
       lastTradeAt: w.last_trade_at || null,
       aiStyleTag: w.ai_style_tag || null,
-      avgHoldHours: w.avg_hold_hours ?? null
+      avgHoldHours: w.avg_hold_hours ?? null,
+      status: w.status || null
     }));
     setCached('wallets_list', result);
     return result;
@@ -155,7 +156,10 @@ export async function fetchCopiedWhalesStats(userId?: string): Promise<{
 }[]> {
   try {
     const url = new URL(`${API_BASE_URL}/api/wallets/copied-stats`);
-    if (userId) url.searchParams.append('user_id', userId);
+    if (userId) {
+      url.searchParams.append('userId', userId);
+      url.searchParams.append('user_id', userId);
+    }
     const res = await fetch(url.toString());
     if (!res.ok) return [];
     return await res.json();
@@ -361,7 +365,10 @@ export async function fetchPortfolioSnapshots(userId?: string, timeframe?: strin
   const cacheKey = `snapshots_${userId || 'all'}_${timeframe || 'all'}`;
   try {
     const url = new URL(`${API_BASE_URL}/api/executions/snapshots`);
-    if (userId) url.searchParams.append('userId', userId);
+    if (userId) {
+      url.searchParams.append('userId', userId);
+      url.searchParams.append('user_id', userId);
+    }
     if (timeframe) url.searchParams.append('timeframe', timeframe);
     url.searchParams.append('limit', '5000');
     const res = await fetch(url.toString());

@@ -20,6 +20,7 @@ export interface Wallet {
   lastTradeAt?: string | null;
   aiStyleTag?: string | null;
   avgHoldHours?: number | null;
+  status?: string | null;
 }
 
 export interface DailyPnLPoint {

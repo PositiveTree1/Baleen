@@ -128,8 +128,18 @@ async def _tool_get_portfolio_overview(args: Dict[str, Any]) -> Dict[str, Any]:
             ExecutionLog.status.in_(["FILLED", "CLOSED", "RESOLVED"]),
             ExecutionLog.user_id.is_(None)
         )
-        logs = (await db.execute(stmt)).scalars().all()
+        raw_logs = (await db.execute(stmt)).scalars().all()
         
+        buy_keys = {
+            ((l.source_wallet_address or "").lower(), l.market_condition_id)
+            for l in raw_logs
+            if l.side != "SELL" and l.source_wallet_address and l.market_condition_id
+        }
+        logs = [
+            l for l in raw_logs
+            if not (l.side == "SELL" and ((l.source_wallet_address or "").lower(), l.market_condition_id) in buy_keys)
+        ]
+
         total_trades = len(logs)
         total_pnl = sum(float(l.realized_pnl_usd or 0.0) for l in logs)
         total_notional = sum(float(l.notional_usd or 0.0) for l in logs)

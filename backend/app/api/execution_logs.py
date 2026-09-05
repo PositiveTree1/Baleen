@@ -195,14 +195,16 @@ async def get_execution_logs(
 @router.get("/summary")
 async def get_portfolio_summary(
     user_id: Optional[str] = Query(None, alias="userId"),
+    userId: Optional[str] = Query(None),
     timeframe: Optional[str] = None,
     db: AsyncSession = Depends(get_db)
 ):
+    eff_user_id = user_id or userId
     user_filter = ExecutionLog.user_id.is_(None)
-    if user_id:
+    if eff_user_id:
         try:
             import uuid
-            u_uuid = uuid.UUID(user_id)
+            u_uuid = uuid.UUID(eff_user_id)
             user_cnt = (await db.execute(select(func.count(ExecutionLog.id)).where(ExecutionLog.user_id == u_uuid))).scalar() or 0
             if user_cnt > 0:
                 user_filter = ExecutionLog.user_id == u_uuid
@@ -244,11 +246,23 @@ async def get_portfolio_summary(
     authoritative_db_balance = float(latest_snap.balance) if latest_snap and latest_snap.balance else 10000.0
     authoritative_db_pnl = float(latest_snap.total_pnl) if latest_snap and latest_snap.total_pnl is not None else 0.0
 
+    # Paired round-trip deduplication:
+    # BUY holds the trade position and realized PnL; SELL is the exit leg.
+    # Exclude SELL logs that have a matching BUY log to prevent double-counting.
+    buy_keys = {
+        ((l.source_wallet_address or "").lower(), l.market_condition_id)
+        for l in logs
+        if l.side != "SELL" and l.source_wallet_address and l.market_condition_id
+    }
+
     starting_balance = 10000.0
     total_notional = 0.0
     total_fees = 0.0
     
     for log in logs:
+        addr = (log.source_wallet_address or "").lower()
+        if log.side == "SELL" and (addr, log.market_condition_id) in buy_keys:
+            continue
         total_notional += float(log.notional_usd or 0.0)
         total_fees += float(log.fee_usd or 0.0)
 
@@ -261,6 +275,9 @@ async def get_portfolio_summary(
     wins_count = 0
     losses_count = 0
     for log in logs:
+        addr = (log.source_wallet_address or "").lower()
+        if log.side == "SELL" and (addr, log.market_condition_id) in buy_keys:
+            continue
         if log.side == "SELL" and log.realized_pnl_usd is None:
             continue
             
@@ -314,7 +331,12 @@ async def get_portfolio_summary(
     pnl_pct = round((total_pnl / starting_balance) * 100.0, 2) if starting_balance > 0 else 0.0
     
     holding_count = sum(1 for l in logs if l.side == "BUY" and l.status == "FILLED")
-    closed_count = sum(1 for l in logs if l.status in ("CLOSED", "RESOLVED") or l.side == "SELL")
+    closed_count = sum(
+        1 for l in logs
+        if (l.status in ("CLOSED", "RESOLVED") or l.side == "SELL")
+        and not (l.side == "SELL" and ((l.source_wallet_address or "").lower(), l.market_condition_id) in buy_keys)
+    )
+    total_fills = holding_count + closed_count
     
     return {
         "startingBalance": starting_balance,
@@ -322,7 +344,7 @@ async def get_portfolio_summary(
         "totalPnlUsd": round(total_pnl, 2),
         "totalPnlPct": pnl_pct,
         "totalFeesPaidUsd": round(total_fees, 2),
-        "filledTradesCount": len(logs),
+        "filledTradesCount": total_fills,
         "holdingTradesCount": holding_count,
         "closedTradesCount": closed_count,
         "totalNotionalInvested": round(total_notional, 2),
@@ -336,6 +358,7 @@ async def get_portfolio_summary(
 @router.get("/snapshots")
 async def get_portfolio_snapshots(
     user_id: Optional[str] = Query(None, alias="userId"),
+    userId: Optional[str] = Query(None),
     timeframe: Optional[str] = None,
     limit: int = 5000,
     db: AsyncSession = Depends(get_db)
@@ -365,10 +388,11 @@ async def get_portfolio_snapshots(
 
     # Query snapshots in ascending chronological order
     user_filter = PortfolioSnapshot.user_id.is_(None)
-    if user_id:
+    eff_user_id = user_id or userId
+    if eff_user_id:
         try:
             import uuid
-            u_uuid = uuid.UUID(user_id)
+            u_uuid = uuid.UUID(eff_user_id)
             snap_cnt = (await db.execute(select(func.count(PortfolioSnapshot.id)).where(PortfolioSnapshot.user_id == u_uuid))).scalar() or 0
             if snap_cnt > 0:
                 user_filter = PortfolioSnapshot.user_id == u_uuid

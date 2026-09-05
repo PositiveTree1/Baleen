@@ -245,6 +245,15 @@ class LiveTradeMirrorService:
                         f"🚫 Demoted / Non-Top 10 Whale Guard: Whale {addr[:10]}... is not in active Top 10 roster. "
                         f"Skipping new BUY signal to preserve 10-sleeve capital integrity."
                     )
+                    from app.services.event_logger import log_event
+                    asyncio.create_task(log_event(
+                        "TRADE_SKIPPED_DEMOTED_WHALE",
+                        f"Demoted / Non-Top 10 Whale Guard: {title[:50]}",
+                        detail=f"Whale {addr[:10]}... is outside active Top 10 roster. BUY signal skipped to preserve 10-sleeve capital integrity.",
+                        severity="info",
+                        related_address=wallet_address,
+                        related_market=title,
+                    ))
                     return
 
                 # Check for matching pending out-of-order SELL
@@ -403,6 +412,7 @@ class LiveTradeMirrorService:
             # 1. Fetch settled portfolio value
             stmt_realized_pnl = select(func.sum(ExecutionLog.realized_pnl_usd)).where(
                 ExecutionLog.user_id.is_(None),
+                ExecutionLog.side == "BUY",
                 ExecutionLog.status == "CLOSED"
             )
             total_realized_pnl = float((await db.execute(stmt_realized_pnl)).scalar() or 0.0)

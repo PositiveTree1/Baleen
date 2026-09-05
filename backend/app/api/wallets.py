@@ -76,14 +76,16 @@ async def list_wallets(
 @router.get("/copied-stats")
 async def get_copied_wallet_stats(
     user_id: Optional[str] = Query(None, alias="userId"),
+    userId: Optional[str] = Query(None),
     db: AsyncSession = Depends(get_db)
 ):
     from uuid import UUID
 
     stmt = select(ExecutionLog).where(ExecutionLog.status.in_(["FILLED", "CLOSED", "RESOLVED"]))
-    if user_id:
+    eff_user_id = user_id or userId
+    if eff_user_id:
         try:
-            u_uuid = UUID(user_id)
+            u_uuid = UUID(eff_user_id)
             stmt_user = stmt.where(ExecutionLog.user_id == u_uuid)
             user_logs = (await db.execute(stmt_user)).scalars().all()
             if user_logs:
@@ -98,9 +100,23 @@ async def get_copied_wallet_stats(
         stmt_global = stmt.where(ExecutionLog.user_id.is_(None))
         logs = (await db.execute(stmt_global)).scalars().all()
 
+    # Track BUY keys to deduplicate paired round-trip trades
+    # In live_poller, a closed position updates the BUY lot with realized_pnl_usd AND creates an exit SELL log.
+    # To avoid double-counting trades_copied, total_notional, net_pnl, and wins/losses, skip the SELL log when a BUY exists.
+    buy_keys = {
+        ((l.source_wallet_address or "").lower(), l.market_condition_id)
+        for l in logs
+        if l.side != "SELL" and l.source_wallet_address and l.market_condition_id
+    }
+
     wallet_stats = {}
     for log in logs:
         addr = (log.source_wallet_address or "unknown").lower()
+
+        # Skip SELL exit log if the original BUY lot is present to prevent doubling
+        if log.side == "SELL" and (addr, log.market_condition_id) in buy_keys:
+            continue
+
         if addr not in wallet_stats:
             wallet_stats[addr] = {
                 "address": log.source_wallet_address or addr,

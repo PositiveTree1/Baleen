@@ -359,6 +359,7 @@ async def get_live_dashboard(user_id: Optional[str] = None, db: AsyncSession = D
     # Calculate live realized PnL
     stmt_realized = select(func.sum(ExecutionLog.realized_pnl_usd)).where(
         ExecutionLog.is_sandbox == False,
+        ExecutionLog.side == "BUY",
         ExecutionLog.status == "CLOSED"
     )
     if user:

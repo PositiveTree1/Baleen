@@ -65,7 +65,7 @@ export function PortfolioAnalytics({
 
   const top10Addresses = useMemo(() => {
     const sorted = [...effectiveWallets]
-      .filter((w) => w.tier !== 'dormant' && !w.dormant)
+      .filter((w) => (!w.status || w.status === 'active') && w.tier !== 'dormant' && !w.dormant && !w.isHft && (!w.tradesPerDay || w.tradesPerDay <= 50))
       .sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
     return new Set(sorted.slice(0, 10).map((w) => (w.address || '').toLowerCase()));
   }, [effectiveWallets]);
@@ -786,7 +786,8 @@ export function PortfolioAnalytics({
           {/* Dynamic Sleeve Allocation Legend */}
           <div className="space-y-1.5 text-[11px] font-semibold text-slate-600 dark:text-[#8E8F99]">
             {activeAllocationStats.activeWhales.length > 0 ? (
-              activeAllocationStats.activeWhales.slice(0, 3).map((w) => (
+              <>
+                {activeAllocationStats.activeWhales.slice(0, 3).map((w) => (
                 <div key={w.name} className="flex items-center justify-between text-[11px]">
                   <div className="flex items-center gap-1.5 truncate">
                     <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: w.color }} />
@@ -796,7 +797,13 @@ export function PortfolioAnalytics({
                     ${w.notional.toLocaleString()} <span className="text-slate-400 text-[10px]">({w.sleevePct}% of ${Math.round(activeAllocationStats.sleeveBudget).toLocaleString()} Sleeve • {w.bankrollPct}% Portfolio)</span>
                   </div>
                 </div>
-              ))
+              ))}
+              {activeAllocationStats.activeWhales.length > 3 && (
+                <div className="text-[10px] text-slate-400 dark:text-[#8E8F99] text-right font-mono">
+                  + {activeAllocationStats.activeWhales.length - 3} more active sleeve{activeAllocationStats.activeWhales.length - 3 === 1 ? '' : 's'}
+                </div>
+              )}
+            </>
             ) : (
               <div className="flex items-center justify-between text-[11px] text-slate-500">
                 <span>10 Isolated ${Math.round(activeAllocationStats.sleeveBudget).toLocaleString()} Sleeves Ready</span>

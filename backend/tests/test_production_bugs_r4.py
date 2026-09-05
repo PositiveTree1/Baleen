@@ -15,12 +15,14 @@ async def clean_state():
         await db.execute(delete(PortfolioSnapshot))
         await db.execute(delete(ExecutionLog))
         await db.execute(delete(Wallet).where(Wallet.address.like("0xr4_%")))
+        await db.execute(delete(User).where(User.email.like("r4user%")))
         await db.commit()
     yield
     async with SessionLocal() as db:
         await db.execute(delete(PortfolioSnapshot))
         await db.execute(delete(ExecutionLog))
         await db.execute(delete(Wallet).where(Wallet.address.like("0xr4_%")))
+        await db.execute(delete(User).where(User.email.like("r4user%")))
         await db.commit()
 
 @pytest.mark.asyncio
@@ -232,7 +234,10 @@ async def test_bug3_poller_blocks_demoted_and_non_top10_buys():
     )
 
     async with SessionLocal() as db:
-        log = (await db.execute(select(ExecutionLog).where(ExecutionLog.onchain_tx_hash == "0xtx_top10_buy"))).scalar_one_or_none()
+        log = (await db.execute(select(ExecutionLog).where(
+            ExecutionLog.onchain_tx_hash == "0xtx_top10_buy",
+            ExecutionLog.user_id.is_(None)
+        ))).scalar_one_or_none()
         assert log is not None, "Top 10 whale BUY must execute successfully!"
         assert log.status == "FILLED"
 
@@ -253,6 +258,226 @@ async def test_bug3_poller_blocks_demoted_and_non_top10_buys():
         closed_buys = (await db.execute(select(ExecutionLog).where(ExecutionLog.source_wallet_address == "0xr4_demoted_whale", ExecutionLog.side == "BUY", ExecutionLog.status == "CLOSED"))).scalars().all()
         assert len(closed_buys) >= 1, "Demoted whale SELL must close open position!"
         
-        sell_log = (await db.execute(select(ExecutionLog).where(ExecutionLog.onchain_tx_hash == "0xtx_demoted_sell"))).scalar_one_or_none()
+        sell_log = (await db.execute(select(ExecutionLog).where(
+            ExecutionLog.onchain_tx_hash == "0xtx_demoted_sell",
+            ExecutionLog.user_id.is_(None)
+        ))).scalar_one_or_none()
         assert sell_log is not None, "Demoted whale SELL must create execution log!"
         assert sell_log.status == "CLOSED"
+
+@pytest.mark.asyncio
+async def test_bug2_deduplication_of_paired_closed_trades():
+    """
+    Ensure get_copied_wallet_stats deduplicates paired round-trip trades
+    where both BUY (status=CLOSED) and SELL (status=CLOSED) have realized_pnl_usd set,
+    preventing 2x trades_copied, 2x total_notional, and 2x net_pnl.
+    """
+    whale = "0xr4_whale_paired"
+    cid = "0xcond_paired_test"
+
+    async with SessionLocal() as db:
+        db.add(Wallet(address=whale, name="Paired Whale", status="active", baleen_score=88.0))
+
+        # Closed BUY leg
+        buy_leg = ExecutionLog(
+            source_wallet_address=whale,
+            market_condition_id=cid,
+            market_question="Paired Market",
+            side="BUY",
+            whale_entry_price=0.50,
+            user_fill_price=0.50,
+            notional_usd=100.0,
+            fee_usd=2.5,
+            realized_pnl_usd=50.00,
+            status="CLOSED",
+            resolution_outcome="Yes",
+            executed_at=datetime.utcnow()
+        )
+        # Closed SELL leg
+        sell_leg = ExecutionLog(
+            source_wallet_address=whale,
+            market_condition_id=cid,
+            market_question="Paired Market",
+            side="SELL",
+            whale_entry_price=0.75,
+            user_fill_price=0.75,
+            notional_usd=100.0,
+            fee_usd=1.5,
+            realized_pnl_usd=50.00,
+            status="CLOSED",
+            resolution_outcome="Yes",
+            executed_at=datetime.utcnow()
+        )
+        db.add(buy_leg)
+        db.add(sell_leg)
+        await db.commit()
+
+    async with SessionLocal() as db:
+        stats = await get_copied_wallet_stats(db=db)
+        whale_stats = next((s for s in stats if s["address"].lower() == whale.lower()), None)
+        assert whale_stats is not None
+
+        # Should be strictly 1 trade copied (not 2!), $100 notional (not $200!), +$50.00 net PnL (not +$100.00!)
+        assert whale_stats["tradesCopied"] == 1
+        assert whale_stats["totalNotional"] == 100.0
+        assert whale_stats["netPnl"] == 50.00
+        assert whale_stats["mirroredPnl"] == 50.00
+        assert whale_stats["wins"] == 1
+        assert whale_stats["losses"] == 0
+
+@pytest.mark.asyncio
+async def test_param_alias_userId_and_user_id():
+    """
+    Ensure endpoints accept both camelCase 'userId' and snake_case 'user_id' aliases cleanly.
+    """
+    import uuid
+    from app.api.execution_logs import get_portfolio_summary
+
+    test_uid = str(uuid.uuid4())
+    unique_email = f"r4user_{uuid.uuid4().hex[:8]}@baleen.ai"
+    try:
+        async with SessionLocal() as db:
+            db.add(User(id=uuid.UUID(test_uid), email=unique_email))
+            await db.commit()
+
+        async with SessionLocal() as db:
+            # Both parameter styles should return without errors
+            stats1 = await get_copied_wallet_stats(user_id=test_uid, db=db)
+            stats2 = await get_copied_wallet_stats(userId=test_uid, db=db)
+            assert stats1 == stats2
+
+            snaps1 = await get_portfolio_snapshots(user_id=test_uid, timeframe="all", db=db)
+            snaps2 = await get_portfolio_snapshots(userId=test_uid, timeframe="all", db=db)
+            assert len(snaps1) == len(snaps2)
+
+            summary1 = await get_portfolio_summary(user_id=test_uid, timeframe="all", db=db)
+            summary2 = await get_portfolio_summary(userId=test_uid, timeframe="all", db=db)
+            assert summary1["currentBalance"] == summary2["currentBalance"]
+    finally:
+        async with SessionLocal() as db:
+            await db.execute(delete(User).where(User.id == uuid.UUID(test_uid)))
+            await db.commit()
+
+@pytest.mark.asyncio
+async def test_portfolio_summary_deduplicates_trade_counts():
+    """
+    Ensure get_portfolio_summary returns deduplicated filledTradesCount,
+    closedTradesCount, and holdingTradesCount when paired round-trip trades exist.
+    """
+    from app.api.execution_logs import get_portfolio_summary
+
+    cid = "0xcond_summary_dedup"
+    whale = "0xr4_whale_sum_dedup"
+
+    async with SessionLocal() as db:
+        # 1 closed round trip (BUY + SELL)
+        buy_log = ExecutionLog(
+            source_wallet_address=whale,
+            market_condition_id=cid,
+            market_question="Summary Market",
+            side="BUY",
+            whale_entry_price=0.50,
+            user_fill_price=0.50,
+            notional_usd=100.0,
+            fee_usd=2.5,
+            realized_pnl_usd=50.00,
+            status="CLOSED",
+            resolution_outcome="Yes",
+            executed_at=datetime.utcnow()
+        )
+        sell_log = ExecutionLog(
+            source_wallet_address=whale,
+            market_condition_id=cid,
+            market_question="Summary Market",
+            side="SELL",
+            whale_entry_price=0.75,
+            user_fill_price=0.75,
+            notional_usd=100.0,
+            fee_usd=1.5,
+            realized_pnl_usd=50.00,
+            status="CLOSED",
+            resolution_outcome="Yes",
+            executed_at=datetime.utcnow()
+        )
+        # 1 open holding trade (BUY only)
+        open_buy = ExecutionLog(
+            source_wallet_address=whale,
+            market_condition_id="0xcond_summary_open",
+            market_question="Summary Market Open",
+            side="BUY",
+            whale_entry_price=0.40,
+            user_fill_price=0.40,
+            notional_usd=50.0,
+            fee_usd=1.0,
+            status="FILLED",
+            resolution_outcome="Yes",
+            executed_at=datetime.utcnow()
+        )
+        db.add(buy_log)
+        db.add(sell_log)
+        db.add(open_buy)
+        await db.commit()
+
+    async with SessionLocal() as db:
+        summary = await get_portfolio_summary(db=db)
+        # Total distinct trades: 1 closed + 1 open = 2 trades (NOT 3!)
+        assert summary["filledTradesCount"] == 2
+        assert summary["holdingTradesCount"] == 1
+        assert summary["closedTradesCount"] == 1
+        assert summary["allTimeWins"] == 1
+        assert summary["allTimeLosses"] == 0
+        assert summary["totalNotionalInvested"] == 150.0 # 100 + 50 (NOT 250!)
+
+@pytest.mark.asyncio
+async def test_mark_to_market_deduplicates_closed_trades_pnl():
+    """
+    Ensure MarkToMarketService correctly counts closed platform and user realized PnL
+    without doubling due to paired BUY and SELL rows.
+    """
+    from app.services.mark_to_market import MarkToMarketService, _closed_trades_cache
+    _closed_trades_cache["ts"] = 0.0 # force refresh
+
+    whale = "0xr4_whale_mtm_dedup"
+    cid = "0xcond_mtm_dedup"
+
+    async with SessionLocal() as db:
+        buy_log = ExecutionLog(
+            source_wallet_address=whale,
+            market_condition_id=cid,
+            market_question="MTM Market",
+            side="BUY",
+            whale_entry_price=0.50,
+            user_fill_price=0.50,
+            notional_usd=200.0,
+            fee_usd=3.0,
+            realized_pnl_usd=75.00,
+            status="CLOSED",
+            resolution_outcome="Yes",
+            executed_at=datetime.utcnow()
+        )
+        sell_log = ExecutionLog(
+            source_wallet_address=whale,
+            market_condition_id=cid,
+            market_question="MTM Market",
+            side="SELL",
+            whale_entry_price=0.75,
+            user_fill_price=0.75,
+            notional_usd=200.0,
+            fee_usd=2.0,
+            realized_pnl_usd=75.00,
+            status="CLOSED",
+            resolution_outcome="Yes",
+            executed_at=datetime.utcnow()
+        )
+        db.add(buy_log)
+        db.add(sell_log)
+        await db.commit()
+
+    mtm_svc = MarkToMarketService()
+    await mtm_svc.update_valuations_and_consensus()
+
+    # platform_realized_pnl MUST be 75.00, NOT 150.00!
+    assert _closed_trades_cache["platform_realized_pnl"] == 75.00
+    # platform_closed_count MUST be 1, NOT 2!
+    assert _closed_trades_cache["platform_closed_count"] == 1
+

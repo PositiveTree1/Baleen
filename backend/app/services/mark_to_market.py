@@ -95,6 +95,7 @@ class MarkToMarketService:
                         func.count(ExecutionLog.id)
                     ).where(
                         ExecutionLog.user_id.is_(None),
+                        ExecutionLog.side == "BUY",
                         ExecutionLog.status.in_(["CLOSED", "RESOLVED"])
                     )
                     closed_row = (await db.execute(stmt_closed_platform)).first()
@@ -106,6 +107,7 @@ class MarkToMarketService:
                         func.coalesce(func.sum(ExecutionLog.realized_pnl_usd), 0.0)
                     ).where(
                         ExecutionLog.user_id.is_not(None),
+                        ExecutionLog.side == "BUY",
                         ExecutionLog.status.in_(["CLOSED", "RESOLVED"])
                     ).group_by(ExecutionLog.user_id)
                     user_rows = (await db.execute(stmt_closed_users)).all()
