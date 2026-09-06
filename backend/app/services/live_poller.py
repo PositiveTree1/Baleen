@@ -322,6 +322,32 @@ class LiveTradeMirrorService:
                         logger.debug(f"Demote error: {demote_err}")
                 return
 
+            # Rule 1: Portfolio-Level Anti-Conflict Guard
+            # Never allow the portfolio to bet against itself on opposing outcomes of the same market!
+            if side == "BUY" and condition_id:
+                stmt_opposing = select(ExecutionLog).where(
+                    ExecutionLog.market_condition_id == condition_id,
+                    ExecutionLog.side == "BUY",
+                    ExecutionLog.status == "FILLED",
+                    func.lower(ExecutionLog.resolution_outcome) != outcome.strip().lower()
+                ).limit(1)
+                opposing_lot = (await db.execute(stmt_opposing)).scalars().first()
+                if opposing_lot:
+                    logger.info(
+                        f"🛑 Portfolio Anti-Conflict Guard: Skipping BUY on '{title[:25]}' for outcome '{outcome}'. "
+                        f"Portfolio already holds opposing open position for '{opposing_lot.resolution_outcome}'."
+                    )
+                    from app.services.event_logger import log_event
+                    asyncio.create_task(log_event(
+                        "TRADE_SKIPPED_PORTFOLIO_CONFLICT",
+                        f"Opposing position blocked: {title[:50]}",
+                        detail=f"Whale {addr[:10]}... bought '{outcome}', but portfolio already holds opposing '{opposing_lot.resolution_outcome}' lot. Blocked self-hedging conflict.",
+                        severity="warning",
+                        related_address=wallet_address,
+                        related_market=title,
+                    ))
+                    return
+
             # Rule 3: Option A Price-Adjusted Sports Gate
             # Dynamically checks if the whale's win rate clears the odds/price they are betting on:
             # - For favorites (price >= 0.60): Whale win rate must exceed the implied market probability
@@ -1132,6 +1158,7 @@ class LiveTradeMirrorService:
         while self.running:
             try:
                 await self._poll_active_whales()
+                await self._poll_market_resolutions()
             except Exception as e:
                 logger.error(f"Error in live whale polling loop: {e}", exc_info=True)
             await asyncio.sleep(2.5)
@@ -1398,6 +1425,12 @@ class LiveTradeMirrorService:
                 f"Total system PnL: ${total_system_pnl:,.2f}."
             )
 
+            try:
+                import app.services.mark_to_market as mtm_mod
+                mtm_mod._closed_trades_cache["ts"] = 0.0
+            except Exception:
+                pass
+
             return {
                 "status": "SUCCESS",
                 "condition_id": condition_id,
@@ -1407,5 +1440,51 @@ class LiveTradeMirrorService:
                 "losing_lots": losing_lots_count,
                 "total_system_pnl_usd": round(total_system_pnl, 2)
             }
+
+    async def _poll_market_resolutions(self):
+        """Periodically checks CLOB API for market resolutions of all currently open positions."""
+        now = time.time()
+        if not hasattr(self, "_last_res_poll_ts"):
+            self._last_res_poll_ts = 0.0
+
+        if (now - self._last_res_poll_ts) < 45.0:
+            return
+        self._last_res_poll_ts = now
+
+        if not self.client:
+            return
+
+        try:
+            async with SessionLocal() as db:
+                stmt = select(ExecutionLog.market_condition_id).where(
+                    ExecutionLog.status == "FILLED",
+                    ExecutionLog.side == "BUY",
+                    ExecutionLog.market_condition_id.isnot(None)
+                ).distinct()
+                cids = [c for c in (await db.execute(stmt)).scalars().all() if c and len(str(c)) > 10]
+
+            if not cids:
+                return
+
+            sem = asyncio.Semaphore(10)
+            async def check_one(cid: str):
+                async with sem:
+                    try:
+                        res = await self.client.get(f"{settings.CLOB_API_URL}/markets/{cid}")
+                        if res.status_code == 200:
+                            d = res.json()
+                            if d.get("closed"):
+                                winner = None
+                                for tok in d.get("tokens", []):
+                                    if tok.get("winner"):
+                                        winner = tok.get("outcome")
+                                if winner:
+                                    await self.settle_market_resolution(cid, winner)
+                    except Exception as e:
+                        logger.debug(f"Resolution check note for {cid[:10]}: {e}")
+
+            await asyncio.gather(*[check_one(cid) for cid in cids])
+        except Exception as res_err:
+            logger.error(f"Error in automated market resolution check: {res_err}", exc_info=True)
 
 live_trade_mirror = LiveTradeMirrorService()
