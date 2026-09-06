@@ -343,7 +343,7 @@ export function PortfolioAnalytics({
         pct: freeCashPct,
         sleevePct: 100,
         notional: freeCash,
-        color: '#2C2D35'
+        color: '#475569'
       });
     }
 
@@ -753,12 +753,10 @@ export function PortfolioAnalytics({
           <div className="space-y-1">
             <div className="flex items-center justify-between">
               <span className="text-xs font-semibold text-slate-500 dark:text-[#8E8F99]">
-                {activeAllocationStats.activeWhales.length > 0
-                  ? `${Math.min(10, activeAllocationStats.activeWhales.length)}-Wallet Sleeve Capital`
-                  : '10-Wallet Sleeve Capital'}
+                10-Wallet Sleeve Capital
               </span>
               <span className="text-[10px] font-mono font-bold text-emerald-600 dark:text-[#00D09C] bg-emerald-50 dark:bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-200/50 dark:border-emerald-500/20">
-                {activeAllocationStats.count} Live Position{activeAllocationStats.count === 1 ? '' : 's'}
+                {activeAllocationStats.activeWhales.length} Deployed · {Math.max(0, 10 - activeAllocationStats.activeWhales.length)} in Cash ({activeAllocationStats.count} Lots)
               </span>
             </div>
             <div className="flex items-baseline justify-between">
@@ -772,13 +770,17 @@ export function PortfolioAnalytics({
           </div>
 
           {/* Dynamic 10-Sleeve Segmented Progress Bar */}
-          <div className="h-2.5 w-full rounded-full bg-slate-100 dark:bg-[#1C1D22] overflow-hidden flex gap-1">
+          <div className="h-3 w-full rounded-full bg-slate-100 dark:bg-[#1C1D22] p-0.5 border border-black/5 dark:border-white/5 overflow-hidden flex gap-1 items-center">
             {activeAllocationStats.segments.map((seg) => (
               <div 
                 key={seg.name} 
                 className="h-full rounded-full transition-all"
-                style={{ width: `${Math.max(1, seg.pct)}%`, backgroundColor: seg.color }} 
-                title={`${seg.name}: $${seg.notional.toLocaleString()} (${seg.pct}% of Bankroll)`}
+                style={{ 
+                  width: `${Math.max(1, seg.pct)}%`, 
+                  backgroundColor: seg.name === 'Free Cash' ? 'rgba(71, 85, 105, 0.45)' : seg.color,
+                  border: seg.name === 'Free Cash' ? '1px dashed rgba(148, 163, 184, 0.35)' : undefined
+                }} 
+                title={`${seg.name}: $${seg.notional.toLocaleString(undefined, { minimumFractionDigits: 2 })} (${seg.pct}% of Bankroll)`}
               />
             ))}
           </div>
@@ -810,8 +812,20 @@ export function PortfolioAnalytics({
                 <span className="font-mono text-emerald-500 font-bold">${Math.round(currentBalance || 10000).toLocaleString()} Free Cash</span>
               </div>
             )}
+            {/* Explicit Cash Buffer Row */}
+            <div className="flex items-center justify-between text-[11px] pt-1 border-t border-black/[0.04] dark:border-white/5 font-mono">
+              <div className="flex items-center gap-1.5 truncate">
+                <span className="w-2 h-2 rounded-full shrink-0 bg-slate-400 dark:bg-slate-500" />
+                <span className="text-slate-700 dark:text-slate-300 font-medium truncate">
+                  Cash Buffer ({Math.max(0, 10 - activeAllocationStats.activeWhales.length)} sleeves idle in cash):
+                </span>
+              </div>
+              <span className="text-slate-900 dark:text-slate-200 font-bold shrink-0">
+                ${activeAllocationStats.freeCash.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ({Math.round(100 - activeAllocationStats.allocatedPct)}% Liquid)
+              </span>
+            </div>
             {activeAllocationStats.legacyCount > 0 && (
-              <div className="flex items-center justify-between text-[10px] text-amber-600 dark:text-amber-400 pt-1 border-t border-black/[0.04] dark:border-white/5 font-mono">
+              <div className="flex items-center justify-between text-[10px] text-amber-600 dark:text-amber-400 pt-0.5 font-mono">
                 <span>Demoted / Legacy (Exiting):</span>
                 <span>${activeAllocationStats.legacyNotional.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ({activeAllocationStats.legacyCount} lots)</span>
               </div>
