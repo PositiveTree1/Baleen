@@ -224,4 +224,25 @@ class SandboxReevaluation(Base):
     demotions = Column(JSON, nullable=True) # Native JSON / JSONB
     execution_duration_ms = Column(Float, default=0.0)
 
+class ExposureLedger(Base):
+    __tablename__ = "exposure_ledger"
+
+    id = Column(GUID(), primary_key=True, default=uuid.uuid4)
+    wallet_address = Column(String(66), nullable=False, index=True)
+    market_condition_id = Column(String(100), nullable=False, index=True)
+    outcome = Column(String(100), nullable=False)
+    asset_id = Column(String(100), nullable=True)
+    virtual_position_usd = Column(Float, nullable=False, default=0.0)
+    executed_position_usd = Column(Float, nullable=False, default=0.0)
+    last_whale_price = Column(Float, nullable=True)
+    market_question = Column(String, nullable=True)
+    status = Column(String(50), nullable=False, default="accumulating")  # accumulating, executed, flushed_on_expiry, expired_unfilled, closed
+    last_updated_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+    __table_args__ = (
+        UniqueConstraint("wallet_address", "market_condition_id", "outcome", name="uq_wallet_market_outcome"),
+    )
+
+
 

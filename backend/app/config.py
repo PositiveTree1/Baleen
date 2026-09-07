@@ -16,6 +16,10 @@ class Settings(BaseSettings):
     GAMMA_API_URL: str = "https://gamma-api.polymarket.com"
     POLYMARKET_MIN_ORDER_USD: float = 1.0
     BACKEND_URL: str = "http://localhost:8000"
+    NETTED_LEDGER_ENABLED: bool = True
+    NETTED_LEDGER_EXPIRY_HOURS: float = 4.0
+    NETTED_LEDGER_EXPIRY_BEHAVIOR: str = "flush"  # "flush" or "drop"
+    NETTED_LEDGER_MIN_THRESHOLD_USD: float = 1.0
 
     @property
     def async_database_url(self) -> str:

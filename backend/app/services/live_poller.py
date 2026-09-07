@@ -205,7 +205,19 @@ class LiveTradeMirrorService:
                 ).limit(1)
                 has_any_open_buy = (await db.execute(stmt_any_open)).scalar_one_or_none() is not None
 
-                if not has_any_open_buy:
+                has_ledger_exposure = False
+                if settings.NETTED_LEDGER_ENABLED:
+                    from app.models import ExposureLedger
+                    stmt_ledger = select(ExposureLedger.id).where(
+                        func.lower(ExposureLedger.wallet_address) == addr,
+                        func.lower(ExposureLedger.market_condition_id) == condition_id.lower(),
+                        func.lower(ExposureLedger.outcome) == outcome.strip().lower(),
+                        ExposureLedger.status != "closed",
+                        ExposureLedger.virtual_position_usd > 0
+                    ).limit(1)
+                    has_ledger_exposure = (await db.execute(stmt_ledger)).scalar_one_or_none() is not None
+
+                if not has_any_open_buy and not has_ledger_exposure:
                     # Safe audit and out-of-order sell registration
                     pending_sell = PendingOutOfOrderSell(
                         wallet_address=addr,
@@ -450,29 +462,57 @@ class LiveTradeMirrorService:
             whale_net_worth = max(1000.0, whale_port_val)
 
             # 2. Pure Proportional Sleeve Sizing calculation (no artificial multipliers, no arbitrary caps)
-            sys_sizing = calculate_pure_proportional_order_size(
-                user_balance=settled_cash,
-                n_active=n_active,
-                whale_trade_usd=whale_trade_val,
-                whale_pnl_or_net_worth=whale_net_worth,
-                min_order_usd=1.0,
-                available_cash=settled_cash
-            )
+            s_w = float(settled_cash) / float(n_active)
+            f = float(whale_trade_val) / float(whale_net_worth)
+            raw_scaled_usd = s_w * f
 
-            if side == "BUY" and sys_sizing.status != "SUCCESS":
-                logger.info(f"🛑 Pure Proportional Sizer: Skipping BUY on '{title[:25]}' - {sys_sizing.status} (Balance: ${settled_cash:,.2f}).")
-                from app.services.event_logger import log_event
-                asyncio.create_task(log_event(
-                    "TRADE_SKIPPED_SLEEVE",
-                    f"Sizing limit: {title[:50]}",
-                    detail=f"Status: {sys_sizing.status}. Balance: ${settled_cash:,.2f}, active whales: {n_active}.",
-                    severity="warning",
-                    related_address=wallet_address,
-                    related_market=title,
-                ))
-                return
+            active_ledger_id = None
+            if settings.NETTED_LEDGER_ENABLED:
+                from app.sizing.netted_ledger import update_intended_exposure
+                signed_delta = raw_scaled_usd if side == "BUY" else -raw_scaled_usd
+                netted_res = await update_intended_exposure(
+                    db=db,
+                    wallet_address=wallet_address,
+                    condition_id=condition_id,
+                    outcome=outcome,
+                    delta_usd=signed_delta,
+                    whale_price=price,
+                    market_question=title,
+                    asset_id=asset,
+                    min_threshold_usd=settings.NETTED_LEDGER_MIN_THRESHOLD_USD
+                )
 
-            sys_notional = sys_sizing.value if sys_sizing.status == "SUCCESS" else round(max(1.0, (settled_cash / n_active) * (whale_trade_val / whale_net_worth)), 2)
+                if netted_res.action == "WAIT":
+                    # Sub-minimum exposure queued and accumulating in ledger.
+                    return
+
+                sys_notional = netted_res.order_size_usd
+                side = netted_res.side
+                active_ledger_id = netted_res.ledger_id
+            else:
+                sys_sizing = calculate_pure_proportional_order_size(
+                    user_balance=settled_cash,
+                    n_active=n_active,
+                    whale_trade_usd=whale_trade_val,
+                    whale_pnl_or_net_worth=whale_net_worth,
+                    min_order_usd=1.0,
+                    available_cash=settled_cash
+                )
+
+                if side == "BUY" and sys_sizing.status != "SUCCESS":
+                    logger.info(f"🛑 Pure Proportional Sizer: Skipping BUY on '{title[:25]}' - {sys_sizing.status} (Balance: ${settled_cash:,.2f}).")
+                    from app.services.event_logger import log_event
+                    asyncio.create_task(log_event(
+                        "TRADE_SKIPPED_SLEEVE",
+                        f"Sizing limit: {title[:50]}",
+                        detail=f"Status: {sys_sizing.status}. Balance: ${settled_cash:,.2f}, active whales: {n_active}.",
+                        severity="warning",
+                        related_address=wallet_address,
+                        related_market=title,
+                    ))
+                    return
+
+                sys_notional = sys_sizing.value if sys_sizing.status == "SUCCESS" else round(max(1.0, raw_scaled_usd), 2)
 
             # Record fill slippage in basis points
             fee_calc = calculate_polymarket_fee(
@@ -1093,6 +1133,14 @@ class LiveTradeMirrorService:
                     )
                     db.add(live_sell_log)
 
+            if active_ledger_id:
+                from app.sizing.netted_ledger import confirm_exposure_execution
+                await confirm_exposure_execution(
+                    db=db,
+                    ledger_id=active_ledger_id,
+                    executed_delta=sys_notional if side == "BUY" else -sys_notional
+                )
+
             await db.commit()
 
             whale_name = source_whale.name or source_whale.pseudonym or addr[:10] if source_whale else addr[:10]
@@ -1159,6 +1207,7 @@ class LiveTradeMirrorService:
             try:
                 await self._poll_active_whales()
                 await self._poll_market_resolutions()
+                await self._poll_expired_ledger_entries()
             except Exception as e:
                 logger.error(f"Error in live whale polling loop: {e}", exc_info=True)
             await asyncio.sleep(2.5)
@@ -1410,6 +1459,13 @@ class LiveTradeMirrorService:
 
             await db.commit()
 
+            if settings.NETTED_LEDGER_ENABLED:
+                try:
+                    from app.sizing.netted_ledger import close_resolved_ledger_entries
+                    await close_resolved_ledger_entries(db, condition_id)
+                except Exception as close_err:
+                    logger.debug(f"Ledger close on resolution note: {close_err}")
+
             from app.services.event_logger import log_event
             asyncio.create_task(log_event(
                 "MARKET_RESOLVED",
@@ -1487,4 +1543,53 @@ class LiveTradeMirrorService:
         except Exception as res_err:
             logger.error(f"Error in automated market resolution check: {res_err}", exc_info=True)
 
+    async def _poll_expired_ledger_entries(self):
+        """Periodically checks and flushes stale accumulating exposure ledger entries."""
+        now = time.time()
+        if not hasattr(self, "_last_ledger_poll_ts"):
+            self._last_ledger_poll_ts = 0.0
+
+        if (now - self._last_ledger_poll_ts) < 60.0:
+            return
+        self._last_ledger_poll_ts = now
+
+        if not settings.NETTED_LEDGER_ENABLED:
+            return
+
+        from app.sizing.netted_ledger import check_and_flush_expired_entries
+        from app.services.mark_to_market import get_live_price
+        from app.services.polymarket_fees import calculate_polymarket_fee
+        try:
+            async with SessionLocal() as db:
+                flushed_orders = await check_and_flush_expired_entries(
+                    db=db,
+                    expiry_hours=settings.NETTED_LEDGER_EXPIRY_HOURS,
+                    expiry_behavior=settings.NETTED_LEDGER_EXPIRY_BEHAVIOR,
+                    min_order_usd=settings.NETTED_LEDGER_MIN_THRESHOLD_USD
+                )
+                if flushed_orders:
+                    for fo in flushed_orders:
+                        live_p = get_live_price(fo["market_condition_id"], outcome=fo["outcome"], fallback=fo.get("last_whale_price") or 0.5)
+                        fee_info = calculate_polymarket_fee(fo["size_usd"], live_p, fo.get("market_question") or "", is_maker=False)
+                        flush_log = ExecutionLog(
+                            source_wallet_address=fo["wallet_address"],
+                            market_condition_id=fo["market_condition_id"],
+                            market_question=fo.get("market_question") or "Polymarket Prediction",
+                            side=fo["side"],
+                            whale_entry_price=fo.get("last_whale_price") or live_p,
+                            user_fill_price=live_p,
+                            resolution_outcome=fo["outcome"],
+                            notional_usd=fo["size_usd"],
+                            fee_usd=float(fee_info.get("fee_usd") or 0.0),
+                            market_category=fee_info.get("category", "Other"),
+                            is_sandbox=True,
+                            status="FILLED" if fo["side"] == "BUY" else "CLOSED",
+                            executed_at=datetime.utcnow()
+                        )
+                        db.add(flush_log)
+                    await db.commit()
+        except Exception as e:
+            logger.error(f"Error in _poll_expired_ledger_entries: {e}", exc_info=True)
+
 live_trade_mirror = LiveTradeMirrorService()
+
