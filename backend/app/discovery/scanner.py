@@ -164,6 +164,22 @@ def calculate_authentic_wallet_stats(
     losses = sum(1 for p in raw_closed if float(p.get("realizedPnl") or p.get("cashPnl") or 0.0) < 0)
     total_resolved = wins + losses
 
+    # Win Rate Sanity Guardrail:
+    # If a wallet has >= 15 wins and 0 losses, but official profile PnL is less than 70% of gross wins,
+    # it indicates that losses exist in un-paginated history. Do not report a false 100% win rate.
+    if total_resolved >= 15 and losses == 0 and all_time_pnl > 0:
+        gross_wins = sum(float(p.get("realizedPnl") or p.get("cashPnl") or 0.0) for p in raw_closed if float(p.get("realizedPnl") or p.get("cashPnl") or 0.0) > 0)
+        if all_time_pnl < gross_wins * 0.70:
+            implied_losses_usd = gross_wins - all_time_pnl
+            avg_win = gross_wins / wins if wins > 0 else 100.0
+            est_losses = max(1, int(round(implied_losses_usd / avg_win)))
+            losses += est_losses
+            total_resolved = wins + losses
+            logger.warning(
+                f"⚠️ Win Rate Anomaly Guard: Wallet {address[:10]} had 0 losses in sample, but all_time_pnl (${all_time_pnl:,.2f}) < gross wins (${gross_wins:,.2f}). "
+                f"Calibrated with {est_losses} implied losses."
+            )
+
     if total_resolved > 0:
         win_rate = round((wins / total_resolved) * 100.0, 1)
         wilson_lb = calc_wilson_lower_bound(wins, total_resolved)
@@ -522,6 +538,20 @@ def calculate_authentic_wallet_stats(
             "trades_count": int(d_info["count"])
         })
 
+    # Curve Calibration Guard:
+    # If cumulative PnL from the sampled history diverges wildly from authoritative profile PnL:
+    if all_time_pnl > 0 and running_cum > all_time_pnl * 1.5 and len(daily_pnl_history) > 1:
+        calib_scale = all_time_pnl / running_cum
+        running_calib = 0.0
+        for h in daily_pnl_history:
+            h["won_usd"] = round(h["won_usd"] * calib_scale, 2)
+            h["lost_usd"] = round(h["lost_usd"] * calib_scale, 2)
+            h["daily_pnl"] = round(h["daily_pnl"] * calib_scale, 2)
+            h["net_pnl"] = h["daily_pnl"]
+            running_calib += h["daily_pnl"]
+            h["cumulative_pnl"] = round(running_calib, 2)
+        running_cum = running_calib
+
     final_cum_pnl = daily_pnl_history[-1]["cumulative_pnl"] if daily_pnl_history else all_time_pnl
 
     # Calculate active unrealized paper loss/gain on open positions
@@ -769,6 +799,7 @@ def calculate_authentic_wallet_stats(
         "is_wash_trading": is_wash_trading,
         "wash_ratio": wash_ratio,
         "median_trade_size": round(median_trade_size, 2),
+        "min_capital_required": round(max(50.0, min(1000.0, 1.0 / (max(5.0, median_trade_size) / max(1000.0, all_time_pnl)))), 2) if all_time_pnl > 0 else 100.0,
         "is_sleeve_incompatible": is_sleeve_incompatible,
         "odds_weighted_edge": round(odds_weighted_edge, 4),
         "avg_entry_price": round(avg_entry_price, 4),

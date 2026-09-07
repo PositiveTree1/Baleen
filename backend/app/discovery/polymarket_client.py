@@ -206,7 +206,9 @@ class PolymarketClient:
             data = await self._fetch_with_retry(url, params={
                 "user": address,
                 "limit": batch_size,
-                "offset": offset
+                "offset": offset,
+                "sortBy": "timestamp",
+                "sortDirection": "DESC"
             })
             batch = []
             if isinstance(data, list):

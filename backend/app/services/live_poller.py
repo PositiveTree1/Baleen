@@ -169,15 +169,31 @@ class LiveTradeMirrorService:
                     ))
                     return
 
-            # Query Top 10 active basket wallets (strictly <= 50 trades/day, non-dormant, non-HFT, ordered by baleen_score)
+            # Fetch settled portfolio value to determine capital tier
+            stmt_realized_pnl = select(func.sum(ExecutionLog.realized_pnl_usd)).where(
+                ExecutionLog.user_id.is_(None),
+                ExecutionLog.side == "BUY",
+                ExecutionLog.status == "CLOSED"
+            )
+            total_realized_pnl = float((await db.execute(stmt_realized_pnl)).scalar() or 0.0)
+            settled_cash = 10000.0 + total_realized_pnl
+
+            # Query Top active basket wallets (strictly <= 50 trades/day, non-dormant, non-HFT, ordered by Gold Sniper tier first then baleen_score)
             stmt_wallets = select(Wallet).where(
                 Wallet.status == "active",
                 Wallet.dormant == False,
                 Wallet.is_hft == False,
                 (Wallet.avg_trades_per_day.is_(None) | (Wallet.avg_trades_per_day <= 50.0))
-            ).order_by(func.coalesce(Wallet.baleen_score, 0.0).desc()).limit(10)
-            active_wallets = (await db.execute(stmt_wallets)).scalars().all()
+            ).order_by(
+                (Wallet.tier == "gold_sniper").desc(),
+                func.coalesce(Wallet.baleen_score, 0.0).desc()
+            ).limit(10)
+            all_active_wallets = (await db.execute(stmt_wallets)).scalars().all()
+
+            from app.sizing.capital_tier import filter_active_wallets_by_capital, get_target_wallet_count
+            active_wallets = filter_active_wallets_by_capital(all_active_wallets, settled_cash)
             basket_addrs = {w.address.lower() for w in active_wallets}
+            n_active = max(1, len(active_wallets))
 
             # Sells are ALWAYS permitted if we hold an open position from this whale (even if whale was later demoted/blacklisted)
             target_open_buys = []
@@ -446,16 +462,6 @@ class LiveTradeMirrorService:
             # Pure Proportional Sleeve Sizing: S_w = current_user_portfolio_balance / n_active, f = whale_trade_usd / whale_pnl_or_net_worth
             from app.sizing.dynamic_sizer import calculate_pure_proportional_order_size
             import json
-
-            # 1. Fetch settled portfolio value
-            stmt_realized_pnl = select(func.sum(ExecutionLog.realized_pnl_usd)).where(
-                ExecutionLog.user_id.is_(None),
-                ExecutionLog.side == "BUY",
-                ExecutionLog.status == "CLOSED"
-            )
-            total_realized_pnl = float((await db.execute(stmt_realized_pnl)).scalar() or 0.0)
-            settled_cash = 10000.0 + total_realized_pnl
-            n_active = max(1, len(active_wallets))
 
             whale_port_val = float(source_whale.all_time_pnl_usd or 50000.0) if source_whale else 50000.0
             whale_trade_val = float(cash_usd if (cash_usd is not None and cash_usd > 0) else 500.0)
@@ -974,12 +980,18 @@ class LiveTradeMirrorService:
                 )
                 db.add(user_log)
 
-            # Copy-trade for live users with Pure Proportional Sleeve Sizing
+            # Copy-trade for live users with Capital-Tiered Proportional Sizing
             for link in live_links:
                 l_bal = float(link.live_balance_usdc or 0.0)
+                l_target_count = get_target_wallet_count(l_bal)
+                l_active_wallets = all_active_wallets[:l_target_count]
+                if side == "BUY" and addr not in {w.address.lower() for w in l_active_wallets}:
+                    continue
+                n_active_live = max(1, len(l_active_wallets))
+
                 l_sizing = calculate_pure_proportional_order_size(
                     user_balance=l_bal,
-                    n_active=n_active,
+                    n_active=n_active_live,
                     whale_trade_usd=whale_trade_val,
                     whale_pnl_or_net_worth=whale_net_worth,
                     min_order_usd=float(getattr(settings, 'POLYMARKET_MIN_ORDER_USD', 1.0)),
@@ -1012,7 +1024,7 @@ class LiveTradeMirrorService:
                         notional_usd=l_notional,
                         fee_usd=l_fee["fee_usd"],
                         market_category=l_fee["category"],
-                        active_basket_size_at_trade=len(active_wallets),
+                        active_basket_size_at_trade=len(l_active_wallets),
                         is_sandbox=False,
                         status="FILLED",
                         realized_pnl_usd=None,
@@ -1034,7 +1046,7 @@ class LiveTradeMirrorService:
                     if not l_open_buys:
                         continue
 
-                    l_notional = l_sizing.value if l_sizing.status == 'SUCCESS' else round(max(1.0, (l_bal / n_active) * (whale_trade_val / whale_net_worth)), 2)
+                    l_notional = l_sizing.value if l_sizing.status == 'SUCCESS' else round(max(1.0, (l_bal / n_active_live) * (whale_trade_val / whale_net_worth)), 2)
                     l_fee = calculate_polymarket_fee(
                         notional_usd=l_notional,
                         price=effective_fill_price,
@@ -1208,6 +1220,7 @@ class LiveTradeMirrorService:
                 await self._poll_active_whales()
                 await self._poll_market_resolutions()
                 await self._poll_expired_ledger_entries()
+                await self._poll_stale_wallet_evictions()
             except Exception as e:
                 logger.error(f"Error in live whale polling loop: {e}", exc_info=True)
             await asyncio.sleep(2.5)
@@ -1590,6 +1603,55 @@ class LiveTradeMirrorService:
                     await db.commit()
         except Exception as e:
             logger.error(f"Error in _poll_expired_ledger_entries: {e}", exc_info=True)
+
+    async def _poll_stale_wallet_evictions(self):
+        """Periodically sweeps active wallets to immediately log off stale / flatlined / inactive whales."""
+        now = time.time()
+        if not hasattr(self, "_last_stale_evict_poll_ts"):
+            self._last_stale_evict_poll_ts = 0.0
+
+        if (now - self._last_stale_evict_poll_ts) < 60.0:
+            return
+        self._last_stale_evict_poll_ts = now
+
+        from datetime import datetime, timedelta
+        seven_days_ago = datetime.utcnow() - timedelta(days=7)
+        try:
+            async with SessionLocal() as db:
+                stmt = select(Wallet).where(Wallet.status == "active")
+                active_wallets = (await db.execute(stmt)).scalars().all()
+                evicted_count = 0
+                for w in active_wallets:
+                    evict_reason = None
+                    if w.last_trade_at and w.last_trade_at < seven_days_ago:
+                        evict_reason = f"INACTIVE_NO_TRADES_IN_7_DAYS (Last: {w.last_trade_at.strftime('%Y-%m-%d')})"
+                    elif w.dormant:
+                        evict_reason = "FLAGGED_DORMANT"
+                    elif w.tier == "rejected":
+                        evict_reason = f"TIER_REJECTED: {w.rejection_reason or 'Failed criteria'}"
+
+                    if evict_reason:
+                        w.status = "tracked"
+                        w.dormant = True
+                        if not w.rejection_reason:
+                            w.rejection_reason = evict_reason
+                        evicted_count += 1
+                        logger.info(f"🚪 Stale Wallet Evicted / Logged Off: {w.name or w.address[:10]} - Reason: {evict_reason}")
+                        from app.services.event_logger import log_event
+                        asyncio.create_task(log_event(
+                            "WALLET_LOGGED_OFF_STALE",
+                            f"Stale Whale Logged Off: {w.name or w.address[:10]}",
+                            detail=f"Whale {w.address} was logged off active basket. Reason: {evict_reason}.",
+                            severity="warning",
+                            related_address=w.address,
+                        ))
+
+                if evicted_count > 0:
+                    await db.commit()
+                    # Invalidate cached active whales so next poll picks up fresh replacements
+                    self._cached_whales_ts = 0.0
+        except Exception as e:
+            logger.error(f"Error in _poll_stale_wallet_evictions: {e}", exc_info=True)
 
 live_trade_mirror = LiveTradeMirrorService()
 
