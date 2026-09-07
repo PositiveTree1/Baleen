@@ -583,3 +583,235 @@ async def test_live_poller_executes_live_orders_for_live_active_links():
         await db.execute(delete(Wallet).where(Wallet.address == whale_addr))
         await db.commit()
 
+
+# =========================================================================
+# Spec v2 Dedicated Tests: Gates 8, 10, 11, 12, 13, 14
+# =========================================================================
+
+def test_spec_v2_gate_8_tiered_boundary_bands():
+    """Gate 8: Tiered volume bands replace single cliff."""
+    now_ts = time.time()
+    
+    # Breach Band 1: Volume at 0.98 is 10% (> 5% max allowed)
+    trades_band1 = [
+        {"timestamp": now_ts - i * 3600, "price": 0.50, "size": 90, "side": "BUY", "usdcSize": 90.0, "conditionId": "c1"}
+        for i in range(10)
+    ] + [
+        {"timestamp": now_ts - 500, "price": 0.98, "size": 100, "side": "BUY", "usdcSize": 100.0, "conditionId": "c2"}
+    ]
+    # Total buy volume: 90*10 + 100 = 1000. 100/1000 = 10% > 5%
+    stats1 = calculate_authentic_wallet_stats("0xb1", trades=trades_band1, positions=[], activity=[], closed_positions=[])
+    assert stats1["is_boundary_arb"] is True
+
+    # Breach Band 2: Volume at 0.92 is 25% (> 20% max allowed)
+    trades_band2 = [
+        {"timestamp": now_ts - i * 3600, "price": 0.50, "size": 75, "side": "BUY", "usdcSize": 75.0, "conditionId": "c1"}
+        for i in range(10)
+    ] + [
+        {"timestamp": now_ts - 500, "price": 0.92, "size": 250, "side": "BUY", "usdcSize": 250.0, "conditionId": "c2"}
+    ]
+    # Total buy volume: 750 + 250 = 1000. 250/1000 = 25% > 20%
+    stats2 = calculate_authentic_wallet_stats("0xb2", trades=trades_band2, positions=[], activity=[], closed_positions=[])
+    assert stats2["is_boundary_arb"] is True
+
+    # Breach Band 3: Volume at 0.85 is 45% (> 40% max allowed)
+    trades_band3 = [
+        {"timestamp": now_ts - i * 3600, "price": 0.50, "size": 55, "side": "BUY", "usdcSize": 55.0, "conditionId": "c1"}
+        for i in range(10)
+    ] + [
+        {"timestamp": now_ts - 500, "price": 0.85, "size": 450, "side": "BUY", "usdcSize": 450.0, "conditionId": "c2"}
+    ]
+    # Total buy volume: 550 + 450 = 1000. 450/1000 = 45% > 40%
+    stats3 = calculate_authentic_wallet_stats("0xb3", trades=trades_band3, positions=[], activity=[], closed_positions=[])
+    assert stats3["is_boundary_arb"] is True
+
+    # Clean trader within all 3 bands (2% Band 1, 10% Band 2, 20% Band 3)
+    trades_clean = [
+        {"timestamp": now_ts - i * 3600, "price": 0.50, "size": 100, "side": "BUY", "usdcSize": 100.0, "conditionId": "c1"}
+        for i in range(10)
+    ] + [
+        {"timestamp": now_ts - 100, "price": 0.98, "size": 20, "side": "BUY", "usdcSize": 20.0, "conditionId": "c2"},
+        {"timestamp": now_ts - 200, "price": 0.92, "size": 80, "side": "BUY", "usdcSize": 80.0, "conditionId": "c3"},
+        {"timestamp": now_ts - 300, "price": 0.85, "size": 100, "side": "BUY", "usdcSize": 100.0, "conditionId": "c4"}
+    ]
+    # Total buy: 1000 + 20 + 80 + 100 = 1200.
+    # Band 1: 20/1200 = 1.6% <= 5%
+    # Band 2: (20+80)/1200 = 8.3% <= 20%
+    # Band 3: (20+80+100)/1200 = 16.7% <= 40%
+    stats_clean = calculate_authentic_wallet_stats("0xb_clean", trades=trades_clean, positions=[], activity=[], closed_positions=[])
+    assert stats_clean["is_boundary_arb"] is False
+
+
+def test_spec_v2_gate_10_anti_stale_plateau():
+    """Gate 10: Trailing 90-day realized PnL must be >= 35% of total lifetime PnL."""
+    from datetime import datetime, timedelta
+    
+    # 1. Stale plateau: Total $100k, but only $10k in trailing 90 days (10% < 35%)
+    now_dt = datetime.utcnow()
+    d_old = (now_dt - timedelta(days=120)).strftime("%Y-%m-%d")
+    d_recent = (now_dt - timedelta(days=20)).strftime("%Y-%m-%d")
+    
+    history_stale = [
+        {"date": d_old, "daily_pnl": 90000.0},
+        {"date": d_recent, "daily_pnl": 10000.0},
+    ]
+    stats_stale = calculate_authentic_wallet_stats(
+        "0xstale90",
+        trades=[{"timestamp": time.time(), "side": "BUY", "price": 0.50, "size": 100}],
+        positions=[],
+        activity=[],
+        profile={"pnl": 100000.0, "volume": 300000.0},
+        closed_positions=[{"date": d_old, "cashPnl": 90000.0, "realizedPnl": 90000.0, "closed": True}]
+    )
+    # Inject 90d history test
+    stats_stale_explicit = dict(stats_stale)
+    stats_stale_explicit["daily_pnl_history"] = history_stale
+    res_stale = calculate_authentic_wallet_stats(
+        "0xstale90",
+        trades=[{"timestamp": time.time(), "side": "BUY", "price": 0.50, "size": 100}],
+        positions=[],
+        activity=[],
+        profile={"pnl": 100000.0, "volume": 300000.0},
+        closed_positions=[
+            {"conditionId": "c_old", "timestamp": (now_dt - timedelta(days=120)).timestamp(), "cashPnl": 90000.0, "realizedPnl": 90000.0, "closed": True},
+            {"conditionId": "c_rec", "timestamp": (now_dt - timedelta(days=20)).timestamp(), "cashPnl": 10000.0, "realizedPnl": 10000.0, "closed": True}
+        ]
+    )
+    assert res_stale["is_stale_plateau"] is True
+
+    # 2. Active Alpha: Total $100k, with $50k in trailing 90 days (50% >= 35%)
+    res_active = calculate_authentic_wallet_stats(
+        "0xactive90",
+        trades=[{"timestamp": time.time(), "side": "BUY", "price": 0.50, "size": 100}],
+        positions=[],
+        activity=[],
+        profile={"pnl": 100000.0, "volume": 300000.0},
+        closed_positions=[
+            {"conditionId": "c_old2", "timestamp": (now_dt - timedelta(days=120)).timestamp(), "cashPnl": 50000.0, "realizedPnl": 50000.0, "closed": True},
+            {"conditionId": "c_rec2", "timestamp": (now_dt - timedelta(days=20)).timestamp(), "cashPnl": 50000.0, "realizedPnl": 50000.0, "closed": True}
+        ]
+    )
+    assert res_active["is_stale_plateau"] is False
+
+
+def test_spec_v2_gate_11_period_sharpe():
+    """Gate 11: Trailing-90-day Sharpe ratio on period returns > 1.0."""
+    now_dt = datetime.utcnow()
+    from datetime import timedelta
+    
+    # Highly volatile / erratic trader (Sharpe <= 1.0)
+    erratic_closed = [
+        {"conditionId": f"c_err_{i}", "timestamp": (now_dt - timedelta(days=i * 5)).timestamp(), "cashPnl": 1000.0 if i % 2 == 0 else -950.0, "realizedPnl": 1000.0 if i % 2 == 0 else -950.0, "closed": True}
+        for i in range(15)
+    ]
+    stats_erratic = calculate_authentic_wallet_stats(
+        "0xerratic",
+        trades=[{"timestamp": time.time(), "side": "BUY", "price": 0.50, "size": 100}],
+        positions=[],
+        activity=[],
+        profile={"pnl": 100000.0, "volume": 300000.0},
+        closed_positions=erratic_closed
+    )
+    assert stats_erratic["trailing_90d_sharpe"] < 1.0
+    assert stats_erratic["is_inconsistent_profile"] is True
+
+    # Steady alpha trader (Sharpe > 1.0)
+    steady_closed = [
+        {"conditionId": f"c_std_{i}", "timestamp": (now_dt - timedelta(days=i * 5)).timestamp(), "cashPnl": 500.0 + (i * 10), "realizedPnl": 500.0 + (i * 10), "closed": True}
+        for i in range(15)
+    ]
+    stats_steady = calculate_authentic_wallet_stats(
+        "0xsteady",
+        trades=[{"timestamp": time.time(), "side": "BUY", "price": 0.50, "size": 100}],
+        positions=[],
+        activity=[],
+        profile={"pnl": 10000.0, "volume": 50000.0},
+        closed_positions=steady_closed
+    )
+    assert stats_steady["trailing_90d_sharpe"] > 1.0
+    assert stats_steady["is_inconsistent_profile"] is False
+
+
+def test_spec_v2_gate_13_category_concentration_cap():
+    """Gate 13: Max 40% of the active roster from the same category."""
+    from app.scoring.basket import select_top_10_roster
+    from app.models import Wallet
+
+    # Create 10 candidates: 6 Crypto, 2 Sports, 2 Politics
+    candidates = []
+    categories = {}
+    for i in range(6):
+        addr = f"0xCrypto_{i}"
+        w = Wallet(address=addr, baleen_score=95.0 - i, tier="standard", status="tracked")
+        candidates.append(w)
+        categories[addr.lower()] = "Crypto"
+
+    for i in range(2):
+        addr = f"0xSports_{i}"
+        w = Wallet(address=addr, baleen_score=85.0 - i, tier="standard", status="tracked")
+        candidates.append(w)
+        categories[addr.lower()] = "Sports"
+
+    for i in range(2):
+        addr = f"0xPolitics_{i}"
+        w = Wallet(address=addr, baleen_score=80.0 - i, tier="standard", status="tracked")
+        candidates.append(w)
+        categories[addr.lower()] = "Politics"
+
+    # In a 10-wallet roster, 40% of 10 = max 4 per category
+    roster = select_top_10_roster(
+        candidates=candidates,
+        target_size=10,
+        wallet_categories=categories
+    )
+
+    crypto_in_roster = sum(1 for w in roster if categories.get(w.address.lower()) == "Crypto")
+    sports_in_roster = sum(1 for w in roster if categories.get(w.address.lower()) == "Sports")
+    politics_in_roster = sum(1 for w in roster if categories.get(w.address.lower()) == "Politics")
+
+    # Only 4 Crypto wallets allowed (despite 6 having higher raw scores than Sports/Politics)
+    assert crypto_in_roster == 4
+    assert sports_in_roster == 2
+    assert politics_in_roster == 2
+    assert len(roster) == 8  # 4 + 2 + 2 = 8 available unique diversified wallets
+
+
+def test_spec_v2_gate_14_pairwise_correlation_filter():
+    """Gate 14: Daily PnL correlation r <= 0.70 between candidates."""
+    from app.scoring.basket import select_top_10_roster, compute_daily_pnl_correlation
+    from app.models import Wallet
+
+    # Candidate A and Candidate B trade identical markets with 0.99 correlation
+    hist_a = [{"date": f"2026-08-{i:02d}", "daily_pnl": float(i * 100)} for i in range(1, 15)]
+    hist_b = [{"date": f"2026-08-{i:02d}", "daily_pnl": float(i * 98 + 5)} for i in range(1, 15)]
+    # Candidate C is uncorrelated
+    hist_c = [{"date": f"2026-08-{i:02d}", "daily_pnl": float((15 - i) * 80 if i % 2 == 0 else -50)} for i in range(1, 15)]
+
+    r_ab = compute_daily_pnl_correlation(hist_a, hist_b)
+    r_ac = compute_daily_pnl_correlation(hist_a, hist_c)
+    assert r_ab > 0.95  # Strongly correlated
+    assert r_ac < 0.20  # Uncorrelated
+
+    w_a = Wallet(address="0xCandidateA", baleen_score=92.0, tier="gold_sniper", status="tracked")
+    w_b = Wallet(address="0xCandidateB", baleen_score=90.0, tier="gold_sniper", status="tracked")
+    w_c = Wallet(address="0xCandidateC", baleen_score=85.0, tier="standard", status="tracked")
+
+    histories = {
+        "0xcandidatea": hist_a,
+        "0xcandidateb": hist_b,
+        "0xcandidatec": hist_c,
+    }
+
+    # Selecting top 2: w_a is rank 1, w_b is rank 2 but correlated with w_a (r > 0.70)
+    # Gate 14 skips w_b and selects w_c instead!
+    roster = select_top_10_roster(
+        candidates=[w_a, w_b, w_c],
+        target_size=2,
+        wallet_histories=histories
+    )
+
+    assert len(roster) == 2
+    assert roster[0].address == "0xCandidateA"
+    assert roster[1].address == "0xCandidateC"  # B skipped due to correlation!
+
+

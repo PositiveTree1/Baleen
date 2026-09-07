@@ -6,7 +6,7 @@ import json
 import time
 import inspect
 from typing import List, Dict, Optional, Tuple, Any, Set
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, delete, text, func
 from app.discovery.polymarket_client import PolymarketClient
@@ -290,23 +290,41 @@ def calculate_authentic_wallet_stats(
     trades_per_day = round(total_trade_count / active_days, 1)
     is_hft = bool(trades_per_day > 50.0)
 
-    # Boundary Sniping Check (Buy at >= 0.9999 or <= 0.0001)
+    # Gate 8: Boundary-Certainty Screen (Spec v2: Tiered bands, no single cliff)
+    # Band 1: Price <= 0.03 or >= 0.97: <= 5% of total volume
+    # Band 2: Price <= 0.10 or >= 0.90: <= 20% of total volume
+    # Band 3: Price <= 0.20 or >= 0.80: <= 40% of total volume
     is_boundary_arb = False
-    boundary_trades_count = 0
-    total_trades_checked = len(combined_trades)
+    vol_total_buy = 0.0
+    vol_band_03_97 = 0.0
+    vol_band_10_90 = 0.0
+    vol_band_20_80 = 0.0
+
     for t in combined_trades:
         if isinstance(t, dict):
             t_side = str(t.get("side") or t.get("maker_direction") or t.get("type") or "").upper()
             t_price = float(t.get("price") or 0.0)
-            if t_side == "BUY" and (t_price >= 0.9999 or (0.0 < t_price <= 0.0001)):
-                is_boundary_arb = True
-                boundary_trades_count += 1
-            elif t_side == "BUY" and (t_price >= 0.99 or (0.0 < t_price <= 0.01)):
-                boundary_trades_count += 1
+            t_size = float(t.get("usdcSize") or t.get("size") or 0.0)
+            t_vol = t_size * (t_price if t_price > 0 else 1.0) if not t.get("usdcSize") else t_size
+            if t_vol <= 0:
+                t_vol = float(t.get("size") or 0.0)
+            if t_side == "BUY" and t_vol > 0 and 0.0 < t_price <= 1.0:
+                vol_total_buy += t_vol
+                if t_price <= 0.03 or t_price >= 0.97:
+                    vol_band_03_97 += t_vol
+                if t_price <= 0.10 or t_price >= 0.90:
+                    vol_band_10_90 += t_vol
+                if t_price <= 0.20 or t_price >= 0.80:
+                    vol_band_20_80 += t_vol
 
-    boundary_ratio = round(boundary_trades_count / max(1, total_trades_checked), 3)
-    if boundary_ratio > 0.08 and boundary_trades_count >= 3:
-        is_boundary_arb = True
+    ratio_03_97 = round(vol_band_03_97 / vol_total_buy, 3) if vol_total_buy > 0 else 0.0
+    ratio_10_90 = round(vol_band_10_90 / vol_total_buy, 3) if vol_total_buy > 0 else 0.0
+    ratio_20_80 = round(vol_band_20_80 / vol_total_buy, 3) if vol_total_buy > 0 else 0.0
+    boundary_ratio = max(ratio_03_97, ratio_10_90, ratio_20_80)
+
+    if vol_total_buy > 0:
+        if ratio_03_97 > 0.05 or ratio_10_90 > 0.20 or ratio_20_80 > 0.40:
+            is_boundary_arb = True
 
     # 6. Trade Size Compatibility with Sleeve (Median usdcSize)
     trade_sizes = []
@@ -724,16 +742,46 @@ def calculate_authentic_wallet_stats(
         if S_xx > 0 and S_cc > 0:
             R_squared = max(0.0, min(1.0, (S_xc ** 2) / (S_xx * S_cc)))
 
-    # Stale Plateau Detection: Compare first-half PnL vs second-half PnL
+    # Gate 10: Anti-Stale-Plateau Screen (Spec v2: Trailing 90-day realized PnL >= 35% of total PnL)
     is_stale_plateau = False
-    if T >= 2:
-        mid = T // 2
-        first_half_pnl = sum(daily_pnls[:mid])
-        second_half_pnl = sum(daily_pnls[mid:])
-        total_half_pnl = first_half_pnl + second_half_pnl
-        if first_half_pnl > 0:
-            if second_half_pnl <= 0.0 or (total_half_pnl > 0 and first_half_pnl > 0.90 * total_half_pnl and second_half_pnl <= 0.10 * total_half_pnl):
+    trailing_90d_pnl = 0.0
+    trailing_90d_daily_pnls = []
+    if daily_pnl_history:
+        dates = [h.get("date") for h in daily_pnl_history if h.get("date")]
+        latest_d_str = max(dates) if dates else datetime.utcnow().strftime("%Y-%m-%d")
+        try:
+            latest_dt = datetime.fromisoformat(latest_d_str)
+        except Exception:
+            latest_dt = datetime.utcnow()
+        cutoff_str = (latest_dt - timedelta(days=90)).strftime("%Y-%m-%d")
+
+        for h in daily_pnl_history:
+            d_str = str(h.get("date") or "")
+            if d_str >= cutoff_str:
+                val = float(h.get("daily_pnl") or h.get("net_pnl") or 0.0)
+                trailing_90d_pnl += val
+                trailing_90d_daily_pnls.append(val)
+
+        if all_time_pnl > 0.0:
+            if trailing_90d_pnl < 0.35 * all_time_pnl:
                 is_stale_plateau = True
+        elif T >= 2:
+            mid = T // 2
+            if sum(daily_pnls[mid:]) <= 0.0 and sum(daily_pnls[:mid]) > 0:
+                is_stale_plateau = True
+
+    # Gate 11: Consistency Gate on Period Returns (Spec v2: Trailing-90-day Sharpe > 1.0 on period returns)
+    trailing_90d_sharpe = 0.0
+    period_series = trailing_90d_daily_pnls if len(trailing_90d_daily_pnls) >= 3 else daily_pnls
+    if len(period_series) >= 3:
+        m_period = sum(period_series) / len(period_series)
+        v_period = sum((p - m_period) ** 2 for p in period_series) / len(period_series)
+        s_period = math.sqrt(v_period)
+        trailing_90d_sharpe = round(m_period / (s_period + 1e-6), 3) if s_period > 0 else (2.0 if m_period > 0 else 0.0)
+    else:
+        trailing_90d_sharpe = 1.5 if all_time_pnl > 0 else 0.0
+
+    is_period_inconsistent = bool(len(period_series) >= 5 and trailing_90d_sharpe <= 1.0)
 
     # Roller-Coaster Gambler Detection: Peak-to-trough drawdown > 25% or high variance
     is_roller_coaster = bool(max_drawdown > 25.0)
@@ -764,13 +812,28 @@ def calculate_authentic_wallet_stats(
         )
     )
 
-    # Combined flag
+    # Combined flag for inconsistent / deceptive profiles
     is_inconsistent_profile = bool(
         is_stale_plateau or
         is_roller_coaster or
         step_jump or
-        (T >= 5 and (beta <= 0 or R_squared < 0.40))
+        is_period_inconsistent
     )
+
+    # Primary category extraction for Gate 13 concentration capping
+    from app.services.polymarket_fees import classify_market_category
+    cat_counts: Dict[str, int] = {}
+    for t in combined_trades:
+        q = str(t.get("title") or t.get("market") or t.get("market_question") or "")
+        if q:
+            c_name, _ = classify_market_category(q)
+            cat_counts[c_name] = cat_counts.get(c_name, 0) + 1
+    for p in (closed_positions or []):
+        q = str(p.get("title") or p.get("market") or "")
+        if q:
+            c_name, _ = classify_market_category(q)
+            cat_counts[c_name] = cat_counts.get(c_name, 0) + 1
+    primary_category = max(cat_counts.items(), key=lambda x: x[1])[0] if cat_counts else "General"
 
     step_penalty = max(0.0, (max_single_day_pnl_ratio - 0.20) * 50.0)
     sharpe_component = min(40.0, max(0.0, sharpe_ratio * 20.0))
@@ -805,6 +868,9 @@ def calculate_authentic_wallet_stats(
         "avg_entry_price": round(avg_entry_price, 4),
         "sharpe_ratio": round(sharpe_ratio, 3),
         "recency_ema": round(recency_ema, 2),
+        "trailing_90d_sharpe": trailing_90d_sharpe,
+        "trailing_90d_pnl": round(trailing_90d_pnl, 2),
+        "primary_category": primary_category,
         "category_count": category_count,
         "daily_pnl_history": daily_pnl_history,
         "first_trade_at": None,
@@ -947,10 +1013,15 @@ async def evaluate_pending_wallets(db: AsyncSession, client: Optional[Polymarket
                     wallet.tier = 'rejected'
                     wallet.rejection_reason = f'Market concentration too high ({stats["outlier_concentration_pct"]*100:.1f}% > 25% max single trade PnL)'
                     discovery_state["rejected"] += 1
-                elif stats['win_rate_pct'] < 55.0:
+                elif stats['win_rate_pct'] < 58.0:
                     wallet.status = 'rejected'
                     wallet.tier = 'rejected'
-                    wallet.rejection_reason = f'Win rate ({stats["win_rate_pct"]}%) is below 55% threshold'
+                    wallet.rejection_reason = f'Win rate ({stats["win_rate_pct"]}%) is below 58% threshold'
+                    discovery_state["rejected"] += 1
+                elif t_count_val >= 100 and float(stats.get('wilson_lower_bound') or 0.0) < 50.0:
+                    wallet.status = 'rejected'
+                    wallet.tier = 'rejected'
+                    wallet.rejection_reason = f'Wilson lower bound ({stats.get("wilson_lower_bound", 0.0)}%) is below 50% threshold'
                     discovery_state["rejected"] += 1
                 elif stats['is_hft']:
                     wallet.status = 'rejected'
@@ -965,7 +1036,7 @@ async def evaluate_pending_wallets(db: AsyncSession, client: Optional[Polymarket
                 elif stats.get('is_stale_plateau'):
                     wallet.status = 'rejected'
                     wallet.tier = 'rejected'
-                    wallet.rejection_reason = 'Stale plateau profit curve (first-half profits >90%, second-half stagnant)'
+                    wallet.rejection_reason = 'Stale plateau profit curve (trailing 90-day PnL < 35% of total PnL)'
                     discovery_state["rejected"] += 1
                 elif stats.get('is_roller_coaster'):
                     wallet.status = 'rejected'
@@ -975,7 +1046,7 @@ async def evaluate_pending_wallets(db: AsyncSession, client: Optional[Polymarket
                 elif stats.get('is_inconsistent_profile'):
                     wallet.status = 'rejected'
                     wallet.tier = 'rejected'
-                    wallet.rejection_reason = f'Inconsistent / deceptive profit profile (single-day step concentration {stats.get("max_single_day_pnl_ratio", 0)*100:.1f}%)'
+                    wallet.rejection_reason = f'Inconsistent / deceptive profit profile (period Sharpe {stats.get("trailing_90d_sharpe", 0.0):.2f} or single-day step concentration {stats.get("max_single_day_pnl_ratio", 0)*100:.1f}%)'
                     discovery_state["rejected"] += 1
                 elif stats.get('is_crypto_only'):
                     wallet.status = 'rejected'
@@ -990,7 +1061,7 @@ async def evaluate_pending_wallets(db: AsyncSession, client: Optional[Polymarket
                 elif stats.get('is_boundary_arb'):
                     wallet.status = 'rejected'
                     wallet.tier = 'rejected'
-                    wallet.rejection_reason = f'Arbitrage/Settlement Sniper ({stats.get("boundary_ratio", 0)*100:.1f}% boundary trades at 0.01/0.99)'
+                    wallet.rejection_reason = f'Boundary arbitrage detected ({stats.get("boundary_ratio", 0)*100:.1f}% boundary trades in near-certainty bands)'
                     discovery_state["rejected"] += 1
                 elif stats['is_dormant']:
                     wallet.status = 'rejected'
@@ -1009,12 +1080,9 @@ async def evaluate_pending_wallets(db: AsyncSession, client: Optional[Polymarket
                     t_d = int(stats.get('t_days') or 0)
                     b = float(stats.get('beta') or 0.0)
                     r = float(stats.get('r_squared') or 0.0)
-                    if scoring.tier == 'gold_sniper' and baleen_score >= 70.0 and max_dd <= 12.0:
-                        if t_d >= 5 and (b <= 0.0 or r < 0.55):
-                            wallet.tier = 'standard'
-                        else:
-                            wallet.tier = 'gold_sniper'
-                            discovery_state["gold_snipers"] += 1
+                    if scoring.tier == 'gold_sniper' and baleen_score >= 70.0 and max_dd <= 15.0:
+                        wallet.tier = 'gold_sniper'
+                        discovery_state["gold_snipers"] += 1
                     else:
                         wallet.tier = 'standard'
                     discovery_state["active_whales_in_basket"] += 1
@@ -1023,10 +1091,10 @@ async def evaluate_pending_wallets(db: AsyncSession, client: Optional[Polymarket
                 try:
                     ai_summary, ai_style_tag = await generate_summary(stats)
                     wallet.ai_summary = ai_summary
-                    wallet.ai_style_tag = ai_style_tag
+                    wallet.ai_style_tag = stats.get('primary_category') or ai_style_tag or "General"
                 except Exception:
                     wallet.ai_summary = f"Institutional Polymarket trader with ${stats['all_time_pnl_usd']:,.0f} all-time PnL and {stats['win_rate_pct']}% win rate."
-                    wallet.ai_style_tag = "Alpha Whale"
+                    wallet.ai_style_tag = stats.get('primary_category') or "General"
                     
                 wallet.all_time_pnl_usd = stats.get('all_time_pnl_usd', 0.0)
                 wallet.win_rate_pct = stats.get('win_rate_pct', 70.0)

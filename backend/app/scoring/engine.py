@@ -117,17 +117,24 @@ def score_wallet(wallet_stats: dict) -> ScoringResult:
     if wallet_stats.get('has_no_history'):
         return ScoringResult("rejected", None, "MISSING_ONCHAIN_HISTORY", False)
 
-    # FILTER 15: Minimum Win Rate >= 55.0%
-    if win_rate < 55.0:
+    # FILTER 15: Gate 12 - Minimum Win Rate >= 58.0% and Wilson 90% CI lower bound >= 50.0%
+    wilson_lb = float(wallet_stats.get('wilson_lower_bound') or wallet_stats.get('wilson_lb') or 0.0)
+    if win_rate < 58.0:
         return ScoringResult("rejected", None, "WIN_RATE_TOO_LOW", False)
+    if trades_count >= 100 and wilson_lb > 0 and wilson_lb < 50.0:
+        return ScoringResult("rejected", None, "WILSON_LOWER_BOUND_TOO_LOW", False)
 
     # FILTER 16: Open Position Paper Loss Bleed Gate (Reject active bleed > $25k or > 35% of total PnL)
     unrealized_open_pnl = float(wallet_stats.get('unrealized_open_pnl', 0.0) or 0.0)
     if unrealized_open_pnl < -25000.0 or (pnl > 0 and abs(min(0.0, unrealized_open_pnl)) > 0.35 * pnl):
         return ScoringResult("rejected", None, "OPEN_POSITION_DRAWDOWN_EXCEEDED", False)
 
-    # TIER: Gold Sniper requires win_rate >= 80.0%, max_drawdown <= 12.0%, healthy open positions,
-    # and if T >= 5 daily history, require beta > 0 and R^2 >= 0.55
+    # TIER: Gold Sniper Elite Tier (Spec v2 Part B)
+    # 1. Verified win rate >= 70.0%
+    # 2. Max drawdown <= 15.0%
+    # 3. Positive 30-day EMA momentum on realized P&L (if provided)
+    # 4. Sleeve compatibility at <= $250 (if provided)
+    # 5. Trailing-90-day Sharpe ratio > 1.0 (if provided)
     r2_raw = wallet_stats.get('r_squared') if wallet_stats.get('r_squared') is not None else wallet_stats.get('ols_r2', 1.0)
     r2 = float(r2_raw or 0.0)
     beta_raw = wallet_stats.get('beta') if wallet_stats.get('beta') is not None else wallet_stats.get('ols_slope', 1.0)
@@ -139,7 +146,21 @@ def score_wallet(wallet_stats: dict) -> ScoringResult:
     if t_days >= 5 and (beta <= 0.0 or r2 < 0.55):
         meets_ols = False
 
-    if win_rate >= 80.0 and max_drawdown <= 12.0 and unrealized_open_pnl >= -5000.0 and meets_ols:
+    trailing_sharpe = float(wallet_stats.get('trailing_90d_sharpe') or 0.0)
+    recency_ema = float(wallet_stats.get('recency_ema') or 0.0)
+    min_cap = float(wallet_stats.get('min_capital_required') or 0.0)
+
+    meets_sharpe = trailing_sharpe > 1.0 if 'trailing_90d_sharpe' in wallet_stats else True
+    meets_recency = recency_ema > 0.0 if 'recency_ema' in wallet_stats else True
+    meets_min_cap = min_cap <= 250.0 if 'min_capital_required' in wallet_stats else True
+
+    if (win_rate >= 70.0 and 
+        max_drawdown <= 15.0 and 
+        unrealized_open_pnl >= -5000.0 and 
+        meets_ols and 
+        meets_sharpe and 
+        meets_recency and 
+        meets_min_cap):
         tier = "gold_sniper"
     else:
         tier = "standard"

@@ -215,21 +215,28 @@ def test_boundary_arbitrage_filter_rejects_boundary_snipers():
 
 
 # -------------------------------------------------------------------------
-# Filter 9: Minimum Win Rate (>= 55.0%)
+# Filter 9: Minimum Win Rate (>= 58.0% and Wilson CI lower bound >= 50.0%)
 # -------------------------------------------------------------------------
 
-def test_win_rate_gate_rejects_54_9pct():
-    stats = _valid_stats(win_rate_pct=54.9)
+def test_win_rate_gate_rejects_57_9pct():
+    stats = _valid_stats(win_rate_pct=57.9)
     res = score_wallet(stats)
     assert res.status == "rejected"
     assert res.rejection_reason == "WIN_RATE_TOO_LOW"
 
 
-def test_win_rate_gate_accepts_55_0pct():
-    stats = _valid_stats(win_rate_pct=55.0)
+def test_win_rate_gate_accepts_58_0pct():
+    stats = _valid_stats(win_rate_pct=58.0)
     res = score_wallet(stats)
     assert res.status == "active"
     assert res.rejection_reason is None
+
+
+def test_wilson_lower_bound_filter_rejects_below_50():
+    stats = _valid_stats(win_rate_pct=58.0, trades_count=100, wilson_lower_bound=48.5)
+    res = score_wallet(stats)
+    assert res.status == "rejected"
+    assert res.rejection_reason == "WILSON_LOWER_BOUND_TOO_LOW"
 
 
 # -------------------------------------------------------------------------
@@ -237,21 +244,21 @@ def test_win_rate_gate_accepts_55_0pct():
 # -------------------------------------------------------------------------
 
 def test_gold_tier_requires_both_winrate_and_drawdown():
-    # High win rate, bad drawdown (>12.0%)
+    # High win rate, bad drawdown (>15.0%)
     stats1 = _valid_stats(win_rate_pct=90.0, max_drawdown_pct=18.0)
     res1 = score_wallet(stats1)
     assert res1.status == "active"
     assert res1.tier == "standard"
 
-    # Good drawdown, low win rate (<80.0%)
-    stats2 = _valid_stats(win_rate_pct=75.0, max_drawdown_pct=5.0)
+    # Good drawdown, low win rate (<70.0%)
+    stats2 = _valid_stats(win_rate_pct=65.0, max_drawdown_pct=5.0)
     res2 = score_wallet(stats2)
     assert res2.status == "active"
     assert res2.tier == "standard"
 
 
 def test_gold_tier_accepts_qualifying_wallet():
-    # Win rate >= 80.0% and Max Drawdown <= 12.0%
+    # Win rate >= 70.0% and Max Drawdown <= 15.0%
     stats = _valid_stats(win_rate_pct=80.0, max_drawdown_pct=12.0)
     res = score_wallet(stats)
     assert res.status == "active"
@@ -259,7 +266,7 @@ def test_gold_tier_accepts_qualifying_wallet():
 
 
 def test_wallet_above_all_thresholds_but_failing_drawdown():
-    stats = _valid_stats(win_rate_pct=90.0, max_drawdown_pct=12.1)
+    stats = _valid_stats(win_rate_pct=90.0, max_drawdown_pct=16.0)
     res = score_wallet(stats)
     assert res.status == "active"
     assert res.tier == "standard"
@@ -285,6 +292,9 @@ async def test_scanner_evaluate_pending_wallets_computes_baleen_score():
         db.add(pending_wallet)
         await db.commit()
 
+    import time
+    now_ts = int(time.time())
+
     # Mock PolymarketClient with authentic-shaped data
     mock_client = MagicMock()
     mock_client.fetch_wallet_positions = AsyncMock(return_value=[
@@ -300,14 +310,14 @@ async def test_scanner_evaluate_pending_wallets_computes_baleen_score():
             "realizedPnl": 10000.0,
             "unrealizedPnl": 0.0,
             "closed": True,
-            "timestamp": 1700000000 + i * 86400 * 10
+            "timestamp": now_ts - (10 - i) * 86400
         }
         for i in range(10)
     ])
     mock_client.fetch_wallet_activity = AsyncMock(return_value=[
         {
             "type": "TRADE",
-            "timestamp": 1700000000 + i * 86400,
+            "timestamp": now_ts - int((160 - i) * (70 * 86400 / 160)),
             "usdcSize": 250.0,
             "side": "BUY",
             "conditionId": f"0xcond_{i % 5}"
@@ -324,7 +334,7 @@ async def test_scanner_evaluate_pending_wallets_computes_baleen_score():
     mock_client.fetch_wallet_trades = AsyncMock(return_value=[
         {
             "id": f"t_{i}",
-            "timestamp": 1700000000 + i * 86400,
+            "timestamp": now_ts - int((160 - i) * (70 * 86400 / 160)),
             "usdcSize": 250.0,
             "price": 0.45,
             "side": "BUY",

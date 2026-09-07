@@ -71,3 +71,51 @@ def test_cumulative_curve_calibration_guardrail():
     
     # Final cumulative PnL must match the authoritative profile PnL
     assert stats["cumulative_pnl"] == 50000.0
+
+def test_capital_tier_applies_gates_13_and_14():
+    """Spec v2 Part D: Capital tier roster applies Gates 13 & 14 within the tier."""
+    from app.models import Wallet
+
+    # At $1,500 capital, target count is 4 wallets
+    # Max category concentration = max(1, int(4 * 0.40)) = 1 per category!
+    w0 = Wallet(address="0xw0", baleen_score=95.0, tier="gold_sniper", status="active")
+    w1 = Wallet(address="0xw1", baleen_score=94.0, tier="gold_sniper", status="active")
+    w2 = Wallet(address="0xw2", baleen_score=93.0, tier="standard", status="active")
+    w4 = Wallet(address="0xw4", baleen_score=88.0, tier="standard", status="active")
+    w5 = Wallet(address="0xw5", baleen_score=85.0, tier="standard", status="active")
+    w6 = Wallet(address="0xw6", baleen_score=82.0, tier="standard", status="active")
+
+    categories = {
+        "0xw0": "Crypto",
+        "0xw1": "Crypto",  # Correlated and same category
+        "0xw2": "Crypto",  # Exceeds 40% category cap
+        "0xw4": "Sports",
+        "0xw5": "Politics",
+        "0xw6": "Macro",
+    }
+
+    # w0 and w1 have identical daily PnL (correlation ~1.0)
+    hist_corr = [{"date": f"2026-08-{i:02d}", "daily_pnl": float(i * 100)} for i in range(1, 10)]
+    hist_uncorr = [{"date": f"2026-08-{i:02d}", "daily_pnl": float((10 - i) * 50 if i % 2 == 0 else -30)} for i in range(1, 10)]
+
+    histories = {
+        "0xw0": hist_corr,
+        "0xw1": hist_corr,
+        "0xw2": hist_uncorr,
+        "0xw4": hist_uncorr,
+        "0xw5": hist_uncorr,
+        "0xw6": hist_uncorr,
+    }
+
+    candidates = [w0, w1, w2, w4, w5, w6]
+    tier_roster = filter_active_wallets_by_capital(
+        wallets=candidates,
+        capital_usd=1500.0,
+        wallet_histories=histories,
+        wallet_categories=categories
+    )
+
+    assert len(tier_roster) == 4
+    roster_addrs = [w.address for w in tier_roster]
+    assert roster_addrs == ["0xw0", "0xw4", "0xw5", "0xw6"]
+
