@@ -306,49 +306,33 @@ export function PortfolioAnalytics({
     const targetSleeveCount = bankroll < 250 ? 1 : bankroll < 1000 ? 2 : bankroll < 3000 ? 4 : bankroll < 15000 ? 5 : 10;
     const sleeveBudget = bankroll / targetSleeveCount;
 
-    // Determine target active addresses fallback if wallets not yet loaded
-    let activeAddresses = new Set(topCandidateRoster.slice(0, targetSleeveCount).map((w) => (w.address || '').toLowerCase()));
-    if (activeAddresses.size === 0) {
-      const addrTotals = new Map<string, number>();
-      activeHoldingLogs.forEach((l) => {
-        const addr = (l.walletAddress || '').toLowerCase();
-        if (addr) addrTotals.set(addr, (addrTotals.get(addr) || 0) + (l.size ?? 0.0));
-      });
-      const topFromLogs = Array.from(addrTotals.entries())
-        .sort((a, b) => b[1] - a[1])
-        .slice(0, targetSleeveCount)
-        .map(([addr]) => addr);
-      activeAddresses = new Set(topFromLogs);
-    }
-
-    const whaleMap = new Map<string, { address: string; notional: number; name: string }>();
-    let targetNotional = 0;
-    let targetCount = 0;
-
-    let legacyNotional = 0;
-    let legacyCount = 0;
+    // 1. Group all filled BUY logs by wallet address
+    const whaleMap = new Map<string, { address: string; notional: number; name: string; fillCount: number }>();
+    let totalTargetNotional = 0;
+    let totalTargetCount = 0;
 
     activeHoldingLogs.forEach((l) => {
       const addr = (l.walletAddress || '').toLowerCase();
+      if (!addr) return;
       const size = l.size ?? 0.0;
-      const name = l.whaleName || l.whalePseudonym || (addr ? `${addr.slice(0, 6)}...${addr.slice(-4)}` : 'Whale');
+      const name = l.whaleName || l.whalePseudonym || `${addr.slice(0, 6)}...${addr.slice(-4)}`;
 
-      if (activeAddresses.has(addr)) {
-        targetCount += 1;
-        targetNotional += size;
-        if (!whaleMap.has(addr)) {
-          whaleMap.set(addr, { address: addr, notional: 0, name });
-        }
-        whaleMap.get(addr)!.notional += size;
-      } else {
-        legacyCount += 1;
-        legacyNotional += size;
+      if (!whaleMap.has(addr)) {
+        whaleMap.set(addr, { address: addr, notional: 0, name, fillCount: 0 });
       }
+      const item = whaleMap.get(addr)!;
+      item.notional += size;
+      item.fillCount += 1;
+      totalTargetNotional += size;
+      totalTargetCount += 1;
     });
 
     const colors = ['#00D09C', '#FF7A00', '#FF2D78', '#00A3FF', '#A855F7', '#EC4899', '#EAB308', '#06B6D4', '#6366F1', '#14B8A6'];
 
-    const sortedActive = Array.from(whaleMap.values())
+    // 2. Actively deployed whales with positive holdings, sorted highest notional first
+    const deployedWhales = Array.from(whaleMap.values())
+      .filter((w) => w.notional > 0)
+      .sort((a, b) => b.notional - a.notional)
       .map((w, idx) => {
         const bankrollPct = Math.round((w.notional / bankroll) * 1000) / 10;
         const sleevePct = Math.round((w.notional / sleeveBudget) * 100);
@@ -356,15 +340,15 @@ export function PortfolioAnalytics({
           name: w.name,
           address: w.address,
           notional: w.notional,
+          fillCount: w.fillCount,
           bankrollPct,
           sleevePct,
           color: colors[idx % colors.length]
         };
-      })
-      .sort((a, b) => b.notional - a.notional)
-      .slice(0, targetSleeveCount);
+      });
 
-    // Construct fixed sleeves
+    // 3. Construct fixed sleeves:
+    // Priority: Deployed whales with active holdings FIRST, then remaining slots filled with topCandidateRoster
     const sleeves: Array<{
       index: number;
       name: string;
@@ -376,45 +360,18 @@ export function PortfolioAnalytics({
       isDeployed: boolean;
     }> = [];
 
-    const activeMapByAddr = new Map<string, typeof sortedActive[0]>();
-    sortedActive.forEach((item) => {
-      if (item.address) activeMapByAddr.set(item.address.toLowerCase(), item);
-    });
+    const assignedAddrs = new Set<string>();
 
-    const rosterWallets = topCandidateRoster.slice(0, targetSleeveCount);
-    const assigned = new Set<string>();
-
-    rosterWallets.forEach((w, idx) => {
-      const addr = (w.address || '').toLowerCase();
-      assigned.add(addr);
-      const activeData = activeMapByAddr.get(addr);
-      const name = w.pseudonym || w.name || (addr ? `${addr.slice(0, 6)}...${addr.slice(-4)}` : `Whale #${idx + 1}`);
-      const color = colors[idx % colors.length];
-      const notional = activeData?.notional || 0;
-      const sleevePct = Math.round((notional / sleeveBudget) * 100);
-      const bankrollPct = Math.round((notional / bankroll) * 1000) / 10;
-      sleeves.push({
-        index: idx + 1,
-        name,
-        address: addr,
-        color,
-        deployedNotional: notional,
-        sleevePct,
-        bankrollPct,
-        isDeployed: notional > 0
-      });
-    });
-
-    // Fill from sortedActive if any active whale wasn't in rosterWallets (e.g. before wallets loaded)
-    sortedActive.forEach((w) => {
-      if (sleeves.length < targetSleeveCount && w.address && !assigned.has(w.address.toLowerCase())) {
-        assigned.add(w.address.toLowerCase());
+    // A. Add all actively deployed whales into the first sleeves
+    deployedWhales.forEach((w) => {
+      if (sleeves.length < targetSleeveCount) {
+        assignedAddrs.add(w.address);
         const idx = sleeves.length;
         sleeves.push({
           index: idx + 1,
           name: w.name,
           address: w.address,
-          color: colors[idx % colors.length],
+          color: w.color,
           deployedNotional: w.notional,
           sleevePct: w.sleevePct,
           bankrollPct: w.bankrollPct,
@@ -423,7 +380,27 @@ export function PortfolioAnalytics({
       }
     });
 
-    // Fill remaining up to targetSleeveCount with ready Cash sleeves
+    // B. Fill remaining sleeves from topCandidateRoster (un-deployed cash slots)
+    topCandidateRoster.forEach((c) => {
+      const addr = (c.address || '').toLowerCase();
+      if (sleeves.length < targetSleeveCount && addr && !assignedAddrs.has(addr)) {
+        assignedAddrs.add(addr);
+        const idx = sleeves.length;
+        const name = c.pseudonym || c.name || `${addr.slice(0, 6)}...${addr.slice(-4)}`;
+        sleeves.push({
+          index: idx + 1,
+          name,
+          address: addr,
+          color: colors[idx % colors.length],
+          deployedNotional: 0,
+          sleevePct: 0,
+          bankrollPct: 0,
+          isDeployed: false
+        });
+      }
+    });
+
+    // C. Fill any remaining with Cash reserve slots
     while (sleeves.length < targetSleeveCount) {
       const idx = sleeves.length;
       sleeves.push({
@@ -438,11 +415,11 @@ export function PortfolioAnalytics({
       });
     }
 
-    const totalInvestedBankrollPct = Math.round((targetNotional / bankroll) * 1000) / 10;
-    const freeCash = Math.max(0, bankroll - targetNotional);
+    const totalInvestedBankrollPct = Math.round((totalTargetNotional / bankroll) * 1000) / 10;
+    const freeCash = Math.max(0, bankroll - totalTargetNotional);
     const freeCashPct = Math.max(0, Math.round((100 - totalInvestedBankrollPct) * 10) / 10);
 
-    const segments = sortedActive.map((item) => ({
+    const segments = deployedWhales.map((item) => ({
       name: item.name,
       pct: item.bankrollPct,
       sleevePct: item.sleevePct,
@@ -469,15 +446,15 @@ export function PortfolioAnalytics({
       sleeves,
       top10Sleeves: sleeves, // backward compatibility
       segments,
-      activeWhales: sortedActive,
-      totalNotional: targetNotional,
+      activeWhales: deployedWhales,
+      totalNotional: totalTargetNotional,
       freeCash,
       allocatedPct: totalInvestedBankrollPct,
       sleeveBudget,
-      count: targetCount,
-      legacyCount,
-      legacyNotional,
-      totalAllNotional: targetNotional + legacyNotional
+      count: totalTargetCount,
+      legacyCount: 0,
+      legacyNotional: 0,
+      totalAllNotional: totalTargetNotional
     };
   }, [activeHoldingLogs, currentBalance, topCandidateRoster]);
 
@@ -824,27 +801,21 @@ export function PortfolioAnalytics({
             {activeAllocationStats.top10Sleeves.map((sleeve) => (
               <div
                 key={sleeve.index}
-                className={`h-3 rounded-full transition-all relative overflow-hidden flex items-center justify-center ${
-                  sleeve.isDeployed
-                    ? 'bg-slate-200 dark:bg-slate-800 ring-1 ring-black/10 dark:ring-white/10'
-                    : 'bg-slate-100 dark:bg-[#1E2028] border border-dashed border-slate-300 dark:border-slate-700/60'
-                }`}
+                className="h-2.5 rounded-full relative overflow-hidden bg-slate-100 dark:bg-white/[0.06] border border-black/[0.08] dark:border-white/10 flex items-center justify-start transition-colors"
                 title={
                   sleeve.isDeployed
                     ? `Sleeve #${sleeve.index} (${sleeve.name}): $${sleeve.deployedNotional.toFixed(2)} deployed (${formatAllocPct(sleeve.deployedNotional, activeAllocationStats.sleeveBudget)} of $${Math.round(activeAllocationStats.sleeveBudget).toLocaleString()} sleeve) • $${(activeAllocationStats.sleeveBudget - sleeve.deployedNotional).toFixed(2)} liquid cash`
                     : `Sleeve #${sleeve.index} (${sleeve.name}): 100% Cash Ready ($${Math.round(activeAllocationStats.sleeveBudget).toLocaleString()} liquid reserve)`
                 }
               >
-                {sleeve.isDeployed ? (
+                {sleeve.isDeployed && (
                   <div
-                    className="h-full rounded-full transition-all"
+                    className="h-full rounded-full transition-all duration-300"
                     style={{
-                      width: `${Math.max(6, Math.min(100, (sleeve.deployedNotional / activeAllocationStats.sleeveBudget) * 100))}%`,
+                      width: `${Math.max(4, Math.min(100, (sleeve.deployedNotional / activeAllocationStats.sleeveBudget) * 100))}%`,
                       backgroundColor: sleeve.color
                     }}
                   />
-                ) : (
-                  <span className="w-1 h-1 rounded-full bg-slate-400/40 dark:bg-slate-500/40" />
                 )}
               </div>
             ))}

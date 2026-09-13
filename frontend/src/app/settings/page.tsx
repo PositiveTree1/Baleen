@@ -825,7 +825,7 @@ export default function SettingsPage() {
 
   return (
     <div className="min-h-screen bg-[#F8F9FB] dark:bg-[#000000] text-slate-900 dark:text-white p-6 lg:p-12 selection:bg-[#00D09C] selection:text-black transition-colors duration-150">
-      <div className="max-w-3xl mx-auto space-y-6">
+      <div className="max-w-5xl mx-auto space-y-8">
         {/* Top bar */}
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-4">

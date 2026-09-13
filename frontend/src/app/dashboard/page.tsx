@@ -198,6 +198,7 @@ export default function DashboardPage() {
     ? activeSummary.totalPnlUsd
     : (activeSummary?.knownPnlUsd ?? 0.0);
   const sandboxPnlPct = activeSummary?.totalPnlPct ?? (sandboxBalance && (activeSummary?.startingBalance ?? user?.startingBalance ?? 10000.0) ? ((sandboxBalance - (activeSummary?.startingBalance ?? user?.startingBalance ?? 10000.0)) / (activeSummary?.startingBalance ?? user?.startingBalance ?? 10000.0)) * 100.0 : 0.0);
+  const targetSleeveCount = (sandboxBalance ?? 10000) < 250 ? 1 : (sandboxBalance ?? 10000) < 1000 ? 2 : (sandboxBalance ?? 10000) < 3000 ? 4 : (sandboxBalance ?? 10000) < 15000 ? 5 : 10;
 
   // Live Capital calculations (preserve null/undefined to avoid converting missing state to zero)
   const liveEvidenceVerified = liveDashboard?.execution_evidence === 'authenticated_verified';
@@ -392,7 +393,7 @@ export default function DashboardPage() {
                 <LiveTape userId={effectiveUserId} onSelectTrade={setSelectedTrade} />
               </div>
               <div className="lg:col-span-1">
-                <WalletLeaderboard userId={effectiveUserId} onSelectWallet={setSelectedWallet} />
+                <WalletLeaderboard userId={effectiveUserId} onSelectWallet={setSelectedWallet} targetSleeveCount={targetSleeveCount} />
               </div>
             </div>
 

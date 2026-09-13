@@ -7,6 +7,7 @@ import { RotateCw, Search, ChevronRight } from 'lucide-react';
 interface WalletLeaderboardProps {
   userId?: string;
   onSelectWallet: (address: string) => void;
+  targetSleeveCount?: number;
 }
 
 interface LeaderboardDisplayItem {
@@ -36,7 +37,7 @@ interface LeaderboardDisplayItem {
   knownPnlUsd?: number | null;
 }
 
-export function WalletLeaderboard({ userId, onSelectWallet }: WalletLeaderboardProps) {
+export function WalletLeaderboard({ userId, onSelectWallet, targetSleeveCount = 5 }: WalletLeaderboardProps) {
   const [wallets, setWallets] = useState<Wallet[]>(() => getCachedWallets() || []);
   const [logs, setLogs] = useState<ExecutionLog[]>([]);
   const [copiedStats, setCopiedStats] = useState<CopiedWhaleStat[]>([]);
@@ -44,14 +45,14 @@ export function WalletLeaderboard({ userId, onSelectWallet }: WalletLeaderboardP
   const [evaluating, setEvaluating] = useState(false);
   const [, setProgress] = useState<DiscoveryProgress | null>(null);
   const [search, setSearch] = useState('');
-  const [tab, setTab] = useState<'copied' | 'top10' | 'all'>('copied');
+  const [tab, setTab] = useState<'copied' | 'topActive' | 'all'>('copied');
 
-  const top10Addresses = useMemo(() => {
+  const topActiveAddresses = useMemo(() => {
     const sorted = [...wallets]
       .filter((w) => w.tier !== 'dormant' && !w.dormant)
       .sort((a, b) => (b.score ?? -Infinity) - (a.score ?? -Infinity));
-    return new Set(sorted.slice(0, 10).map((w) => (w.address || '').toLowerCase()));
-  }, [wallets]);
+    return new Set(sorted.slice(0, targetSleeveCount).map((w) => (w.address || '').toLowerCase()));
+  }, [wallets, targetSleeveCount]);
 
   const load = async () => {
     if (typeof document !== 'undefined' && document.hidden) return;
@@ -179,7 +180,7 @@ export function WalletLeaderboard({ userId, onSelectWallet }: WalletLeaderboardP
 
   const filteredWallets = wallets.filter((w) => {
     if (search && !w.address.toLowerCase().includes(search.toLowerCase()) && !(w.name || '').toLowerCase().includes(search.toLowerCase())) return false;
-    if (tab === 'top10') return top10Addresses.has((w.address || '').toLowerCase());
+    if (tab === 'topActive') return topActiveAddresses.has((w.address || '').toLowerCase());
     return true;
   });
 
@@ -230,10 +231,10 @@ export function WalletLeaderboard({ userId, onSelectWallet }: WalletLeaderboardP
             Copied
           </button>
           <button
-            onClick={() => setTab('top10')}
-            className={`flex-1 sm:flex-initial px-3 py-1.5 rounded-full transition-all text-center ${tab === 'top10' ? 'bg-white dark:bg-[#2C2D35] text-slate-950 dark:text-white shadow-2xs' : 'text-slate-500 dark:text-[#8E8F99]'}`}
+            onClick={() => setTab('topActive')}
+            className={`flex-1 sm:flex-initial px-3 py-1.5 rounded-full transition-all text-center ${tab === 'topActive' ? 'bg-white dark:bg-[#2C2D35] text-slate-950 dark:text-white shadow-2xs' : 'text-slate-500 dark:text-[#8E8F99]'}`}
           >
-            Top 10 Active
+            Top {targetSleeveCount} Active
           </button>
           <button
             onClick={() => setTab('all')}
@@ -276,7 +277,7 @@ export function WalletLeaderboard({ userId, onSelectWallet }: WalletLeaderboardP
             const winRate = w.winRate;
             const isGold = (w.tier === 'gold_sniper');
             const fillsCount = w.fillsCount ?? 0;
-            const isTop10 = top10Addresses.has((w.address || '').toLowerCase());
+            const isTopActive = topActiveAddresses.has((w.address || '').toLowerCase());
 
             return (
               <div
@@ -292,7 +293,7 @@ export function WalletLeaderboard({ userId, onSelectWallet }: WalletLeaderboardP
                   }
                 }}
                 className={`pt-2 flex items-center justify-between p-2 rounded-2xl hover:bg-slate-50 dark:hover:bg-[#1C1D22] transition-all cursor-pointer group focus:outline-none focus:ring-1 focus:ring-[#00D09C] ${
-                  !isCopiedTab && !isTop10 ? 'opacity-40 hover:opacity-90 grayscale-[35%]' : 'opacity-100'
+                  !isCopiedTab && !isTopActive ? 'opacity-40 hover:opacity-90 grayscale-[35%]' : 'opacity-100'
                 }`}
               >
                 {/* Left: Circular Avatar & Name */}
@@ -317,9 +318,9 @@ export function WalletLeaderboard({ userId, onSelectWallet }: WalletLeaderboardP
                         </span>
                       )}
                       {!isCopiedTab && (
-                        isTop10 ? (
+                        isTopActive ? (
                           <span className="text-[9px] bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/20 px-1.5 py-0.2 rounded-full font-bold">
-                            Top 10 Active
+                            Top {targetSleeveCount} Active
                           </span>
                         ) : (
                           <span className="text-[9px] bg-slate-100 dark:bg-white/5 text-slate-500 dark:text-[#8E8F99] border border-black/5 dark:border-white/5 px-1.5 py-0.2 rounded-full font-semibold">

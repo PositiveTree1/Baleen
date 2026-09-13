@@ -529,24 +529,43 @@ def calculate_authentic_wallet_stats(
             cid_latest_ts = max(condition_timestamps[cid]) if cid in condition_timestamps else None
             aid_latest_ts = max(asset_timestamps[asset]) if asset in asset_timestamps else None
 
+            latest_trade_ts = None
+            if sorted_trades:
+                latest_trade = sorted_trades[-1]
+                t_val = float(latest_trade.get("timestamp") or latest_trade.get("time") or 0.0)
+                if t_val > 1e11:
+                    t_val = t_val / 1000.0
+                if t_val > 1e8:
+                    latest_trade_ts = t_val
+
             # Priority order for authentic settlement date:
             # 1. Exact resolution timestamp from official closed-positions endpoint
-            # 2. resolvedAt / endDate / updatedAt
+            # 2. resolvedAt / endDate / settlementTime / closeTime / closedAt
             # 3. Latest trade/redemption timestamp on this condition or asset
-            # 4. createdAt / today_utc fallback
+            # 4. createdAt / updatedAt
+            # 5. Latest observed trade timestamp across all trades (if prior to today)
+            # 6. today_utc fallback (only if no dates exist)
             ts_raw = (
                 pos.get("timestamp")
                 or pos.get("resolvedAt")
+                or pos.get("resolved_at")
                 or pos.get("endDate")
-                or pos.get("updatedAt")
+                or pos.get("end_date")
+                or pos.get("settlementTime")
+                or pos.get("closeTime")
+                or pos.get("closedAt")
                 or cid_latest_ts
                 or aid_latest_ts
+                or pos.get("updatedAt")
+                or pos.get("updated_at")
                 or pos.get("createdAt")
+                or pos.get("created_at")
+                or latest_trade_ts
                 or today_utc
             )
             dt_str = parse_date_to_utc_str(ts_raw, today_utc)
             if dt_str > today_utc:
-                dt_str = parse_date_to_utc_str(cid_latest_ts or aid_latest_ts or today_utc, today_utc)
+                dt_str = parse_date_to_utc_str(cid_latest_ts or aid_latest_ts or latest_trade_ts or today_utc, today_utc)
 
             accounted_assets.add(asset)
             if cid:

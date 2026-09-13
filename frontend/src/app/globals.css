@@ -322,86 +322,108 @@
   background-size: 1000px 100%;
 }
 
-/* Landing experience: Pacific Surrealism, Revolut Precision & Apple Liquid Glass */
+/* ========================================================= */
+/* MATTE BLACK METALLIC, APPLE OPTICAL GLASS & REVOLUT GLOW */
+/* ========================================================= */
+
 .baleen-landing {
-  --landing-cobalt: #060c1b;
-  --landing-cyan: #4fe4f1;
-  --landing-turquoise: #00d09c;
-  --landing-gold: #fbbf24;
-  --landing-emerald: #10b981;
+  --metallic-canvas: #07080a;
+  --metallic-surface: #0e1015;
+  --metallic-border: rgba(255, 255, 255, 0.08);
+  --metallic-specular: rgba(255, 255, 255, 0.14);
+  --revolut-green: #00d09c;
   isolation: isolate;
+  background-color: #07080a;
+}
+
+/* Matte Black Metallic Card (Obsidian Titanium) */
+.matte-metallic-card {
+  background: linear-gradient(150deg, rgba(20, 23, 29, 0.92) 0%, rgba(10, 11, 14, 0.98) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.12), 0 24px 64px -12px rgba(0, 0, 0, 0.85);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+}
+
+.matte-metallic-card:hover {
+  border-color: rgba(255, 255, 255, 0.14);
+  box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.18), 0 28px 72px -12px rgba(0, 0, 0, 0.9);
+}
+
+/* Apple-Style Optical Liquid Glass */
+.apple-glass {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.02) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  box-shadow: 
+    inset 0 1px 1.5px 0 rgba(255, 255, 255, 0.35),
+    inset 0 -1px 1px 0 rgba(0, 0, 0, 0.4),
+    0 24px 60px -10px rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(36px) saturate(190%) contrast(105%);
+  -webkit-backdrop-filter: blur(36px) saturate(190%) contrast(105%);
+}
+
+.apple-glass-card {
+  background: linear-gradient(140deg, rgba(28, 32, 42, 0.65) 0%, rgba(12, 14, 18, 0.85) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  box-shadow: 
+    inset 0 1.5px 1px 0 rgba(255, 255, 255, 0.45),
+    inset 0 -1.5px 1px 0 rgba(0, 0, 0, 0.5),
+    0 32px 80px -16px rgba(0, 0, 0, 0.85);
+  backdrop-filter: blur(40px) saturate(210%);
+  -webkit-backdrop-filter: blur(40px) saturate(210%);
+}
+
+/* Optical Refraction Bezel (Bends light along the perimeter) */
+.apple-lens-refraction {
+  position: relative;
+}
+
+.apple-lens-refraction::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.35) 0%, rgba(255, 255, 255, 0.05) 45%, rgba(0, 208, 156, 0.2) 75%, rgba(255, 255, 255, 0.25) 100%);
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
+/* Revolut FinTech Glowing Graph */
+.revolut-glow-line {
+  filter: drop-shadow(0 0 10px rgba(0, 208, 156, 0.45));
+  animation: revolut-graph-breathe 4s ease-in-out infinite;
+}
+
+@keyframes revolut-graph-breathe {
+  0%, 100% {
+    filter: drop-shadow(0 0 8px rgba(0, 208, 156, 0.35));
+  }
+  50% {
+    filter: drop-shadow(0 0 16px rgba(0, 208, 156, 0.7));
+  }
 }
 
 .baleen-nav {
-  background: linear-gradient(135deg, rgba(6, 12, 27, 0.82), rgba(10, 25, 56, 0.65));
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.25), 0 20px 60px rgba(0, 0, 0, 0.4);
+  background: linear-gradient(135deg, rgba(14, 16, 22, 0.85), rgba(8, 9, 12, 0.92));
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.15), 0 20px 50px rgba(0, 0, 0, 0.5);
   backdrop-filter: blur(28px) saturate(180%);
   -webkit-backdrop-filter: blur(28px) saturate(180%);
-}
-
-.liquid-glass-card {
-  background: linear-gradient(135deg, rgba(14, 27, 56, 0.72) 0%, rgba(6, 12, 27, 0.88) 100%);
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  box-shadow: inset 0 1px 1.5px 0 rgba(255, 255, 255, 0.35), 0 24px 60px -12px rgba(0, 0, 0, 0.65), 0 0 30px -5px rgba(0, 208, 156, 0.12);
-  backdrop-filter: blur(28px) saturate(190%);
-  -webkit-backdrop-filter: blur(28px) saturate(190%);
-}
-
-.liquid-glass-panel {
-  background: linear-gradient(145deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.02) 100%);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  box-shadow: inset 0 1px 1px 0 rgba(255, 255, 255, 0.2), 0 16px 40px rgba(0, 0, 0, 0.35);
-  backdrop-filter: blur(24px) saturate(160%);
-  -webkit-backdrop-filter: blur(24px) saturate(160%);
-}
-
-.liquid-glass-pill {
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  box-shadow: inset 0 1px 0.5px rgba(255, 255, 255, 0.3);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-}
-
-.liquid-glass-dock {
-  background: linear-gradient(135deg, rgba(8, 16, 32, 0.88), rgba(4, 8, 18, 0.94));
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.3), 0 20px 50px rgba(0, 0, 0, 0.5);
-  backdrop-filter: blur(30px) saturate(180%);
-  -webkit-backdrop-filter: blur(30px) saturate(180%);
-}
-
-.surreal-text-gradient {
-  background: linear-gradient(120deg, #ffffff 15%, #4fe4f1 55%, #fbbf24 95%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
 }
 
 .baleen-hero-logo img, .baleen-footer-logo img { filter: brightness(0) invert(1); }
 .baleen-hero-logo span, .baleen-footer-logo span { color: white !important; }
 
-.hero-terminal {
-  background: linear-gradient(145deg, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0.04));
-  border: 1px solid rgba(255, 255, 255, 0.25);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35), 0 40px 100px rgba(0, 0, 0, 0.55);
-  backdrop-filter: blur(26px) saturate(160%);
-  -webkit-backdrop-filter: blur(26px) saturate(160%);
-}
-
-.hero-grain {
-  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 180 180' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.35'/%3E%3C/svg%3E");
-  mix-blend-mode: soft-light;
-  pointer-events: none;
-}
-
 .section-kicker {
   font-family: var(--font-space), monospace;
-  font-size: 0.75rem;
-  font-weight: 800;
-  letter-spacing: 0.18em;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
   text-transform: uppercase;
-  color: #4fe4f1;
+  color: #8e94a0;
 }
 
 @media (max-width: 640px) {
@@ -419,3 +441,4 @@
     transition-duration: 0.01ms !important;
   }
 }
+

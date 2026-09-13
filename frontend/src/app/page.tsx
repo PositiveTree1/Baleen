@@ -16,11 +16,11 @@ export default function LandingPage() {
   const { theme, toggleTheme } = useTheme();
 
   return (
-    <main className="baleen-landing min-h-screen overflow-x-hidden bg-[#040914] text-white">
-      {/* Apple Liquid Glass Floating Header Navigation */}
+    <main className="baleen-landing min-h-screen overflow-x-hidden bg-[#07080A] text-white selection:bg-[#00D09C] selection:text-black">
+      {/* Apple Optical Glass Floating Header Navigation */}
       <header className="fixed inset-x-0 top-0 z-50 px-3 pt-3 sm:px-6 sm:pt-5 pointer-events-none">
         <nav
-          className="baleen-nav pointer-events-auto mx-auto flex h-14 max-w-[1380px] items-center justify-between rounded-full px-3 sm:h-16 sm:px-6"
+          className="apple-glass pointer-events-auto mx-auto flex h-14 max-w-[1380px] items-center justify-between rounded-full px-3 sm:h-16 sm:px-6 bg-[#07080A]/85 backdrop-blur-2xl border border-white/10 shadow-2xl"
           aria-label="Primary navigation"
         >
           {/* Brand Logo */}
@@ -74,7 +74,7 @@ export default function LandingPage() {
 
             <Link
               href="/dashboard"
-              className="group inline-flex h-10 items-center gap-2 rounded-full bg-white px-4 text-[13px] font-extrabold text-slate-950 shadow-[0_4px_20px_rgba(79,228,241,0.25)] transition-transform hover:scale-[1.02] active:scale-[0.98] sm:px-5"
+              className="group inline-flex h-10 items-center gap-2 rounded-full bg-white px-4 text-[13px] font-extrabold text-black shadow-md transition-transform hover:scale-[1.02] active:scale-[0.98] sm:px-5"
             >
               <span>Sandbox</span>
               <ArrowRight size={14} className="transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
@@ -105,8 +105,8 @@ export default function LandingPage() {
       <MobileGlassDock />
 
       {/* Footer */}
-      <footer className="bg-[#02050b] px-4 pb-20 pt-20 text-white sm:px-6 sm:pb-8">
-        <div className="mx-auto max-w-[1380px] overflow-hidden rounded-[2rem] border border-white/10 bg-[#060c1b]/80 p-6 sm:p-12 backdrop-blur-2xl">
+      <footer className="bg-[#07080A] px-4 pb-20 pt-20 text-white sm:px-6 sm:pb-8 border-t border-white/10">
+        <div className="mx-auto max-w-[1380px] overflow-hidden rounded-[2rem] border border-white/10 bg-[#0E1015]/90 p-6 sm:p-12 backdrop-blur-2xl">
           <div className="flex flex-col justify-between gap-10 md:flex-row md:items-end">
             <div>
               <BrandLogo size="lg" className="baleen-footer-logo" />
