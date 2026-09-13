@@ -28,7 +28,9 @@ export function TradeDrawer({ trade, onClose, onSelectWallet }: TradeDrawerProps
   const curP = trade.currentPrice ?? null;
   const pnl = trade.pnl ?? null;
   const pnlPct = trade.pnlPct ?? null;
-  const isProfit = pnl !== null && pnl >= 0;
+  const effectivePnl = pnl !== null ? pnl : (trade.status === 'FILLED' && trade.feeUsd !== null && trade.feeUsd !== undefined ? -trade.feeUsd : null);
+  const effectivePnlPct = pnlPct !== null ? pnlPct : (trade.status === 'FILLED' && trade.size && trade.feeUsd ? (-trade.feeUsd / trade.size) * 100 : null);
+  const isProfit = effectivePnl !== null && effectivePnl >= 0;
   const consensus = trade.consensus;
   const shares = fillP !== null && fillP > 0 ? ((trade.size ?? 0) / fillP) : null;
   const outcomeLabel = trade.outcome || 'Yes';
@@ -144,10 +146,10 @@ export function TradeDrawer({ trade, onClose, onSelectWallet }: TradeDrawerProps
                   {trade.status === 'CLOSED' || trade.status === 'RESOLVED' || trade.side === 'SELL' ? 'Exit Settled Price' : 'Live Market Price'}
                 </span>
                 <div className="text-base font-bold font-mono text-slate-900 dark:text-white">
-                  {curP === null ? 'Unavailable' : `$${curP.toFixed(3)}`}
+                  {curP === null ? (trade.status === 'FILLED' && fillP !== null ? `$${fillP.toFixed(3)}` : 'Unavailable') : `$${curP.toFixed(3)}`}
                 </div>
                 <span className="text-[10px] text-slate-400 dark:text-[#8E8F99] font-mono">
-                  {curP === null ? 'Price unavailable' : trade.status === 'CLOSED' || trade.status === 'RESOLVED' ? 'Settled Valuation' : 'Live CLOB Midpoint'}
+                  {curP === null ? (trade.status === 'FILLED' && fillP !== null ? 'At Entry Fill' : 'Price unavailable') : trade.status === 'CLOSED' || trade.status === 'RESOLVED' ? 'Settled Valuation' : 'Live CLOB Midpoint'}
                 </span>
               </div>
 
@@ -160,9 +162,11 @@ export function TradeDrawer({ trade, onClose, onSelectWallet }: TradeDrawerProps
               </div>
 
               <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-[#1C1D22] border border-black/[0.06] dark:border-white/5 space-y-1">
-                <span className="text-[10px] uppercase font-bold text-slate-400 dark:text-[#8E8F99]">Net Realized PnL</span>
+                <span className="text-[10px] uppercase font-bold text-slate-400 dark:text-[#8E8F99]">
+                  {trade.status === 'CLOSED' || trade.status === 'RESOLVED' ? 'Net Realized PnL' : 'Unrealized PnL (MTM)'}
+                </span>
                 <div className={`text-base font-bold font-mono ${isProfit ? 'text-emerald-600 dark:text-[#00D09C]' : 'text-rose-600 dark:text-[#FF453A]'}`}>
-                  {pnl === null ? 'Unavailable' : `${isProfit ? '+' : ''}$${pnl.toFixed(2)}${pnlPct === null ? '' : ` (${isProfit ? '+' : ''}${pnlPct.toFixed(1)}%)`}`}
+                  {effectivePnl === null ? 'Unavailable' : `${effectivePnl >= 0 ? '+' : ''}$${effectivePnl.toFixed(2)}${effectivePnlPct === null ? '' : ` (${effectivePnl >= 0 ? '+' : ''}${effectivePnlPct.toFixed(1)}%)`}`}
                 </div>
                 <span className="text-[10px] text-slate-400 dark:text-[#8E8F99] font-mono">Fee: {trade.feeUsd === null || trade.feeUsd === undefined ? 'Unavailable' : `-$${trade.feeUsd.toFixed(2)}`}</span>
               </div>

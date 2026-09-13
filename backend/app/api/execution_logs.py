@@ -10,7 +10,8 @@ from sqlalchemy import select, func
 from app.database import get_db
 from app.models import ExecutionLog, Wallet, User, PortfolioSnapshot
 from app.auth import get_current_user, get_current_user_optional
-from app.services.mark_to_market import get_live_price, get_consensus
+import asyncio
+from app.services.mark_to_market import get_live_price, get_consensus, _live_price_cache
 from app.services.polymarket_fees import calculate_polymarket_fee
 
 router = APIRouter(prefix="/api/executions", tags=["execution_logs"])
@@ -123,7 +124,30 @@ async def get_execution_logs(
                 "all_time_pnl_usd": w.all_time_pnl_usd
             }
 
-    # Use in-memory live prices from the continuous MTM background service for instant sub-millisecond response times
+    # Prime live prices for active open positions if missing from cache
+    open_cids = [
+        str(l.market_condition_id).strip().lower() 
+        for l in raw_logs 
+        if l.status == "FILLED" and l.market_condition_id and len(str(l.market_condition_id).strip()) > 5
+    ]
+    missing_open_cids = [c for c in set(open_cids) if not any(k.startswith(c) for k in _live_price_cache.keys())]
+    if missing_open_cids:
+        try:
+            from app.discovery.polymarket_client import PolymarketClient
+            client = PolymarketClient()
+            try:
+                batch_p = await asyncio.wait_for(client.fetch_batch_live_prices(missing_open_cids[:15]), timeout=2.0)
+                now_f = time.time()
+                for c_k, outc_d in (batch_p or {}).items():
+                    if c_k.startswith("token:"):
+                        _live_price_cache[c_k.replace("token:", "")] = {"price": outc_d.get("price"), "ts": now_f}
+                    else:
+                        for o_n, p_v in outc_d.items():
+                            _live_price_cache[f"{c_k}:{o_n.lower().strip()}"] = {"price": p_v, "ts": now_f}
+            finally:
+                await client.close()
+        except Exception:
+            pass
 
     response_list = []
     for log in raw_logs:
@@ -134,6 +158,16 @@ async def get_execution_logs(
         fill_p, cur_p = valuation['fillPrice'], valuation['currentPrice']
         fee_usd, net_pnl, gross_pnl = valuation['feeUsd'], valuation['pnl'], valuation['grossPnl']
         pnl_pct = valuation['pnlPct']
+
+        # Baseline fallback for open positions pending first external tick:
+        # At fill time, current price is the fill price and gross unrealized PnL is 0.0
+        if cur_p is None and log.status == "FILLED" and fill_p is not None:
+            cur_p = fill_p
+            if net_pnl is None and fee_usd is not None:
+                net_pnl = -fee_usd
+                gross_pnl = 0.0
+                pnl_pct = round(-fee_usd / log.notional_usd * 100, 2) if log.notional_usd and log.notional_usd > 0 else 0.0
+
         consensus = get_consensus(cid)
         notional = log.notional_usd
         category = log.market_category
@@ -208,7 +242,7 @@ async def get_portfolio_summary(
     if eff_user_id and target_user is None:
         raise HTTPException(status_code=404, detail="User not found")
     logs = (await db.execute(select(ExecutionLog).where(user_filter,
-        ExecutionLog.is_sandbox.is_(True), ExecutionLog.status.in_(["FILLED", "CLOSED", "RESOLVED"])))) .scalars().all()
+        ExecutionLog.is_sandbox.is_(True), ExecutionLog.status.in_(["FILLED", "CLOSED", "RESOLVED"])))).scalars().all()
     if target_user:
         starting_balance = finite(target_user.sandbox_starting_balance_usd)
     else:
@@ -217,7 +251,51 @@ async def get_portfolio_summary(
         starting_balance = finite(run.initial_balance_usd) if run else None
     # BUY lots own position P&L. SELL rows record exit cash/fees, not another return.
     positions = [r for r in logs if r.side == 'BUY']
+
+    # Prime live prices for active open positions if missing from cache
+    open_cids = [
+        str(l.market_condition_id).strip().lower() 
+        for l in positions 
+        if l.status == "FILLED" and l.market_condition_id and len(str(l.market_condition_id).strip()) > 5
+    ]
+    missing_open_cids = [c for c in set(open_cids) if not any(k.startswith(c) for k in _live_price_cache.keys())]
+    if missing_open_cids:
+        try:
+            from app.discovery.polymarket_client import PolymarketClient
+            client = PolymarketClient()
+            try:
+                batch_p = await asyncio.wait_for(client.fetch_batch_live_prices(missing_open_cids[:15]), timeout=2.0)
+                now_f = time.time()
+                for c_k, outc_d in (batch_p or {}).items():
+                    if c_k.startswith("token:"):
+                        _live_price_cache[c_k.replace("token:", "")] = {"price": outc_d.get("price"), "ts": now_f}
+                    else:
+                        for o_n, p_v in outc_d.items():
+                            _live_price_cache[f"{c_k}:{o_n.lower().strip()}"] = {"price": p_v, "ts": now_f}
+            finally:
+                await client.close()
+        except Exception:
+            pass
+
     values = {r.id: execution_valuation(r) for r in positions}
+
+    # For open positions pending tick where mark is not observed, fallback to entry fill mark:
+    for r in positions:
+        val = values[r.id]
+        if val['pnl'] is None and r.status == "FILLED":
+            fee = finite(r.fee_usd) or 0.0
+            fill_p = finite(r.user_fill_price)
+            values[r.id] = {
+                'pnl': -fee,
+                'grossPnl': 0.0,
+                'pnlPct': round(-fee / float(r.notional_usd) * 100, 2) if r.notional_usd and float(r.notional_usd) > 0 else 0.0,
+                'currentPrice': fill_p,
+                'fillPrice': fill_p,
+                'feeUsd': fee,
+                'markStatus': 'AT_FILL',
+                'markObservedAt': r.executed_at.isoformat() if r.executed_at else None,
+            }
+
     unvalued = sum(values[r.id]['pnl'] is None for r in positions)
     known_pnl = sum(values[r.id]['pnl'] for r in positions if values[r.id]['pnl'] is not None)
     total_pnl = None if unvalued else round(known_pnl, 2)
@@ -319,12 +397,64 @@ async def get_portfolio_snapshots(
             raise HTTPException(status_code=404, detail="User not found")
         if str(current_user.id) != str(u_uuid) and not (getattr(current_user, "is_admin", False) or getattr(current_user, "role", "") == "admin"):
             raise HTTPException(status_code=403, detail="Forbidden: access to another account is denied")
+        target_user = await db.get(User, u_uuid)
         user_filter = PortfolioSnapshot.user_id == u_uuid
     else:
+        target_user = None
         user_filter = PortfolioSnapshot.user_id.is_(None)
 
     stmt = stmt.where(user_filter).order_by(PortfolioSnapshot.timestamp.asc())
     rows = list((await db.execute(stmt)).scalars().all())
+
+    if len(rows) == 0 and eff_user_id:
+        start_bal = float(target_user.sandbox_starting_balance_usd or 10000.0) if target_user else 10000.0
+        c_at = (target_user.created_at if target_user and target_user.created_at else (now - timedelta(hours=1)))
+        return [
+            {
+                "id": "synthetic-start",
+                "timestamp": c_at.isoformat() + "Z",
+                "time": c_at.strftime("%H:%M"),
+                "date": c_at.strftime("%d %b"),
+                "balance": round(start_bal, 2),
+                "pnl": 0.0,
+                "activeTrades": 0
+            },
+            {
+                "id": "synthetic-now",
+                "timestamp": now.isoformat() + "Z",
+                "time": now.strftime("%H:%M"),
+                "date": now.strftime("%d %b"),
+                "balance": round(start_bal, 2),
+                "pnl": 0.0,
+                "activeTrades": 0
+            }
+        ]
+
+    if len(rows) == 1 and eff_user_id:
+        r0 = rows[0]
+        t0 = r0.timestamp or now
+        prev_t = t0 - timedelta(minutes=10)
+        start_bal = float(target_user.sandbox_starting_balance_usd or 10000.0) if target_user else 10000.0
+        return [
+            {
+                "id": "synthetic-start",
+                "timestamp": prev_t.isoformat() + "Z",
+                "time": prev_t.strftime("%H:%M"),
+                "date": prev_t.strftime("%d %b"),
+                "balance": round(start_bal, 2),
+                "pnl": 0.0,
+                "activeTrades": 0
+            },
+            {
+                "id": str(r0.id),
+                "timestamp": (t0.isoformat() + "Z") if t0 else None,
+                "time": t0.strftime("%H:%M") if t0 else "",
+                "date": t0.strftime("%d %b") if t0 else "",
+                "balance": round(float(r0.balance), 2),
+                "pnl": round(float(r0.total_pnl), 2),
+                "activeTrades": r0.active_trades_count
+            }
+        ]
 
     # Fixed time-interval bucketing so past historical points NEVER shift or jitter
     if len(rows) > 60:

@@ -25,6 +25,7 @@ import {
   fetchWallets,
   getCachedWallets,
   setAuthToken,
+  getAuthToken,
   clearAllCache,
   logoutBackend
 } from '@/lib/api-client';
@@ -103,7 +104,7 @@ export default function DashboardPage() {
 
     const loadData = async () => {
       if (typeof document !== 'undefined' && document.hidden) return;
-      const token = session?.user?.accessToken || (session as { accessToken?: string })?.accessToken;
+      const token = session?.user?.accessToken || (session as { accessToken?: string })?.accessToken || getAuthToken();
       if (token) {
         setAuthToken(token);
       }
@@ -120,7 +121,9 @@ export default function DashboardPage() {
         if (!isMounted) return;
         if (userData) setUser(userData);
         if (portfolioData) setPortfolio(portfolioData);
-        if (Array.isArray(logsData)) setLogs(logsData);
+        if (canFetchPrivate && Array.isArray(logsData)) {
+          setLogs((prev) => (logsData.length === 0 && prev.length > 0 ? prev : logsData));
+        }
         if (liveData) setLiveDashboard(liveData);
         if (Array.isArray(walletsData) && walletsData.length > 0) setWallets(walletsData);
         setLoadError(null);
@@ -188,7 +191,9 @@ export default function DashboardPage() {
     ? activeSummary.currentBalance
     : (user?.currentBalance !== null && user?.currentBalance !== undefined)
       ? user.currentBalance
-      : (activeSummary?.startingBalance ?? user?.startingBalance ?? 10000.0);
+      : (lastCachedBal !== null && lastCachedBal !== undefined)
+        ? lastCachedBal
+        : (activeSummary?.startingBalance ?? user?.startingBalance ?? 10000.0);
   const sandboxPnl = (activeSummary?.totalPnlUsd !== null && activeSummary?.totalPnlUsd !== undefined)
     ? activeSummary.totalPnlUsd
     : (activeSummary?.knownPnlUsd ?? 0.0);

@@ -186,22 +186,50 @@ class MarkToMarketService:
                     _last_snapshot_time = time.time()
                     _last_snapshot_balance = canonical_balance
 
-                # 7. User balance sync (strictly isolated per user, no platform trade fallback)
+                # 7. User balance sync & continuous portfolio snapshot writing (strictly isolated per user)
                 try:
                     stmt_users = select(User)
                     users = (await db.execute(stmt_users)).scalars().all()
                     for u in users:
                         u_open = [l for l in open_logs if l.user_id == u.id]
-                        if any(l.id in unavailable for l in u_open):
-                            continue
-                        u_open_unrealized = sum(_last_known_pnl.get(str(l.id), 0.0) for l in u_open)
+                        u_open_unrealized = sum(
+                            _last_known_pnl.get(str(l.id), -float(l.fee_usd or 0.0) if l.side == "BUY" else 0.0)
+                            for l in u_open
+                        )
                         u_closed_realized = float(_closed_trades_cache.get("user_realized_pnls", {}).get(str(u.id), 0.0))
                         u_total_pnl = round(u_closed_realized + u_open_unrealized, 2)
-                        u_start = float(u.sandbox_starting_balance_usd)
+                        u_start = float(u.sandbox_starting_balance_usd or 10000.0)
                         u_bal = round(u_start + u_total_pnl, 2)
                         u.sandbox_balance_usd = u_bal
                         current_hwm = float(u.sandbox_high_water_mark_usd or u_start)
                         u.sandbox_high_water_mark_usd = max(current_hwm, u_bal)
+
+                        # Write periodic continuous snapshot for the user (at most once every 60s or if balance moved > $1.00)
+                        stmt_user_snap = select(PortfolioSnapshot.balance, PortfolioSnapshot.timestamp).where(
+                            PortfolioSnapshot.user_id == u.id
+                        ).order_by(PortfolioSnapshot.timestamp.desc()).limit(1)
+                        last_snap_row = (await db.execute(stmt_user_snap)).first()
+                        last_u_bal = float(last_snap_row[0]) if last_snap_row else u_start
+                        last_u_time = last_snap_row[1].timestamp() if (last_snap_row and last_snap_row[1]) else 0.0
+
+                        u_time_since_snap = time.time() - last_u_time
+                        u_bal_changed = abs(u_bal - last_u_bal) > 1.00
+                        u_should_snap = u_bal_changed or (u_time_since_snap >= 60.0 and len(u_open) > 0)
+
+                        if u_should_snap:
+                            stmt_closed_count = select(func.count(ExecutionLog.id)).where(
+                                ExecutionLog.user_id == u.id,
+                                ExecutionLog.status.in_(["CLOSED", "RESOLVED"]),
+                                ExecutionLog.side == "BUY"
+                            )
+                            u_closed_cnt = int((await db.execute(stmt_closed_count)).scalar() or 0)
+                            db.add(PortfolioSnapshot(
+                                user_id=u.id,
+                                timestamp=now_dt,
+                                balance=u_bal,
+                                total_pnl=round(u_total_pnl, 2),
+                                active_trades_count=len(u_open) + u_closed_cnt
+                            ))
                 except Exception as user_sync_err:
                     logger.debug(f"User sync note: {user_sync_err}")
 
@@ -232,6 +260,30 @@ def get_observed_price(cid: str = '', outcome: str = '', asset: str = '', max_ag
                 and 0 <= price <= 1 and isinstance(observed, (float, int)) and math.isfinite(observed)
                 and 0 <= now - observed <= max_age_seconds):
             return {'price': price, 'observed_at': observed, 'source': 'provider_cache'}
+
+    # Binary complementary inversion if direct outcome key is not found
+    if cid and outcome:
+        cid_clean = cid.lower().strip()
+        outc_clean = outcome.lower().strip()
+        comp_key = None
+        if outc_clean in ('no', '0'):
+            comp_key = f'{cid_clean}:yes'
+        elif outc_clean in ('yes', '1'):
+            comp_key = f'{cid_clean}:no'
+        elif outc_clean == 'under':
+            comp_key = f'{cid_clean}:over'
+        elif outc_clean == 'over':
+            comp_key = f'{cid_clean}:under'
+
+        if comp_key and comp_key in _live_price_cache:
+            entry = _live_price_cache[comp_key]
+            price, observed = entry.get('price'), entry.get('ts')
+            if (isinstance(price, (float, int)) and not isinstance(price, bool) and math.isfinite(price)
+                    and 0 <= price <= 1 and isinstance(observed, (float, int)) and math.isfinite(observed)
+                    and 0 <= now - observed <= max_age_seconds):
+                inv_price = round(max(0.0001, min(0.9999, 1.0 - price)), 4)
+                return {'price': inv_price, 'observed_at': observed, 'source': 'provider_cache_complement'}
+
     return None
 
 def get_live_price(cid: str = "", outcome: str = "Yes", asset: str = "", fallback: float = 0.5) -> float:

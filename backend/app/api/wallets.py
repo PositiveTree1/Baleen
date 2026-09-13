@@ -421,7 +421,7 @@ async def get_wallet(address: str, db: AsyncSession = Depends(get_db)):
 
             pos_res, closed_res = await asyncio.wait_for(
                 asyncio.gather(client.fetch_wallet_positions(clean_addr), _fetch_closed_fast(), return_exceptions=True),
-                timeout=3.5
+                timeout=6.0
             )
             raw_positions = pos_res if isinstance(pos_res, list) else []
             raw_closed = closed_res if isinstance(closed_res, list) else []

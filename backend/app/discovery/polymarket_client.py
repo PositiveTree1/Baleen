@@ -827,6 +827,19 @@ class PolymarketClient:
                                         pass
                             if m_map:
                                 results[cid] = m_map
+
+                            clob_tokens = m.get("clobTokenIds") or []
+                            if isinstance(clob_tokens, str):
+                                try: clob_tokens = json.loads(clob_tokens)
+                                except Exception: clob_tokens = []
+                            for idx, tok in enumerate(clob_tokens):
+                                if idx < len(outcome_prices):
+                                    try:
+                                        p_flt = float(outcome_prices[idx])
+                                        if 0.0001 <= p_flt <= 0.9999 and tok:
+                                            results[f"token:{str(tok).strip()}"] = {"price": round(p_flt, 4)}
+                                    except Exception:
+                                        pass
                     except Exception:
                         pass
 
