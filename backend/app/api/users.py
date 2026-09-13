@@ -170,54 +170,51 @@ async def logout(
         await revoke_token(authorization, db)
     return {"status": "ok", "message": "Successfully logged out."}
 
+UNIFIED_GUEST_EMAIL = "guest@baleen.local"
+UNIFIED_GUEST_PASSWORD = "baleen_guest_public_access_2026"
+UNIFIED_GUEST_ID = uuid.UUID("a0000000-0000-0000-0000-000000000001")
+
 
 @router.post("/api/auth/guest")
 async def guest_login(request: Request, db: AsyncSession = Depends(get_db)):
     """
-    Spawns an isolated, unique guest session with independent paper balance.
-    Demo sessions cannot overwrite or pollute each other's financial state.
+    Returns the unified canonical guest session with shared paper balance.
+    All guest visitors share this live sandbox account to observe continuous performance.
     """
-    client_ip = _get_request_ip(request)
-    await guest_rate_limiter.check(db, client_ip, "guest session creation")
+    stmt = select(User).where(User.email == UNIFIED_GUEST_EMAIL)
+    guest_user = (await db.execute(stmt)).scalar_one_or_none()
 
-    guest_uid = uuid.uuid4()
-    guest_email = f"guest_{guest_uid.hex[:8]}@baleen.local"
-    guest_password = f"guest_key_{uuid.uuid4().hex[:16]}"
+    if not guest_user:
+        guest_user = User(
+            id=UNIFIED_GUEST_ID,
+            email=UNIFIED_GUEST_EMAIL,
+            password_hash=hash_password(UNIFIED_GUEST_PASSWORD),
+            sandbox_starting_balance_usd=10000.0,
+            sandbox_balance_usd=10000.0,
+            sandbox_high_water_mark_usd=10000.0,
+            risk_profile="balanced",
+            is_admin=False,
+            role="guest"
+        )
+        db.add(guest_user)
+        await db.flush()
 
-    guest_user = User(
-        id=guest_uid,
-        email=guest_email,
-        password_hash=hash_password(guest_password),
-        sandbox_starting_balance_usd=10000.0,
-        sandbox_balance_usd=10000.0,
-        sandbox_high_water_mark_usd=10000.0,
-        risk_profile="balanced",
-        is_admin=False,
-        role="guest"
-    )
-    db.add(guest_user)
-    # No ORM relationship links these objects; enforce FK insert order while
-    # keeping the user and genesis snapshot in the same transaction.
-    await db.flush()
-
-    # Initial genesis snapshot for this guest user
-    db.add(PortfolioSnapshot(
-        user_id=guest_user.id,
-        timestamp=datetime.utcnow(),
-        balance=10000.0,
-        total_pnl=0.0,
-        active_trades_count=0
-    ))
-
-    await db.commit()
-    await db.refresh(guest_user)
+        db.add(PortfolioSnapshot(
+            user_id=guest_user.id,
+            timestamp=datetime.utcnow(),
+            balance=10000.0,
+            total_pnl=0.0,
+            active_trades_count=0
+        ))
+        await db.commit()
+        await db.refresh(guest_user)
 
     token = create_access_token(str(guest_user.id), role="guest")
     return {
         "access_token": token,
         "token_type": "bearer",
-        "email": guest_email,
-        "password": guest_password,
+        "email": UNIFIED_GUEST_EMAIL,
+        "password": UNIFIED_GUEST_PASSWORD,
         **user_to_response(guest_user)
     }
 

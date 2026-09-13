@@ -35,7 +35,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         if (credentials?.isGuest === 'true' && credentials?.guestToken && credentials?.guestId) {
           return {
             id: String(credentials.guestId),
-            email: String(credentials.email || `guest_${String(credentials.guestId).slice(0, 8)}@baleen.local`),
+            email: String(credentials.email || 'guest@baleen.local'),
             name: 'Guest Trader',
             isAdmin: false,
             accessToken: String(credentials.guestToken),
