@@ -655,6 +655,8 @@ export default function DashboardPage() {
         isOpen={isMirrorOpen}
         onClose={() => setIsMirrorOpen(false)}
         onSelectWallet={setSelectedWallet}
+        targetSleeveCount={targetSleeveCount}
+        bankroll={sandboxBalance}
       />
 
       {/* 2. Rebalance Modal */}

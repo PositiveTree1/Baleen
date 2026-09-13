@@ -57,7 +57,7 @@ export function WalletLeaderboard({ userId, onSelectWallet, targetSleeveCount = 
   const load = async () => {
     if (typeof document !== 'undefined' && document.hidden) return;
     const [walletsData, logsData, copiedData] = await Promise.all([
-      fetchWallets(),
+      fetchWallets({ limit: '150' }),
       fetchExecutionLogs(userId, { limit: '1000' }),
       fetchCopiedWhalesStats(userId)
     ]);
@@ -72,7 +72,7 @@ export function WalletLeaderboard({ userId, onSelectWallet, targetSleeveCount = 
     const fetchData = async () => {
       if (typeof document !== 'undefined' && document.hidden) return;
       const [walletsData, logsData, copiedData] = await Promise.all([
-        fetchWallets(),
+        fetchWallets({ limit: '150' }),
         fetchExecutionLogs(userId, { limit: '1000' }),
         fetchCopiedWhalesStats(userId)
       ]);

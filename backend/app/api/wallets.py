@@ -53,7 +53,7 @@ def wallet_to_response(w: Wallet) -> dict:
 async def list_wallets(
     tier: Optional[str] = None,
     dormant: Optional[bool] = None,
-    limit: int = 50,
+    limit: int = 150,
     offset: int = 0,
     db: AsyncSession = Depends(get_db)
 ):

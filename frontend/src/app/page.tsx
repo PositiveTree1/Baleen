@@ -1,14 +1,13 @@
 'use client';
 
 import Link from 'next/link';
-import { ArrowRight, Moon, Sun, Sparkles } from 'lucide-react';
+import { ArrowRight, Moon, Sun } from 'lucide-react';
 import { Hero } from '@/components/landing/Hero';
 import { LiveTicker } from '@/components/landing/LiveTicker';
 import { AdvantageSection } from '@/components/landing/AdvantageSection';
-import { ProfitSimulator } from '@/components/landing/ProfitSimulator';
-import { Leaderboard } from '@/components/landing/Leaderboard';
 import { InfrastructureSection } from '@/components/landing/InfrastructureSection';
 import { MobileGlassDock } from '@/components/landing/MobileGlassDock';
+import { LiquidParallaxBackground } from '@/components/landing/LiquidParallaxBackground';
 import { BrandLogo } from '@/components/ui/BrandLogo';
 import { useTheme } from '@/context/ThemeContext';
 
@@ -16,114 +15,102 @@ export default function LandingPage() {
   const { theme, toggleTheme } = useTheme();
 
   return (
-    <main className="baleen-landing min-h-screen overflow-x-hidden bg-[#07080A] text-white selection:bg-[#00D09C] selection:text-black">
-      {/* Apple Optical Glass Floating Header Navigation */}
+    <main className="baleen-landing min-h-screen overflow-x-hidden bg-[#07080A] text-white selection:bg-[#00D09C] selection:text-black relative">
+      {/* 1. Interactive Oceanic Abyss & Liquid Glass Parallax Background */}
+      <LiquidParallaxBackground />
+
+      {/* 2. Floating Liquid Glass Capsule Navigation (Matching WWDC25 Glass Dock) */}
       <header className="fixed inset-x-0 top-0 z-50 px-3 pt-3 sm:px-6 sm:pt-5 pointer-events-none">
         <nav
-          className="apple-glass pointer-events-auto mx-auto flex h-14 max-w-[1380px] items-center justify-between rounded-full px-3 sm:h-16 sm:px-6 bg-[#07080A]/85 backdrop-blur-2xl border border-white/10 shadow-2xl"
+          className="liquid-dock liquid-chromatic-rim pointer-events-auto mx-auto flex h-14 max-w-[1240px] items-center justify-between rounded-full px-3.5 sm:h-16 sm:px-6 shadow-2xl"
           aria-label="Primary navigation"
         >
           {/* Brand Logo */}
           <BrandLogo href="/" size="md" className="baleen-hero-logo" />
 
           {/* Desktop Nav Items */}
-          <div className="hidden items-center gap-1 rounded-full bg-white/[0.06] p-1 text-[13px] font-semibold text-white/80 backdrop-blur-md lg:flex border border-white/10">
+          <div className="hidden items-center gap-1.5 rounded-full bg-white/[0.04] p-1 text-[13px] font-semibold text-white/80 backdrop-blur-md lg:flex border border-white/10">
             <Link
               href="#advantages"
-              className="rounded-full px-4 py-2 transition-colors hover:bg-white/15 hover:text-white"
+              className="rounded-full px-4 py-1.5 transition-colors hover:bg-white/10 hover:text-white"
             >
-              System Edge
+              Architecture
             </Link>
             <Link
-              href="#simulator"
-              className="rounded-full px-4 py-2 transition-colors hover:bg-white/15 hover:text-white"
+              href="#infrastructure"
+              className="rounded-full px-4 py-1.5 transition-colors hover:bg-white/10 hover:text-white"
             >
-              Simulator
-            </Link>
-            <Link
-              href="#leaderboard"
-              className="rounded-full px-4 py-2 transition-colors hover:bg-white/15 hover:text-white"
-            >
-              Whale Basket
+              Telemetry
             </Link>
             <Link
               href="/dashboard"
-              className="rounded-full px-4 py-2 transition-colors hover:bg-white/15 hover:text-white"
+              className="rounded-full px-4 py-1.5 transition-colors hover:bg-white/10 hover:text-white"
             >
               Dashboard
             </Link>
           </div>
 
-          {/* Action CTAs */}
+          {/* Action Controls */}
           <div className="flex items-center gap-2 sm:gap-3">
             <button
               type="button"
               onClick={toggleTheme}
               aria-label={theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'}
-              className="grid size-10 place-items-center rounded-full text-white/80 transition-colors hover:bg-white/10 hover:text-white"
+              className="grid size-9 place-items-center rounded-full text-white/80 transition-colors hover:bg-white/10 hover:text-white"
             >
-              {theme === 'light' ? <Moon size={17} aria-hidden="true" /> : <Sun size={17} aria-hidden="true" />}
+              {theme === 'light' ? <Moon size={16} aria-hidden="true" /> : <Sun size={16} aria-hidden="true" />}
             </button>
 
             <Link
               href="/auth/login"
-              className="hidden rounded-full px-4 py-2 text-[13px] font-bold text-white transition-colors hover:bg-white/10 sm:block"
+              className="hidden rounded-full px-3.5 py-1.5 text-[13px] font-bold text-white/80 transition-colors hover:text-white sm:block"
             >
               Sign In
             </Link>
 
             <Link
               href="/dashboard"
-              className="group inline-flex h-10 items-center gap-2 rounded-full bg-white px-4 text-[13px] font-extrabold text-black shadow-md transition-transform hover:scale-[1.02] active:scale-[0.98] sm:px-5"
+              className="liquid-pill-btn group inline-flex h-9 sm:h-10 items-center gap-2 px-4 sm:px-5 text-[12px] sm:text-[13px] font-extrabold text-white shadow-lg"
             >
-              <span>Sandbox</span>
-              <ArrowRight size={14} className="transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
+              <span>Launch Sandbox</span>
+              <ArrowRight size={13} className="transition-transform group-hover:translate-x-0.5 text-[#00D09C]" aria-hidden="true" />
             </Link>
           </div>
         </nav>
       </header>
 
-      {/* Hero Section */}
+      {/* 3. Hero Section (Centered Liquid Glass Focus) */}
       <Hero />
 
-      {/* Live Trade Ticker */}
+      {/* 4. Live Polymarket Order Execution Tape */}
       <LiveTicker />
 
-      {/* Architectural Advantage (4 Apple Glass Cards) */}
+      {/* 5. Architectural Advantage (Liquid Glass Cards) */}
       <AdvantageSection />
 
-      {/* Interactive Revolut Compounding Simulator */}
-      <ProfitSimulator />
-
-      {/* Whale Discovery Basket Leaderboard */}
-      <Leaderboard />
-
-      {/* Deep Infrastructure & High-Impact Closing CTA Banner */}
+      {/* 6. Deep Infrastructure & High-Impact Closing CTA Banner */}
       <InfrastructureSection />
 
-      {/* Mobile Liquid Glass Bottom Navigation Dock */}
+      {/* 7. Mobile Liquid Glass Bottom Navigation Dock */}
       <MobileGlassDock />
 
-      {/* Footer */}
-      <footer className="bg-[#07080A] px-4 pb-20 pt-20 text-white sm:px-6 sm:pb-8 border-t border-white/10">
-        <div className="mx-auto max-w-[1380px] overflow-hidden rounded-[2rem] border border-white/10 bg-[#0E1015]/90 p-6 sm:p-12 backdrop-blur-2xl">
-          <div className="flex flex-col justify-between gap-10 md:flex-row md:items-end">
+      {/* 8. Pristine Obsidian Footer */}
+      <footer className="relative z-10 px-4 pb-20 pt-16 text-white sm:px-6 sm:pb-8 border-t border-white/10 bg-[#07080A]/90 backdrop-blur-2xl">
+        <div className="mx-auto max-w-[1240px] overflow-hidden rounded-[2rem] border border-white/10 bg-[#0E1015]/80 p-6 sm:p-12 backdrop-blur-3xl">
+          <div className="flex flex-col justify-between gap-8 md:flex-row md:items-end">
             <div>
               <BrandLogo size="lg" className="baleen-footer-logo" />
-              <p className="mt-4 max-w-md text-sm leading-relaxed text-white/60 sm:text-base">
-                Quantitative Polymarket whale shadow execution. High-conviction alpha with strict isolated risk limits and sub-120ms latency.
+              <p className="mt-4 max-w-md text-sm leading-relaxed text-white/60">
+                Quantitative Polymarket whale shadow execution. Filtering millions of trades to extract verified, non-bot alpha across isolated sleeves.
               </p>
             </div>
 
             <div className="flex flex-wrap gap-x-8 gap-y-3 text-sm font-semibold text-white/70">
               <Link href="#advantages" className="transition-colors hover:text-white">
-                System Edge
+                Architecture
               </Link>
-              <Link href="#simulator" className="transition-colors hover:text-white">
-                Simulator
-              </Link>
-              <Link href="#leaderboard" className="transition-colors hover:text-white">
-                Whales
+              <Link href="#infrastructure" className="transition-colors hover:text-white">
+                Telemetry
               </Link>
               <Link href="/dashboard" className="transition-colors hover:text-white">
                 Dashboard
@@ -146,4 +133,3 @@ export default function LandingPage() {
     </main>
   );
 }
-

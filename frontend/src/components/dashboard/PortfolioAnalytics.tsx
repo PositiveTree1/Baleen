@@ -85,7 +85,7 @@ export function PortfolioAnalytics({
   const [loadedWallets, setLoadedWallets] = useState<Wallet[]>(() => getCachedWallets() || []);
 
   useEffect(() => {
-    fetchWallets().then((data) => {
+    fetchWallets({ limit: '150' }).then((data) => {
       if (Array.isArray(data) && data.length > 0) setLoadedWallets(data);
     }).catch(() => {});
   }, []);
@@ -504,9 +504,111 @@ export function PortfolioAnalytics({
   }, [userId, timeframe, currentBalance, startingBalance, snapshotRefreshKey]);
 
   const pnlTimeline = useMemo(() => {
-    if (serverSnapshots && serverSnapshots.length > 0) return serverSnapshots;
-    return [];
-  }, [serverSnapshots]);
+    const isMultiDay = timeframe === 'ALL' || timeframe === '1M' || timeframe === 'YTD' || timeframe === '1W';
+
+    // 1. If real server snapshots exist (>2 points)
+    if (serverSnapshots && serverSnapshots.length > 2) {
+      if (timeframe === 'ALL') return serverSnapshots;
+      const latest = serverSnapshots[serverSnapshots.length - 1].rawTimestamp;
+      const map: Record<string, number> = {
+        '1H': 60 * 60 * 1000,
+        '6H': 6 * 60 * 60 * 1000,
+        '1D': 24 * 60 * 60 * 1000,
+        '1W': 7 * 24 * 60 * 60 * 1000,
+        '1M': 30 * 24 * 60 * 60 * 1000,
+        'YTD': 365 * 24 * 60 * 60 * 1000,
+      };
+      const span = map[timeframe];
+      if (span && latest) {
+        const filtered = serverSnapshots.filter((s) => latest - s.rawTimestamp <= span);
+        if (filtered.length >= 2) return filtered;
+      }
+      return serverSnapshots;
+    }
+
+    // 2. Synthesize dynamic trajectory directly from the user's trades (targetLogs)
+    if (targetLogs && targetLogs.length > 0) {
+      const chronological = [...targetLogs]
+        .filter((l) => l.timestamp)
+        .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+
+      if (chronological.length > 0) {
+        let runningBal = startingBalance;
+        const pts: TimelineSnapshotPoint[] = [];
+
+        // Start anchor point
+        const t0 = new Date(chronological[0].timestamp);
+        const startTime = new Date(t0.getTime() - 20 * 60 * 1000);
+        pts.push({
+          displayTime: isMultiDay ? `${formatFrenchDate(startTime)} ${formatFrenchTime(startTime)}` : formatFrenchTime(startTime),
+          time: formatFrenchTime(startTime),
+          date: formatFrenchDate(startTime),
+          balance: startingBalance,
+          pnl: 0,
+          rawTimestamp: startTime.getTime(),
+        });
+
+        chronological.forEach((l) => {
+          const t = new Date(l.timestamp);
+          const tradePnl = Number.isFinite(l.pnl) ? (l.pnl ?? 0) : 0;
+          runningBal += tradePnl;
+          pts.push({
+            displayTime: isMultiDay ? `${formatFrenchDate(t)} ${formatFrenchTime(t)}` : formatFrenchTime(t),
+            time: formatFrenchTime(t),
+            date: formatFrenchDate(t),
+            balance: Math.round(runningBal * 100) / 100,
+            pnl: Math.round((runningBal - startingBalance) * 100) / 100,
+            rawTimestamp: t.getTime(),
+          });
+        });
+
+        // Current anchor point
+        const now = new Date();
+        pts.push({
+          displayTime: isMultiDay ? `${formatFrenchDate(now)} ${formatFrenchTime(now)}` : formatFrenchTime(now),
+          time: formatFrenchTime(now),
+          date: formatFrenchDate(now),
+          balance: Math.round(currentBalance * 100) / 100,
+          pnl: Math.round((currentBalance - startingBalance) * 100) / 100,
+          rawTimestamp: now.getTime(),
+        });
+
+        return pts;
+      }
+    }
+
+    // 3. Dynamic timeframe-bounded synthetic trajectory when no trades exist
+    const now = new Date();
+    const mapDur: Record<string, number> = {
+      '1H': 60 * 60 * 1000,
+      '6H': 6 * 60 * 60 * 1000,
+      '1D': 24 * 60 * 60 * 1000,
+      '1W': 7 * 24 * 60 * 60 * 1000,
+      '1M': 30 * 24 * 60 * 60 * 1000,
+      'YTD': 90 * 24 * 60 * 60 * 1000,
+      'ALL': 180 * 24 * 60 * 60 * 1000,
+    };
+    const dur = mapDur[timeframe] || 24 * 60 * 60 * 1000;
+    const startT = new Date(now.getTime() - dur);
+    return [
+      {
+        displayTime: isMultiDay ? `${formatFrenchDate(startT)} ${formatFrenchTime(startT)}` : formatFrenchTime(startT),
+        time: formatFrenchTime(startT),
+        date: formatFrenchDate(startT),
+        balance: startingBalance,
+        pnl: 0,
+        rawTimestamp: startT.getTime(),
+      },
+      {
+        displayTime: isMultiDay ? `${formatFrenchDate(now)} ${formatFrenchTime(now)}` : formatFrenchTime(now),
+        time: formatFrenchTime(now),
+        date: formatFrenchDate(now),
+        balance: currentBalance,
+        pnl: Math.round((currentBalance - startingBalance) * 100) / 100,
+        rawTimestamp: now.getTime(),
+      },
+    ];
+  }, [serverSnapshots, targetLogs, timeframe, startingBalance, currentBalance]);
 
   // Build OHLC Candles from timeline snapshots
   const ohlcCandles = useMemo(() => {

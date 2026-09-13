@@ -9,12 +9,16 @@ export interface MirrorStrategyModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSelectWallet?: (address: string) => void;
+  targetSleeveCount?: number;
+  bankroll?: number;
 }
 
-export function MirrorStrategyModal({ isOpen, onClose, onSelectWallet }: MirrorStrategyModalProps) {
+export function MirrorStrategyModal({ isOpen, onClose, onSelectWallet, targetSleeveCount, bankroll }: MirrorStrategyModalProps) {
   const [wallets, setWallets] = useState<Wallet[]>(() => getCachedWallets() || []);
   const [multipliers, setMultipliers] = useState<Record<string, number>>({});
   const [activeWhales, setActiveWhales] = useState<Record<string, boolean>>({});
+
+  const effectiveTargetSleeveCount = targetSleeveCount ?? (bankroll !== undefined ? (bankroll < 250 ? 1 : bankroll < 1000 ? 2 : bankroll < 3000 ? 4 : bankroll < 15000 ? 5 : 10) : 5);
 
   useEffect(() => {
     if (isOpen) {
@@ -27,14 +31,19 @@ export function MirrorStrategyModal({ isOpen, onClose, onSelectWallet }: MirrorS
         } catch {}
       }
 
-      fetchWallets().then((data) => {
+      fetchWallets({ limit: '150' }).then((data) => {
         if (data && data.length > 0) {
           setWallets(data);
+          const sorted = [...data]
+            .filter((w) => !w.dormant && w.tier !== 'dormant')
+            .sort((a, b) => (b.score ?? -Infinity) - (a.score ?? -Infinity));
+          const topAddrs = new Set(sorted.slice(0, effectiveTargetSleeveCount).map((w) => (w.address || '').toLowerCase()));
+
           setActiveWhales((prev) => {
             const next = { ...prev, ...savedActive };
             data.forEach((w) => {
               if (next[w.address] === undefined) {
-                next[w.address] = !w.dormant;
+                next[w.address] = topAddrs.has((w.address || '').toLowerCase());
               }
             });
             return next;
@@ -51,22 +60,36 @@ export function MirrorStrategyModal({ isOpen, onClose, onSelectWallet }: MirrorS
         }
       });
     }
-  }, [isOpen]);
+  }, [isOpen, effectiveTargetSleeveCount]);
 
   const toggleWhale = (addr: string) => {
-    setActiveWhales(prev => ({ ...prev, [addr]: !prev[addr] }));
+    setActiveWhales((prev) => {
+      const updated = { ...prev, [addr]: !prev[addr] };
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('baleen_active_whales', JSON.stringify(updated));
+      }
+      return updated;
+    });
   };
 
   const setMultiplier = (addr: string, val: number) => {
-    setMultipliers(prev => ({ ...prev, [addr]: val }));
+    setMultipliers((prev) => {
+      const updated = { ...prev, [addr]: val };
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('baleen_whale_multipliers', JSON.stringify(updated));
+      }
+      return updated;
+    });
   };
+
+  const activeCount = Object.values(activeWhales).filter(Boolean).length;
 
   return (
     <Modal
       isOpen={isOpen}
       onClose={onClose}
       title="Whale Copy Strategy & Multipliers"
-      subtitle="Configure paper copy weights across candidate Polymarket indexers"
+      subtitle={`Adaptive paper copy weights across candidate Polymarket indexers (${effectiveTargetSleeveCount} active sleeves target)`}
       maxWidth="max-w-2xl"
     >
       <div className="space-y-4 sm:space-y-6">
@@ -74,7 +97,9 @@ export function MirrorStrategyModal({ isOpen, onClose, onSelectWallet }: MirrorS
         <div className="grid grid-cols-3 gap-3 text-center">
           <div className="p-3 rounded-2xl bg-slate-50 dark:bg-[#1C1D22] border border-black/[0.04] dark:border-white/5">
             <span className="text-[10px] font-semibold text-slate-500 dark:text-[#8E8F99] uppercase">Index Whales</span>
-            <div className="text-lg font-bold text-slate-950 dark:text-white font-mono mt-0.5">{wallets.length} Active</div>
+            <div className="text-lg font-bold text-slate-950 dark:text-white font-mono mt-0.5">
+              {activeCount > 0 ? activeCount : effectiveTargetSleeveCount} Active
+            </div>
           </div>
           <div className="p-3 rounded-2xl bg-slate-50 dark:bg-[#1C1D22] border border-black/[0.04] dark:border-white/5">
             <span className="text-[10px] font-semibold text-slate-500 dark:text-[#8E8F99] uppercase">Execution Mode</span>
