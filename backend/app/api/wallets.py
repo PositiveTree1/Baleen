@@ -227,39 +227,49 @@ async def get_wallet(address: str, db: AsyncSession = Depends(get_db)):
         if not wallet:
             if len(clean_addr) == 42 and clean_addr.startswith("0x"):
                 try:
-                    prof = await asyncio.wait_for(client.fetch_wallet_profile(clean_addr), timeout=2.5)
+                    prof = await asyncio.wait_for(client.fetch_wallet_profile(clean_addr), timeout=3.5)
                 except Exception:
                     prof = None
 
-                if prof and isinstance(prof, dict):
-                    wallet = Wallet(
-                        address=clean_addr,
-                        name=prof.get("name") or prof.get("userName"),
-                        pseudonym=prof.get("pseudonym"),
-                        profile_image=prof.get("profileImage"),
-                        all_time_pnl_usd=round(float(prof.get("pnl") or prof.get("profit") or 0.0), 2),
-                        win_rate_pct=65.0,
-                        baleen_score=85.0,
-                        status="active",
-                        tier="standard",
-                        dormant=False,
-                        is_hft=False,
-                        avg_trades_per_day=5.0,
-                        total_trades_analyzed=100
-                    )
-                    db.add(wallet)
-                    await db.commit()
-                    await db.refresh(wallet)
-                    is_new = True
-                else:
-                    raise HTTPException(status_code=404, detail="Wallet not found")
+                p_name = (prof.get("name") or prof.get("userName")) if isinstance(prof, dict) else None
+                p_pseudo = prof.get("pseudonym") if isinstance(prof, dict) else None
+                p_img = prof.get("profileImage") if isinstance(prof, dict) else None
+                p_pnl = round(float(prof.get("pnl") or prof.get("profit") or 0.0), 2) if isinstance(prof, dict) else 0.0
+
+                wallet = Wallet(
+                    address=clean_addr,
+                    name=p_name,
+                    pseudonym=p_pseudo,
+                    profile_image=p_img,
+                    all_time_pnl_usd=p_pnl,
+                    win_rate_pct=60.0,
+                    baleen_score=70.0,
+                    status="tracked",
+                    tier="standard",
+                    dormant=False,
+                    is_hft=False,
+                    avg_trades_per_day=5.0,
+                    total_trades_analyzed=50
+                )
+                db.add(wallet)
+                await db.commit()
+                await db.refresh(wallet)
+                is_new = True
             else:
                 raise HTTPException(status_code=404, detail="Wallet not found")
 
-        # On-demand refresh of profile metadata if missing or unpopulated
-        if not is_new and (not wallet.name or not wallet.profile_image or wallet.all_time_pnl_usd is None):
+        # On-demand refresh of profile metadata if missing or stale (> 30 mins)
+        now_utc = datetime.utcnow()
+        is_stale = (
+            not wallet.name
+            or not wallet.profile_image
+            or wallet.all_time_pnl_usd is None
+            or not wallet.last_scored_at
+            or (now_utc - wallet.last_scored_at).total_seconds() > 1800
+        )
+        if not is_new and is_stale:
             try:
-                profile = await asyncio.wait_for(client.fetch_wallet_profile(clean_addr), timeout=2.0)
+                profile = await asyncio.wait_for(client.fetch_wallet_profile(clean_addr), timeout=2.5)
                 if profile and isinstance(profile, dict):
                     p_name = profile.get("name") or profile.get("userName")
                     p_pseudo = profile.get("pseudonym")
@@ -284,6 +294,7 @@ async def get_wallet(address: str, db: AsyncSession = Depends(get_db)):
                                 updated = True
                         except (ValueError, TypeError):
                             pass
+                    wallet.last_scored_at = now_utc
                     if updated:
                         await db.commit()
                         await db.refresh(wallet)
@@ -391,12 +402,13 @@ async def get_wallet(address: str, db: AsyncSession = Depends(get_db)):
         client = PolymarketClient()
         try:
             async def _fetch_closed_fast():
+                # Query up to 3 pages (150 positions) safely to avoid 429 rate limits
                 tasks = [
                     client._fetch_with_retry(
                         f"{client.data_api_url}/closed-positions",
                         params={"user": clean_addr, "limit": 50, "offset": i * 50, "sortBy": "timestamp", "sortDirection": "ASC"}
                     )
-                    for i in range(30)
+                    for i in range(3)
                 ]
                 batches = await asyncio.gather(*tasks, return_exceptions=True)
                 all_closed = []
@@ -409,25 +421,26 @@ async def get_wallet(address: str, db: AsyncSession = Depends(get_db)):
 
             pos_res, closed_res = await asyncio.wait_for(
                 asyncio.gather(client.fetch_wallet_positions(clean_addr), _fetch_closed_fast(), return_exceptions=True),
-                timeout=4.0
+                timeout=3.5
             )
             raw_positions = pos_res if isinstance(pos_res, list) else []
             raw_closed = closed_res if isinstance(closed_res, list) else []
 
-            from app.discovery.scanner import calculate_authentic_wallet_stats
-            stats = calculate_authentic_wallet_stats(
-                address=clean_addr,
-                positions=raw_positions,
-                activity=[],
-                profile={"pnl": total_pnl, "vol": getattr(wallet, "volume_usd", 0.0)},
-                trades=[],
-                closed_positions=raw_closed
-            )
-            real_hist = stats.get('daily_pnl_history', [])
-            if real_hist:
-                daily_pnl_history = real_hist
-                wallet.cached_daily_pnl = json.dumps(real_hist)
-                await db.commit()
+            if raw_positions or raw_closed:
+                from app.discovery.scanner import calculate_authentic_wallet_stats
+                stats = calculate_authentic_wallet_stats(
+                    address=clean_addr,
+                    positions=raw_positions,
+                    activity=[],
+                    profile={"pnl": total_pnl, "vol": getattr(wallet, "volume_usd", 0.0)},
+                    trades=[],
+                    closed_positions=raw_closed
+                )
+                real_hist = stats.get('daily_pnl_history', [])
+                if real_hist:
+                    daily_pnl_history = real_hist
+                    wallet.cached_daily_pnl = json.dumps(real_hist)
+                    await db.commit()
         except Exception as e:
             logger.debug(f"Error computing fast live on-chain history for {clean_addr}: {e}")
         finally:

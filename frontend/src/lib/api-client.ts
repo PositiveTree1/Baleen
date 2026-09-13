@@ -389,7 +389,7 @@ interface RawExecutionLog {
 export async function fetchWallet(address: string): Promise<WalletDetail | null> {
   try {
     const res = await fetch(`${API_BASE_URL}/api/wallets/${address}`, {
-      signal: AbortSignal.timeout(10000)
+      signal: AbortSignal.timeout(15000)
     });
     if (!res.ok) return null;
     const data = await res.json();

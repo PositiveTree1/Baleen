@@ -1,7 +1,7 @@
 'use client';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useEffect, useState, useMemo } from 'react';
-import { fetchWallet } from '@/lib/api-client';
+import { fetchWallet, getCachedWallets } from '@/lib/api-client';
 import { WalletDetail } from '@/types';
 import { X, ExternalLink, Copy, Check, Sparkles, AlertCircle, RotateCw } from 'lucide-react';
 import { Badge } from '../ui/Badge';
@@ -26,7 +26,22 @@ export function WalletDrawer({ address, onClose }: WalletDrawerProps) {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [address, onClose]);
 
-  const [wallet, setWallet] = useState<WalletDetail | null>(null);
+  const getOptimisticWallet = (addr: string | null): WalletDetail | null => {
+    if (!addr) return null;
+    const cachedList = getCachedWallets();
+    const found = cachedList?.find(w => w.address.toLowerCase() === addr.toLowerCase());
+    if (!found) return null;
+    return {
+      ...found,
+      aiSummary: null,
+      maxDrawdown: null,
+      scoreHistory: [],
+      dailyPnLHistory: [],
+      recentTrades: []
+    };
+  };
+
+  const [wallet, setWallet] = useState<WalletDetail | null>(() => getOptimisticWallet(address));
   const [loading, setLoading] = useState(Boolean(address));
   const [loadError, setLoadError] = useState<string | null>(null);
   const [reloadTrigger, setReloadTrigger] = useState(0);
@@ -37,7 +52,8 @@ export function WalletDrawer({ address, onClose }: WalletDrawerProps) {
   const [prevAddress, setPrevAddress] = useState(address);
   if (prevAddress !== address) {
     setPrevAddress(address);
-    setWallet(null);
+    const optimistic = getOptimisticWallet(address);
+    setWallet(optimistic);
     setLoadError(null);
     setLoading(Boolean(address));
   }
@@ -54,13 +70,23 @@ export function WalletDrawer({ address, onClose }: WalletDrawerProps) {
           setWallet(data);
           setLoadError(null);
         } else {
-          setLoadError("Unable to retrieve stats for this wallet. It may have no confirmed activity or Polymarket API is rate-limiting.");
+          setWallet((prev) => {
+            if (!prev) {
+              setLoadError("Unable to retrieve stats for this wallet. It may have no confirmed activity or Polymarket API is rate-limiting.");
+            }
+            return prev;
+          });
         }
         setLoading(false);
       })
       .catch(() => {
         if (!active) return;
-        setLoadError("Failed to connect to backend control plane. Please retry.");
+        setWallet((prev) => {
+          if (!prev) {
+            setLoadError("Failed to connect to backend control plane. Please retry.");
+          }
+          return prev;
+        });
         setLoading(false);
       });
 
@@ -173,6 +199,12 @@ export function WalletDrawer({ address, onClose }: WalletDrawerProps) {
                         {wallet?.name || wallet?.pseudonym || 'Observed Whale Profile'}
                       </h2>
                       {isGold && <Badge tier="gold_sniper" />}
+                      {loading && (
+                        <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-[10px] font-mono text-emerald-600 dark:text-emerald-400">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping" />
+                          <span>syncing</span>
+                        </div>
+                      )}
                     </div>
                     {wallet?.pseudonym && wallet?.name && wallet.pseudonym !== wallet.name && (
                       <p className="text-xs text-slate-500 dark:text-[#8E8F99] font-mono">@{wallet.pseudonym}</p>
@@ -331,36 +363,45 @@ export function WalletDrawer({ address, onClose }: WalletDrawerProps) {
 
                     {/* Chart Container */}
                     <div className="h-56 w-full">
-                      {activeChartTab === 'winloss' && (
-                        <DailyWinLossBarChart data={filteredDailyPnLHistory} />
-                      )}
-                      {activeChartTab === 'pnl' && (
-                        <CumulativePnLChart 
-                          data={(() => {
-                            if (!filteredDailyPnLHistory || filteredDailyPnLHistory.length === 0) return [];
-                            if (timeframe === 'ALL') {
-                              return filteredDailyPnLHistory.map(p => ({
-                                date: p.date,
-                                dailyPnL: p.dailyPnL ?? p.netPnL ?? 0,
-                                cumulativePnL: p.cumulativePnL ?? p.dailyPnL ?? 0
-                              }));
-                            }
-                            // Rebase cumulative PnL for selected window (1W, 1M, YTD)
-                            let running = 0;
-                            return filteredDailyPnLHistory.map(p => {
-                              const daily = p.dailyPnL ?? p.netPnL ?? 0;
-                              running += daily;
-                              return {
-                                date: p.date,
-                                dailyPnL: daily,
-                                cumulativePnL: Math.round(running * 100) / 100
-                              };
-                            });
-                          })()} 
-                        />
-                      )}
-                      {activeChartTab === 'score' && (
-                        <ScoreHistoryChart data={wallet.scoreHistory || []} />
+                      {loading && (!filteredDailyPnLHistory || filteredDailyPnLHistory.length === 0) && activeChartTab !== 'score' ? (
+                        <div className="w-full h-full flex flex-col items-center justify-center bg-slate-50 dark:bg-[#1C1D22] rounded-2xl border border-black/[0.06] dark:border-white/10 space-y-2">
+                          <div className="w-5 h-5 border-2 border-emerald-500/20 border-t-emerald-500 rounded-full animate-spin" />
+                          <span className="text-xs text-slate-400 dark:text-zinc-400 font-medium">Fetching historical trade equity curve...</span>
+                        </div>
+                      ) : (
+                        <>
+                          {activeChartTab === 'winloss' && (
+                            <DailyWinLossBarChart data={filteredDailyPnLHistory} />
+                          )}
+                          {activeChartTab === 'pnl' && (
+                            <CumulativePnLChart 
+                              data={(() => {
+                                if (!filteredDailyPnLHistory || filteredDailyPnLHistory.length === 0) return [];
+                                if (timeframe === 'ALL') {
+                                  return filteredDailyPnLHistory.map(p => ({
+                                    date: p.date,
+                                    dailyPnL: p.dailyPnL ?? p.netPnL ?? 0,
+                                    cumulativePnL: p.cumulativePnL ?? p.dailyPnL ?? 0
+                                  }));
+                                }
+                                // Rebase cumulative PnL for selected window (1W, 1M, YTD)
+                                let running = 0;
+                                return filteredDailyPnLHistory.map(p => {
+                                  const daily = p.dailyPnL ?? p.netPnL ?? 0;
+                                  running += daily;
+                                  return {
+                                    date: p.date,
+                                    dailyPnL: daily,
+                                    cumulativePnL: Math.round(running * 100) / 100
+                                  };
+                                });
+                              })()} 
+                            />
+                          )}
+                          {activeChartTab === 'score' && (
+                            <ScoreHistoryChart data={wallet.scoreHistory || []} />
+                          )}
+                        </>
                       )}
                     </div>
                   </div>
