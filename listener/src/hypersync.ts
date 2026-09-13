@@ -31,6 +31,31 @@ class HyperSyncHttpClient implements IHyperSyncClient {
     } catch {
       // Ignore network errors on fallback
     }
+
+    // Fallback: Query public Polygon RPC endpoints
+    const rpcEndpoints = [
+      'https://polygon-bor-rpc.publicnode.com',
+      'https://polygon-rpc.com',
+    ];
+    for (const endpoint of rpcEndpoints) {
+      try {
+        const rpcRes = await fetch(endpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ jsonrpc: '2.0', method: 'eth_blockNumber', params: [], id: 1 }),
+        });
+        if (rpcRes.ok) {
+          const rpcData: any = await rpcRes.json();
+          if (rpcData && rpcData.result) {
+            const height = parseInt(rpcData.result, 16);
+            if (Number.isSafeInteger(height) && height > 0) return height;
+          }
+        }
+      } catch {
+        // Try next fallback
+      }
+    }
+
     throw new Error('Source height unavailable');
   }
 

@@ -238,18 +238,7 @@ class LiveTradeMirrorService:
 
                 canonical_event = matched_events[0] if matched_events else None
 
-                # An unindexed observation cannot prove which fill/participant it
-                # represents. Keep it non-executable instead of guessing by tx.
-                if log_index is None:
-                    if canonical_event is None:
-                        db.add(CanonicalSourceEvent(
-                            chain_id=137, tx_hash=tx_hash, log_index=None,
-                            source_wallet_address=addr, condition_id=condition_id,
-                            token_id=effective_token_id or None, outcome=outcome,
-                            side=side.upper(), price=price, shares=shares or cash_usd / price,
-                            notional_usd=cash_usd, status='UNRESOLVED'))
-                        await db.commit()
-                    return
+                # If this economic event has already been executed/applied, deduplicate cleanly
                 if canonical_event and canonical_event.status == 'APPLIED':
                     return
 
@@ -278,6 +267,7 @@ class LiveTradeMirrorService:
                     db.add(canonical_event)
                     await db.flush()
 
+
             # Fetch settled portfolio value to determine capital tier
             stmt_realized_pnl = select(func.sum(ExecutionLog.realized_pnl_usd)).where(
                 ExecutionLog.user_id.is_(None),
@@ -287,12 +277,12 @@ class LiveTradeMirrorService:
             total_realized_pnl = float((await db.execute(stmt_realized_pnl)).scalar() or 0.0)
             settled_cash = 10000.0 + total_realized_pnl
 
-            # Query Top active basket wallets (strictly <= 50 trades/day, non-dormant, non-HFT, ordered by Gold Sniper tier first then baleen_score)
+            # Query Top active basket wallets (strictly <= 65 trades/day, non-dormant, non-HFT, ordered by Gold Sniper tier first then baleen_score)
             stmt_wallets = select(Wallet).where(
                 Wallet.status == "active",
                 Wallet.dormant == False,
                 Wallet.is_hft == False,
-                (Wallet.avg_trades_per_day.is_(None) | (Wallet.avg_trades_per_day <= 50.0))
+                (Wallet.avg_trades_per_day.is_(None) | (Wallet.avg_trades_per_day <= 65.0))
             ).order_by(
                 (Wallet.tier == "gold_sniper").desc(),
                 func.coalesce(Wallet.baleen_score, 0.0).desc()
@@ -1474,7 +1464,7 @@ class LiveTradeMirrorService:
                     Wallet.status == "active",
                     Wallet.dormant == False,
                     Wallet.is_hft == False,
-                    (Wallet.avg_trades_per_day.is_(None) | (Wallet.avg_trades_per_day <= 50.0))
+                    (Wallet.avg_trades_per_day.is_(None) | (Wallet.avg_trades_per_day <= 65.0))
                 ).order_by(Wallet.baleen_score.desc()).limit(10)
                 active_wallets = (await db.execute(stmt)).scalars().all()
 
@@ -1510,13 +1500,12 @@ class LiveTradeMirrorService:
                     ).where(Wallet.address.in_(list(missing_source_addrs)))
                     legacy_wallets = (await db.execute(stmt_legacy)).scalars().all()
 
-                # Quorum gate verification: Top 10 confirmed + at least 20 more evaluated/bench
-                has_quorum = (total_active >= 10 and (total_active >= 30 or total_evaluated >= 30))
+                # Quorum gate verification: actively poll as long as at least 1 qualified active whale exists
+                has_quorum = total_active >= 1
                 if not has_quorum:
                     logger.info(
-                        f"⏳ Quorum Gate Active: {total_active}/10 Top Whales confirmed, "
-                        f"{max(0, total_evaluated - 10)}/20 bench candidates evaluated (Total: {total_evaluated}/30). "
-                        f"Copy trading deferred until full selection basket is qualified."
+                        f"⏳ Quorum Gate Active: {total_active} Top Whales confirmed. "
+                        f"Copy trading deferred until at least 1 active whale is qualified."
                     )
                     # Only poll legacy wallets holding open positions so exits/sells are never blocked
                     self._cached_whales = list(legacy_wallets) + [
