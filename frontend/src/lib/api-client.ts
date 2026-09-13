@@ -386,9 +386,9 @@ interface RawExecutionLog {
   polymarketUrl?: string;
 }
 
-export async function fetchWallet(address: string, interval: string = "all"): Promise<WalletDetail | null> {
+export async function fetchWallet(address: string): Promise<WalletDetail | null> {
   try {
-    const res = await fetch(`${API_BASE_URL}/api/wallets/${address}?interval=${encodeURIComponent(interval)}`, {
+    const res = await fetch(`${API_BASE_URL}/api/wallets/${address}`, {
       signal: AbortSignal.timeout(10000)
     });
     if (!res.ok) return null;
@@ -422,16 +422,12 @@ export async function fetchWallet(address: string, interval: string = "all"): Pr
         date: s.snapshot_at || s.date || new Date().toISOString(),
         score: s.baleen_score ?? s.score ?? 0
       })),
-      cumulativePnLHistory: (data.pnl_history || []).map((d: RawDailyPnL) => ({
-        date: d.date, cumulativePnL: d.cumulative_pnl ?? 0,
-        dailyPnL: undefined, tradesCount: 0
-      })),
       dailyPnLHistory: (data.daily_pnl_history || []).map((d: RawDailyPnL) => ({
         date: d.date,
         wonUsd: d.won_usd ?? Math.max(0, d.daily_pnl ?? 0),
         lostUsd: d.lost_usd ?? ((d.daily_pnl ?? 0) < 0 ? (d.daily_pnl ?? 0) : 0),
         netPnL: d.net_pnl ?? d.daily_pnl ?? 0,
-        dailyPnL: d.daily_pnl ?? undefined,
+        dailyPnL: d.daily_pnl ?? 0,
         cumulativePnL: d.cumulative_pnl ?? 0,
         tradesCount: d.trades_count ?? 0
       })),

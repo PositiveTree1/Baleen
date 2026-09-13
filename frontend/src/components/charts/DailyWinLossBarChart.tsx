@@ -8,11 +8,10 @@ interface DailyWinLossBarChartProps {
 }
 
 export function DailyWinLossBarChart({ data }: DailyWinLossBarChartProps) {
-  data = (data || []).filter(pt => pt.dailyPnL != null).map(pt => ({...pt, wonUsd: Math.max(0, pt.dailyPnL!), lostUsd: Math.min(0, pt.dailyPnL!)}));
   if (!data || data.length === 0) {
     return (
       <div className="w-full h-full flex items-center justify-center bg-slate-50 dark:bg-[#1C1D22] rounded-2xl border border-black/[0.06] dark:border-white/10">
-        <span className="text-xs text-slate-400 dark:text-zinc-400 font-medium">PnL observations unavailable in selected timeframe</span>
+        <span className="text-xs text-slate-400 dark:text-zinc-400 font-medium">No trade history recorded in selected timeframe</span>
       </div>
     );
   }
@@ -60,25 +59,25 @@ export function DailyWinLossBarChart({ data }: DailyWinLossBarChartProps) {
             content={({ active, payload, label }) => {
               if (active && payload && payload.length) {
                 const pt = payload[0].payload as DailyPnLPoint;
-                const won = pt.wonUsd ?? Math.max(0, pt.dailyPnL ?? 0);
-                const lost = pt.lostUsd ?? (Math.min(0, pt.dailyPnL ?? 0));
-                const net = pt.netPnL ?? pt.dailyPnL ?? 0;
+                const won = pt.wonUsd ?? Math.max(0, pt.dailyPnL);
+                const lost = pt.lostUsd ?? (pt.dailyPnL < 0 ? pt.dailyPnL : 0);
+                const net = pt.netPnL ?? pt.dailyPnL;
                 const trades = pt.tradesCount ?? 1;
 
                 return (
                   <div className="bg-white/95 dark:bg-[#1C1D22]/95 backdrop-blur-xl p-3.5 rounded-2xl border border-black/[0.08] dark:border-white/10 shadow-xl text-slate-900 dark:text-white min-w-[170px]">
                     <div className="text-[10px] text-slate-400 dark:text-[#8E8F99] font-bold uppercase tracking-wider mb-2 flex items-center justify-between">
                       <span>{label}</span>
-                      <span className="font-mono text-slate-500 dark:text-[#8E8F99]">PnL change</span>
+                      <span className="font-mono text-slate-500 dark:text-[#8E8F99]">{trades} trades</span>
                     </div>
 
                     <div className="space-y-1.5 font-mono text-xs">
                       <div className="flex items-center justify-between text-emerald-600 dark:text-[#00D09C] font-bold">
-                        <span className="font-sans text-slate-500 dark:text-[#8E8F99] font-medium">Gain:</span>
+                        <span className="font-sans text-slate-500 dark:text-[#8E8F99] font-medium">Won:</span>
                         <span>+${won.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                       </div>
                       <div className="flex items-center justify-between text-rose-600 dark:text-[#FF453A] font-bold">
-                        <span className="font-sans text-slate-500 dark:text-[#8E8F99] font-medium">Loss:</span>
+                        <span className="font-sans text-slate-500 dark:text-[#8E8F99] font-medium">Lost:</span>
                         <span>-${Math.abs(lost).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                       </div>
                       <div className="pt-1.5 border-t border-black/[0.06] dark:border-white/10 flex items-center justify-between font-extrabold text-sm">
@@ -96,7 +95,7 @@ export function DailyWinLossBarChart({ data }: DailyWinLossBarChartProps) {
           />
           <Bar 
             dataKey="wonUsd" 
-            name="PnL increase"
+            name="Gross Won"
             fill="#00D09C" 
             maxBarSize={18}
             radius={[4, 4, 0, 0]}
@@ -104,7 +103,7 @@ export function DailyWinLossBarChart({ data }: DailyWinLossBarChartProps) {
           />
           <Bar 
             dataKey="lostUsd" 
-            name="PnL decrease"
+            name="Gross Lost"
             fill="#FF453A" 
             maxBarSize={18}
             radius={[0, 0, 4, 4]}

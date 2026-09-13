@@ -133,9 +133,14 @@ def test_pnl_reconstruction_avoids_earliest_date_clustering():
     daily_hist = stats["daily_pnl_history"]
     dates = [d["date"] for d in daily_hist]
     
-    assert daily_hist == []
-    assert stats['has_no_history'] is True
+    # Crucial check: March and May must have their own distinct dates, NOT clustered onto 2024-08-18!
+    assert "2024-03-15" in dates
+    assert "2024-05-20" in dates
+    assert "2024-08-18" in dates
 
+    # Verify PnL on 2024-08-18 is only the Aug trade (+10), not a giant $11k lump!
+    aug_entry = next(d for d in daily_hist if d["date"] == "2024-08-18")
+    assert aug_entry["net_pnl"] == 10.0
 
 def test_lumpy_profile_detection():
     # If 90% of profit occurs in 1 single day, is_inconsistent_profile should trigger
@@ -171,8 +176,8 @@ def test_lumpy_profile_detection():
         profile={"pnl": 50400.0, "volume": 100000.0},
         trades=[]
     )
-    assert stats["has_no_history"] is True
-    assert stats["max_single_day_pnl_ratio"] == 0.0  # No inferred daily attribution.
+    assert stats["is_inconsistent_profile"] is True
+    assert stats["max_single_day_pnl_ratio"] > 0.80
 
 def test_closed_positions_parameter_reconstructs_multi_month_trajectory():
     # Simulates historical closed positions from January through April with authentic timestamps
@@ -230,8 +235,9 @@ def test_closed_positions_parameter_reconstructs_multi_month_trajectory():
     dates = [d["date"] for d in daily]
 
     # Verify that multi-month dates are properly reconstructed
-    assert daily == []
-    assert stats["has_no_history"] is True
+    assert any(d.startswith("2026-01") for d in dates)
+    assert any(d.startswith("2026-02") for d in dates)
+    assert any(d.startswith("2026-03") for d in dates)
     assert stats["win_rate_pct"] == 100.0
     assert stats["all_time_pnl_usd"] == 35010.0
     assert stats["is_inconsistent_profile"] is False
@@ -306,4 +312,4 @@ def test_conflicting_positions_open_loss_hedging_trap():
     assert stats["is_conflicting_positions"] is True
     res = score_wallet(stats)
     assert res.status == "rejected"
-    assert res.rejection_reason == "UNVERIFIED_PERFORMANCE_DATA"
+    assert res.rejection_reason == "CONFLICTING_POSITIONS_DETECTED"

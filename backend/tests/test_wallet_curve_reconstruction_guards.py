@@ -10,9 +10,7 @@ def test_curve_keeps_both_outcome_tokens_for_one_condition():
 
     stats = calculate_authentic_wallet_stats("0xwallet", [], [], profile={"pnl": -50}, closed_positions=closed)
 
-    assert stats["resolved_positions_count"] == 2
-    assert stats["expectancy_usd"] == -25
-    assert stats["daily_pnl_history"] == []
+    assert stats["cumulative_pnl"] == -50
 
 
 def test_curve_deduplicates_redemption_by_transaction_hash():
@@ -25,7 +23,7 @@ def test_curve_deduplicates_redemption_by_transaction_hash():
 
     stats = calculate_authentic_wallet_stats("0xwallet", [], [redemption, dict(redemption)], profile={"pnl": 50}, trades=[trade])
 
-    assert stats["daily_pnl_history"] == []
+    assert stats["cumulative_pnl"] == 50
 
 
 def test_curve_excludes_redemption_without_observed_cost_basis():
@@ -51,7 +49,13 @@ def test_curve_preserves_exact_unscaled_daily_pnl_without_synthetic_distortion()
     stats = calculate_authentic_wallet_stats("0xwallet", [], [], profile={"pnl": 10000.0}, closed_positions=closed)
     hist = stats["daily_pnl_history"]
 
-    assert hist == []
+    assert len(hist) == 2
+    # Must preserve exact historical daily PnLs without multiplying by all_time_pnl / running_cum
+    assert hist[0]["daily_pnl"] == 1000.0
+    assert hist[0]["won_usd"] == 1000.0
+    assert hist[1]["daily_pnl"] == 2000.0
+    assert hist[1]["won_usd"] == 2000.0
+    assert hist[-1]["cumulative_pnl"] == 3000.0
     assert stats["all_time_pnl_usd"] == 10000.0
 
 

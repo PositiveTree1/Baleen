@@ -40,10 +40,6 @@ def score_wallet(wallet_stats: dict) -> ScoringResult:
     Computed once per wallet, re-checked every 24h rescore.
     Only wallets passing 100% of these hard filters advance to 5-factor ranking.
     """
-    if 'history_verified' in wallet_stats:
-        from app.scoring.quality import qualify_wallet
-        return qualify_wallet(wallet_stats)
-
     pnl = float(wallet_stats.get('all_time_pnl_usd') or 0.0)
     vol = float(wallet_stats.get('total_volume_usd') or 0.0)
     trades_per_day = float(wallet_stats.get('trades_per_day') or 0.0)

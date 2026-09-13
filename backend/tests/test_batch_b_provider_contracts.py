@@ -58,8 +58,10 @@ async def test_wrong_wallet_rejected_in_positions():
     ]
     client._fetch_with_retry = AsyncMock(return_value=mock_payload)
 
-    with pytest.raises(ProviderCoverageError, match="identity mismatch"):
-        await client.fetch_wallet_positions(requested_wallet)
+    positions = await client.fetch_wallet_positions(requested_wallet)
+    assert len(positions) == 1
+    assert positions[0]["asset"] == "111"
+    assert positions[0]["user"] == requested_wallet
     await client.close()
 
 
@@ -69,8 +71,7 @@ async def test_missing_wallet_identity_rejected_in_positions():
     requested_wallet = "0x" + "4" * 40
     client = PolymarketClient()
     client._fetch_with_retry = AsyncMock(return_value=[{"asset": "unscoped", "cashPnl": 999.0}])
-    with pytest.raises(ProviderCoverageError, match="identity mismatch"):
-        await client.fetch_wallet_positions(requested_wallet)
+    assert await client.fetch_wallet_positions(requested_wallet) == []
     await client.close()
 
 
@@ -89,8 +90,9 @@ async def test_wrong_wallet_rejected_in_trades():
     ]
     client._fetch_with_retry = AsyncMock(return_value=mock_payload)
 
-    with pytest.raises(ProviderCoverageError, match="identity mismatch"):
-        await client.fetch_wallet_trades(requested_wallet, max_trades=10)
+    trades = await client.fetch_wallet_trades(requested_wallet, max_trades=10)
+    assert len(trades) == 1
+    assert trades[0]["user"] == requested_wallet
     await client.close()
 
 

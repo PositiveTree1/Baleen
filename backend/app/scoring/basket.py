@@ -128,9 +128,6 @@ def normalize_and_score_pool(candidate_stats_list: List[dict]) -> List[float]:
 
 def compute_baleen_score(stats: dict) -> float:
     """Computes standalone Baleen Score for a single wallet using Spec v2 Part C."""
-    if 'history_verified' in stats:
-        from app.scoring.quality import quality_score
-        return quality_score(stats)
     scores = normalize_and_score_pool([stats])
     return scores[0] if scores else 0.0
 
@@ -250,6 +247,19 @@ def select_top_10_roster(
         selected_roster.append(candidate)
         category_counts[c_cat] = category_counts.get(c_cat, 0) + 1
 
+    # Backfill if target size was not reached due to strict diversity filters, without violating category cap
+    if len(selected_roster) < target_size:
+        for candidate in sorted_candidates:
+            if candidate not in selected_roster:
+                c_addr = str(getattr(candidate, 'address', '') or str(candidate)).lower()
+                c_cat = categories.get(c_addr, "General")
+                if target_size > 1 and category_counts.get(c_cat, 0) >= max_per_category and c_cat != "General":
+                    continue
+                selected_roster.append(candidate)
+                category_counts[c_cat] = category_counts.get(c_cat, 0) + 1
+                if len(selected_roster) >= target_size:
+                    break
+
     return selected_roster
 
 async def get_active_basket(db: AsyncSession) -> list[Wallet]:
@@ -286,10 +296,18 @@ async def refresh_basket(db: AsyncSession, trigger_type: str = "SCHEDULED_CRON")
             except Exception:
                 daily_hist = []
 
-        from app.discovery.pnl_history import verified_history
-        stats = dict(daily_hist[0].get('assessment', {})) if verified_history(daily_hist) else {}
-        stats.update(daily_pnl_history=daily_hist, history_verified=bool(stats))
-
+        stats = {
+            'all_time_pnl_usd': wallet.all_time_pnl_usd,
+            'avg_trades_per_day': wallet.avg_trades_per_day,
+            'outlier_concentration_pct': wallet.outlier_concentration_pct,
+            'win_rate_pct': wallet.win_rate_pct,
+            'max_drawdown_pct': wallet.max_drawdown_pct,
+            'trades_count': wallet.total_trades_analyzed,
+            'daily_pnl_history': daily_hist,
+            'is_hft': wallet.is_hft,
+            'has_no_history': bool(not daily_hist and not wallet.all_time_pnl_usd)
+        }
+        
         score_res = score_wallet(stats)
         if score_res.status == "rejected":
             wallet.status = "rejected"
@@ -303,7 +321,7 @@ async def refresh_basket(db: AsyncSession, trigger_type: str = "SCHEDULED_CRON")
 
     # Dynamic Intra-Pool Normalization
     if candidate_stats_list:
-        scores = [compute_baleen_score(st) for st in candidate_stats_list]
+        scores = normalize_and_score_pool(candidate_stats_list)
         for w, sc in zip(candidate_wallets, scores):
             w.baleen_score = sc
 

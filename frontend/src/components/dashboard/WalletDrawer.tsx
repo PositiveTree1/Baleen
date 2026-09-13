@@ -32,7 +32,7 @@ export function WalletDrawer({ address, onClose }: WalletDrawerProps) {
   const [reloadTrigger, setReloadTrigger] = useState(0);
   const [copied, setCopied] = useState(false);
   const [activeChartTab, setActiveChartTab] = useState<'winloss' | 'pnl' | 'score'>('winloss');
-  const [timeframe, setTimeframe] = useState<'1D' | '1W' | '1M' | 'ALL'>('ALL');
+  const [timeframe, setTimeframe] = useState<'1W' | '1M' | 'YTD' | 'ALL'>('ALL');
 
   const [prevAddress, setPrevAddress] = useState(address);
   if (prevAddress !== address) {
@@ -47,7 +47,7 @@ export function WalletDrawer({ address, onClose }: WalletDrawerProps) {
     let active = true;
     setLoading(true);
 
-    fetchWallet(address, timeframe.toLowerCase())
+    fetchWallet(address)
       .then((data) => {
         if (!active) return;
         if (data) {
@@ -67,7 +67,7 @@ export function WalletDrawer({ address, onClose }: WalletDrawerProps) {
     return () => {
       active = false;
     };
-  }, [address, reloadTrigger, timeframe]);
+  }, [address, reloadTrigger]);
 
   const handleRetry = () => {
     setLoading(true);
@@ -90,7 +90,7 @@ export function WalletDrawer({ address, onClose }: WalletDrawerProps) {
 
   const isGold = wallet?.tier === 'gold_sniper';
 
-  // Filter daily PnL history according to selected timeframe (1D, 1W, 1M, ALL)
+  // Filter daily PnL history according to selected timeframe (1W, 1M, YTD, ALL)
   const filteredDailyPnLHistory = useMemo(() => {
     const raw = wallet?.dailyPnLHistory || [];
     if (timeframe === 'ALL' || raw.length === 0) return raw;
@@ -98,12 +98,14 @@ export function WalletDrawer({ address, onClose }: WalletDrawerProps) {
       const t = pt.date ? new Date(pt.date).getTime() : 0;
       return t > max ? t : max;
     }, 0);
-    const now = Date.now();
+    const now = latestDate > 0 ? latestDate : 0;
     let cutoff = 0;
-    if (timeframe === '1D') cutoff = now - 24 * 60 * 60 * 1000;
-    else if (timeframe === '1W') cutoff = now - 7 * 24 * 60 * 60 * 1000;
+    if (timeframe === '1W') cutoff = now - 7 * 24 * 60 * 60 * 1000;
     else if (timeframe === '1M') cutoff = now - 30 * 24 * 60 * 60 * 1000;
-
+    else if (timeframe === 'YTD') {
+      const yr = latestDate > 0 ? new Date(latestDate).getFullYear() : 2026;
+      cutoff = new Date(yr, 0, 1).getTime();
+    }
 
     const filtered = raw.filter(pt => {
       try {
@@ -113,7 +115,7 @@ export function WalletDrawer({ address, onClose }: WalletDrawerProps) {
         return true;
       }
     });
-    return filtered;
+    return filtered.length > 0 ? filtered : raw;
   }, [wallet?.dailyPnLHistory, timeframe]);
 
   const cleanSummary = (() => {
@@ -297,7 +299,7 @@ export function WalletDrawer({ address, onClose }: WalletDrawerProps) {
                           onClick={() => setActiveChartTab('winloss')}
                           className={`px-3 py-1 rounded-full transition-all ${activeChartTab === 'winloss' ? 'bg-white dark:bg-[#16171B] text-slate-950 dark:text-white shadow-2xs' : 'text-slate-500 dark:text-[#8E8F99]'}`}
                         >
-                          Daily PnL change
+                          Daily Wins / Losses
                         </button>
                         <button
                           onClick={() => setActiveChartTab('pnl')}
@@ -315,7 +317,7 @@ export function WalletDrawer({ address, onClose }: WalletDrawerProps) {
 
                       {/* Timeframe pills */}
                       <div className="flex rounded-full bg-slate-200 dark:bg-[#2C2D35] p-0.5 text-[10px] font-bold">
-                        {(['1D', '1W', '1M', 'ALL'] as const).map(tf => (
+                        {(['1W', '1M', 'YTD', 'ALL'] as const).map(tf => (
                           <button
                             key={tf}
                             onClick={() => setTimeframe(tf)}
@@ -334,7 +336,27 @@ export function WalletDrawer({ address, onClose }: WalletDrawerProps) {
                       )}
                       {activeChartTab === 'pnl' && (
                         <CumulativePnLChart 
-                          data={wallet.cumulativePnLHistory || []}
+                          data={(() => {
+                            if (!filteredDailyPnLHistory || filteredDailyPnLHistory.length === 0) return [];
+                            if (timeframe === 'ALL') {
+                              return filteredDailyPnLHistory.map(p => ({
+                                date: p.date,
+                                dailyPnL: p.dailyPnL ?? p.netPnL ?? 0,
+                                cumulativePnL: p.cumulativePnL ?? p.dailyPnL ?? 0
+                              }));
+                            }
+                            // Rebase cumulative PnL for selected window (1W, 1M, YTD)
+                            let running = 0;
+                            return filteredDailyPnLHistory.map(p => {
+                              const daily = p.dailyPnL ?? p.netPnL ?? 0;
+                              running += daily;
+                              return {
+                                date: p.date,
+                                dailyPnL: daily,
+                                cumulativePnL: Math.round(running * 100) / 100
+                              };
+                            });
+                          })()} 
                         />
                       )}
                       {activeChartTab === 'score' && (

@@ -17,7 +17,7 @@ export function CumulativePnLChart({ data }: CumulativePnLChartProps) {
   if (!data || data.length === 0) {
     return (
       <div className="w-full h-full flex items-center justify-center bg-slate-50 dark:bg-[#1C1D22] rounded-2xl border border-black/[0.06] dark:border-white/10">
-        <span className="text-xs text-slate-400 dark:text-zinc-400 font-medium">Polymarket PnL observations unavailable in selected timeframe</span>
+        <span className="text-xs text-slate-400 dark:text-zinc-400 font-medium">No trade history recorded in selected timeframe</span>
       </div>
     );
   }
@@ -102,7 +102,7 @@ export function CumulativePnLChart({ data }: CumulativePnLChartProps) {
             }}
           />
           <Area 
-            type="linear"
+            type="monotone" 
             dataKey="cumulativePnL" 
             stroke={strokeColor} 
             strokeWidth={2.5}
