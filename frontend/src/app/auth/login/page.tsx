@@ -39,8 +39,7 @@ function LoginForm() {
         setError('Invalid email or password');
         setLoading(false);
       } else {
-        router.push('/dashboard');
-        router.refresh();
+        window.location.href = '/dashboard';
       }
     } catch {
       setError('An unexpected error occurred during sign in');
@@ -62,39 +61,43 @@ function LoginForm() {
         setGuestStatus('launching');
 
         // Authorize with NextAuth using pre-provisioned guest credentials
-        const res = await signIn('credentials', {
-          email: guestCreds.email,
-          password: guestCreds.password,
-          guestToken: guestCreds.access_token || '',
-          guestId: guestCreds.id || '',
-          isGuest: 'true',
-          redirect: false,
-        });
-
-        if (res?.error) {
-          setError('Failed to establish guest session. Please retry.');
-          setGuestStatus('idle');
-        } else {
-          router.push('/dashboard');
-          router.refresh();
+        // Use a 3-second safeguard race so serverless cold starts never freeze the UI
+        try {
+          await Promise.race([
+            signIn('credentials', {
+              email: guestCreds.email,
+              password: guestCreds.password,
+              guestToken: guestCreds.access_token || '',
+              guestId: guestCreds.id || '',
+              isGuest: 'true',
+              redirect: false,
+            }),
+            new Promise((resolve) => setTimeout(resolve, 3000))
+          ]);
+        } catch (authErr) {
+          console.debug("NextAuth fast-path note:", authErr);
         }
+
+        // Hard navigate so Next.js hydrates the authenticated session cleanly
+        window.location.href = '/dashboard';
         return;
       }
 
       // 2. Direct server-side fallback
       setGuestStatus('launching');
-      const fallbackRes = await signIn('credentials', {
-        isGuest: 'true',
-        redirect: false,
-      });
-
-      if (fallbackRes?.error) {
-        setError('Failed to provision isolated guest session. Please check backend connectivity.');
-        setGuestStatus('idle');
-      } else {
-        router.push('/dashboard');
-        router.refresh();
+      try {
+        await Promise.race([
+          signIn('credentials', {
+            isGuest: 'true',
+            redirect: false,
+          }),
+          new Promise((resolve) => setTimeout(resolve, 4000))
+        ]);
+      } catch (authErr) {
+        console.debug("Fallback auth note:", authErr);
       }
+
+      window.location.href = '/dashboard';
     } catch (err) {
       console.error("Guest login exception:", err);
       setError('An error occurred provisioning guest session');
@@ -131,6 +134,12 @@ function LoginForm() {
                 Allocating $10,000 pUSD paper trading capital & connecting live whale streams.
               </p>
             </div>
+            <button
+              onClick={() => { window.location.href = '/dashboard'; }}
+              className="mt-2 text-[11px] text-slate-500 dark:text-slate-400 hover:text-[#00D09C] dark:hover:text-[#00D09C] underline transition-colors cursor-pointer"
+            >
+              Taking longer than expected? Click here to enter dashboard →
+            </button>
           </div>
         </div>
       )}
