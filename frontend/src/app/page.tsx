@@ -1,132 +1,79 @@
 'use client';
 
 import Link from 'next/link';
-import { ArrowRight, Moon, Sun } from 'lucide-react';
 import { Hero } from '@/components/landing/Hero';
 import { LiveTicker } from '@/components/landing/LiveTicker';
 import { AdvantageSection } from '@/components/landing/AdvantageSection';
+import { LiquidSleeveSimulator } from '@/components/landing/LiquidSleeveSimulator';
 import { InfrastructureSection } from '@/components/landing/InfrastructureSection';
-import { MobileGlassDock } from '@/components/landing/MobileGlassDock';
+import { LiquidGlassHeader, LiquidGlassMobileDock } from '@/components/landing/LiquidGlassDock';
 import { LiquidParallaxBackground } from '@/components/landing/LiquidParallaxBackground';
+import { LiquidGlassFilter } from '@/components/landing/LiquidGlassFilter';
 import { BrandLogo } from '@/components/ui/BrandLogo';
-import { useTheme } from '@/context/ThemeContext';
 
 export default function LandingPage() {
-  const { theme, toggleTheme } = useTheme();
-
   return (
-    <main className="baleen-landing min-h-screen overflow-x-hidden bg-[#07080A] text-white selection:bg-[#00D09C] selection:text-black relative">
-      {/* 1. Interactive Oceanic Abyss & Liquid Glass Parallax Background */}
+    <main className="baleen-landing min-h-screen w-full overflow-x-hidden bg-[#060709] text-white selection:bg-[#00D09C] selection:text-black relative">
+      {/* 1. Global SVG Liquid Filters for Metaball Fusion and Caustics */}
+      <LiquidGlassFilter />
+
+      {/* 2. Interactive Studio Background with Volumetric Oceanic Caustics */}
       <LiquidParallaxBackground />
 
-      {/* 2. Floating Liquid Glass Capsule Navigation (Matching WWDC25 Glass Dock) */}
-      <header className="fixed inset-x-0 top-0 z-50 px-3 pt-3 sm:px-6 sm:pt-5 pointer-events-none">
-        <nav
-          className="liquid-dock liquid-chromatic-rim pointer-events-auto mx-auto flex h-14 max-w-[1240px] items-center justify-between rounded-full px-3.5 sm:h-16 sm:px-6 shadow-2xl"
-          aria-label="Primary navigation"
-        >
-          {/* Brand Logo */}
-          <BrandLogo href="/" size="md" className="baleen-hero-logo" />
+      {/* 3. Floating 3D Liquid Glass Navigation Dock (visionOS / iOS 26) */}
+      <LiquidGlassHeader />
 
-          {/* Desktop Nav Items */}
-          <div className="hidden items-center gap-1.5 rounded-full bg-white/[0.04] p-1 text-[13px] font-semibold text-white/80 backdrop-blur-md lg:flex border border-white/10">
-            <Link
-              href="#advantages"
-              className="rounded-full px-4 py-1.5 transition-colors hover:bg-white/10 hover:text-white"
-            >
-              Architecture
-            </Link>
-            <Link
-              href="#infrastructure"
-              className="rounded-full px-4 py-1.5 transition-colors hover:bg-white/10 hover:text-white"
-            >
-              Telemetry
-            </Link>
-            <Link
-              href="/dashboard"
-              className="rounded-full px-4 py-1.5 transition-colors hover:bg-white/10 hover:text-white"
-            >
-              Dashboard
-            </Link>
-          </div>
-
-          {/* Action Controls */}
-          <div className="flex items-center gap-2 sm:gap-3">
-            <button
-              type="button"
-              onClick={toggleTheme}
-              aria-label={theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'}
-              className="grid size-9 place-items-center rounded-full text-white/80 transition-colors hover:bg-white/10 hover:text-white"
-            >
-              {theme === 'light' ? <Moon size={16} aria-hidden="true" /> : <Sun size={16} aria-hidden="true" />}
-            </button>
-
-            <Link
-              href="/auth/login"
-              className="hidden rounded-full px-3.5 py-1.5 text-[13px] font-bold text-white/80 transition-colors hover:text-white sm:block"
-            >
-              Sign In
-            </Link>
-
-            <Link
-              href="/dashboard"
-              className="liquid-pill-btn group inline-flex h-9 sm:h-10 items-center gap-2 px-4 sm:px-5 text-[12px] sm:text-[13px] font-extrabold text-white shadow-lg"
-            >
-              <span>Launch Sandbox</span>
-              <ArrowRight size={13} className="transition-transform group-hover:translate-x-0.5 text-[#00D09C]" aria-hidden="true" />
-            </Link>
-          </div>
-        </nav>
-      </header>
-
-      {/* 3. Hero Section (Centered Liquid Glass Focus) */}
+      {/* 4. Hero Section with Interactive Liquid Glass Morphing Centerpiece */}
       <Hero />
 
-      {/* 4. Live Polymarket Order Execution Tape */}
+      {/* 5. Live Polymarket Execution Marquee */}
       <LiveTicker />
 
-      {/* 5. Architectural Advantage (Liquid Glass Cards) */}
+      {/* 6. Architectural Advantage (4 Tactile Liquid Glass Cards) */}
       <AdvantageSection />
 
-      {/* 6. Deep Infrastructure & High-Impact Closing CTA Banner */}
+      {/* 7. Interactive Liquid Glass Sleeve Simulator & Capital Allocation Engine */}
+      <LiquidSleeveSimulator />
+
+      {/* 8. Deep Infrastructure & High-Impact Closing CTA Banner */}
       <InfrastructureSection />
 
-      {/* 7. Mobile Liquid Glass Bottom Navigation Dock */}
-      <MobileGlassDock />
+      {/* 9. Mobile iOS 26 Liquid Glass Bottom Navigation Dock */}
+      <LiquidGlassMobileDock />
 
-      {/* 8. Pristine Obsidian Footer */}
-      <footer className="relative z-10 px-4 pb-20 pt-16 text-white sm:px-6 sm:pb-8 border-t border-white/10 bg-[#07080A]/90 backdrop-blur-2xl">
-        <div className="mx-auto max-w-[1240px] overflow-hidden rounded-[2rem] border border-white/10 bg-[#0E1015]/80 p-6 sm:p-12 backdrop-blur-3xl">
+      {/* 10. Pristine Obsidian Studio Footer with Mobile Safe Area Clearance */}
+      <footer className="relative z-10 px-4 pb-36 pt-16 text-white sm:px-6 sm:pb-16 border-t border-white/10 bg-[#060709]/90 backdrop-blur-2xl">
+        <div className="mx-auto max-w-[1240px] overflow-hidden rounded-[2.5rem] border border-white/10 bg-[#0c0e14]/70 p-6 sm:p-12 backdrop-blur-3xl shadow-2xl">
           <div className="flex flex-col justify-between gap-8 md:flex-row md:items-end">
             <div>
               <BrandLogo size="lg" className="baleen-footer-logo" />
-              <p className="mt-4 max-w-md text-sm leading-relaxed text-white/60">
-                Quantitative Polymarket whale shadow execution. Filtering millions of trades to extract verified, non-bot alpha across isolated sleeves.
+              <p className="mt-4 max-w-md text-sm leading-relaxed text-zinc-400">
+                Autonomous Polymarket whale conviction execution. Continuous Envio Hypersync indexing with dynamically isolated risk sleeves.
               </p>
             </div>
 
-            <div className="flex flex-wrap gap-x-8 gap-y-3 text-sm font-semibold text-white/70">
+            <div className="flex flex-wrap gap-x-8 gap-y-3 text-xs sm:text-sm font-mono font-semibold text-zinc-400">
               <Link href="#advantages" className="transition-colors hover:text-white">
                 Architecture
+              </Link>
+              <Link href="#simulator" className="transition-colors hover:text-white">
+                Sleeve Model
               </Link>
               <Link href="#infrastructure" className="transition-colors hover:text-white">
                 Telemetry
               </Link>
               <Link href="/dashboard" className="transition-colors hover:text-white">
-                Dashboard
+                Sandbox
               </Link>
               <Link href="/auth/login" className="transition-colors hover:text-white">
                 Sign In
               </Link>
-              <Link href="/auth/signup" className="transition-colors hover:text-white">
-                Create Account
-              </Link>
             </div>
           </div>
 
-          <div className="mt-10 flex flex-col gap-3 border-t border-white/10 pt-5 text-xs text-white/40 sm:flex-row sm:items-center sm:justify-between font-mono">
+          <div className="mt-10 flex flex-col gap-3 border-t border-white/10 pt-6 text-xs text-zinc-500 sm:flex-row sm:items-center sm:justify-between font-mono">
             <span>© {new Date().getFullYear()} Baleen Quant. All rights reserved.</span>
-            <span>Non-custodial paper trading sandbox. Educational and algorithmic simulation only.</span>
+            <span>Non-custodial paper trading sandbox. Algorithmic prediction simulation only.</span>
           </div>
         </div>
       </footer>

@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { fetchPlatformStats, fetchExecutionLogs } from '@/lib/api-client';
 import { PlatformStats, ExecutionLog } from '@/types';
 import { motion } from 'framer-motion';
-import { Radio, Zap } from 'lucide-react';
+import { Zap } from 'lucide-react';
 
 interface TickerItem {
   id: string;
@@ -56,19 +56,19 @@ export function LiveTicker() {
   return (
     <div className="relative z-20 w-full border-y border-white/10 bg-[#0B0C10] backdrop-blur-3xl overflow-hidden shadow-2xl">
       {/* Top Status Strip */}
-      <div className="mx-auto flex max-w-[1380px] flex-wrap items-center justify-between gap-4 border-b border-white/[0.06] px-5 py-2.5 text-xs text-zinc-400 sm:px-8 font-mono">
-        <div className="flex items-center gap-6">
+      <div className="mx-auto flex max-w-[1380px] flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-4 border-b border-white/[0.06] px-4 py-2 text-xs text-zinc-400 sm:px-8 font-mono">
+        <div className="flex items-center gap-4 sm:gap-6">
           <div className="flex items-center gap-2">
             <span className="relative flex size-2">
               <span className="absolute inline-flex size-full animate-ping rounded-full bg-[#00D09C] opacity-75" />
               <span className="relative inline-flex size-2 rounded-full bg-[#00D09C]" />
             </span>
-            <span className="text-[11px] font-bold tracking-wider text-white uppercase">
+            <span className="text-[10px] sm:text-[11px] font-bold tracking-wider text-white uppercase">
               Polymarket Stream · Polygon CTF
             </span>
           </div>
 
-          <div className="hidden items-center gap-2 sm:flex">
+          <div className="hidden items-center gap-2 md:flex">
             <span className="text-zinc-500 text-[11px]">Baskets:</span>
             <span className="text-[11px] font-bold text-white bg-white/[0.06] border border-white/10 px-2 py-0.5 rounded-full">
               {stats?.activeBasketWhales ?? 5} Active Sleeves
@@ -76,14 +76,14 @@ export function LiveTicker() {
           </div>
         </div>
 
-        <div className="flex items-center gap-3 text-[11px]">
+        <div className="flex items-center gap-2 sm:gap-3 text-[10px] sm:text-[11px]">
           <span className="inline-flex items-center gap-1.5 text-zinc-400">
-            <Zap size={12} className="text-white" />
-            Latency: <strong className="font-bold text-[#00D09C]">~84ms Envio Hypersync</strong>
+            <Zap size={11} className="text-white shrink-0" />
+            <span>Envio Hypersync: <strong className="font-bold text-[#00D09C]">~84ms</strong></span>
           </span>
           <span className="text-white/20">|</span>
           <span className="text-zinc-400">
-            Sleeves: <strong className="font-bold text-white">$2k Isolated</strong>
+            Sleeves: <strong className="font-bold text-white">$2k Cap</strong>
           </span>
         </div>
       </div>

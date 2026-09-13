@@ -1,4 +1,4 @@
-import type { Metadata } from 'next'
+import type { Metadata, Viewport } from 'next'
 import { Plus_Jakarta_Sans, Space_Grotesk, Inter, Outfit, Cinzel } from 'next/font/google'
 import { Providers } from './providers'
 import './globals.css'
@@ -24,6 +24,13 @@ const inter = Inter({ subsets: ['latin'], variable: '--font-inter' })
 export const metadata: Metadata = {
   title: 'Baleen — Polymarket Paper Copy Trading',
   description: 'Research Polymarket traders and explore simulated copying in a paper portfolio. Experimental results; real-money execution is unavailable.',
+}
+
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 5,
+  themeColor: '#060709',
 }
 
 export default function RootLayout({
