@@ -7,6 +7,7 @@ import { FullHistorySpreadsheetModal } from './FullHistorySpreadsheetModal';
 
 interface TradeLogProps {
   userId?: string;
+  logs?: ExecutionLog[];
   totalHoldingCount?: number;
   totalClosedCount?: number;
   totalFillsCount?: number;
@@ -17,29 +18,41 @@ const MAX_DISPLAY_TRADES = 35;
 
 export function TradeLog({ 
   userId, 
+  logs: propLogs,
   totalHoldingCount, 
   totalClosedCount, 
   totalFillsCount, 
   onSelectTrade 
 }: TradeLogProps) {
-  const [logs, setLogs] = useState<ExecutionLog[]>(() => getCachedExecutionLogs(userId) || []);
-  const [loading, setLoading] = useState(() => (getCachedExecutionLogs(userId)?.length || 0) === 0);
+  const [internalLogs, setInternalLogs] = useState<ExecutionLog[]>(() => propLogs || getCachedExecutionLogs(userId) || []);
+  const [loading, setLoading] = useState(() => !propLogs && (getCachedExecutionLogs(userId)?.length || 0) === 0);
   const [tab, setTab] = useState<'holding' | 'closed' | 'all'>('holding');
   const [isSpreadsheetOpen, setIsSpreadsheetOpen] = useState(false);
 
   useEffect(() => {
+    if (propLogs) {
+      setInternalLogs(propLogs);
+      setLoading(false);
+    }
+  }, [propLogs]);
+
+  useEffect(() => {
+    if (propLogs) return;
     async function load() {
       if (typeof document !== 'undefined' && document.hidden) return;
+      if (!userId) return;
       const data = await fetchExecutionLogs(userId, { limit: '100' });
       if (Array.isArray(data)) {
-        setLogs(data);
+        setInternalLogs(data);
       }
       setLoading(false);
     }
     load();
     const interval = setInterval(load, 10000);
     return () => clearInterval(interval);
-  }, [userId]);
+  }, [userId, propLogs]);
+
+  const logs = propLogs || internalLogs;
 
   const holdingLogs = useMemo(() => {
     return logs.filter(l => l.side === 'BUY' && l.status === 'FILLED' && !l.marketQuestion?.toLowerCase().includes('resolved'));

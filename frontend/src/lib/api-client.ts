@@ -99,24 +99,39 @@ let inMemoryAuthToken: string | null = null;
 let pendingSession: ReturnType<typeof getSession> | null = null;
 
 export function setAuthToken(token: string | null) {
-  if (token !== inMemoryAuthToken) clearAllCache();
+  if (token && inMemoryAuthToken && token !== inMemoryAuthToken) {
+    clearAllCache();
+  }
   inMemoryAuthToken = token;
   if (typeof window !== 'undefined') {
     try {
-      // Retire legacy bearer storage. The signed session is the identity authority.
-      sessionStorage.removeItem('baleen_auth_token');
-      localStorage.removeItem('baleen_auth_token');
+      if (token) {
+        sessionStorage.setItem('baleen_auth_token', token);
+      } else {
+        sessionStorage.removeItem('baleen_auth_token');
+        localStorage.removeItem('baleen_auth_token');
+      }
     } catch {}
   }
 }
 
 export function getAuthToken(): string | null {
-  return inMemoryAuthToken;
+  if (inMemoryAuthToken) return inMemoryAuthToken;
+  if (typeof window !== 'undefined') {
+    try {
+      const saved = sessionStorage.getItem('baleen_auth_token');
+      if (saved) {
+        inMemoryAuthToken = saved;
+        return saved;
+      }
+    } catch {}
+  }
+  return null;
 }
 
 export async function logoutBackend(): Promise<void> {
   const session = await getSession();
-  const token = session?.user?.accessToken || session?.accessToken || null;
+  const token = session?.user?.accessToken || session?.accessToken || getAuthToken();
   if (token) {
       const response = await fetch(`${API_BASE_URL}/api/auth/logout`, {
         method: 'POST',
@@ -134,41 +149,43 @@ export async function logoutBackend(): Promise<void> {
 }
 
 export async function fetchWithAuth(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
-  // Resolve the current cookie-backed session even on direct page loads and in
-  // other tabs. Share simultaneous lookups, but never persist a second identity.
-  const hadAuthAuthority = Boolean(inMemoryAuthToken);
-  let token: string | null = null;
-  if (typeof window !== 'undefined') {
+  let token: string | null = getAuthToken();
+  if (!token && typeof window !== 'undefined') {
     pendingSession ??= getSession().finally(() => { pendingSession = null; });
     const session = await pendingSession;
     const sessionToken = session?.user?.accessToken || session?.accessToken;
-    token = sessionToken || (session !== null ? inMemoryAuthToken : null);
-    setAuthToken(token);
-  } else {
-    token = inMemoryAuthToken;
+    if (sessionToken) {
+      token = sessionToken;
+      setAuthToken(token);
+    }
   }
-  const headers = new Headers(init?.headers || {});
 
+  const headers = new Headers(init?.headers || {});
   if (token && !headers.has('Authorization')) {
     headers.set('Authorization', `Bearer ${token}`);
   }
 
-  const response = await fetch(input, {
+  let response = await fetch(input, {
     ...init,
     headers,
   });
 
-  if (typeof window !== 'undefined' && token !== getAuthToken()) {
-    // A late response from a previous account must not repopulate its cache.
-    return new Response(null, { status: 409, statusText: 'Session changed' });
-  }
-
-  if (response.status === 401) {
-    // Fails closed: clear cache and session token on 401
-    clearAllCache();
-    setAuthToken(null);
-    if (typeof window !== 'undefined' && (token || hadAuthAuthority)) {
-      window.dispatchEvent(new CustomEvent('baleen:session-expired'));
+  // On 401: Attempt silent token recovery for guest/paper sessions without disrupting the UI
+  if (response.status === 401 && typeof window !== 'undefined') {
+    try {
+      const guestCreds = await guestLogin();
+      if (guestCreds?.access_token) {
+        token = guestCreds.access_token;
+        setAuthToken(token);
+        const retryHeaders = new Headers(init?.headers || {});
+        retryHeaders.set('Authorization', `Bearer ${token}`);
+        response = await fetch(input, {
+          ...init,
+          headers: retryHeaders,
+        });
+      }
+    } catch (refreshErr) {
+      console.debug("Silent guest refresh recovery note:", refreshErr);
     }
   }
 
@@ -386,15 +403,20 @@ interface RawExecutionLog {
   polymarketUrl?: string;
 }
 
+export function getCachedWalletDetail(address: string): WalletDetail | null {
+  return getCached<WalletDetail>(`wallet_detail_${address.toLowerCase()}`, 120000);
+}
+
 export async function fetchWallet(address: string): Promise<WalletDetail | null> {
+  const cached = getCachedWalletDetail(address);
   try {
     const res = await fetch(`${API_BASE_URL}/api/wallets/${address}`, {
       signal: AbortSignal.timeout(15000)
     });
-    if (!res.ok) return null;
+    if (!res.ok) return cached || null;
     const data = await res.json();
     const w = data.wallet || data;
-    return {
+    const detail: WalletDetail = {
       address: w.address,
       name: w.name || null,
       pseudonym: w.pseudonym || null,
@@ -446,8 +468,10 @@ export async function fetchWallet(address: string): Promise<WalletDetail | null>
         polymarketUrl: t.market_id ? `https://polymarket.com/market/${t.market_id}` : 'https://polymarket.com'
       }))
     };
+    setCached(`wallet_detail_${address.toLowerCase()}`, detail);
+    return detail;
   } catch (error) {
-    return null;
+    return cached || null;
   }
 }
 

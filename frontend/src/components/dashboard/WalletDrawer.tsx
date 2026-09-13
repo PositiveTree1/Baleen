@@ -1,7 +1,7 @@
 'use client';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useEffect, useState, useMemo } from 'react';
-import { fetchWallet, getCachedWallets } from '@/lib/api-client';
+import { fetchWallet, getCachedWallets, getCachedWalletDetail } from '@/lib/api-client';
 import { WalletDetail } from '@/types';
 import { X, ExternalLink, Copy, Check, Sparkles, AlertCircle, RotateCw } from 'lucide-react';
 import { Badge } from '../ui/Badge';
@@ -28,6 +28,8 @@ export function WalletDrawer({ address, onClose }: WalletDrawerProps) {
 
   const getOptimisticWallet = (addr: string | null): WalletDetail | null => {
     if (!addr) return null;
+    const cachedDetail = getCachedWalletDetail(addr);
+    if (cachedDetail) return cachedDetail;
     const cachedList = getCachedWallets();
     const found = cachedList?.find(w => w.address.toLowerCase() === addr.toLowerCase());
     if (!found) return null;
@@ -42,7 +44,11 @@ export function WalletDrawer({ address, onClose }: WalletDrawerProps) {
   };
 
   const [wallet, setWallet] = useState<WalletDetail | null>(() => getOptimisticWallet(address));
-  const [loading, setLoading] = useState(Boolean(address));
+  const [loading, setLoading] = useState(() => {
+    if (!address) return false;
+    const opt = getOptimisticWallet(address);
+    return !opt?.dailyPnLHistory || opt.dailyPnLHistory.length === 0;
+  });
   const [loadError, setLoadError] = useState<string | null>(null);
   const [reloadTrigger, setReloadTrigger] = useState(0);
   const [copied, setCopied] = useState(false);
@@ -55,13 +61,18 @@ export function WalletDrawer({ address, onClose }: WalletDrawerProps) {
     const optimistic = getOptimisticWallet(address);
     setWallet(optimistic);
     setLoadError(null);
-    setLoading(Boolean(address));
+    setLoading(Boolean(address && (!optimistic?.dailyPnLHistory || optimistic.dailyPnLHistory.length === 0)));
   }
 
   useEffect(() => {
     if (!address) return;
     let active = true;
-    setLoading(true);
+    const optimistic = getOptimisticWallet(address);
+    if (optimistic?.dailyPnLHistory && optimistic.dailyPnLHistory.length > 0) {
+      setLoading(false);
+    } else {
+      setLoading(true);
+    }
 
     fetchWallet(address)
       .then((data) => {
@@ -71,7 +82,7 @@ export function WalletDrawer({ address, onClose }: WalletDrawerProps) {
           setLoadError(null);
         } else {
           setWallet((prev) => {
-            if (!prev) {
+            if (!prev || !prev.dailyPnLHistory || prev.dailyPnLHistory.length === 0) {
               setLoadError("Unable to retrieve stats for this wallet. It may have no confirmed activity or Polymarket API is rate-limiting.");
             }
             return prev;
@@ -82,7 +93,7 @@ export function WalletDrawer({ address, onClose }: WalletDrawerProps) {
       .catch(() => {
         if (!active) return;
         setWallet((prev) => {
-          if (!prev) {
+          if (!prev || !prev.dailyPnLHistory || prev.dailyPnLHistory.length === 0) {
             setLoadError("Failed to connect to backend control plane. Please retry.");
           }
           return prev;

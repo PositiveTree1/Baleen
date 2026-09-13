@@ -11,8 +11,8 @@ def get_target_wallet_count(capital_usd: float) -> int:
       - Under $250: Follow 1 Top Wallet (100% sleeve = $100-$250)
       - $250 to $1,000: Follow 2 Top Wallets ($125-$500 sleeve)
       - $1,000 to $3,000: Follow 4 Top Wallets ($250-$750 sleeve)
-      - $3,000 to $5,000: Follow 6 Wallets ($500-$833 sleeve)
-      - $5,000+: Follow 10 Wallets ($500-$1,000+ sleeve)
+      - $3,000 to $15,000: Follow 5 Wallets ($600-$3,000 sleeve, e.g. $10,000 bankroll follows top 5 @ $2,000 each)
+      - $15,000+: Follow 10 Wallets ($1,500+ sleeve)
     """
     c = max(0.0, float(capital_usd or 0.0))
     if c < 250.0:
@@ -21,8 +21,8 @@ def get_target_wallet_count(capital_usd: float) -> int:
         return 2
     elif c < 3000.0:
         return 4
-    elif c < 5000.0:
-        return 6
+    elif c < 15000.0:
+        return 5
     else:
         return 10
 

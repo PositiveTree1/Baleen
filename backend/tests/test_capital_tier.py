@@ -21,12 +21,13 @@ def test_capital_tiered_wallet_counts():
     assert get_target_wallet_count(1000.0) == 4
     assert get_target_wallet_count(2500.0) == 4
 
-    # $3,000 - $4,999: Follow 6 snipers
-    assert get_target_wallet_count(3000.0) == 6
-    assert get_target_wallet_count(4500.0) == 6
+    # $3,000 - $14,999: Follow 5 snipers ($10k bankroll follows top 5 @ $2,000 sleeve each)
+    assert get_target_wallet_count(3000.0) == 5
+    assert get_target_wallet_count(10000.0) == 5
+    assert get_target_wallet_count(14999.0) == 5
 
-    # $5,000+: Follow 10 snipers
-    assert get_target_wallet_count(5000.0) == 10
+    # $15,000+: Follow 10 snipers
+    assert get_target_wallet_count(15000.0) == 10
     assert get_target_wallet_count(25000.0) == 10
 
 def test_calculate_min_capital_required():
@@ -43,8 +44,10 @@ def test_filter_active_wallets_by_capital():
     assert filter_active_wallets_by_capital(dummy_wallets, 100.0) == ["wallet_0"]
     # At $500, top 2 wallets
     assert filter_active_wallets_by_capital(dummy_wallets, 500.0) == ["wallet_0", "wallet_1"]
-    # At $10,000, all 10
-    assert len(filter_active_wallets_by_capital(dummy_wallets, 10000.0)) == 10
+    # At $10,000, top 5 wallets ($2,000 sleeve each)
+    assert len(filter_active_wallets_by_capital(dummy_wallets, 10000.0)) == 5
+    # At $20,000, all 10
+    assert len(filter_active_wallets_by_capital(dummy_wallets, 20000.0)) == 10
 
 def test_win_rate_anomaly_guardrail():
     # Simulate an API returning 20 winning positions and 0 losses for a wallet with $50k profile PnL

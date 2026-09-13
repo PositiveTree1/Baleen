@@ -22,6 +22,14 @@ import { clearAllCache, fetchPortfolioSnapshots, fetchWallets, getCachedWallets 
 import { Modal } from '../ui/Modal';
 import { ResetSandboxModal } from './ResetSandboxModal';
 
+export function formatAllocPct(notional: number, total: number): string {
+  if (notional <= 0 || total <= 0) return '0%';
+  const pct = (notional / total) * 100;
+  if (pct < 0.01) return '<0.01%';
+  if (pct < 1) return `${pct.toFixed(2)}%`;
+  return `${pct.toFixed(1)}%`;
+}
+
 export interface OhlcCandle {
   time: string;
   open: number;
@@ -84,19 +92,19 @@ export function PortfolioAnalytics({
 
   const effectiveWallets = (propWallets && propWallets.length > 0) ? propWallets : loadedWallets;
 
-  const top10Addresses = useMemo(() => {
-    const sorted = [...effectiveWallets]
-      .filter((w) => (!w.status || w.status === 'active') && w.tier !== 'dormant' && !w.dormant && !w.isHft && w.tradesPerDay != null && w.tradesPerDay <= 50)
-      .sort((a, b) => (b.score ?? -Infinity) - (a.score ?? -Infinity));
-    return new Set(sorted.slice(0, 10).map((w) => (w.address || '').toLowerCase()));
-  }, [effectiveWallets]);
-
-  const top10Roster = useMemo(() => {
+  const topCandidateRoster = useMemo(() => {
     return [...effectiveWallets]
       .filter((w) => (!w.status || w.status === 'active') && w.tier !== 'dormant' && !w.dormant && !w.isHft && w.tradesPerDay != null && w.tradesPerDay <= 50)
-      .sort((a, b) => (b.score ?? -Infinity) - (a.score ?? -Infinity))
-      .slice(0, 10);
+      .sort((a, b) => (b.score ?? -Infinity) - (a.score ?? -Infinity));
   }, [effectiveWallets]);
+
+  const top10Addresses = useMemo(() => {
+    return new Set(topCandidateRoster.slice(0, 10).map((w) => (w.address || '').toLowerCase()));
+  }, [topCandidateRoster]);
+
+  const top10Roster = useMemo(() => {
+    return topCandidateRoster.slice(0, 10);
+  }, [topCandidateRoster]);
 
   const [timeframe, setTimeframe] = useState<string>('ALL');
   const [chartType, setChartType] = useState<'area' | 'candles'>('area');
@@ -295,26 +303,27 @@ export function PortfolioAnalytics({
 
   const activeAllocationStats = useMemo(() => {
     const bankroll = currentBalance > 0 ? currentBalance : 10000;
-    const sleeveBudget = bankroll / 10.0; // Strictly $bankroll / 10 per sleeve
+    const targetSleeveCount = bankroll < 250 ? 1 : bankroll < 1000 ? 2 : bankroll < 3000 ? 4 : bankroll < 15000 ? 5 : 10;
+    const sleeveBudget = bankroll / targetSleeveCount;
 
-    // Determine Top 10 active addresses fallback if wallets not yet loaded
-    let activeAddresses = top10Addresses;
+    // Determine target active addresses fallback if wallets not yet loaded
+    let activeAddresses = new Set(topCandidateRoster.slice(0, targetSleeveCount).map((w) => (w.address || '').toLowerCase()));
     if (activeAddresses.size === 0) {
       const addrTotals = new Map<string, number>();
       activeHoldingLogs.forEach((l) => {
         const addr = (l.walletAddress || '').toLowerCase();
         if (addr) addrTotals.set(addr, (addrTotals.get(addr) || 0) + (l.size ?? 0.0));
       });
-      const top10FromLogs = Array.from(addrTotals.entries())
+      const topFromLogs = Array.from(addrTotals.entries())
         .sort((a, b) => b[1] - a[1])
-        .slice(0, 10)
+        .slice(0, targetSleeveCount)
         .map(([addr]) => addr);
-      activeAddresses = new Set(top10FromLogs);
+      activeAddresses = new Set(topFromLogs);
     }
 
-    const top10WhaleMap = new Map<string, { address: string; notional: number; name: string }>();
-    let top10Notional = 0;
-    let top10Count = 0;
+    const whaleMap = new Map<string, { address: string; notional: number; name: string }>();
+    let targetNotional = 0;
+    let targetCount = 0;
 
     let legacyNotional = 0;
     let legacyCount = 0;
@@ -325,12 +334,12 @@ export function PortfolioAnalytics({
       const name = l.whaleName || l.whalePseudonym || (addr ? `${addr.slice(0, 6)}...${addr.slice(-4)}` : 'Whale');
 
       if (activeAddresses.has(addr)) {
-        top10Count += 1;
-        top10Notional += size;
-        if (!top10WhaleMap.has(addr)) {
-          top10WhaleMap.set(addr, { address: addr, notional: 0, name });
+        targetCount += 1;
+        targetNotional += size;
+        if (!whaleMap.has(addr)) {
+          whaleMap.set(addr, { address: addr, notional: 0, name });
         }
-        top10WhaleMap.get(addr)!.notional += size;
+        whaleMap.get(addr)!.notional += size;
       } else {
         legacyCount += 1;
         legacyNotional += size;
@@ -339,7 +348,7 @@ export function PortfolioAnalytics({
 
     const colors = ['#00D09C', '#FF7A00', '#FF2D78', '#00A3FF', '#A855F7', '#EC4899', '#EAB308', '#06B6D4', '#6366F1', '#14B8A6'];
 
-    const sortedActive = Array.from(top10WhaleMap.values())
+    const sortedActive = Array.from(whaleMap.values())
       .map((w, idx) => {
         const bankrollPct = Math.round((w.notional / bankroll) * 1000) / 10;
         const sleevePct = Math.round((w.notional / sleeveBudget) * 100);
@@ -353,10 +362,10 @@ export function PortfolioAnalytics({
         };
       })
       .sort((a, b) => b.notional - a.notional)
-      .slice(0, 10); // Strictly at most 10 active whale sleeves
+      .slice(0, targetSleeveCount);
 
-    // Construct 10 fixed sleeves
-    const top10Sleeves: Array<{
+    // Construct fixed sleeves
+    const sleeves: Array<{
       index: number;
       name: string;
       address: string;
@@ -372,7 +381,7 @@ export function PortfolioAnalytics({
       if (item.address) activeMapByAddr.set(item.address.toLowerCase(), item);
     });
 
-    const rosterWallets = top10Roster.slice(0, 10);
+    const rosterWallets = topCandidateRoster.slice(0, targetSleeveCount);
     const assigned = new Set<string>();
 
     rosterWallets.forEach((w, idx) => {
@@ -384,7 +393,7 @@ export function PortfolioAnalytics({
       const notional = activeData?.notional || 0;
       const sleevePct = Math.round((notional / sleeveBudget) * 100);
       const bankrollPct = Math.round((notional / bankroll) * 1000) / 10;
-      top10Sleeves.push({
+      sleeves.push({
         index: idx + 1,
         name,
         address: addr,
@@ -398,10 +407,10 @@ export function PortfolioAnalytics({
 
     // Fill from sortedActive if any active whale wasn't in rosterWallets (e.g. before wallets loaded)
     sortedActive.forEach((w) => {
-      if (top10Sleeves.length < 10 && w.address && !assigned.has(w.address.toLowerCase())) {
+      if (sleeves.length < targetSleeveCount && w.address && !assigned.has(w.address.toLowerCase())) {
         assigned.add(w.address.toLowerCase());
-        const idx = top10Sleeves.length;
-        top10Sleeves.push({
+        const idx = sleeves.length;
+        sleeves.push({
           index: idx + 1,
           name: w.name,
           address: w.address,
@@ -414,10 +423,10 @@ export function PortfolioAnalytics({
       }
     });
 
-    // Fill remaining up to 10 with ready Cash sleeves
-    while (top10Sleeves.length < 10) {
-      const idx = top10Sleeves.length;
-      top10Sleeves.push({
+    // Fill remaining up to targetSleeveCount with ready Cash sleeves
+    while (sleeves.length < targetSleeveCount) {
+      const idx = sleeves.length;
+      sleeves.push({
         index: idx + 1,
         name: `Sleeve #${idx + 1}`,
         address: '',
@@ -429,8 +438,8 @@ export function PortfolioAnalytics({
       });
     }
 
-    const totalInvestedBankrollPct = Math.round((top10Notional / bankroll) * 1000) / 10;
-    const freeCash = Math.max(0, bankroll - top10Notional);
+    const totalInvestedBankrollPct = Math.round((targetNotional / bankroll) * 1000) / 10;
+    const freeCash = Math.max(0, bankroll - targetNotional);
     const freeCashPct = Math.max(0, Math.round((100 - totalInvestedBankrollPct) * 10) / 10);
 
     const segments = sortedActive.map((item) => ({
@@ -456,19 +465,21 @@ export function PortfolioAnalytics({
     }
 
     return {
-      top10Sleeves,
+      targetSleeveCount,
+      sleeves,
+      top10Sleeves: sleeves, // backward compatibility
       segments,
       activeWhales: sortedActive,
-      totalNotional: top10Notional,
+      totalNotional: targetNotional,
       freeCash,
       allocatedPct: totalInvestedBankrollPct,
       sleeveBudget,
-      count: top10Count,
+      count: targetCount,
       legacyCount,
       legacyNotional,
-      totalAllNotional: top10Notional + legacyNotional
+      totalAllNotional: targetNotional + legacyNotional
     };
-  }, [activeHoldingLogs, currentBalance, top10Addresses, top10Roster]);
+  }, [activeHoldingLogs, currentBalance, topCandidateRoster]);
 
   // 5. Portfolio Snapshots Timeline
   const [serverSnapshots, setServerSnapshots] = useState<TimelineSnapshotPoint[]>(snapshots);
@@ -781,15 +792,15 @@ export function PortfolioAnalytics({
       {/* ========================================================= */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
         
-        {/* Card 1: 10-Wallet Sleeve Capital Allocation (Isolated Sleeves) */}
+        {/* Card 1: Sleeve Capital Allocation (Isolated Sleeves) */}
         <div className="revolut-card p-5 space-y-4 rounded-[26px]">
           <div className="space-y-1">
             <div className="flex items-center justify-between">
               <span className="text-xs font-semibold text-slate-500 dark:text-[#8E8F99]">
-                10-Wallet Sleeve Capital
+                {activeAllocationStats.targetSleeveCount}-Wallet Sleeve Capital
               </span>
               <span className="text-[10px] font-mono font-bold text-emerald-600 dark:text-[#00D09C] bg-emerald-50 dark:bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-200/50 dark:border-emerald-500/20">
-                {activeAllocationStats.activeWhales.length} Deployed · {Math.max(0, 10 - activeAllocationStats.activeWhales.length)} in Cash ({activeAllocationStats.count} Lots)
+                {activeAllocationStats.activeWhales.length} Deployed · {Math.max(0, activeAllocationStats.targetSleeveCount - activeAllocationStats.activeWhales.length)} in Cash ({activeAllocationStats.count} Lots)
               </span>
             </div>
             <div className="flex items-baseline justify-between">
@@ -797,13 +808,19 @@ export function PortfolioAnalytics({
                 ${activeAllocationStats.totalNotional.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </div>
               <span className="text-[11px] font-mono font-medium text-slate-500 dark:text-[#8E8F99]">
-                {activeAllocationStats.allocatedPct}% of ${Math.round(currentBalance || 10000).toLocaleString()} Bankroll
+                {formatAllocPct(activeAllocationStats.totalNotional, currentBalance || 10000)} of ${Math.round(currentBalance || 10000).toLocaleString()} Bankroll
               </span>
             </div>
           </div>
 
-          {/* 10 Isolated Sleeves Visual Slot Grid */}
-          <div className="grid grid-cols-10 gap-1.5 w-full pt-1">
+          {/* Isolated Sleeves Visual Slot Grid */}
+          <div className={`grid gap-1.5 w-full pt-1 ${
+            activeAllocationStats.targetSleeveCount === 5 ? 'grid-cols-5' :
+            activeAllocationStats.targetSleeveCount === 4 ? 'grid-cols-4' :
+            activeAllocationStats.targetSleeveCount === 2 ? 'grid-cols-2' :
+            activeAllocationStats.targetSleeveCount === 1 ? 'grid-cols-1' :
+            'grid-cols-10'
+          }`}>
             {activeAllocationStats.top10Sleeves.map((sleeve) => (
               <div
                 key={sleeve.index}
@@ -814,7 +831,7 @@ export function PortfolioAnalytics({
                 }`}
                 title={
                   sleeve.isDeployed
-                    ? `Sleeve #${sleeve.index} (${sleeve.name}): $${sleeve.deployedNotional.toFixed(2)} deployed (${sleeve.sleevePct}% of $${Math.round(activeAllocationStats.sleeveBudget).toLocaleString()} sleeve) • $${(activeAllocationStats.sleeveBudget - sleeve.deployedNotional).toFixed(2)} liquid cash`
+                    ? `Sleeve #${sleeve.index} (${sleeve.name}): $${sleeve.deployedNotional.toFixed(2)} deployed (${formatAllocPct(sleeve.deployedNotional, activeAllocationStats.sleeveBudget)} of $${Math.round(activeAllocationStats.sleeveBudget).toLocaleString()} sleeve) • $${(activeAllocationStats.sleeveBudget - sleeve.deployedNotional).toFixed(2)} liquid cash`
                     : `Sleeve #${sleeve.index} (${sleeve.name}): 100% Cash Ready ($${Math.round(activeAllocationStats.sleeveBudget).toLocaleString()} liquid reserve)`
                 }
               >
@@ -822,7 +839,7 @@ export function PortfolioAnalytics({
                   <div
                     className="h-full rounded-full transition-all"
                     style={{
-                      width: `${Math.max(25, Math.min(100, sleeve.sleevePct))}%`,
+                      width: `${Math.max(6, Math.min(100, (sleeve.deployedNotional / activeAllocationStats.sleeveBudget) * 100))}%`,
                       backgroundColor: sleeve.color
                     }}
                   />
@@ -846,7 +863,7 @@ export function PortfolioAnalytics({
                     <div className="font-mono text-slate-700 dark:text-slate-300 shrink-0">
                       ${w.notional.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}{' '}
                       <span className="text-slate-400 text-[10px]">
-                        ({w.sleevePct}% of ${Math.round(activeAllocationStats.sleeveBudget).toLocaleString()} Sleeve • {w.bankrollPct}% Portfolio)
+                        ({formatAllocPct(w.notional, activeAllocationStats.sleeveBudget)} of ${Math.round(activeAllocationStats.sleeveBudget).toLocaleString()} Sleeve • {formatAllocPct(w.notional, currentBalance || 10000)} Portfolio)
                       </span>
                     </div>
                   </div>
@@ -859,7 +876,7 @@ export function PortfolioAnalytics({
               </>
             ) : (
               <div className="flex items-center justify-between text-[11px] text-slate-500">
-                <span>10 Isolated ${Math.round(activeAllocationStats.sleeveBudget).toLocaleString()} Sleeves Ready</span>
+                <span>{activeAllocationStats.targetSleeveCount} Isolated ${Math.round(activeAllocationStats.sleeveBudget).toLocaleString()} Sleeves Ready</span>
                 <span className="font-mono text-emerald-500 font-bold">${Math.round(currentBalance || 10000).toLocaleString()} Free Cash</span>
               </div>
             )}
@@ -868,7 +885,7 @@ export function PortfolioAnalytics({
               <div className="flex items-center gap-1.5 min-w-0">
                 <span className="w-2 h-2 rounded-full shrink-0 bg-slate-400 dark:bg-slate-500" />
                 <span className="text-slate-700 dark:text-slate-300 font-medium whitespace-nowrap">
-                  Liquid Reserves ({Math.max(0, 10 - activeAllocationStats.activeWhales.length)} sleeves idle):
+                  Liquid Reserves ({Math.max(0, activeAllocationStats.targetSleeveCount - activeAllocationStats.activeWhales.length)} sleeves idle):
                 </span>
               </div>
               <span className="text-slate-900 dark:text-slate-200 font-bold shrink-0 ml-2">
@@ -965,16 +982,8 @@ export function PortfolioAnalytics({
 
           <div className="space-y-2">
             {topAlpha.length === 0 ? (
-              <div className="space-y-2">
-                {[1, 2, 3].map((i) => (
-                  <div key={i} className="p-3 rounded-2xl bg-slate-50 dark:bg-[#1C1D22] border border-black/[0.04] dark:border-white/5 flex items-center justify-between">
-                    <div className="space-y-1.5">
-                      <div className="w-48 h-3 rounded-md animate-shimmer" />
-                      <div className="w-28 h-2 rounded-md animate-shimmer" />
-                    </div>
-                    <div className="w-12 h-3 rounded-md animate-shimmer" />
-                  </div>
-                ))}
+              <div className="p-4 rounded-2xl bg-slate-50 dark:bg-[#1C1D22] border border-black/[0.04] dark:border-white/5 text-center py-6">
+                <span className="text-xs text-slate-400 dark:text-[#8E8F99] font-medium">No positive alpha markets in this view</span>
               </div>
             ) : (
               topAlpha.map((m) => (
@@ -1012,16 +1021,8 @@ export function PortfolioAnalytics({
 
           <div className="space-y-2">
             {topDrawdown.length === 0 ? (
-              <div className="space-y-2">
-                {[1, 2, 3].map((i) => (
-                  <div key={i} className="p-3 rounded-2xl bg-slate-50 dark:bg-[#1C1D22] border border-black/[0.04] dark:border-white/5 flex items-center justify-between">
-                    <div className="space-y-1.5">
-                      <div className="w-48 h-3 rounded-md animate-shimmer" />
-                      <div className="w-28 h-2 rounded-md animate-shimmer" />
-                    </div>
-                    <div className="w-12 h-3 rounded-md animate-shimmer" />
-                  </div>
-                ))}
+              <div className="p-4 rounded-2xl bg-slate-50 dark:bg-[#1C1D22] border border-black/[0.04] dark:border-white/5 text-center py-6">
+                <span className="text-xs text-slate-400 dark:text-[#8E8F99] font-medium">No drawdown markets in this view</span>
               </div>
             ) : (
               topDrawdown.map((m) => (

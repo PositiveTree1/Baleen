@@ -82,8 +82,8 @@ export default function DashboardPage() {
 
   const [activityOpen, setActivityOpen] = useState(false);
   const [soundActive, setSoundActive] = useState(false);
-  const [logs, setLogs] = useState<ExecutionLog[]>(() => getCachedExecutionLogs(session?.user?.id) || []);
-  const [portfolio, setPortfolio] = useState<PortfolioSummary | null>(() => getCachedPortfolioSummary(session?.user?.id) || null);
+  const [logs, setLogs] = useState<ExecutionLog[]>(() => getCachedExecutionLogs(effectiveUserId) || []);
+  const [portfolio, setPortfolio] = useState<PortfolioSummary | null>(() => getCachedPortfolioSummary(effectiveUserId) || null);
   const [wallets, setWallets] = useState<Wallet[]>(() => getCachedWallets() || []);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -160,9 +160,9 @@ export default function DashboardPage() {
     );
   }
 
-  const cachedSnapshots = getCachedPortfolioSnapshots(session?.user?.id, 'all');
+  const cachedSnapshots = getCachedPortfolioSnapshots(effectiveUserId, 'all');
   const lastCachedBal = (cachedSnapshots && cachedSnapshots.length > 0) ? cachedSnapshots[cachedSnapshots.length - 1].balance : null;
-  const cachedSummary = getCachedPortfolioSummary(session?.user?.id);
+  const cachedSummary = getCachedPortfolioSummary(effectiveUserId);
 
   if (!portfolio && !user && !cachedSummary && lastCachedBal === null && loadError) {
     return (
@@ -398,7 +398,8 @@ export default function DashboardPage() {
 
             {/* Section 3: Execution Audit & Transactions Feed */}
             <TradeLog
-              userId={session?.user?.id}
+              userId={effectiveUserId}
+              logs={logs}
               totalHoldingCount={portfolio?.holdingTradesCount}
               totalClosedCount={portfolio?.closedTradesCount}
               totalFillsCount={portfolio?.filledTradesCount}
