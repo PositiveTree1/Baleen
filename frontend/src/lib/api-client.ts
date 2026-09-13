@@ -767,13 +767,18 @@ export async function guestLogin(): Promise<{ email: string; password: string; a
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
     });
-    if (!res.ok) return null;
+    if (!res.ok) {
+      const errDetail = await res.text().catch(() => '');
+      console.error(`[Baleen Auth] Guest session request failed at ${API_BASE_URL}/api/auth/guest (status ${res.status}):`, errDetail);
+      return null;
+    }
     const data = await res.json();
     if (data.access_token) {
       setAuthToken(data.access_token);
     }
     return data;
   } catch (error) {
+    console.error(`[Baleen Auth] Network error reaching backend at ${API_BASE_URL}/api/auth/guest:`, error);
     return null;
   }
 }
