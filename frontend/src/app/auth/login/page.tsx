@@ -61,19 +61,15 @@ function LoginForm() {
         setGuestStatus('launching');
 
         // Authorize with NextAuth using pre-provisioned guest credentials
-        // Use a 3-second safeguard race so serverless cold starts never freeze the UI
         try {
-          await Promise.race([
-            signIn('credentials', {
-              email: guestCreds.email,
-              password: guestCreds.password,
-              guestToken: guestCreds.access_token || '',
-              guestId: guestCreds.id || '',
-              isGuest: 'true',
-              redirect: false,
-            }),
-            new Promise((resolve) => setTimeout(resolve, 3000))
-          ]);
+          await signIn('credentials', {
+            email: guestCreds.email,
+            password: guestCreds.password,
+            guestToken: guestCreds.access_token || '',
+            guestId: guestCreds.id || '',
+            isGuest: 'true',
+            redirect: false,
+          });
         } catch (authErr) {
           console.debug("NextAuth fast-path note:", authErr);
         }
@@ -86,13 +82,10 @@ function LoginForm() {
       // 2. Direct server-side fallback
       setGuestStatus('launching');
       try {
-        await Promise.race([
-          signIn('credentials', {
-            isGuest: 'true',
-            redirect: false,
-          }),
-          new Promise((resolve) => setTimeout(resolve, 4000))
-        ]);
+        await signIn('credentials', {
+          isGuest: 'true',
+          redirect: false,
+        });
       } catch (authErr) {
         console.debug("Fallback auth note:", authErr);
       }

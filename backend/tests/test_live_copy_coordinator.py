@@ -6,6 +6,7 @@ from decimal import Decimal
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 import pytest
+pytest.importorskip("polymarket")
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import async_sessionmaker
 from eth_account import Account

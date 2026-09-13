@@ -118,10 +118,17 @@ def score_wallet(wallet_stats: dict) -> ScoringResult:
         return ScoringResult("rejected", None, "MISSING_ONCHAIN_HISTORY", False)
 
     # FILTER 15: Gate 12 - Minimum Win Rate >= 58.0% and Wilson 90% CI lower bound >= 50.0%
+    # Note: Value bettors with demonstrated mathematical edge in asymmetric payoff markets
+    # (odds-weighted edge >= 8.0%, profit factor >= 1.75, and realized PnL >= $75k)
+    # generate positive expected return without requiring >58% nominal win rate.
     wilson_lb = float(wallet_stats.get('wilson_lower_bound') or wallet_stats.get('wilson_lb') or 0.0)
-    if win_rate < 58.0:
+    odds_edge = float(wallet_stats.get('odds_weighted_edge') or 0.0)
+    pf = float(wallet_stats.get('profit_factor') or 0.0)
+    is_asymmetric_alpha = bool(odds_edge >= 0.08 and pf >= 1.75 and pnl >= 75000.0)
+
+    if win_rate < 58.0 and not is_asymmetric_alpha:
         return ScoringResult("rejected", None, "WIN_RATE_TOO_LOW", False)
-    if trades_count >= 100 and wilson_lb > 0 and wilson_lb < 50.0:
+    if trades_count >= 100 and wilson_lb > 0 and wilson_lb < 50.0 and not is_asymmetric_alpha:
         return ScoringResult("rejected", None, "WILSON_LOWER_BOUND_TOO_LOW", False)
 
     # FILTER 16: Open Position Paper Loss Bleed Gate (Reject active bleed > $25k or > 35% of total PnL)

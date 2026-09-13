@@ -1014,6 +1014,12 @@ async def evaluate_pending_wallets(db: AsyncSession, client: Optional[Polymarket
                 t_count_val = int(stats.get('trades_count') or 0)
                 max_dd_val = float(stats.get('max_drawdown_pct') or 0.0)
 
+                is_asymmetric_alpha = bool(
+                    float(stats.get('odds_weighted_edge') or 0.0) >= 0.08
+                    and float(stats.get('profit_factor') or 0.0) >= 1.75
+                    and pnl_usd_val >= 75000.0
+                )
+
                 if not has_history or t_count_val < 5:
                     wallet.status = 'rejected'
                     wallet.tier = 'rejected'
@@ -1054,12 +1060,12 @@ async def evaluate_pending_wallets(db: AsyncSession, client: Optional[Polymarket
                     wallet.tier = 'rejected'
                     wallet.rejection_reason = f'Market concentration too high ({stats["outlier_concentration_pct"]*100:.1f}% > 25% max single trade PnL)'
                     discovery_state["rejected"] += 1
-                elif stats['win_rate_pct'] < 58.0:
+                elif stats['win_rate_pct'] < 58.0 and not is_asymmetric_alpha:
                     wallet.status = 'rejected'
                     wallet.tier = 'rejected'
                     wallet.rejection_reason = f'Win rate ({stats["win_rate_pct"]}%) is below 58% threshold'
                     discovery_state["rejected"] += 1
-                elif t_count_val >= 100 and float(stats.get('wilson_lower_bound') or 0.0) < 50.0:
+                elif t_count_val >= 100 and float(stats.get('wilson_lower_bound') or 0.0) < 50.0 and not is_asymmetric_alpha:
                     wallet.status = 'rejected'
                     wallet.tier = 'rejected'
                     wallet.rejection_reason = f'Wilson lower bound ({stats.get("wilson_lower_bound", 0.0)}%) is below 50% threshold'

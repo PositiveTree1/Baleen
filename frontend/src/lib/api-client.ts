@@ -136,12 +136,16 @@ export async function logoutBackend(): Promise<void> {
 export async function fetchWithAuth(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
   // Resolve the current cookie-backed session even on direct page loads and in
   // other tabs. Share simultaneous lookups, but never persist a second identity.
+  const hadAuthAuthority = Boolean(inMemoryAuthToken);
   let token: string | null = null;
   if (typeof window !== 'undefined') {
     pendingSession ??= getSession().finally(() => { pendingSession = null; });
     const session = await pendingSession;
-    token = session?.user?.accessToken || session?.accessToken || null;
+    const sessionToken = session?.user?.accessToken || session?.accessToken;
+    token = sessionToken || (session !== null ? inMemoryAuthToken : null);
     setAuthToken(token);
+  } else {
+    token = inMemoryAuthToken;
   }
   const headers = new Headers(init?.headers || {});
 
@@ -163,7 +167,7 @@ export async function fetchWithAuth(input: RequestInfo | URL, init?: RequestInit
     // Fails closed: clear cache and session token on 401
     clearAllCache();
     setAuthToken(null);
-    if (typeof window !== 'undefined') {
+    if (typeof window !== 'undefined' && (token || hadAuthAuthority)) {
       window.dispatchEvent(new CustomEvent('baleen:session-expired'));
     }
   }
@@ -384,7 +388,9 @@ interface RawExecutionLog {
 
 export async function fetchWallet(address: string): Promise<WalletDetail | null> {
   try {
-    const res = await fetch(`${API_BASE_URL}/api/wallets/${address}`);
+    const res = await fetch(`${API_BASE_URL}/api/wallets/${address}`, {
+      signal: AbortSignal.timeout(10000)
+    });
     if (!res.ok) return null;
     const data = await res.json();
     const w = data.wallet || data;
@@ -392,7 +398,7 @@ export async function fetchWallet(address: string): Promise<WalletDetail | null>
       address: w.address,
       name: w.name || null,
       pseudonym: w.pseudonym || null,
-      profileImage: w.profileImage || null,
+      profileImage: w.profile_image || w.profileImage || null,
       tier: w.tier,
       winRate: w.win_rate_pct ?? null,
       wilsonLb: w.wilson_lb ?? null,

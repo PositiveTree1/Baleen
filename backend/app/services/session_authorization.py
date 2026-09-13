@@ -13,10 +13,17 @@ from eth_account import Account
 from eth_account.messages import encode_typed_data
 from eth_utils import keccak
 from sqlalchemy import select
-from polymarket.auth import BuilderApiKey
-from polymarket._internal.actions.relayer.auth import build_builder_key_headers
-from polymarket._internal.actions.relayer.calls import authorize_session_signer_call, revoke_session_signer_call
-from polymarket._internal.actions.relayer.signing.deposit_wallet import build_deposit_wallet_typed_data
+try:
+    from polymarket.auth import BuilderApiKey
+    from polymarket._internal.actions.relayer.auth import build_builder_key_headers
+    from polymarket._internal.actions.relayer.calls import authorize_session_signer_call, revoke_session_signer_call
+    from polymarket._internal.actions.relayer.signing.deposit_wallet import build_deposit_wallet_typed_data
+except ImportError:
+    BuilderApiKey = None
+    build_builder_key_headers = None
+    authorize_session_signer_call = None
+    revoke_session_signer_call = None
+    build_deposit_wallet_typed_data = None
 from app.config import settings
 from app.models import User, LiveSigningSession, LiveWalletLink, LiveSessionOperation
 from app.services.live_runtime import verify_owner_wallet

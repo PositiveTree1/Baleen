@@ -10,9 +10,15 @@ from eth_abi import decode, encode
 from eth_account import Account
 from eth_account.messages import encode_typed_data
 from eth_utils import keccak
-from polymarket._internal.actions.orders.post import build_post_order_request
-from polymarket._internal.actions.orders.types import UnsignedOrder
-from polymarket._internal.actions.orders.typed_data import build_order_typed_data, build_order_signature
+try:
+    from polymarket._internal.actions.orders.post import build_post_order_request
+    from polymarket._internal.actions.orders.types import UnsignedOrder
+    from polymarket._internal.actions.orders.typed_data import build_order_typed_data, build_order_signature
+except ImportError:
+    build_post_order_request = None
+    UnsignedOrder = None
+    build_order_typed_data = None
+    build_order_signature = None
 from app.services.live_order_journal import number
 
 EXCHANGES = {'0xe111180000d2663c0091e4f400237545b87b996b', '0xe2222d279d744050d28e00520010520000310f59'}

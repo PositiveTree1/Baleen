@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useEffect, useState, useMemo } from 'react';
 import { fetchWallet } from '@/lib/api-client';
 import { WalletDetail } from '@/types';
-import { X, ExternalLink, Copy, Check, Sparkles } from 'lucide-react';
+import { X, ExternalLink, Copy, Check, Sparkles, AlertCircle, RotateCw } from 'lucide-react';
 import { Badge } from '../ui/Badge';
 import { ScoreHistoryChart } from '../charts/ScoreHistoryChart';
 import { CumulativePnLChart } from '../charts/CumulativePnLChart';
@@ -25,8 +25,11 @@ export function WalletDrawer({ address, onClose }: WalletDrawerProps) {
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [address, onClose]);
+
   const [wallet, setWallet] = useState<WalletDetail | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(Boolean(address));
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [reloadTrigger, setReloadTrigger] = useState(0);
   const [copied, setCopied] = useState(false);
   const [activeChartTab, setActiveChartTab] = useState<'winloss' | 'pnl' | 'score'>('winloss');
   const [timeframe, setTimeframe] = useState<'1W' | '1M' | 'YTD' | 'ALL'>('ALL');
@@ -34,30 +37,43 @@ export function WalletDrawer({ address, onClose }: WalletDrawerProps) {
   const [prevAddress, setPrevAddress] = useState(address);
   if (prevAddress !== address) {
     setPrevAddress(address);
-    if (!address) {
-      setWallet(null);
-    }
+    setWallet(null);
+    setLoadError(null);
+    setLoading(Boolean(address));
   }
 
   useEffect(() => {
     if (!address) return;
     let active = true;
+    setLoading(true);
+
     fetchWallet(address)
       .then((data) => {
-        if (active) {
+        if (!active) return;
+        if (data) {
           setWallet(data);
-          setLoading(false);
+          setLoadError(null);
+        } else {
+          setLoadError("Unable to retrieve stats for this wallet. It may have no confirmed activity or Polymarket API is rate-limiting.");
         }
+        setLoading(false);
       })
       .catch(() => {
-        if (active) {
-          setLoading(false);
-        }
+        if (!active) return;
+        setLoadError("Failed to connect to backend control plane. Please retry.");
+        setLoading(false);
       });
+
     return () => {
       active = false;
     };
-  }, [address]);
+  }, [address, reloadTrigger]);
+
+  const handleRetry = () => {
+    setLoading(true);
+    setLoadError(null);
+    setReloadTrigger(prev => prev + 1);
+  };
 
   const handleCopy = () => {
     if (address) {
@@ -274,6 +290,7 @@ export function WalletDrawer({ address, onClose }: WalletDrawerProps) {
                     </div>
                   </div>
 
+                  {/* Chart Container Card */}
                   <div className="p-5 bg-slate-50 dark:bg-[#1C1D22] border border-black/[0.06] dark:border-white/5 rounded-3xl space-y-4">
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-black/[0.04] dark:border-white/5 pb-3">
                       {/* Sub-tabs */}
@@ -347,6 +364,23 @@ export function WalletDrawer({ address, onClose }: WalletDrawerProps) {
                       )}
                     </div>
                   </div>
+                </div>
+              ) : loadError && !loading ? (
+                <div className="flex flex-col items-center justify-center p-8 text-center rounded-2xl bg-red-500/5 dark:bg-red-500/10 border border-red-500/20 space-y-4 my-8">
+                  <div className="w-12 h-12 rounded-full bg-red-500/10 flex items-center justify-center text-red-500">
+                    <AlertCircle size={24} />
+                  </div>
+                  <div className="space-y-1 max-w-sm">
+                    <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Unable to Load Wallet Stats</h3>
+                    <p className="text-xs text-slate-500 dark:text-[#8E8F99] leading-relaxed">{loadError}</p>
+                  </div>
+                  <button
+                    onClick={handleRetry}
+                    className="flex items-center gap-2 px-4 py-2 bg-[#00D09C] hover:bg-[#00B084] text-black font-semibold text-xs rounded-xl transition-colors cursor-pointer shadow-xs"
+                  >
+                    <RotateCw size={14} />
+                    <span>Retry Analysis</span>
+                  </button>
                 </div>
               ) : (
                 <div className="space-y-6">

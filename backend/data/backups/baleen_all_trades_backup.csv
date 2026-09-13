@@ -1,3 +1,3 @@
 id,user_id,run_id,is_sandbox,timestamp,wallet_address,market_condition_id,market_question,event_slug,side,outcome,whale_entry_price,user_fill_price,notional_usd,fee_usd,realized_pnl_usd,status,tx_hash
-9659269f-41f9-4d11-9810-df1708e705c5,,,True,2026-09-13T09:00:30.643285,0xempirical_backup_whale,0xcond_backup_1,Will SpaceX reach Mars in 2026?,,BUY,Yes,0.35,0.35,250.0,2.5,,FILLED,
-87658609-ed49-452f-9435-8ae50ed1df89,,,True,2026-09-13T09:00:30.643285,0xempirical_backup_whale,0xcond_backup_2,Will Apple launch foldable iPhone in 2026?,,SELL,No,0.8,0.8,250.0,1.5,75.0,CLOSED,
+ffb730d5-cbae-40d5-b81f-83153c933f6f,,,True,2026-09-13T14:22:14.270720,0xempirical_backup_whale,0xcond_backup_1,Will SpaceX reach Mars in 2026?,,BUY,Yes,0.35,0.35,250.0,2.5,,FILLED,
+e072f95d-5b53-4970-a6db-0941d6c3bf8e,,,True,2026-09-13T14:22:14.270720,0xempirical_backup_whale,0xcond_backup_2,Will Apple launch foldable iPhone in 2026?,,SELL,No,0.8,0.8,250.0,1.5,75.0,CLOSED,

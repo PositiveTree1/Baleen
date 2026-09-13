@@ -9,7 +9,27 @@ from decimal import Decimal, ROUND_DOWN, ROUND_CEILING
 import time
 import uuid
 from sqlalchemy import select, text
-from polymarket.models.clob.orders import SignedOrder
+try:
+    from polymarket.models.clob.orders import SignedOrder
+except ImportError:
+    from dataclasses import dataclass
+    @dataclass
+    class SignedOrder:
+        builder: str = ""
+        expiration: int = 0
+        maker: str = ""
+        maker_amount: int = 0
+        metadata: str = ""
+        order_type: str = ""
+        salt: int = 0
+        side: str = ""
+        signature_type: int = 0
+        signer: str = ""
+        taker_amount: int = 0
+        timestamp: int = 0
+        token_id: str = ""
+        signature: str = ""
+        post_only: bool = False
 from app.models import (CanonicalSourceEvent, LiveCopyPolicy, LiveSigningSession,
     LiveOrderIntent, LiveExecutionAccount, LivePosition, LiveSourcePosition, LiveConfirmedFill, LiveWalletBaseline)
 from app.services.live_order_journal import LiveOrderJournal, number

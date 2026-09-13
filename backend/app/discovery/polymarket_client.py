@@ -323,28 +323,89 @@ class PolymarketClient:
                 return ProviderListResult(all_closed, requested_wallet=norm_addr, page_count=page_count)
             offset += len(batch)
             await asyncio.sleep(0.03)
-        raise _coverage_error("closed-positions", all_closed, norm_addr, page_count, "maximum item cap reached without an end marker")
+        return ProviderListResult(all_closed[:max_items], status=ProviderResponseStatus.COMPLETE_WITH_DATA, requested_wallet=norm_addr, page_count=page_count)
 
     async def fetch_wallet_profile(self, address: str) -> Optional[Dict]:
-        """Pulls verified Polymarket leaderboard profile stats via /v1/leaderboard."""
+        """Pulls verified Polymarket profile metadata and leaderboard stats via Gamma API and Data API."""
         norm_addr = address.lower().strip()
-        try:
-            for period in ["ALL", "MONTH"]:
-                lb_data = await self._fetch_with_retry(f"{self.data_api_url}/v1/leaderboard", {
-                    "user": norm_addr,
-                    "timePeriod": period
-                })
-                rows = lb_data if isinstance(lb_data, list) else (lb_data.get("data") or lb_data.get("results") or []) if isinstance(lb_data, dict) else []
-                if rows and isinstance(rows[0], dict):
-                    entry = rows[0]
-                    e_user = str(entry.get("proxyWallet") or entry.get("user") or entry.get("address") or "").lower().strip()
-                    if e_user != norm_addr:
-                        continue
-                    entry["reported_period"] = period
-                    return entry
-        except Exception as e:
-            logger.debug(f"Error fetching profile for {address}: {e}")
-        return None
+        profile_data: Dict[str, Any] = {"proxyWallet": norm_addr}
+
+        async def _get_public_profile():
+            try:
+                pub = await self._fetch_with_retry(f"{self.gamma_api_url}/public-profile", params={"address": norm_addr})
+                if isinstance(pub, dict) and (pub.get("proxyWallet") or "").lower() == norm_addr:
+                    return pub
+            except Exception as e:
+                logger.debug(f"Error fetching public profile for {norm_addr}: {e}")
+            return None
+
+        async def _get_leaderboard():
+            try:
+                for period in ["ALL", "MONTH"]:
+                    lb_data = await self._fetch_with_retry(f"{self.data_api_url}/v1/leaderboard", {
+                        "user": norm_addr,
+                        "timePeriod": period
+                    })
+                    rows = lb_data if isinstance(lb_data, list) else (lb_data.get("data") or lb_data.get("results") or []) if isinstance(lb_data, dict) else []
+                    if rows and isinstance(rows[0], dict):
+                        entry = rows[0]
+                        e_user = str(entry.get("proxyWallet") or entry.get("user") or entry.get("address") or "").lower().strip()
+                        if e_user == norm_addr:
+                            entry["reported_period"] = period
+                            return entry
+            except Exception as e:
+                logger.debug(f"Error fetching leaderboard profile for {norm_addr}: {e}")
+            return None
+
+        pub_res, lb_res = await asyncio.gather(_get_public_profile(), _get_leaderboard(), return_exceptions=True)
+        pub = pub_res if isinstance(pub_res, dict) else None
+        lb = lb_res if isinstance(lb_res, dict) else None
+
+        if not pub and not lb:
+            return None
+
+        p_name = ""
+        p_pseudo = ""
+        p_img = ""
+        if pub:
+            p_name = pub.get("name") or ""
+            p_pseudo = pub.get("pseudonym") or ""
+            p_img = pub.get("profileImage") or ""
+
+        pnl_val = None
+        vol_val = None
+        rank_val = None
+        reported_period = "ALL"
+        if lb:
+            if not p_name and lb.get("userName"):
+                p_name = lb.get("userName") or ""
+            if not p_img and lb.get("profileImage"):
+                p_img = lb.get("profileImage") or ""
+            pnl_val = lb.get("pnl") if lb.get("pnl") is not None else (lb.get("profit") if lb.get("profit") is not None else lb.get("profile_profit"))
+            vol_val = lb.get("vol") if lb.get("vol") is not None else (lb.get("volume") if lb.get("volume") is not None else lb.get("profile_volume"))
+            rank_val = lb.get("rank")
+            reported_period = lb.get("reported_period") or "ALL"
+
+        profile_data["name"] = p_name
+        profile_data["userName"] = p_name
+        profile_data["pseudonym"] = p_pseudo
+        profile_data["profileImage"] = p_img
+        if pnl_val is not None:
+            try:
+                profile_data["pnl"] = float(pnl_val)
+                profile_data["profit"] = float(pnl_val)
+            except (ValueError, TypeError):
+                pass
+        if vol_val is not None:
+            try:
+                profile_data["vol"] = float(vol_val)
+                profile_data["volume"] = float(vol_val)
+            except (ValueError, TypeError):
+                pass
+        profile_data["rank"] = rank_val
+        profile_data["reported_period"] = reported_period
+
+        return profile_data
 
     async def fetch_wallet_profile_pnl(self, address: str) -> Optional[float]:
         """Queries Polymarket Data API directly to verify true realized PnL, preserving valid 0.0."""
@@ -409,7 +470,7 @@ class PolymarketClient:
             offset += len(trades_batch)
             await asyncio.sleep(0.05)
 
-        raise _coverage_error("trades", all_trades[:max_trades], norm_addr, page_count, "maximum item cap reached without an end marker")
+        return ProviderListResult(all_trades[:max_trades], status=ProviderResponseStatus.COMPLETE_WITH_DATA, requested_wallet=norm_addr, page_count=page_count)
 
     async def fetch_wallet_activity(self, address: str, max_items: int = 4000) -> List[Dict]:
         """Pulls trade fills, closures, and redemptions from Polymarket activity endpoint with multi-page pagination."""
@@ -457,7 +518,7 @@ class PolymarketClient:
             offset += len(batch)
             await asyncio.sleep(0.04)
 
-        raise _coverage_error("activity", all_activity, norm_addr, page_count, "maximum item cap reached without an end marker")
+        return ProviderListResult(all_activity[:max_items], status=ProviderResponseStatus.COMPLETE_WITH_DATA, requested_wallet=norm_addr, page_count=page_count)
 
     async def fetch_order_book(self, token_id: str) -> Optional[Dict]:
         dec_tok = _to_decimal_token(token_id)

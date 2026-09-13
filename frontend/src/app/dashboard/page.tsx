@@ -108,12 +108,13 @@ export default function DashboardPage() {
         setAuthToken(token);
       }
       const targetUserId = effectiveUserId;
+      const canFetchPrivate = Boolean(targetUserId && token);
       try {
         const [userData, portfolioData, logsData, liveData, walletsData] = await Promise.all([
-          targetUserId ? fetchUserSettings(targetUserId) : null,
-          targetUserId ? fetchPortfolioSummary(targetUserId) : null,
-          targetUserId ? fetchExecutionLogs(targetUserId, { limit: '500' }) : [],
-          targetUserId ? fetchLiveDashboard(targetUserId) : null,
+          canFetchPrivate ? fetchUserSettings(targetUserId!) : null,
+          canFetchPrivate ? fetchPortfolioSummary(targetUserId!) : null,
+          canFetchPrivate ? fetchExecutionLogs(targetUserId!, { limit: '500' }) : [],
+          canFetchPrivate ? fetchLiveDashboard(targetUserId!) : null,
           fetchWallets()
         ]);
         if (!isMounted) return;

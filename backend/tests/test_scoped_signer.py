@@ -4,6 +4,7 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock
 import time
 import pytest
+pytest.importorskip("polymarket")
 from eth_account import Account
 from eth_account.messages import encode_typed_data
 from eth_utils import keccak

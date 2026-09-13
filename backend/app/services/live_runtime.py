@@ -4,7 +4,10 @@ import json
 from types import SimpleNamespace
 import httpx
 from eth_account import Account
-from polymarket import AsyncSecureClient
+try:
+    from polymarket import AsyncSecureClient
+except ImportError:
+    AsyncSecureClient = None
 from app.auth import decrypt_secret
 from app.config import settings
 from app.models import LiveSigningSession, LiveWalletLink
