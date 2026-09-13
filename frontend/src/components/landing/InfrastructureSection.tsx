@@ -1,89 +1,130 @@
 'use client';
-import Link from 'next/link';
+
 import Image from 'next/image';
-import { ArrowRight } from 'lucide-react';
+import Link from 'next/link';
 import { motion } from 'framer-motion';
+import { ArrowRight, ShieldCheck, Zap, Layers, Activity, CheckCircle } from 'lucide-react';
 
 export function InfrastructureSection() {
   return (
-    <section id="infrastructure" className="py-14 sm:py-24 px-4 sm:px-6 lg:px-20 border-t border-black/[0.06] dark:border-white/10 bg-white dark:bg-[#000000] transition-colors duration-150 scroll-mt-20">
-      <div className="max-w-7xl mx-auto">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
-          
-          {/* Left Text Column */}
-          <div className="lg:col-span-5 space-y-6">
-            <span className="text-[11px] font-bold tracking-[0.2em] uppercase text-slate-400 dark:text-[#8E8F99] font-mono">
-              Research preview
-            </span>
-            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-slate-950 dark:text-white tracking-[-0.03em] leading-[1.12] text-balance">
-              Understand each <br />
-              simulated trade.
-            </h2>
-            <p className="text-base text-slate-600 dark:text-[#8E8F99] leading-relaxed max-w-md font-normal">
-              Explore trader activity, paper fills and portfolio changes in one place. Accounting and data validation are in progress, so current results are not verified performance.
-            </p>
-          </div>
+    <>
+      {/* Deep Pacific Surrealism Architecture Showcase */}
+      <section id="infrastructure" className="relative overflow-hidden bg-[#040914] px-5 py-24 text-white sm:px-8 sm:py-32 lg:px-12">
+        <div className="mx-auto max-w-[1380px]">
+          <div className="liquid-glass-panel relative overflow-hidden rounded-[36px] border border-white/15 p-6 sm:p-12 lg:p-16">
+            <div className="grid gap-12 lg:grid-cols-[1.1fr_.9fr] lg:items-center">
+              {/* Left Column: Quantitative System Specs */}
+              <div>
+                <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-cyan-400/30 bg-cyan-400/10 px-3.5 py-1 text-xs font-bold tracking-wider text-cyan-200">
+                  <Activity size={13} className="text-cyan-300" />
+                  <span>DEEP INFRASTRUCTURE</span>
+                </div>
+                <h2 className="font-outfit text-3xl font-black leading-[0.95] tracking-[-0.04em] text-white sm:text-5xl lg:text-6xl">
+                  Speed without compromise.
+                  <span className="block surreal-text-gradient">Precision without noise.</span>
+                </h2>
+                <p className="mt-6 max-w-xl text-base font-normal leading-relaxed text-slate-300 sm:text-lg">
+                  Every prediction trade on Polymarket is an on-chain event. Baleen captures, validates, and simulates copy execution across isolated sleeves before retail orderbooks shift.
+                </p>
 
-          {/* Middle Stats Column */}
-          <div className="lg:col-span-3 space-y-8 lg:border-l lg:border-black/[0.06] dark:lg:border-white/10 lg:pl-10">
-            <div>
-              <div className="text-3xl font-extrabold text-slate-950 dark:text-white font-mono tracking-tight tabular-nums">Paper</div>
-              <div className="text-xs text-slate-500 dark:text-[#8E8F99] font-semibold mt-1">Current trading mode</div>
-            </div>
-            <div>
-              <div className="text-3xl font-extrabold text-slate-950 dark:text-white font-mono tracking-tight tabular-nums">Preview</div>
-              <div className="text-xs text-slate-500 dark:text-[#8E8F99] font-semibold mt-1">Validation in progress</div>
-            </div>
-            <div>
-              <div className="text-3xl font-extrabold text-slate-950 dark:text-white font-mono tracking-tight tabular-nums">Simulated</div>
-              <div className="text-xs text-slate-500 dark:text-[#8E8F99] font-semibold mt-1">Fills and portfolio returns</div>
-            </div>
-          </div>
-
-          {/* Right Obsidian CTA Card */}
-          <div className="lg:col-span-4">
-            <motion.div 
-              initial={{ opacity: 0, scale: 0.96 }}
-              whileInView={{ opacity: 1, scale: 1 }}
-              viewport={{ once: true }}
-              className="relative rounded-[28px] bg-[#16171B] p-8 sm:p-10 text-white shadow-2xl overflow-hidden border border-white/10 space-y-6"
-            >
-              {/* Obsidian Texture Background */}
-              <div className="absolute inset-0 w-full h-full pointer-events-none select-none z-0" aria-hidden="true">
-                <Image
-                  src="/images/cta_obsidian_silk.jpg"
-                  alt="Liquid Obsidian Silk Texture"
-                  fill
-                  className="object-cover opacity-45 mix-blend-luminosity"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-[#16171B] via-[#16171B]/70 to-[#16171B]/50" />
+                {/* Technical Specs List */}
+                <div className="mt-10 grid gap-4 sm:grid-cols-2">
+                  {[
+                    { title: 'Envio Hypersync RPC', desc: 'Direct Polygon chain indexing at sub-120ms latency' },
+                    { title: 'Dynamic Kelly Fraction', desc: 'Continuous sizing optimization per market conviction' },
+                    { title: 'Algorithmic Pruning', desc: 'Automated removal if win rate drops below 75%' },
+                    { title: 'Non-Custodial Sandbox', desc: 'Risk-free simulated executions with live orderbook math' },
+                  ].map((spec) => (
+                    <div
+                      key={spec.title}
+                      className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 backdrop-blur-xl"
+                    >
+                      <div className="flex items-center gap-2 font-mono text-sm font-bold text-cyan-200">
+                        <CheckCircle size={15} className="text-emerald-400" />
+                        <span>{spec.title}</span>
+                      </div>
+                      <p className="mt-1.5 text-xs text-white/60 leading-relaxed">{spec.desc}</p>
+                    </div>
+                  ))}
+                </div>
               </div>
-              
-              <div className="relative z-10 space-y-3">
-                <span className="text-[10px] font-bold tracking-[0.2em] uppercase text-slate-400 font-mono">
-                  Ready to start?
+
+              {/* Right Column: Floating Liquid Glass Visual Mockup */}
+              <div className="relative mx-auto w-full max-w-[480px]">
+                <div className="liquid-glass-card relative overflow-hidden rounded-[32px] border border-white/20 p-6 shadow-2xl">
+                  {/* Subtle Inner Refraction */}
+                  <div className="relative h-64 w-full overflow-hidden rounded-2xl sm:h-72">
+                    <Image
+                      src="/images/baleen-liquid-glass.jpg"
+                      alt="Apple Liquid Glass floating card with live balance and chromatic refraction edges"
+                      fill
+                      sizes="(max-width: 768px) 100vw, 480px"
+                      className="object-cover"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-[#060c1b] via-transparent to-transparent" />
+                  </div>
+
+                  {/* Floating Pill Highlights */}
+                  <div className="mt-6 flex items-center justify-between border-t border-white/10 pt-4">
+                    <div>
+                      <div className="text-[10px] font-bold uppercase tracking-wider text-white/50">
+                        Sandbox Capital Allocated
+                      </div>
+                      <div className="font-mono text-2xl font-black text-white">$10,000.00</div>
+                    </div>
+                    <span className="rounded-full border border-emerald-400/30 bg-emerald-400/10 px-3 py-1 font-mono text-xs font-bold text-emerald-300">
+                      Instant Guest Access
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* High-Impact Closing CTA Banner (Apple Liquid Glass & Pacific Surrealism Theme) */}
+      <section className="relative overflow-hidden bg-[#060c1b] px-5 py-24 text-white sm:px-8 sm:py-36">
+        {/* Ambient Orbit Glow */}
+        <div className="pointer-events-none absolute -right-20 top-0 size-[500px] rounded-full bg-cyan-500/15 blur-[100px]" />
+        <div className="pointer-events-none absolute -left-20 bottom-0 size-[500px] rounded-full bg-emerald-500/10 blur-[100px]" />
+
+        <div className="relative mx-auto max-w-[1380px]">
+          <div className="liquid-glass-card relative overflow-hidden rounded-[36px] border border-white/20 p-8 sm:p-16 lg:p-20 shadow-2xl">
+            <div className="relative z-10 flex flex-col justify-between gap-10 lg:flex-row lg:items-end">
+              <div className="max-w-3xl">
+                <span className="font-mono text-xs font-extrabold uppercase tracking-widest text-cyan-300">
+                  READY TO TEST ALPHA?
                 </span>
-                <h3 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white leading-snug text-balance">
-                  Join the next generation of prediction trading.
-                </h3>
+                <h2 className="mt-4 font-outfit text-4xl font-black leading-[0.92] tracking-[-0.055em] text-white sm:text-6xl lg:text-7xl">
+                  The whales have moved.
+                  <span className="block surreal-text-gradient">Are you tracking them?</span>
+                </h2>
+                <p className="mt-6 max-w-xl text-base font-normal leading-relaxed text-slate-300 sm:text-lg">
+                  Join hundreds of prediction market researchers shadowing top Polymarket snipers with isolated risk, instant paper allocations, and sub-120ms execution.
+                </p>
               </div>
 
-              <div className="relative z-10 pt-2">
-                <Link href="/auth/signup">
-                  <button 
-                    className="flex items-center gap-2.5 px-7 py-3.5 rounded-full bg-white text-black hover:bg-slate-200 text-sm font-bold transition-all shadow-md active:scale-[0.98] cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00D09C] focus-visible:ring-offset-2 focus-visible:ring-offset-[#16171B]"
-                    aria-label="Get Started Free with Baleen"
-                  >
-                    <span>Get Started Free</span>
-                    <ArrowRight size={15} aria-hidden="true" />
-                  </button>
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                <Link
+                  href="/dashboard"
+                  className="group inline-flex h-16 shrink-0 items-center justify-center gap-3 rounded-full bg-white px-8 text-sm font-extrabold text-slate-950 shadow-[0_12px_35px_rgba(79,228,241,0.25)] transition-all hover:bg-cyan-50 hover:shadow-[0_16px_45px_rgba(79,228,241,0.35)] active:scale-[0.98]"
+                >
+                  <span>Launch $10,000 Sandbox</span>
+                  <ArrowRight size={18} className="transition-transform group-hover:translate-x-1" aria-hidden="true" />
+                </Link>
+
+                <Link
+                  href="/auth/signup"
+                  className="inline-flex h-16 shrink-0 items-center justify-center rounded-full border border-white/20 bg-white/[0.08] px-8 text-sm font-bold text-white backdrop-blur-xl transition-all hover:bg-white/[0.16] hover:border-white/30"
+                >
+                  Create Free Account
                 </Link>
               </div>
-            </motion.div>
+            </div>
           </div>
-
         </div>
-      </div>
-    </section>
+      </section>
+    </>
   );
 }

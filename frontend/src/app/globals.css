@@ -321,3 +321,101 @@
   background: linear-gradient(to right, #16171B 4%, #24262E 25%, #16171B 36%);
   background-size: 1000px 100%;
 }
+
+/* Landing experience: Pacific Surrealism, Revolut Precision & Apple Liquid Glass */
+.baleen-landing {
+  --landing-cobalt: #060c1b;
+  --landing-cyan: #4fe4f1;
+  --landing-turquoise: #00d09c;
+  --landing-gold: #fbbf24;
+  --landing-emerald: #10b981;
+  isolation: isolate;
+}
+
+.baleen-nav {
+  background: linear-gradient(135deg, rgba(6, 12, 27, 0.82), rgba(10, 25, 56, 0.65));
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.25), 0 20px 60px rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(28px) saturate(180%);
+  -webkit-backdrop-filter: blur(28px) saturate(180%);
+}
+
+.liquid-glass-card {
+  background: linear-gradient(135deg, rgba(14, 27, 56, 0.72) 0%, rgba(6, 12, 27, 0.88) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  box-shadow: inset 0 1px 1.5px 0 rgba(255, 255, 255, 0.35), 0 24px 60px -12px rgba(0, 0, 0, 0.65), 0 0 30px -5px rgba(0, 208, 156, 0.12);
+  backdrop-filter: blur(28px) saturate(190%);
+  -webkit-backdrop-filter: blur(28px) saturate(190%);
+}
+
+.liquid-glass-panel {
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.02) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: inset 0 1px 1px 0 rgba(255, 255, 255, 0.2), 0 16px 40px rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(24px) saturate(160%);
+  -webkit-backdrop-filter: blur(24px) saturate(160%);
+}
+
+.liquid-glass-pill {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  box-shadow: inset 0 1px 0.5px rgba(255, 255, 255, 0.3);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+
+.liquid-glass-dock {
+  background: linear-gradient(135deg, rgba(8, 16, 32, 0.88), rgba(4, 8, 18, 0.94));
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.3), 0 20px 50px rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(30px) saturate(180%);
+  -webkit-backdrop-filter: blur(30px) saturate(180%);
+}
+
+.surreal-text-gradient {
+  background: linear-gradient(120deg, #ffffff 15%, #4fe4f1 55%, #fbbf24 95%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.baleen-hero-logo img, .baleen-footer-logo img { filter: brightness(0) invert(1); }
+.baleen-hero-logo span, .baleen-footer-logo span { color: white !important; }
+
+.hero-terminal {
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0.04));
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35), 0 40px 100px rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(26px) saturate(160%);
+  -webkit-backdrop-filter: blur(26px) saturate(160%);
+}
+
+.hero-grain {
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 180 180' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.35'/%3E%3C/svg%3E");
+  mix-blend-mode: soft-light;
+  pointer-events: none;
+}
+
+.section-kicker {
+  font-family: var(--font-space), monospace;
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: #4fe4f1;
+}
+
+@media (max-width: 640px) {
+  .baleen-nav {
+    backdrop-filter: blur(20px) saturate(150%);
+    -webkit-backdrop-filter: blur(20px) saturate(150%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .baleen-landing *, .baleen-landing *::before, .baleen-landing *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
+}

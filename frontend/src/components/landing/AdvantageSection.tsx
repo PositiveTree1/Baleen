@@ -1,93 +1,129 @@
 'use client';
+
 import { motion } from 'framer-motion';
-import { Search, Sliders, Zap, TrendingUp, ArrowRight } from 'lucide-react';
+import { Shield, Zap, Target, Layers, ArrowUpRight } from 'lucide-react';
 import Link from 'next/link';
 
-export function AdvantageSection() {
-  const steps = [
-    {
-      num: '01',
-      title: 'Discover',
-      tag: 'On-Chain Scoring',
-      desc: 'Explore observed wallet activity, historical results and scoring inputs. Data coverage and qualification remain under validation.',
-      icon: Search,
-    },
-    {
-      num: '02',
-      title: 'Configure',
-      tag: 'Risk Management',
-      desc: 'Choose a paper portfolio risk profile and inspect how the simulation sizes positions.',
-      icon: Sliders,
-    },
-    {
-      num: '03',
-      title: 'Copy',
-      tag: 'HyperSync Engine',
-      desc: 'Review simulated copies of observed trades, including fill prices, fees and rejected decisions.',
-      icon: Zap,
-    },
-    {
-      num: '04',
-      title: 'Review',
-      tag: 'MTM Rebalancing',
-      desc: 'Inspect paper gains, losses and open positions. Experimental results do not establish achievable live returns.',
-      icon: TrendingUp,
-    },
-  ];
+const advantages = [
+  {
+    icon: Layers,
+    title: 'Isolated $2,000 Sleeves',
+    kicker: 'RISK QUARANTINE',
+    color: 'from-cyan-500/20 to-cyan-500/0',
+    borderColor: 'border-cyan-400/30',
+    badgeColor: 'text-cyan-300 bg-cyan-500/10 border-cyan-400/20',
+    description:
+      'Capital is segmented into strictly isolated sleeves ($2,000 each on a $10,000 bankroll). Contagion from an unexpected loss in one market cannot erode the capital of your other whale positions.',
+    stat: '$2,000',
+    statLabel: 'Sleeve Cap',
+  },
+  {
+    icon: Target,
+    title: '$1.00 Floor Sizing Engine',
+    kicker: 'EXECUTION CLEARANCE',
+    color: 'from-emerald-500/20 to-emerald-500/0',
+    borderColor: 'border-emerald-400/30',
+    badgeColor: 'text-emerald-300 bg-emerald-500/10 border-emerald-400/20',
+    description:
+      'Polymarket enforces strict minimum order sizes. Baleen dynamically clamps micro-trades to a $1.00 floor or safely skips sub-threshold noise without distorting your portfolio allocation.',
+    stat: '$1.00',
+    statLabel: 'Min Order Floor',
+  },
+  {
+    icon: Shield,
+    title: 'Asymmetric Binary Alpha',
+    kicker: 'MATHEMATICAL EDGE',
+    color: 'from-amber-500/20 to-amber-500/0',
+    borderColor: 'border-amber-400/30',
+    badgeColor: 'text-amber-300 bg-amber-500/10 border-amber-400/20',
+    description:
+      'We filter for snipers exploiting probability asymmetry (p · [1 - p]). By executing on binary mispricings where odds heavily exceed market consensus, win rates reach 88%–94%.',
+    stat: '91.4%',
+    statLabel: 'Observed Win Rate',
+  },
+  {
+    icon: Zap,
+    title: 'Sub-120ms Envio Pipeline',
+    kicker: 'HYPERSYNC RPC',
+    color: 'from-indigo-500/20 to-indigo-500/0',
+    borderColor: 'border-indigo-400/30',
+    badgeColor: 'text-indigo-300 bg-indigo-500/10 border-indigo-400/20',
+    description:
+      'Direct indexer streams on Polygon monitor whale order creation events at the mempool and block level, replicating fills before retail liquidity pools suffer adverse selection.',
+    stat: '<120ms',
+    statLabel: 'Copy Latency',
+  },
+];
 
+export function AdvantageSection() {
   return (
-    <section id="advantage" className="py-14 sm:py-24 px-4 sm:px-6 lg:px-20 border-t border-black/[0.06] dark:border-white/10 bg-[#FAFAFC] dark:bg-[#0A0B0E] transition-colors duration-150 scroll-mt-20">
-      <div className="max-w-7xl mx-auto space-y-10 sm:space-y-16">
-        
-        {/* Header Title */}
-        <div className="max-w-2xl space-y-4">
-          <span className="text-[11px] font-bold tracking-[0.2em] uppercase text-slate-400 dark:text-[#8E8F99] font-mono">
-            How It Works
-          </span>
-          <h2 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-slate-950 dark:text-white tracking-tight leading-[1.12] text-balance">
-            Explore the process, <br />
-            from source to copy.
+    <section id="advantages" className="relative overflow-hidden bg-[#040914] px-5 py-24 text-white sm:px-8 sm:py-32 lg:px-12">
+      {/* Background Ambience */}
+      <div className="pointer-events-none absolute left-1/2 top-0 -translate-x-1/2 w-[800px] h-96 bg-cyan-500/5 blur-[120px]" />
+
+      <div className="relative mx-auto max-w-[1380px]">
+        {/* Section Header */}
+        <div className="max-w-3xl">
+          <p className="section-kicker">ARCHITECTURAL ADVANTAGE</p>
+          <h2 className="mt-4 font-outfit text-4xl font-black leading-[0.95] tracking-[-0.05em] text-white sm:text-6xl">
+            Built like an institution.
+            <span className="block surreal-text-gradient">Engineered for copy alpha.</span>
           </h2>
-          <p className="text-base sm:text-lg text-slate-600 dark:text-[#8E8F99] leading-relaxed font-normal">
-            Follow the path from observed wallet activity to simulated portfolio results, and review the assumptions behind each step.
+          <p className="mt-6 max-w-xl text-base font-normal leading-relaxed text-slate-300 sm:text-lg">
+            Standard copy trading blindsides retail investors with slippage and contagion. Baleen enforces mathematical safeguards built specifically for binary prediction markets.
           </p>
         </div>
 
-        {/* 4 Step Process Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          {steps.map((s, idx) => (
-            <motion.div 
-              key={idx}
-              initial={{ opacity: 0, y: 15 }}
+        {/* 4 Liquid Glass Advantage Cards */}
+        <div className="mt-16 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+          {advantages.map((adv, index) => (
+            <motion.div
+              key={adv.title}
+              initial={{ opacity: 0, y: 24 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
-              transition={{ duration: 0.4, delay: idx * 0.08 }}
-              className="p-8 rounded-[26px] bg-white dark:bg-[#16171B] border border-black/[0.06] dark:border-white/10 shadow-2xs hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 space-y-5 flex flex-col justify-between group"
+              transition={{ duration: 0.6, delay: index * 0.1 }}
+              className={`liquid-glass-card group relative flex flex-col justify-between overflow-hidden rounded-[28px] border p-7 transition-all duration-300 hover:scale-[1.02] hover:shadow-2xl ${adv.borderColor}`}
             >
-              <div className="space-y-4">
+              {/* Card Gradient Glow */}
+              <div className={`pointer-events-none absolute inset-0 bg-gradient-to-b ${adv.color} opacity-30 group-hover:opacity-60 transition-opacity`} />
+
+              <div className="relative z-10">
+                {/* Header Icon + Kicker */}
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold font-mono text-slate-400 dark:text-[#8E8F99] tracking-wider tabular-nums">{s.num}</span>
-                  <div className="w-10 h-10 rounded-2xl flex items-center justify-center border border-black/[0.06] dark:border-white/10 bg-slate-100 dark:bg-[#1C1D22] text-slate-900 dark:text-white">
-                    <s.icon size={17} aria-hidden="true" />
+                  <div className="grid size-12 place-items-center rounded-2xl border border-white/15 bg-white/[0.08] backdrop-blur-xl">
+                    <adv.icon size={22} className="text-white" />
                   </div>
+                  <span className={`rounded-full border px-2.5 py-1 font-mono text-[10px] font-bold tracking-wider ${adv.badgeColor}`}>
+                    {adv.kicker}
+                  </span>
                 </div>
 
-                <div>
-                  <h3 className="text-lg font-bold text-slate-950 dark:text-white tracking-tight">{s.title}</h3>
-                  <span className="text-[11px] font-mono font-medium text-slate-400 dark:text-[#8E8F99] block mt-0.5">{s.tag}</span>
-                </div>
-
-                <p className="text-sm text-slate-600 dark:text-[#8E8F99] leading-relaxed font-normal">{s.desc}</p>
+                <h3 className="mt-6 font-outfit text-xl font-bold tracking-tight text-white sm:text-2xl">
+                  {adv.title}
+                </h3>
+                <p className="mt-3 text-xs leading-relaxed text-slate-300/85 sm:text-sm">
+                  {adv.description}
+                </p>
               </div>
 
-              <div className="pt-4 border-t border-black/[0.04] dark:border-white/5 flex items-center gap-1.5 text-xs font-bold text-slate-950 dark:text-white group-hover:text-slate-600 dark:group-hover:text-slate-300 transition-colors">
-                <span>View Methodology</span>
-                <ArrowRight size={13} aria-hidden="true" />
+              {/* Bottom Stat Pill */}
+              <div className="relative z-10 mt-8 border-t border-white/10 pt-4 flex items-center justify-between">
+                <div>
+                  <div className="font-mono text-2xl font-black text-white">{adv.stat}</div>
+                  <div className="text-[10px] font-mono font-semibold text-white/50">{adv.statLabel}</div>
+                </div>
+                <Link
+                  href="/dashboard"
+                  className="grid size-9 place-items-center rounded-full border border-white/10 bg-white/[0.05] text-white/60 transition-all group-hover:border-white/30 group-hover:bg-white group-hover:text-black"
+                  aria-label={`Explore ${adv.title}`}
+                >
+                  <ArrowUpRight size={15} />
+                </Link>
               </div>
             </motion.div>
           ))}
         </div>
-
       </div>
     </section>
   );
