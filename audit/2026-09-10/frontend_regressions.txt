@@ -1,0 +1,23 @@
+✔ signed session supplies bearer, legacy browser token is removed (145.0842ms)
+✔ logout revokes the current signed-session token, not stale memory (52.8623ms)
+✔ failed revocation is reported instead of silently claiming logout (41.7051ms)
+✔ logout removes authority even if in-memory bearer still exists (35.1223ms)
+✔ successful empty executions replace cached rows (29.782ms)
+✔ account switch clears caches and discards a late previous-account response (27.3917ms)
+✔ Identity Lifecycle Journey 1: Signup & Returning User Login (142.2204ms)
+✔ Identity Lifecycle Journey 2: Logout Backend Revocation (54.6293ms)
+✔ Identity Lifecycle Journey 3: 401 Session Expiry Trigger (43.3483ms)
+✔ Identity Lifecycle Journey 4: Cross-tab & Multi-Account Isolation (35.9697ms)
+✔ Identity Lifecycle Journey 5: No Persistent Plaintext Tokens in Browser Storage (32.5628ms)
+✔ failed signup stays on form and does not try login (117.8221ms)
+✔ failed post-signup login shows an error without dashboard navigation (22.3517ms)
+✔ successful signup and login navigate to dashboard (14.6757ms)
+✔ network failure stays on form and releases loading state (14.1549ms)
+ℹ tests 15
+ℹ suites 0
+ℹ pass 15
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 718.2293

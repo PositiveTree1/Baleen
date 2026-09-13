@@ -1,20 +1,25 @@
 'use client';
-import { useState } from 'react';
+import { useState, Suspense } from 'react';
 import { signIn } from 'next-auth/react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { BrandLogo } from '@/components/ui/BrandLogo';
 import { useTheme } from '@/context/ThemeContext';
 import { Sun, Moon, Sparkles } from 'lucide-react';
 import Link from 'next/link';
+import { guestLogin } from '@/lib/api-client';
 
-export default function LoginPage() {
+function LoginForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { theme, toggleTheme } = useTheme();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [guestLoading, setGuestLoading] = useState(false);
+
+  const displayedError = error || (searchParams.get('reason') === 'session-expired'
+    ? 'Your session expired. Please sign in again to view your portfolio.' : '');
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -41,17 +46,32 @@ export default function LoginPage() {
     }
   };
 
-  const handleGuestLogin = () => {
+  const handleGuestLogin = async () => {
     setGuestLoading(true);
     setError('');
 
-    signIn('credentials', {
-      email: 'guest@baleen.local',
-      password: 'baleen_shared_guest_sandbox_password',
-      redirect: false,
-    }).catch(() => {});
-
-    router.push('/dashboard');
+    try {
+      const guestCreds = await guestLogin();
+      if (guestCreds && guestCreds.email && guestCreds.password) {
+        const res = await signIn('credentials', {
+          email: guestCreds.email,
+          password: guestCreds.password,
+          redirect: false,
+        });
+        if (res?.error) {
+          setError('Failed to sign in to isolated guest session');
+        } else {
+          router.push('/dashboard');
+          router.refresh();
+        }
+      } else {
+        setError('Failed to provision isolated guest session. Please check backend connectivity.');
+      }
+    } catch {
+      setError('An error occurred provisioning guest session');
+    } finally {
+      setGuestLoading(false);
+    }
   };
 
   return (
@@ -76,9 +96,9 @@ export default function LoginPage() {
           <p className="text-slate-500 dark:text-[#8E8F99] text-xs">Access your automated whale-index dashboard</p>
         </div>
 
-        {error && (
+        {displayedError && (
           <div className="p-3.5 rounded-2xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800/60 text-rose-700 dark:text-rose-400 text-xs text-center font-semibold" role="alert">
-            {error}
+            {displayedError}
           </div>
         )}
 
@@ -131,6 +151,7 @@ export default function LoginPage() {
           type="button"
           className="w-full py-3.5 rounded-full bg-[#F1F3F5] dark:bg-[#1C1D22] hover:bg-[#E2E6EA] dark:hover:bg-[#2C2D35] border border-black/[0.08] dark:border-white/10 text-slate-900 dark:text-white text-xs font-bold transition-all shadow-xs cursor-pointer flex items-center justify-center gap-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00D09C] active:scale-[0.98]"
           onClick={handleGuestLogin}
+          disabled={loading || guestLoading}
         >
           <Sparkles size={14} className="text-amber-500" aria-hidden="true" />
           <span>{guestLoading ? 'Opening Dashboard…' : 'Explore as Guest (Instant Demo)'}</span>
@@ -145,4 +166,8 @@ export default function LoginPage() {
       </div>
     </div>
   );
+}
+
+export default function LoginPage() {
+  return <Suspense fallback={<p role="status">Loading sign in…</p>}><LoginForm /></Suspense>;
 }

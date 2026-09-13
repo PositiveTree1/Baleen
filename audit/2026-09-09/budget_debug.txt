@@ -1,0 +1,46 @@
+
+tests/test_batch_b_review_regressions.py::test_buy_processing_does_not_spend_more_than_available_cash_including_fees 
+------------------------------- live log setup --------------------------------
+WARNING  app.database:database.py:116 \u26a0\ufe0f  Database initialized with LOCAL SQLite (sqlite+aiosqlite), schema v8. Data will NOT persist across deploys/restarts! Set DATABASE_URL to your Supabase PostgreSQL connection string.\nFAILED                                                                   [100%]
+
+================================== FAILURES ===================================
+_ test_buy_processing_does_not_spend_more_than_available_cash_including_fees __
+
+    @pytest.mark.asyncio
+    async def test_buy_processing_does_not_spend_more_than_available_cash_including_fees():
+        addr = "0xbr" + "c" * 38
+        cid = "0xcondition_budget"
+        uid = uuid.uuid4()
+        async with SessionLocal() as db:
+            db.add(Wallet(address=addr, status="active", tier="gold_sniper", dormant=False,
+                          is_hft=False, avg_trades_per_day=2, baleen_score=100,
+                          all_time_pnl_usd=50000, win_rate_pct=90, wilson_lb=85))
+            db.add(User(id=uid, email=f"budget-{uuid.uuid4().hex}@batch-b-review.invalid",
+                        sandbox_starting_balance_usd=100, sandbox_balance_usd=100,
+                        sandbox_high_water_mark_usd=100))
+            await db.commit()
+    
+        service = LiveTradeMirrorService()
+        with patch("app.services.event_logger.log_event", new=AsyncMock()):
+            for i in range(3):
+                await service.process_trade_fill(
+                    wallet_address=addr, condition_id=cid, title="Budget market", side="BUY",
+                    price=0.5, cash_usd=50000, dt=datetime.utcnow(), asset="asset-budget",
+                    event_slug="budget", icon="budget", tx_hash="0x" + f"{100+i:064x}", log_index=i,
+                )
+    
+        async with SessionLocal() as db:
+            logs = (await db.execute(select(ExecutionLog).where(
+                ExecutionLog.user_id == uid, ExecutionLog.side == "BUY",
+                ExecutionLog.status == "FILLED"))).scalars().all()
+            spent = sum(float(log.notional_usd or 0) + float(log.fee_usd or 0) for log in logs)
+>           assert spent > 0, 'Cash conservation must not pass by disabling all buys'
+E           AssertionError: Cash conservation must not pass by disabling all buys
+E           assert 0 > 0
+
+tests\test_batch_b_review_regressions.py:159: AssertionError
+----------------------------- Captured log setup ------------------------------
+WARNING  app.database:database.py:116 \u26a0\ufe0f  Database initialized with LOCAL SQLite (sqlite+aiosqlite), schema v8. Data will NOT persist across deploys/restarts! Set DATABASE_URL to your Supabase PostgreSQL connection string.
+=========================== short test summary info ===========================
+FAILED tests/test_batch_b_review_regressions.py::test_buy_processing_does_not_spend_more_than_available_cash_including_fees
+============================== 1 failed in 1.42s ==============================

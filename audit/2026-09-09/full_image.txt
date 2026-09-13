@@ -1,0 +1,59 @@
+DEPRECATED: The legacy builder is deprecated and will be removed in a future release.
+            Install the buildx component to build images with BuildKit:
+            https://docs.docker.com/go/buildx/
+
+Sending build context to Docker daemon  10.91MB
+
+Step 1/15 : FROM python:3.12-slim
+ ---> 78387bc3881b
+Step 2/15 : RUN apt-get update &&     apt-get install -y curl &&     curl -fsSL https://deb.nodesource.com/setup_20.x | bash - &&     apt-get install -y nodejs &&     apt-get clean &&     rm -rf /var/lib/apt/lists/*
+ ---> Using cache
+ ---> cf24c09cab30
+Step 3/15 : WORKDIR /app
+ ---> Using cache
+ ---> ece502b93f81
+Step 4/15 : COPY backend/requirements.txt backend/requirements-pinned.txt ./backend/
+ ---> Using cache
+ ---> cfac2e15f07b
+Step 5/15 : COPY listener/package.json listener/package-lock.json ./listener/
+ ---> Using cache
+ ---> 11ef2607e305
+Step 6/15 : RUN pip install --no-cache-dir --require-hashes -r backend/requirements-pinned.txt
+ ---> Using cache
+ ---> fef3cc9ac002
+Step 7/15 : RUN cd listener && npm ci
+ ---> Using cache
+ ---> a15e21dcdadd
+Step 8/15 : COPY backend/ ./backend/
+ ---> d5b8fe4d8d1e
+Step 9/15 : COPY listener/ ./listener/
+ ---> 710dd26bef6c
+Step 10/15 : RUN cd backend && python -c "import app.main; print('Backend smoke-test passed')"
+ ---> Running in 80f00fe39e39
+Backend smoke-test passed
+ ---> Removed intermediate container 80f00fe39e39
+ ---> 229655449e47
+Step 11/15 : RUN cd listener && npm run build
+ ---> Running in c65c2bac25af
+
+> baleen-listener@0.1.0 build
+> tsc
+
+ ---> Removed intermediate container c65c2bac25af
+ ---> f43eb4405046
+Step 12/15 : COPY start.sh /app/
+ ---> d927e085832b
+Step 13/15 : RUN chmod +x /app/start.sh
+ ---> Running in a708e5534149
+ ---> Removed intermediate container a708e5534149
+ ---> 4c2b62a213d0
+Step 14/15 : EXPOSE 8000
+ ---> Running in bd043afce089
+ ---> Removed intermediate container bd043afce089
+ ---> 78e3750f1f35
+Step 15/15 : CMD ["/app/start.sh"]
+ ---> Running in b267e9083b6f
+ ---> Removed intermediate container b267e9083b6f
+ ---> 6f0d56586caf
+Successfully built 6f0d56586caf
+Successfully tagged baleen-batch-b-full-review:latest

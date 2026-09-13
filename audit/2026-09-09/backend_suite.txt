@@ -1,0 +1,116 @@
+........................................................................ [  2%]
+........................................................................ [  5%]
+........................................................................ [  8%]
+........................................................................ [ 11%]
+........................................................................ [ 13%]
+........................................................................ [ 16%]
+........................................................................ [ 19%]
+........................................................................ [ 22%]
+........................................................................ [ 25%]
+........................................................................ [ 27%]
+........................................................................ [ 30%]
+........................................................................ [ 33%]
+........................................................................ [ 36%]
+........................................................................ [ 39%]
+........................................................................ [ 41%]
+........................................................................ [ 44%]
+........................................................................ [ 47%]
+....................FF.................................................. [ 50%]
+........................................................................ [ 53%]
+........................................................................ [ 55%]
+.............................FFFFFF...................F................. [ 58%]
+........................................................................ [ 61%]
+........................................................................ [ 64%]
+........................................................................ [ 67%]
+........................................................................ [ 69%]
+........................................................................ [ 72%]
+........................................................................ [ 75%]
+........................................................................ [ 78%]
+........................................................................ [ 81%]
+........................................................................ [ 83%]
+........................................................................ [ 86%]
+........................................................................ [ 89%]
+........................................................................ [ 92%]
+........................................................................ [ 95%]
+........................................................................ [ 97%]
+........................................................                 [100%]
+================================== FAILURES ===================================
+_ test_buy_processing_does_not_spend_more_than_available_cash_including_fees __
+tests\test_batch_b_review_regressions.py:159: in test_buy_processing_does_not_spend_more_than_available_cash_including_fees
+    assert spent > 0, 'Cash conservation must not pass by disabling all buys'
+E   AssertionError: Cash conservation must not pass by disabling all buys
+E   assert 0 > 0
+----------------------------- Captured log setup ------------------------------
+WARNING  app.database:database.py:116 \u26a0\ufe0f  Database initialized with LOCAL SQLite (sqlite+aiosqlite), schema v8. Data will NOT persist across deploys/restarts! Set DATABASE_URL to your Supabase PostgreSQL connection string.
+____________ test_dual_provider_deduplication_with_sufficient_cash ____________
+tests\test_batch_b_review_regressions.py:190: in test_dual_provider_deduplication_with_sufficient_cash
+    assert len(rows) == 1
+E   assert 0 == 1
+E    +  where 0 = len([])
+----------------------------- Captured log setup ------------------------------
+WARNING  app.database:database.py:116 \u26a0\ufe0f  Database initialized with LOCAL SQLite (sqlite+aiosqlite), schema v8. Data will NOT persist across deploys/restarts! Set DATABASE_URL to your Supabase PostgreSQL connection string.
+__________________ test_platform_log_database_deduplication ___________________
+tests\test_live_poller_m_a3.py:99: in test_platform_log_database_deduplication
+    assert len(logs) == 1, "First ingestion must create exactly 1 platform ExecutionLog"
+E   AssertionError: First ingestion must create exactly 1 platform ExecutionLog
+E   assert 0 == 1
+E    +  where 0 = len([])
+----------------------------- Captured log setup ------------------------------
+WARNING  app.database:database.py:116 \u26a0\ufe0f  Database initialized with LOCAL SQLite (sqlite+aiosqlite), schema v8. Data will NOT persist across deploys/restarts! Set DATABASE_URL to your Supabase PostgreSQL connection string.
+_______________ test_same_tx_distinct_log_index_both_processed ________________
+tests\test_live_poller_m_a3.py:171: in test_same_tx_distinct_log_index_both_processed
+    assert len(logs) == 2, "Both log_index 0 and log_index 1 must be processed"
+E   AssertionError: Both log_index 0 and log_index 1 must be processed
+E   assert 0 == 2
+E    +  where 0 = len([])
+----------------------------- Captured log setup ------------------------------
+WARNING  app.database:database.py:116 \u26a0\ufe0f  Database initialized with LOCAL SQLite (sqlite+aiosqlite), schema v8. Data will NOT persist across deploys/restarts! Set DATABASE_URL to your Supabase PostgreSQL connection string.
+________ test_out_of_order_sell_registration_and_lagging_buy_matching _________
+tests\test_live_poller_m_a3.py:235: in test_out_of_order_sell_registration_and_lagging_buy_matching
+    assert ooo_key not in service.pending_out_of_order_sells or len(service.pending_out_of_order_sells[ooo_key]) == 0
+E   AssertionError: assert ('0xtest_whale_a3:0xcond_ooo_test:yes' not in {'0xtest_whale_a3:0xcond_ooo_test:yes': [PendingOutOfOrderSell(wallet_address='0xtest_whale_a3', condition_id='0xcond_...ell', log_index=1, title='Test Out-of-Order Market', asset='', event_slug='', icon='', recorded_at=1788990321.406281)]} or 1 == 0)
+E    +  where {'0xtest_whale_a3:0xcond_ooo_test:yes': [PendingOutOfOrderSell(wallet_address='0xtest_whale_a3', condition_id='0xcond_...ell', log_index=1, title='Test Out-of-Order Market', asset='', event_slug='', icon='', recorded_at=1788990321.406281)]} = <app.services.live_poller.LiveTradeMirrorService object at 0x00000234008624B0>.pending_out_of_order_sells
+E    +  and   1 = len([PendingOutOfOrderSell(wallet_address='0xtest_whale_a3', condition_id='0xcond_ooo_test', outcome='Yes', price=0.65, ca...sell', log_index=1, title='Test Out-of-Order Market', asset='', event_slug='', icon='', recorded_at=1788990321.406281)])
+----------------------------- Captured log setup ------------------------------
+WARNING  app.database:database.py:116 \u26a0\ufe0f  Database initialized with LOCAL SQLite (sqlite+aiosqlite), schema v8. Data will NOT persist across deploys/restarts! Set DATABASE_URL to your Supabase PostgreSQL connection string.
+__________________ test_settle_market_resolution_winner_100 ___________________
+tests\test_live_poller_m_a3.py:302: in test_settle_market_resolution_winner_100
+    assert len(open_lots) == 1
+E   assert 0 == 1
+E    +  where 0 = len([])
+----------------------------- Captured log setup ------------------------------
+WARNING  app.database:database.py:116 \u26a0\ufe0f  Database initialized with LOCAL SQLite (sqlite+aiosqlite), schema v8. Data will NOT persist across deploys/restarts! Set DATABASE_URL to your Supabase PostgreSQL connection string.
+___________________ test_settle_market_resolution_loser_000 ___________________
+tests\test_live_poller_m_a3.py:376: in test_settle_market_resolution_loser_000
+    assert len(open_lots) == 1
+E   assert 0 == 1
+E    +  where 0 = len([])
+----------------------------- Captured log setup ------------------------------
+WARNING  app.database:database.py:116 \u26a0\ufe0f  Database initialized with LOCAL SQLite (sqlite+aiosqlite), schema v8. Data will NOT persist across deploys/restarts! Set DATABASE_URL to your Supabase PostgreSQL connection string.
+________________ test_settle_market_resolution_multi_user_hwm _________________
+tests\test_live_poller_m_a3.py:449: in test_settle_market_resolution_multi_user_hwm
+    assert res["status"] == "SUCCESS"
+E   AssertionError: assert 'NO_OPEN_LOTS' == 'SUCCESS'
+E     
+E     - SUCCESS
+E     + NO_OPEN_LOTS
+----------------------------- Captured log setup ------------------------------
+WARNING  app.database:database.py:116 \u26a0\ufe0f  Database initialized with LOCAL SQLite (sqlite+aiosqlite), schema v8. Data will NOT persist across deploys/restarts! Set DATABASE_URL to your Supabase PostgreSQL connection string.
+_____________ test_bug3_poller_blocks_demoted_and_non_top10_buys ______________
+tests\test_production_bugs_r4.py:241: in test_bug3_poller_blocks_demoted_and_non_top10_buys
+    assert log is not None, "Top 10 whale BUY must execute successfully!"
+E   AssertionError: Top 10 whale BUY must execute successfully!
+E   assert None is not None
+----------------------------- Captured log setup ------------------------------
+WARNING  app.database:database.py:116 \u26a0\ufe0f  Database initialized with LOCAL SQLite (sqlite+aiosqlite), schema v8. Data will NOT persist across deploys/restarts! Set DATABASE_URL to your Supabase PostgreSQL connection string.
+=========================== short test summary info ===========================
+FAILED tests/test_batch_b_review_regressions.py::test_buy_processing_does_not_spend_more_than_available_cash_including_fees
+FAILED tests/test_batch_b_review_regressions.py::test_dual_provider_deduplication_with_sufficient_cash
+FAILED tests/test_live_poller_m_a3.py::test_platform_log_database_deduplication
+FAILED tests/test_live_poller_m_a3.py::test_same_tx_distinct_log_index_both_processed
+FAILED tests/test_live_poller_m_a3.py::test_out_of_order_sell_registration_and_lagging_buy_matching
+FAILED tests/test_live_poller_m_a3.py::test_settle_market_resolution_winner_100
+FAILED tests/test_live_poller_m_a3.py::test_settle_market_resolution_loser_000
+FAILED tests/test_live_poller_m_a3.py::test_settle_market_resolution_multi_user_hwm
+FAILED tests/test_production_bugs_r4.py::test_bug3_poller_blocks_demoted_and_non_top10_buys
+9 failed, 2567 passed in 21.77s

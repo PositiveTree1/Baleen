@@ -1,8 +1,38 @@
-import { Wallet, WalletDetail, ExecutionLog, User, PlatformStats, LiveTradingCredentials, LiveTradingDashboard, TestConnectionResult } from '../types';
+import { 
+  Wallet, 
+  WalletDetail, 
+  ExecutionLog, 
+  User, 
+  PlatformStats, 
+  LiveTradingCredentials, 
+  LiveTradingDashboard, 
+  TestConnectionResult, 
+  SystemEvent,
+  LiveSessionSetup,
+  LiveAccountInitialization,
+  CopyPolicyLimits,
+  LiveCopyPolicy,
+  CopyPolicyRequest,
+  PaperRun,
+  PaperRunTrade
+} from '../types';
+import type { SessionOperation } from './session-wallet-approval';
+import { getSession } from 'next-auth/react';
+
+export type { 
+  SessionOperation,
+  LiveSessionSetup,
+  LiveAccountInitialization,
+  CopyPolicyLimits,
+  LiveCopyPolicy,
+  CopyPolicyRequest,
+  PaperRun,
+  PaperRunTrade
+};
 
 let rawBackendUrl = (
-  process.env.NEXT_PUBLIC_BACKEND_URL || 
-  process.env.NEXT_PUBLIC_API_URL || 
+  process.env.NEXT_PUBLIC_BACKEND_URL ||
+  process.env.NEXT_PUBLIC_API_URL ||
   'http://localhost:8000'
 ).trim().replace(/\/$/, '');
 
@@ -13,7 +43,7 @@ if (rawBackendUrl && !rawBackendUrl.startsWith('http://') && !rawBackendUrl.star
 const API_BASE_URL = rawBackendUrl;
 
 // Global In-Memory Cache (persists across Next.js page navigations in browser)
-const memoryCache = new Map<string, { data: any; ts: number }>();
+const memoryCache = new Map<string, { data: unknown; ts: number }>();
 
 function getCached<T>(key: string, maxAgeMs: number = 60000): T | null {
   const entry = memoryCache.get(key);
@@ -35,7 +65,7 @@ function getCached<T>(key: string, maxAgeMs: number = 60000): T | null {
   return null;
 }
 
-function setCached(key: string, data: any) {
+function setCached<T>(key: string, data: T) {
   const entry = { data, ts: Date.now() };
   memoryCache.set(key, entry);
   if (typeof window !== 'undefined') {
@@ -61,6 +91,87 @@ export function clearAllCache() {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Bearer Token Management & Authenticated Fetch
+// ---------------------------------------------------------------------------
+
+let inMemoryAuthToken: string | null = null;
+let pendingSession: ReturnType<typeof getSession> | null = null;
+
+export function setAuthToken(token: string | null) {
+  if (token !== inMemoryAuthToken) clearAllCache();
+  inMemoryAuthToken = token;
+  if (typeof window !== 'undefined') {
+    try {
+      // Retire legacy bearer storage. The signed session is the identity authority.
+      sessionStorage.removeItem('baleen_auth_token');
+      localStorage.removeItem('baleen_auth_token');
+    } catch {}
+  }
+}
+
+export function getAuthToken(): string | null {
+  return inMemoryAuthToken;
+}
+
+export async function logoutBackend(): Promise<void> {
+  const session = await getSession();
+  const token = session?.user?.accessToken || session?.accessToken || null;
+  if (token) {
+      const response = await fetch(`${API_BASE_URL}/api/auth/logout`, {
+        method: 'POST',
+        signal: AbortSignal.timeout(10000),
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      if (!response.ok && response.status !== 401) {
+        throw new Error('Sign out could not be completed. Please retry.');
+      }
+  }
+  setAuthToken(null);
+  clearAllCache();
+}
+
+export async function fetchWithAuth(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
+  // Resolve the current cookie-backed session even on direct page loads and in
+  // other tabs. Share simultaneous lookups, but never persist a second identity.
+  let token: string | null = null;
+  if (typeof window !== 'undefined') {
+    pendingSession ??= getSession().finally(() => { pendingSession = null; });
+    const session = await pendingSession;
+    token = session?.user?.accessToken || session?.accessToken || null;
+    setAuthToken(token);
+  }
+  const headers = new Headers(init?.headers || {});
+
+  if (token && !headers.has('Authorization')) {
+    headers.set('Authorization', `Bearer ${token}`);
+  }
+
+  const response = await fetch(input, {
+    ...init,
+    headers,
+  });
+
+  if (typeof window !== 'undefined' && token !== getAuthToken()) {
+    // A late response from a previous account must not repopulate its cache.
+    return new Response(null, { status: 409, statusText: 'Session changed' });
+  }
+
+  if (response.status === 401) {
+    // Fails closed: clear cache and session token on 401
+    clearAllCache();
+    setAuthToken(null);
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('baleen:session-expired'));
+    }
+  }
+
+  return response;
+}
+
+
 // Synchronous instant-read cache getters for initial component states
 export function getCachedWallets(): Wallet[] | null {
   return getCached<Wallet[]>('wallets_list', 120000);
@@ -70,16 +181,20 @@ export function getCachedExecutionLogs(userId?: string): ExecutionLog[] | null {
   return getCached<ExecutionLog[]>(`exec_logs_${userId || 'all'}`, 60000);
 }
 
-export function getCachedPortfolioSummary(userId?: string): {
-  startingBalance: number;
-  currentBalance: number;
-  totalPnlUsd: number;
-  totalPnlPct: number;
-  totalFeesPaidUsd?: number;
+export function getCachedPortfolioSummary(userId?: string, timeframe?: string): {
+  startingBalance: number | null;
+  currentBalance: number | null;
+  totalPnlUsd: number | null;
+  totalPnlPct: number | null;
+  totalFeesPaidUsd?: number | null;
   filledTradesCount: number;
-  totalNotionalInvested: number;
+  totalNotionalInvested: number | null;
+  valuationStatus?: 'COMPLETE' | 'INCOMPLETE' | string;
+  unvaluedTradesCount?: number;
+  knownPnlUsd?: number | null;
+  knownFeesPaidUsd?: number | null;
 } | null {
-  return getCached(`portfolio_summary_${userId || 'all'}`, 60000);
+  return getCached(`portfolio_summary_${userId || 'all'}_${timeframe || 'all'}`, 60000);
 }
 
 export function getCachedPortfolioSnapshots(userId?: string, timeframe?: string): {
@@ -94,6 +209,32 @@ export function getCachedPortfolioSnapshots(userId?: string, timeframe?: string)
   return getCached(`snapshots_${userId || 'all'}_${timeframe || 'all'}`, 60000);
 }
 
+interface RawWalletApi {
+  address: string;
+  name?: string | null;
+  pseudonym?: string | null;
+  profileImage?: string | null;
+  tier: Wallet['tier'];
+  win_rate_pct?: number | null;
+  wilson_lb?: number | null;
+  all_time_pnl_usd?: number | null;
+  avg_trades_per_day?: number | null;
+  trades_per_hour?: number | null;
+  baleen_score?: number | null;
+  is_hft?: boolean;
+  dormant?: boolean;
+  alpha_per_trade?: number | null;
+  profit_factor?: number | null;
+  first_trade_at?: string | null;
+  last_trade_at?: string | null;
+  ai_style_tag?: string | null;
+  avg_hold_hours?: number | null;
+  median_inter_trade_gap_hours?: number | null;
+  max_drawdown_pct?: number | null;
+  total_trades_analyzed?: number | null;
+  status?: string | null;
+}
+
 export async function fetchWallets(params?: Record<string, string>): Promise<Wallet[]> {
   try {
     const url = new URL(`${API_BASE_URL}/api/wallets`);
@@ -105,18 +246,18 @@ export async function fetchWallets(params?: Record<string, string>): Promise<Wal
     const res = await fetch(url.toString(), { next: { revalidate: 60 } });
     if (!res.ok) return getCachedWallets() || [];
     const data = await res.json();
-    const result = data.map((w: any) => ({
+    const result = data.map((w: RawWalletApi) => ({
       address: w.address,
       name: w.name || null,
       pseudonym: w.pseudonym || null,
       profileImage: w.profileImage || null,
       tier: w.tier,
-      winRate: w.win_rate_pct || 0,
+      winRate: w.win_rate_pct ?? null,
       wilsonLb: w.wilson_lb ?? null,
-      pnl: w.all_time_pnl_usd || 0,
-      tradesPerDay: w.avg_trades_per_day || 0,
+      pnl: w.all_time_pnl_usd ?? null,
+      tradesPerDay: w.avg_trades_per_day ?? null,
       tradesPerHour: w.trades_per_hour ?? null,
-      score: w.baleen_score || 0,
+      score: w.baleen_score ?? null,
       isHft: Boolean(w.is_hft),
       dormant: Boolean(w.dormant),
       alphaPerTrade: w.alpha_per_trade ?? null,
@@ -125,6 +266,8 @@ export async function fetchWallets(params?: Record<string, string>): Promise<Wal
       lastTradeAt: w.last_trade_at || null,
       aiStyleTag: w.ai_style_tag || null,
       avgHoldHours: w.avg_hold_hours ?? null,
+      medianInterTradeGapHours: w.median_inter_trade_gap_hours ?? null,
+      totalTradesAnalyzed: w.total_trades_analyzed ?? null,
       status: w.status || null
     }));
     setCached('wallets_list', result);
@@ -134,7 +277,7 @@ export async function fetchWallets(params?: Record<string, string>): Promise<Wal
   }
 }
 
-export async function fetchCopiedWhalesStats(userId?: string): Promise<{
+export interface CopiedWhaleStat {
   address: string;
   name: string;
   pseudonym?: string;
@@ -144,28 +287,99 @@ export async function fetchCopiedWhalesStats(userId?: string): Promise<{
   aiStyleTag?: string;
   tradesCopied: number;
   fillsCount: number;
-  totalNotional: number;
-  netPnl: number;
-  mirroredPnl: number;
-  roiPct: number;
-  winRateCopied: number;
-  profitFactor: number;
+  totalNotional: number | null;
+  netPnl: number | null;
+  mirroredPnl: number | null;
+  roiPct: number | null;
+  winRateCopied: number | null;
+  profitFactor: number | null;
   wins: number;
   losses: number;
+  unvaluedTradesCount?: number;
+  knownPnlUsd?: number | null;
   copyRatePct?: number;
-}[]> {
+}
+
+export async function fetchCopiedWhalesStats(userId?: string): Promise<CopiedWhaleStat[]> {
   try {
     const url = new URL(`${API_BASE_URL}/api/wallets/copied-stats`);
     if (userId) {
       url.searchParams.append('userId', userId);
       url.searchParams.append('user_id', userId);
     }
-    const res = await fetch(url.toString());
+    const res = await fetchWithAuth(url.toString());
     if (!res.ok) return [];
     return await res.json();
   } catch (error) {
     return [];
   }
+}
+
+interface RawScoreHistory {
+  snapshot_at?: string;
+  date?: string;
+  baleen_score?: number;
+  score?: number;
+}
+
+interface RawDailyPnL {
+  date: string;
+  won_usd?: number;
+  lost_usd?: number;
+  net_pnl?: number;
+  daily_pnl?: number;
+  cumulative_pnl?: number;
+  trades_count?: number;
+}
+
+interface RawTrade {
+  id: string;
+  executed_at: string;
+  market_id?: string;
+  side: ExecutionLog['side'];
+  fill_price?: number | null;
+  size_usd?: number;
+  status: ExecutionLog['status'];
+  pnl_usd?: number | null;
+}
+
+interface RawExecutionLog {
+  id: string;
+  timestamp?: string;
+  executed_at?: string;
+  walletAddress?: string;
+  source_wallet_address?: string;
+  whaleName?: string | null;
+  whalePseudonym?: string | null;
+  whaleAvatar?: string | null;
+  whaleTier?: string | null;
+  marketQuestion?: string;
+  market_question?: string;
+  marketConditionId?: string;
+  market_condition_id?: string;
+  eventSlug?: string;
+  icon?: string;
+  side: ExecutionLog['side'];
+  outcome?: string;
+  entryPrice?: number;
+  whale_entry_price?: number;
+  fillPrice?: number | null;
+  user_fill_price?: number | null;
+  currentPrice?: number | null;
+  size?: number;
+  notional_usd?: number;
+  status: ExecutionLog['status'];
+  pnl?: number | null;
+  realized_pnl_usd?: number | null;
+  grossPnl?: number | null;
+  pnlPct?: number | null;
+  feeUsd?: number | null;
+  markStatus?: string;
+  markObservedAt?: number | null;
+  marketCategory?: string;
+  categoryRate?: number;
+  consensus?: ExecutionLog['consensus'];
+  polymarketUrl?: string;
 }
 
 export async function fetchWallet(address: string): Promise<WalletDetail | null> {
@@ -180,12 +394,12 @@ export async function fetchWallet(address: string): Promise<WalletDetail | null>
       pseudonym: w.pseudonym || null,
       profileImage: w.profileImage || null,
       tier: w.tier,
-      winRate: w.win_rate_pct || 0,
+      winRate: w.win_rate_pct ?? null,
       wilsonLb: w.wilson_lb ?? null,
-      pnl: w.all_time_pnl_usd || 0,
-      tradesPerDay: w.avg_trades_per_day || 0,
+      pnl: w.all_time_pnl_usd ?? null,
+      tradesPerDay: w.avg_trades_per_day ?? null,
       tradesPerHour: w.trades_per_hour ?? null,
-      score: w.baleen_score || 0,
+      score: w.baleen_score ?? null,
       isHft: Boolean(w.is_hft),
       dormant: Boolean(w.dormant),
       alphaPerTrade: w.alpha_per_trade ?? null,
@@ -195,32 +409,34 @@ export async function fetchWallet(address: string): Promise<WalletDetail | null>
       aiStyleTag: w.ai_style_tag || null,
       aiSummary: w.ai_summary || null,
       avgHoldHours: w.avg_hold_hours ?? null,
-      maxDrawdown: w.max_drawdown_pct || 0,
-      scoreHistory: (data.score_history || []).map((s: any) => ({ 
-        date: s.snapshot_at || s.date || new Date().toISOString(), 
-        score: s.baleen_score ?? s.score ?? 0 
+      medianInterTradeGapHours: w.median_inter_trade_gap_hours ?? null,
+      totalTradesAnalyzed: w.total_trades_analyzed ?? null,
+      maxDrawdown: w.max_drawdown_pct ?? null,
+      scoreHistory: (data.score_history || []).map((s: RawScoreHistory) => ({
+        date: s.snapshot_at || s.date || new Date().toISOString(),
+        score: s.baleen_score ?? s.score ?? 0
       })),
-      dailyPnLHistory: (data.daily_pnl_history || []).map((d: any) => ({
+      dailyPnLHistory: (data.daily_pnl_history || []).map((d: RawDailyPnL) => ({
         date: d.date,
         wonUsd: d.won_usd ?? Math.max(0, d.daily_pnl ?? 0),
-        lostUsd: d.lost_usd ?? (d.daily_pnl < 0 ? d.daily_pnl : 0),
+        lostUsd: d.lost_usd ?? ((d.daily_pnl ?? 0) < 0 ? (d.daily_pnl ?? 0) : 0),
         netPnL: d.net_pnl ?? d.daily_pnl ?? 0,
         dailyPnL: d.daily_pnl ?? 0,
         cumulativePnL: d.cumulative_pnl ?? 0,
         tradesCount: d.trades_count ?? 0
       })),
-      recentTrades: (data.recent_trades || []).map((t: any) => ({
+      recentTrades: (data.recent_trades || []).map((t: RawTrade) => ({
         id: t.id,
         timestamp: t.executed_at,
         walletAddress: address,
         marketQuestion: t.market_id || 'Polymarket Condition',
         marketConditionId: t.market_id,
         side: t.side,
-        entryPrice: t.fill_price || 0.0,
-        fillPrice: t.fill_price || 0.0,
+        entryPrice: t.fill_price ?? null,
+        fillPrice: t.fill_price ?? null,
         size: t.size_usd || 0,
         status: t.status,
-        pnl: t.pnl_usd || 0,
+        pnl: t.pnl_usd ?? null,
         polymarketUrl: t.market_id ? `https://polymarket.com/market/${t.market_id}` : 'https://polymarket.com'
       }))
     };
@@ -239,43 +455,47 @@ export async function fetchExecutionLogs(userId?: string, params?: Record<string
     } else {
       url.searchParams.append('limit', '500');
     }
-    const res = await fetch(url.toString());
+    const res = await fetchWithAuth(url.toString());
     if (!res.ok) return getCachedExecutionLogs(userId) || [];
     const data = await res.json();
-    if (!Array.isArray(data) || data.length === 0) {
+    if (!Array.isArray(data)) {
       return getCachedExecutionLogs(userId) || [];
     }
-    const result = data.map((log: any) => ({
+    if (data.length === 0) {
+      setCached(cacheKey, []);
+      return [];
+    }
+    const result = data.map((log: RawExecutionLog) => ({
       id: log.id,
-      timestamp: log.timestamp || log.executed_at,
-      walletAddress: log.walletAddress || log.source_wallet_address,
+      timestamp: log.timestamp || log.executed_at || '',
+      walletAddress: log.walletAddress || log.source_wallet_address || '',
       whaleName: log.whaleName || null,
       whalePseudonym: log.whalePseudonym || null,
       whaleAvatar: log.whaleAvatar || null,
       whaleTier: log.whaleTier || null,
-      marketQuestion: log.marketQuestion || log.market_question,
+      marketQuestion: log.marketQuestion || log.market_question || 'Prediction Market',
       marketConditionId: log.marketConditionId || log.market_condition_id,
       eventSlug: log.eventSlug,
       icon: log.icon,
       side: log.side,
       outcome: log.outcome || 'Yes',
-      entryPrice: log.entryPrice ?? log.whale_entry_price ?? 0,
-      fillPrice: log.fillPrice ?? log.user_fill_price ?? 0,
-      currentPrice: log.currentPrice ?? log.fillPrice ?? log.user_fill_price ?? 0,
+      entryPrice: log.entryPrice ?? log.whale_entry_price ?? null,
+      fillPrice: log.fillPrice ?? log.user_fill_price ?? null,
+      currentPrice: log.currentPrice ?? null,
       size: log.size ?? log.notional_usd ?? 0,
       status: log.status,
-      pnl: log.pnl ?? log.realized_pnl_usd ?? 0,
-      grossPnl: log.grossPnl ?? 0,
-      pnlPct: log.pnlPct ?? 0,
-      feeUsd: log.feeUsd ?? 0,
+      pnl: log.pnl ?? log.realized_pnl_usd ?? null,
+      grossPnl: log.grossPnl ?? null,
+      pnlPct: log.pnlPct ?? null,
+      feeUsd: log.feeUsd ?? null,
+      markStatus: log.markStatus,
+      markObservedAt: log.markObservedAt ?? null,
       marketCategory: log.marketCategory ?? 'General',
       categoryRate: log.categoryRate ?? 0.05,
       consensus: log.consensus ?? { whale_count: 1, total_cash: 0, is_consensus: false },
       polymarketUrl: log.polymarketUrl ?? (log.eventSlug ? `https://polymarket.com/event/${log.eventSlug}` : (log.marketConditionId ? `https://polymarket.com/market/${log.marketConditionId}` : 'https://polymarket.com')),
     }));
-    if (result.length > 0) {
-      setCached(cacheKey, result);
-    }
+    setCached(cacheKey, result);
     return result;
   } catch (error) {
     return getCachedExecutionLogs(userId) || [];
@@ -294,7 +514,7 @@ export async function fetchTradePriceChart(tradeId: string): Promise<{
   history: { timestamp: number; date: string; price: number }[];
 } | null> {
   try {
-    const res = await fetch(`${API_BASE_URL}/api/executions/${tradeId}/chart`);
+    const res = await fetchWithAuth(`${API_BASE_URL}/api/executions/${encodeURIComponent(tradeId)}/chart`);
     if (!res.ok) return null;
     return await res.json();
   } catch (error) {
@@ -303,13 +523,13 @@ export async function fetchTradePriceChart(tradeId: string): Promise<{
 }
 
 export async function fetchPortfolioSummary(userId?: string, timeframe?: string): Promise<{
-  startingBalance: number;
-  currentBalance: number;
-  totalPnlUsd: number;
-  totalPnlPct: number;
-  totalFeesPaidUsd?: number;
+  startingBalance: number | null;
+  currentBalance: number | null;
+  totalPnlUsd: number | null;
+  totalPnlPct: number | null;
+  totalFeesPaidUsd?: number | null;
   filledTradesCount: number;
-  totalNotionalInvested: number;
+  totalNotionalInvested: number | null;
   topAlphaMarkets?: {
     key: string;
     question: string;
@@ -336,20 +556,20 @@ export async function fetchPortfolioSummary(userId?: string, timeframe?: string)
   allTimeWins?: number;
   allTimeLosses?: number;
 } | null> {
-  const cacheKey = `portfolio_summary_${userId || 'all'}`;
+  const cacheKey = `portfolio_summary_${userId || 'all'}_${timeframe || 'all'}`;
   try {
     const url = new URL(`${API_BASE_URL}/api/executions/summary`);
     if (userId) url.searchParams.append('userId', userId);
     if (timeframe) url.searchParams.append('timeframe', timeframe);
-    const res = await fetch(url.toString());
-    if (!res.ok) return getCachedPortfolioSummary(userId);
+    const res = await fetchWithAuth(url.toString());
+    if (!res.ok) return getCachedPortfolioSummary(userId, timeframe);
     const data = await res.json();
     if (data) {
       setCached(cacheKey, data);
     }
     return data;
   } catch (error) {
-    return getCachedPortfolioSummary(userId);
+    return getCachedPortfolioSummary(userId, timeframe);
   }
 }
 
@@ -371,7 +591,7 @@ export async function fetchPortfolioSnapshots(userId?: string, timeframe?: strin
     }
     if (timeframe) url.searchParams.append('timeframe', timeframe);
     url.searchParams.append('limit', '5000');
-    const res = await fetch(url.toString());
+    const res = await fetchWithAuth(url.toString());
     if (!res.ok) return getCachedPortfolioSnapshots(userId, timeframe) || [];
     const data = await res.json();
     if (Array.isArray(data)) {
@@ -388,19 +608,22 @@ export async function fetchCopiedWalletStats(userId?: string): Promise<{
   tier: string;
   score: number;
   aiStyleTag: string;
-  pnl: number;
-  roi: number;
-  winRate: number;
-  profitFactor: number;
+  pnl: number | null;
+  roi: number | null;
+  winRate: number | null;
+  profitFactor: number | null;
   wins: number;
   losses: number;
+  totalNotional?: number | null;
+  unvaluedTradesCount?: number;
+  knownPnlUsd?: number | null;
 }[]> {
   const cacheKey = `copied_stats_${userId || 'all'}`;
   try {
-    const url = userId 
+    const url = userId
       ? `${API_BASE_URL}/api/wallets/copied-stats?userId=${encodeURIComponent(userId)}`
       : `${API_BASE_URL}/api/wallets/copied-stats`;
-    const res = await fetch(url);
+    const res = await fetchWithAuth(url);
     if (!res.ok) return getCached(cacheKey) || [];
     const data = await res.json();
     setCached(cacheKey, data);
@@ -410,16 +633,28 @@ export async function fetchCopiedWalletStats(userId?: string): Promise<{
   }
 }
 
+function parseUserSettingsResponse(data: Record<string, unknown>): { startingBalance: number; currentBalance: number } | null {
+  const startingBalance = data.startingBalance ?? data.sandbox_starting_balance_usd;
+  const currentBalance = data.currentBalance ?? data.sandbox_balance_usd;
+  if (typeof startingBalance !== 'number' || !Number.isFinite(startingBalance) ||
+      typeof currentBalance !== 'number' || !Number.isFinite(currentBalance)) {
+    return null;
+  }
+  return { startingBalance, currentBalance };
+}
+
 export async function fetchUserSettings(userId: string): Promise<User | null> {
   try {
-    const res = await fetch(`${API_BASE_URL}/api/users/${userId}`);
+    const res = await fetchWithAuth(`${API_BASE_URL}/api/users/${userId}`);
     if (!res.ok) return null;
     const data = await res.json();
+    const parsed = parseUserSettingsResponse(data);
+    if (!parsed) return null;
     return {
       id: data.id,
       email: data.email,
-      startingBalance: data.startingBalance ?? data.sandbox_starting_balance_usd ?? 10000,
-      currentBalance: data.currentBalance ?? data.sandbox_balance_usd ?? 10000,
+      startingBalance: parsed.startingBalance,
+      currentBalance: parsed.currentBalance,
       riskProfile: data.riskProfile ?? data.risk_profile ?? 'Balanced',
       dailyDigestOptIn: data.dailyDigestOptIn ?? data.daily_digest_opt_in ?? true,
     };
@@ -430,7 +665,7 @@ export async function fetchUserSettings(userId: string): Promise<User | null> {
 
 export async function updateUserSettings(userId: string, data: Partial<User>): Promise<User | null> {
   try {
-    const res = await fetch(`${API_BASE_URL}/api/users/${userId}`, {
+    const res = await fetchWithAuth(`${API_BASE_URL}/api/users/${userId}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -440,11 +675,13 @@ export async function updateUserSettings(userId: string, data: Partial<User>): P
     });
     if (!res.ok) return null;
     const result = await res.json();
+    const parsed = parseUserSettingsResponse(result);
+    if (!parsed) return null;
     return {
       id: result.id,
       email: result.email,
-      startingBalance: result.startingBalance ?? result.sandbox_starting_balance_usd ?? 10000,
-      currentBalance: result.currentBalance ?? result.sandbox_balance_usd ?? 10000,
+      startingBalance: parsed.startingBalance,
+      currentBalance: parsed.currentBalance,
       riskProfile: result.riskProfile ?? result.risk_profile ?? 'Balanced',
       dailyDigestOptIn: result.dailyDigestOptIn ?? result.daily_digest_opt_in ?? true,
     };
@@ -455,10 +692,10 @@ export async function updateUserSettings(userId: string, data: Partial<User>): P
 
 export async function resetSandboxAmount(userId?: string, newBalance: number = 10000): Promise<boolean> {
   try {
-    const url = userId 
+    const url = userId
       ? `${API_BASE_URL}/api/users/${userId}/reset-sandbox`
       : `${API_BASE_URL}/api/users/reset-sandbox`;
-    const res = await fetch(url, {
+    const res = await fetchWithAuth(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ newBalance }),
@@ -476,7 +713,7 @@ export async function resetSandboxLedger(userId?: string): Promise<boolean> {
   try {
     const url = new URL(`${API_BASE_URL}/api/executions/reset-sandbox`);
     if (userId) url.searchParams.append('userId', userId);
-    const res = await fetch(url.toString(), {
+    const res = await fetchWithAuth(url.toString(), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' }
     });
@@ -498,6 +735,9 @@ export async function signUp(email: string, password: string, startingBalance: n
     });
     if (!res.ok) return null;
     const data = await res.json();
+    if (data.access_token) {
+      setAuthToken(data.access_token);
+    }
     return {
       id: data.id,
       email: data.email,
@@ -521,30 +761,87 @@ export async function fetchPlatformStats(): Promise<PlatformStats | null> {
   }
 }
 
-export async function guestLogin(): Promise<{ email: string; password: string } | null> {
+export async function guestLogin(): Promise<{ email: string; password: string; access_token?: string } | null> {
   try {
     const res = await fetch(`${API_BASE_URL}/api/auth/guest`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
     });
     if (!res.ok) return null;
-    return await res.json();
+    const data = await res.json();
+    if (data.access_token) {
+      setAuthToken(data.access_token);
+    }
+    return data;
   } catch (error) {
     return null;
   }
 }
 
-export function getCachedAdminStatus(): any {
-  return getCached('admin_status', 30000);
+export interface DiscoveryProgress {
+  status?: string;
+  step_description?: string;
+  wallets_scanned?: number;
+  gold_snipers?: number;
+  progress_pct?: number;
 }
 
-export function getCachedAdminWallets(status?: string): any[] | null {
-  return getCached(`admin_wallets_${status || 'all'}`, 30000);
+export interface AdminStatus {
+  discovery_state?: DiscoveryProgress;
+  uptime_seconds?: number;
+  last_cron_ping?: number | null;
+  database?: {
+    type?: string;
+    using_sqlite_fallback?: boolean;
+    totalUsers?: number;
+    totalTrades?: number;
+  };
+  db?: {
+    users?: number;
+    trades?: number;
+  };
+  db_stats?: {
+    total?: number;
+    active?: number;
+    pending?: number;
+    rejected?: number;
+  };
+  audit?: {
+    last_discovery_at?: string;
+    last_scoring_at?: string;
+    gold_snipers?: number;
+    standard_whales?: number;
+    rejection_breakdown?: { reason: string; count: number }[];
+  };
 }
 
-export async function fetchAdminStatus(): Promise<any> {
+export interface AdminWallet {
+  address: string;
+  status?: string;
+  tier?: string;
+  score?: number;
+  baleenScore?: number;
+  baleen_score?: number;
+  winRatePct?: number;
+  win_rate_pct?: number;
+  allTimePnlUsd?: number;
+  all_time_pnl_usd?: number;
+  rejectionReason?: string;
+  rejection_reason?: string;
+  aiStyleTag?: string;
+}
+
+export function getCachedAdminStatus(): AdminStatus | null {
+  return getCached<AdminStatus>('admin_status', 30000);
+}
+
+export function getCachedAdminWallets(status?: string): AdminWallet[] | null {
+  return getCached<AdminWallet[]>(`admin_wallets_${status || 'all'}`, 30000);
+}
+
+export async function fetchAdminStatus(): Promise<AdminStatus | null> {
   try {
-    const res = await fetch(`${API_BASE_URL}/api/admin/status`);
+    const res = await fetchWithAuth(`${API_BASE_URL}/api/admin/status`);
     if (!res.ok) return getCachedAdminStatus();
     const data = await res.json();
     setCached('admin_status', data);
@@ -552,12 +849,12 @@ export async function fetchAdminStatus(): Promise<any> {
   } catch { return getCachedAdminStatus(); }
 }
 
-export async function fetchAdminWallets(status?: string): Promise<any[]> {
+export async function fetchAdminWallets(status?: string): Promise<AdminWallet[]> {
   const cacheKey = `admin_wallets_${status || 'all'}`;
   try {
     const url = new URL(`${API_BASE_URL}/api/admin/wallets`);
     if (status) url.searchParams.append('status', status);
-    const res = await fetch(url.toString());
+    const res = await fetchWithAuth(url.toString());
     if (!res.ok) return getCachedAdminWallets(status) || [];
     const data = await res.json();
     setCached(cacheKey, data);
@@ -567,7 +864,7 @@ export async function fetchAdminWallets(status?: string): Promise<any[]> {
 
 export async function reEvaluateWallets(): Promise<{ status: string; evaluated?: number; active?: number; message?: string } | null> {
   try {
-    const res = await fetch(`${API_BASE_URL}/api/admin/re-evaluate`, {
+    const res = await fetchWithAuth(`${API_BASE_URL}/api/admin/re-evaluate`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
     });
@@ -580,7 +877,7 @@ export async function reEvaluateWallets(): Promise<{ status: string; evaluated?:
 
 export async function purgeAndRescanWallets(): Promise<{ status: string; message: string } | null> {
   try {
-    const res = await fetch(`${API_BASE_URL}/api/admin/purge-and-rescan`, {
+    const res = await fetchWithAuth(`${API_BASE_URL}/api/admin/purge-and-rescan`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
     });
@@ -591,9 +888,9 @@ export async function purgeAndRescanWallets(): Promise<{ status: string; message
   }
 }
 
-export async function fetchDiscoveryProgress(): Promise<any> {
+export async function fetchDiscoveryProgress(): Promise<DiscoveryProgress | null> {
   try {
-    const res = await fetch(`${API_BASE_URL}/api/admin/discovery-progress`);
+    const res = await fetchWithAuth(`${API_BASE_URL}/api/admin/discovery-progress`);
     if (!res.ok) return null;
     return await res.json();
   } catch {
@@ -603,7 +900,7 @@ export async function fetchDiscoveryProgress(): Promise<any> {
 
 export async function hardWipeAllDatabase(): Promise<{ status: string; message: string } | null> {
   try {
-    const res = await fetch(`${API_BASE_URL}/api/admin/hard-wipe-all`, {
+    const res = await fetchWithAuth(`${API_BASE_URL}/api/admin/hard-wipe-all`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
     });
@@ -614,21 +911,12 @@ export async function hardWipeAllDatabase(): Promise<{ status: string; message: 
   }
 }
 
-export async function fetchSystemEvents(limit: number = 100, eventType?: string): Promise<{
-  id: string;
-  eventType: string;
-  severity: string;
-  title: string;
-  detail?: string;
-  relatedAddress?: string;
-  relatedMarket?: string;
-  createdAt: string;
-}[]> {
+export async function fetchSystemEvents(limit: number = 100, eventType?: string): Promise<SystemEvent[]> {
   try {
     const url = new URL(`${API_BASE_URL}/api/events`);
     url.searchParams.append('limit', String(limit));
     if (eventType) url.searchParams.append('event_type', eventType);
-    const res = await fetch(url.toString());
+    const res = await fetchWithAuth(url.toString());
     if (!res.ok) return [];
     return await res.json();
   } catch (error) {
@@ -638,10 +926,10 @@ export async function fetchSystemEvents(limit: number = 100, eventType?: string)
 
 export async function fetchCopilotChat(messages: { role: string; content: string }[]): Promise<{
   message: string;
-  tool_calls_executed?: { name: string; args: any; summary: string }[];
+  tool_calls_executed?: { name: string; args: Record<string, unknown>; summary: string }[];
 } | null> {
   try {
-    const res = await fetch(`${API_BASE_URL}/api/copilot/chat`, {
+    const res = await fetchWithAuth(`${API_BASE_URL}/api/copilot/chat`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ messages })
@@ -664,9 +952,11 @@ export async function saveLiveCredentials(data: {
   clobApiKey: string;
   clobApiSecret: string;
   clobApiPassphrase: string;
+  signerAddress?: string;
+  signatureType?: number;
 }): Promise<LiveTradingCredentials | null> {
   try {
-    const res = await fetch(`${API_BASE_URL}/api/live-trading/credentials`, {
+    const res = await fetchWithAuth(`${API_BASE_URL}/api/live-trading/credentials`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -675,6 +965,8 @@ export async function saveLiveCredentials(data: {
         clob_api_key: data.clobApiKey,
         clob_api_secret: data.clobApiSecret,
         clob_api_passphrase: data.clobApiPassphrase,
+        signer_address: data.signerAddress,
+        signature_type: data.signatureType,
       })
     });
     if (!res.ok) {
@@ -692,7 +984,7 @@ export async function fetchLiveCredentials(userId?: string): Promise<LiveTrading
   try {
     const url = new URL(`${API_BASE_URL}/api/live-trading/credentials`);
     if (userId) url.searchParams.append('user_id', userId);
-    const res = await fetch(url.toString());
+    const res = await fetchWithAuth(url.toString());
     if (!res.ok) return null;
     return await res.json();
   } catch (error) {
@@ -707,9 +999,11 @@ export async function testLiveConnection(data: {
   clobApiKey?: string;
   clobApiSecret?: string;
   clobApiPassphrase?: string;
+  signerAddress?: string;
+  signatureType?: number;
 }): Promise<TestConnectionResult> {
   try {
-    const res = await fetch(`${API_BASE_URL}/api/live-trading/test-connection`, {
+    const res = await fetchWithAuth(`${API_BASE_URL}/api/live-trading/test-connection`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -718,6 +1012,8 @@ export async function testLiveConnection(data: {
         clob_api_key: data.clobApiKey,
         clob_api_secret: data.clobApiSecret,
         clob_api_passphrase: data.clobApiPassphrase,
+        signer_address: data.signerAddress,
+        signature_type: data.signatureType,
       })
     });
     if (!res.ok) {
@@ -725,7 +1021,7 @@ export async function testLiveConnection(data: {
       throw new Error(err.detail || 'Connection test failed');
     }
     return await res.json();
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Test connection error:', error);
     throw error;
   }
@@ -733,7 +1029,7 @@ export async function testLiveConnection(data: {
 
 export async function toggleLiveTrading(enabled: boolean, userId?: string): Promise<{ success: boolean; is_live_active: boolean; status: string }> {
   try {
-    const res = await fetch(`${API_BASE_URL}/api/live-trading/toggle`, {
+    const res = await fetchWithAuth(`${API_BASE_URL}/api/live-trading/toggle`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -756,7 +1052,7 @@ export async function fetchLiveDashboard(userId?: string): Promise<LiveTradingDa
   try {
     const url = new URL(`${API_BASE_URL}/api/live-trading/dashboard`);
     if (userId) url.searchParams.append('user_id', userId);
-    const res = await fetch(url.toString(), { cache: 'no-store' });
+    const res = await fetchWithAuth(url.toString(), { cache: 'no-store' });
     if (!res.ok) return null;
     return await res.json();
   } catch (error) {
@@ -764,4 +1060,265 @@ export async function fetchLiveDashboard(userId?: string): Promise<LiveTradingDa
     return null;
   }
 }
+
+export interface LiveExecutionState {
+  status: string;
+  reason?: string | null;
+  liveExecutionReady?: false;
+  runId?: string | null;
+  cash?: string | null;
+  reservedCash?: string | null;
+  availableCash?: string | null;
+  reconciledAt?: string | null;
+  collateralCurrency?: string | null;
+  reconciliation?: {
+    status?: string | null;
+    detail?: string | null;
+    finishedAt?: string | null;
+  } | null;
+  positions?: {
+    tokenId?: string | null;
+    quantity?: string | null;
+    reservedQuantity?: string | null;
+    costBasis?: string | null;
+  }[] | null;
+  orders?: {
+    id?: string | null;
+    tokenId?: string | null;
+    side?: string | null;
+    state?: string | null;
+    quantity?: string | null;
+    filledQuantity?: string | null;
+    limitPrice?: string | null;
+    cancelRequestedAt?: string | null;
+  }[] | null;
+}
+
+export async function fetchLiveExecutionState(): Promise<LiveExecutionState | null> {
+  try {
+    const res = await fetchWithAuth(`${API_BASE_URL}/api/live-trading/execution-state`, { cache: 'no-store' });
+    if (!res.ok) return null;
+    return await res.json();
+  } catch {
+    return null;
+  }
+}
+
+export function getLiveOrderStateLabel(order: Pick<NonNullable<LiveExecutionState['orders']>[number], 'state' | 'cancelRequestedAt'>): string {
+  if (!order.state) return 'Unavailable';
+  const terminalStates = new Set(['CANCELLED', 'FILLED', 'VOID']);
+  if (order.cancelRequestedAt && !terminalStates.has(order.state.toUpperCase())) {
+    return 'Pending cancellation';
+  }
+  return order.state;
+}
+
+// ---------------------------------------------------------------------------
+// Error & Date Formatting Helpers
+// ---------------------------------------------------------------------------
+
+export function extractApiErrorMessage(err: unknown, fallback: string): string {
+  if (err && typeof err === 'object') {
+    const detail = (err as { detail?: unknown }).detail ?? (err as { message?: unknown }).message;
+    if (typeof detail === 'string' && detail.trim()) return detail.trim();
+    if (Array.isArray(detail)) {
+      const messages = detail
+        .map(item => {
+          if (typeof item === 'string') return item;
+          if (item && typeof item === 'object') {
+            const msg = (item as { msg?: unknown }).msg;
+            const loc = (item as { loc?: unknown }).loc;
+            const field = Array.isArray(loc) ? loc.slice(1).join('.') : '';
+            if (typeof msg === 'string') {
+              return field ? `${field}: ${msg}` : msg;
+            }
+          }
+          return null;
+        })
+        .filter((m): m is string => Boolean(m));
+      if (messages.length > 0) return messages.join('; ');
+    }
+  }
+  return fallback;
+}
+
+export function formatUtcDate(dateInput?: string | number | Date | null): string {
+  if (dateInput === null || dateInput === undefined || dateInput === '') return 'Unavailable';
+  let d: Date;
+  if (dateInput instanceof Date) {
+    d = dateInput;
+  } else if (typeof dateInput === 'number') {
+    d = new Date(dateInput > 1e11 ? dateInput : dateInput * 1000);
+  } else if (typeof dateInput === 'string') {
+    const s = dateInput.trim();
+    if (!s) return 'Unavailable';
+    if (/^\d+$/.test(s)) {
+      const num = Number(s);
+      d = new Date(num > 1e11 ? num : num * 1000);
+    } else {
+      // If ISO format without explicit timezone offset or Z suffix, append Z so it is parsed as UTC
+      const isoCandidate = !/[zZ]$/.test(s) && !/[+-]\d{2}(:\d{2})?$/.test(s)
+        ? s.replace(' ', 'T') + 'Z'
+        : s;
+      d = new Date(isoCandidate);
+    }
+  } else {
+    d = new Date(dateInput);
+  }
+  if (isNaN(d.getTime())) return 'Unavailable';
+  const pad = (n: number) => String(n).padStart(2, '0');
+  const year = d.getUTCFullYear();
+  const month = pad(d.getUTCMonth() + 1);
+  const day = pad(d.getUTCDate());
+  const hours = pad(d.getUTCHours());
+  const mins = pad(d.getUTCMinutes());
+  const secs = pad(d.getUTCSeconds());
+  return `${year}-${month}-${day} ${hours}:${mins}:${secs} UTC`;
+}
+
+// ---------------------------------------------------------------------------
+// Account-Bound Deposit Wallet Session Setup & Owner Operations
+// ---------------------------------------------------------------------------
+
+export async function fetchSessionSetup(): Promise<LiveSessionSetup> {
+  const res = await fetchWithAuth(`${API_BASE_URL}/api/live-trading/session`, { cache: 'no-store' });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(extractApiErrorMessage(err, 'Failed to fetch signing session'));
+  }
+  return await res.json();
+}
+
+export async function prepareSession(): Promise<LiveSessionSetup> {
+  const res = await fetchWithAuth(`${API_BASE_URL}/api/live-trading/session`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(extractApiErrorMessage(err, 'Failed to prepare signing session'));
+  }
+  return await res.json();
+}
+
+export async function verifySession(): Promise<LiveSessionSetup> {
+  const res = await fetchWithAuth(`${API_BASE_URL}/api/live-trading/session/verify`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(extractApiErrorMessage(err, 'Owner-approved CLOB session authorization is not verified'));
+  }
+  return await res.json();
+}
+
+export async function disableSession(): Promise<{ localSigningDisabled: boolean; ownerRevocationRequired: boolean; message: string }> {
+  const res = await fetchWithAuth(`${API_BASE_URL}/api/live-trading/session/disable`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(extractApiErrorMessage(err, 'Failed to stop local signing session'));
+  }
+  return await res.json();
+}
+
+export async function fetchSessionOperations(): Promise<SessionOperation[]> {
+  const res = await fetchWithAuth(`${API_BASE_URL}/api/live-trading/session/operations`, { cache: 'no-store' });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(extractApiErrorMessage(err, 'Failed to fetch session operations'));
+  }
+  return await res.json();
+}
+
+export async function prepareSessionOperation(kind: 'AUTHORIZE' | 'REVOKE'): Promise<SessionOperation> {
+  const res = await fetchWithAuth(`${API_BASE_URL}/api/live-trading/session/operations`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ kind }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(extractApiErrorMessage(err, 'Session operation unavailable'));
+  }
+  return await res.json();
+}
+
+export async function submitSessionSignature(operationId: string, signature: string): Promise<SessionOperation> {
+  const res = await fetchWithAuth(`${API_BASE_URL}/api/live-trading/session/operations/${operationId}/signature`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ signature }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(extractApiErrorMessage(err, 'Operation signature could not be confirmed'));
+  }
+  return await res.json();
+}
+
+export async function initializeLiveAccount(): Promise<LiveAccountInitialization> {
+  const res = await fetchWithAuth(`${API_BASE_URL}/api/live-trading/initialize-account`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(extractApiErrorMessage(err, 'Live account initialization failed'));
+  }
+  return await res.json();
+}
+
+// ---------------------------------------------------------------------------
+// Explicit Copy Policy & Enforced Risk Limits
+// ---------------------------------------------------------------------------
+
+export async function fetchCopyPolicy(): Promise<LiveCopyPolicy | null> {
+  const res = await fetchWithAuth(`${API_BASE_URL}/api/live-trading/copy-policy`, { cache: 'no-store' });
+  if (!res.ok) {
+    if (res.status === 404) return null;
+    const err = await res.json().catch(() => ({}));
+    throw new Error(extractApiErrorMessage(err, 'Failed to fetch copy policy'));
+  }
+  return await res.json();
+}
+
+export async function saveCopyPolicy(policy: CopyPolicyRequest): Promise<LiveCopyPolicy> {
+  const res = await fetchWithAuth(`${API_BASE_URL}/api/live-trading/copy-policy`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(policy),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(extractApiErrorMessage(err, 'Failed to save copy policy'));
+  }
+  return await res.json();
+}
+
+// ---------------------------------------------------------------------------
+// Account-Owned Paper Run Archive & Retained Journals
+// ---------------------------------------------------------------------------
+
+export async function fetchPaperRuns(userId: string): Promise<PaperRun[]> {
+  const res = await fetchWithAuth(`${API_BASE_URL}/api/users/${userId}/paper-runs`, { cache: 'no-store' });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(extractApiErrorMessage(err, 'Failed to fetch paper runs'));
+  }
+  return await res.json();
+}
+
+export async function fetchPaperRunTrades(userId: string, runId: string): Promise<PaperRunTrade[]> {
+  const res = await fetchWithAuth(`${API_BASE_URL}/api/users/${userId}/paper-runs/${runId}/trades`, { cache: 'no-store' });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(extractApiErrorMessage(err, 'Failed to fetch paper run trades'));
+  }
+  return await res.json();
+}
+
 

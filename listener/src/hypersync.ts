@@ -1,11 +1,11 @@
-import { POLYGON_HYPERSYNC_URL, ALL_EXCHANGE_ADDRESSES, ORDER_FILLED_TOPIC } from './constants';
+import { POLYGON_HYPERSYNC_URL, ALL_EXCHANGE_ADDRESSES, ORDER_FILLED_TOPIC, ALL_ORDER_FILLED_TOPICS } from './constants';
 import { parseOrderFilledLog } from './event-processor';
 import { saveCheckpoint } from './checkpoint';
 import { config } from './config';
 import { OrderFilledEvent } from './types';
 
 export interface IHyperSyncClient {
-  get(query: any): Promise<{ data: { logs: any[] }; nextBlock?: number }>;
+  get(query: any): Promise<{ data: { logs: any[]; blocks?: any[] }; nextBlock?: number }>;
   getHeight(): Promise<number>;
 }
 
@@ -25,15 +25,16 @@ class HyperSyncHttpClient implements IHyperSyncClient {
       });
       if (res.ok) {
         const json: any = await res.json();
-        return json.height || json.block_number || json.last_block || 68000000;
+        const height = json.height ?? json.block_number ?? json.last_block;
+        if (Number.isSafeInteger(height) && height >= 0) return height;
       }
     } catch {
       // Ignore network errors on fallback
     }
-    return 68000000;
+    throw new Error('Source height unavailable');
   }
 
-  async get(query: any): Promise<{ data: { logs: any[] }; nextBlock?: number }> {
+  async get(query: any): Promise<{ data: { logs: any[]; blocks?: any[] }; nextBlock?: number }> {
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
     };
@@ -43,11 +44,13 @@ class HyperSyncHttpClient implements IHyperSyncClient {
 
     const payload = {
       from_block: query.fromBlock || query.from_block || 0,
+      to_block: query.toBlock,
       logs: (query.logs || []).map((l: any) => ({
         address: l.address,
         topics: l.topics,
       })),
       field_selection: {
+        block: ['number', 'hash', 'timestamp'],
         log: [
           'address',
           'topic0',
@@ -56,6 +59,7 @@ class HyperSyncHttpClient implements IHyperSyncClient {
           'topic3',
           'data',
           'block_number',
+          'block_hash',
           'transaction_hash',
           'log_index',
         ],
@@ -74,17 +78,19 @@ class HyperSyncHttpClient implements IHyperSyncClient {
 
     const json = await res.json();
     const rawLogs = json.data?.logs || (Array.isArray(json.data) ? json.data.flatMap((d: any) => d.logs || []) : []);
+    const blocks = json.data?.blocks || (Array.isArray(json.data) ? json.data.flatMap((d: any) => d.blocks || []) : []);
     const normalizedLogs = rawLogs.map((l: any) => ({
       address: l.address || l.Address,
       topics: [l.topic0 || l.Topic0, l.topic1 || l.Topic1, l.topic2 || l.Topic2, l.topic3 || l.Topic3].filter(Boolean),
       data: l.data || l.Data,
       blockNumber: l.block_number ?? l.blockNumber ?? l.BlockNumber ?? 0,
+      blockHash: l.block_hash ?? l.blockHash,
       transactionHash: l.transaction_hash || l.transactionHash || l.TransactionHash || '0x',
       logIndex: l.log_index ?? l.logIndex ?? l.LogIndex ?? 0,
     }));
 
     return {
-      data: { logs: normalizedLogs },
+      data: { logs: normalizedLogs, blocks },
       nextBlock: json.next_block ?? json.nextBlock ?? query.fromBlock,
     };
   }
@@ -108,10 +114,11 @@ export function buildQuery(fromBlock: number) {
     logs: [
       {
         address: ALL_EXCHANGE_ADDRESSES,
-        topics: [[ORDER_FILLED_TOPIC]],
+        topics: [ALL_ORDER_FILLED_TOPICS],
       },
     ],
     fieldSelection: {
+      block: ['Number', 'Hash', 'Timestamp'],
       log: [
         'Address',
         'Topic0',
@@ -120,6 +127,7 @@ export function buildQuery(fromBlock: number) {
         'Topic3',
         'Data',
         'BlockNumber',
+        'BlockHash',
         'TransactionHash',
         'LogIndex',
       ],
@@ -141,16 +149,30 @@ export async function streamEvents(
   while (isRunning) {
     try {
       const query = buildQuery(currentBlock);
+      // Delay execution until a configurable confirmation depth. Deep reorg
+      // reconciliation still requires explicit operational handling.
+      const confirmations = Number(process.env.LISTENER_CONFIRMATIONS || '128');
+      if (!Number.isSafeInteger(confirmations) || confirmations < 1) throw new Error('Invalid confirmation depth');
+      const confirmedEnd = (await client.getHeight()) - confirmations + 1;
+      if (confirmedEnd <= currentBlock) {
+        await new Promise(resolve => setTimeout(resolve, 4500));
+        continue;
+      }
+      Object.assign(query, { toBlock: confirmedEnd });
       const res = await client.get(query as any);
       
       const logs = res.data.logs || [];
       for (const log of logs) {
-        const parsedEvent = parseOrderFilledLog(log);
+        const block = res.data.blocks?.find((b: any) => (b.number ?? b.block_number) === log.blockNumber);
+        const timestamp = block?.timestamp;
+        const parsedEvent = parseOrderFilledLog({ ...log,
+          blockHash: log.blockHash || block?.hash,
+          blockTimestamp: timestamp == null ? undefined : Number(timestamp) * 1000 });
         await onEvent(parsedEvent);
       }
 
       const nextBlock = res.nextBlock;
-      if (nextBlock && nextBlock > currentBlock) {
+      if (nextBlock && nextBlock > currentBlock && nextBlock <= confirmedEnd) {
         currentBlock = nextBlock;
         saveCheckpoint(currentBlock);
         // Safe rate-limiting pause between catch-up queries to strictly stay well under 30 req/5s free limit

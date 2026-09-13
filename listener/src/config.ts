@@ -8,4 +8,5 @@ export const config = {
   ENVIO_API_KEY: process.env.ENVIO_API_KEY || '',
   DATABASE_URL: process.env.DATABASE_URL || '',
   BACKEND_URL: process.env.BACKEND_URL || 'https://baleen-backend-k32g.onrender.com',
+  LISTENER_SERVICE_KEY: process.env.LISTENER_SERVICE_KEY || '',
 };

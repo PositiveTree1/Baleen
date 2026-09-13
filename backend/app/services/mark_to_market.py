@@ -3,7 +3,7 @@ import logging
 import time
 from typing import Any
 from datetime import datetime, timedelta
-from sqlalchemy import select, func
+from sqlalchemy import select, func, text
 from app.database import SessionLocal
 from app.models import ExecutionLog, User, Wallet
 from app.discovery.polymarket_client import PolymarketClient
@@ -46,33 +46,8 @@ class MarkToMarketService:
         self.running = False
 
     async def _ensure_snapshot_continuity(self):
-        """Self-healing snapshot watchdog: reconciles historical dip anomalies and fills time gaps."""
-        try:
-            async with SessionLocal() as db:
-                from app.models import PortfolioSnapshot
-                
-                # 1. Self-healing watchdog: check for time gaps and carry forward last known good balance
-                stmt = select(PortfolioSnapshot).where(PortfolioSnapshot.user_id.is_(None)).order_by(PortfolioSnapshot.timestamp.desc()).limit(1)
-                latest = (await db.execute(stmt)).scalars().first()
-                now = datetime.utcnow()
-                if latest and latest.timestamp and (now - latest.timestamp) > timedelta(minutes=30):
-                    last_bal = float(latest.balance) if latest.balance else 10000.0
-                    last_pnl = float(latest.total_pnl) if latest.total_pnl is not None else 0.0
-                    logger.info(
-                        f"🛡️ Watchdog: {(now - latest.timestamp).total_seconds()/60:.0f}m snapshot gap. "
-                        f"Carrying forward last known balance ${last_bal:,.2f}."
-                    )
-                    db.add(PortfolioSnapshot(
-                        user_id=None,
-                        timestamp=now,
-                        balance=last_bal,
-                        total_pnl=last_pnl,
-                        active_trades_count=int(latest.active_trades_count or 0)
-                    ))
-                    await db.commit()
-                    logger.info(f"✅ Watchdog recovery snapshot written: Balance ${last_bal:,.2f}.")
-        except Exception as e:
-            logger.error(f"Watchdog recovery check note: {e}")
+        # A gap is missing evidence; do not manufacture a new valuation timestamp.
+        return
 
     async def _valuation_loop(self):
         while self.running:
@@ -87,14 +62,17 @@ class MarkToMarketService:
         client = PolymarketClient()
         try:
             async with SessionLocal() as db:
+                if db.bind.dialect.name == 'postgresql':
+                    await db.execute(text('SELECT pg_advisory_xact_lock(20260909, 1)'))
                 # 1. Refresh closed trades summary aggregate periodically (saves megabytes of bandwidth)
                 now_ts = time.time()
-                if (now_ts - _closed_trades_cache.get("ts", 0.0)) > 60.0 or _closed_trades_cache.get("ts", 0.0) == 0.0:
+                if True:  # Read under the same financial lock; stale aggregates can overwrite settlement.
                     stmt_closed_platform = select(
                         func.coalesce(func.sum(ExecutionLog.realized_pnl_usd), 0.0),
                         func.count(ExecutionLog.id)
                     ).where(
                         ExecutionLog.user_id.is_(None),
+                        ExecutionLog.is_sandbox.is_(True),
                         ExecutionLog.side == "BUY",
                         ExecutionLog.status.in_(["CLOSED", "RESOLVED"])
                     )
@@ -107,6 +85,7 @@ class MarkToMarketService:
                         func.coalesce(func.sum(ExecutionLog.realized_pnl_usd), 0.0)
                     ).where(
                         ExecutionLog.user_id.is_not(None),
+                        ExecutionLog.is_sandbox.is_(True),
                         ExecutionLog.side == "BUY",
                         ExecutionLog.status.in_(["CLOSED", "RESOLVED"])
                     ).group_by(ExecutionLog.user_id)
@@ -116,7 +95,7 @@ class MarkToMarketService:
 
                 # 2. Fetch ONLY open active positions for real-time MTM evaluation
                 stmt_open_logs = select(ExecutionLog).where(
-                    ExecutionLog.status == "FILLED"
+                    ExecutionLog.status == "FILLED", ExecutionLog.is_sandbox.is_(True), ExecutionLog.side == "BUY"
                 ).order_by(ExecutionLog.executed_at.desc())
                 open_logs = (await db.execute(stmt_open_logs)).scalars().all()
 
@@ -156,7 +135,7 @@ class MarkToMarketService:
                         for cid_key, outcome_dict in batch_prices.items():
                             if cid_key.startswith("token:"):
                                 tok_id = cid_key.replace("token:", "")
-                                _live_price_cache[tok_id] = {"price": outcome_dict.get("price", 0.5), "ts": fetch_ts}
+                                _live_price_cache[tok_id] = {"price": outcome_dict.get("price"), "ts": fetch_ts}
                             else:
                                 for outc_name, p_val in outcome_dict.items():
                                     cache_key = f"{cid_key}:{outc_name.lower().strip()}"
@@ -164,45 +143,21 @@ class MarkToMarketService:
                     except Exception as batch_err:
                         logger.debug(f"MTM batch price fetch note: {batch_err}")
 
-                # 5. Price open lots with binary outcome inversion & cost-basis protection
-                from app.services.polymarket_fees import calculate_polymarket_fee
+                # Revalue only from actual fresh marks; zero is a valid observed price.
+                from app.services.execution_valuation import execution_valuation
+                unavailable = set()
                 for elog in open_logs:
-                    cid = elog.market_condition_id or ""
-                    outc = elog.resolution_outcome or "Yes"
-                    asset_id = elog.onchain_tx_hash or ""
-                    fill_p = float(elog.user_fill_price or elog.whale_entry_price or 0.5)
-                    notional = float(elog.notional_usd or 0.0)
-
-                    # Ensure fee is calculated and cached
-                    fee = float(elog.fee_usd or 0.0)
-                    if fee == 0.0 and notional > 0:
-                        fee_info = calculate_polymarket_fee(
-                            notional_usd=notional,
-                            price=fill_p,
-                            market_title=elog.market_question or ""
-                        )
-                        fee = float(fee_info["fee_usd"])
-                        elog.fee_usd = fee
-                        elog.market_category = fee_info["category"]
-
-                    # Obtain live price with cost-basis fallback (so missing prices NEVER cause cliff drops)
-                    cur_p = get_live_price(cid=cid, outcome=outc, asset=asset_id, fallback=fill_p)
-                    if cur_p > 0 and fill_p > 0:
-                        if elog.side == "BUY":
-                            gross_pnl = notional * ((cur_p - fill_p) / fill_p)
-                        else:
-                            gross_pnl = notional * ((fill_p - cur_p) / fill_p)
-                        net_pnl = gross_pnl - fee
-                        _last_known_pnl[str(elog.id)] = round(net_pnl, 2)
+                    valuation = execution_valuation(elog)
+                    if valuation['pnl'] is None:
+                        unavailable.add(elog.id)
+                        _last_known_pnl.pop(str(elog.id), None)
                     else:
-                        _last_known_pnl[str(elog.id)] = round(-fee, 2)
+                        _last_known_pnl[str(elog.id)] = valuation['pnl']
 
                 # 6. Authoritative sandbox balance & snapshot synchronization
                 from app.models import PortfolioSnapshot
                 now_dt = datetime.utcnow()
                 platform_open = [l for l in open_logs if l.user_id is None]
-                if not platform_open and open_logs:
-                    platform_open = open_logs
 
                 platform_open_unrealized = sum(_last_known_pnl.get(str(l.id), 0.0) for l in platform_open)
                 platform_closed_realized = float(_closed_trades_cache.get("platform_realized_pnl", 0.0))
@@ -215,19 +170,12 @@ class MarkToMarketService:
                 ).order_by(PortfolioSnapshot.timestamp.desc()).limit(1)
                 last_db_bal = float((await db.execute(stmt_latest_snap)).scalar() or _last_snapshot_balance or 10000.0)
 
-                # Guard against uninitialized database collapse
-                if computed_bal < 5000.0 and last_db_bal > 12000.0:
-                    logger.warning(f"⚠️ MTM: Suspicious collapse: computed ${computed_bal:,.2f} vs last ${last_db_bal:,.2f}. Preserving last balance.")
-                    canonical_balance = last_db_bal
-                    total_portfolio_pnl = round(last_db_bal - 10000.0, 2)
-                    should_snapshot = False
-                else:
-                    canonical_balance = computed_bal
-                    time_since_last = time.time() - _last_snapshot_time
-                    balance_changed = abs(canonical_balance - _last_snapshot_balance) > 2.00
-                    should_snapshot = balance_changed or time_since_last >= 60.0
+                canonical_balance = computed_bal
+                time_since_last = time.time() - _last_snapshot_time
+                balance_changed = abs(canonical_balance - _last_snapshot_balance) > 2.00
+                should_snapshot = balance_changed or time_since_last >= 60.0
 
-                if should_snapshot:
+                if should_snapshot and not any(l.id in unavailable for l in platform_open):
                     db.add(PortfolioSnapshot(
                         user_id=None,
                         timestamp=now_dt,
@@ -238,18 +186,18 @@ class MarkToMarketService:
                     _last_snapshot_time = time.time()
                     _last_snapshot_balance = canonical_balance
 
-                # 7. User balance sync
+                # 7. User balance sync (strictly isolated per user, no platform trade fallback)
                 try:
                     stmt_users = select(User)
                     users = (await db.execute(stmt_users)).scalars().all()
                     for u in users:
                         u_open = [l for l in open_logs if l.user_id == u.id]
-                        if not u_open:
-                            u_open = platform_open
+                        if any(l.id in unavailable for l in u_open):
+                            continue
                         u_open_unrealized = sum(_last_known_pnl.get(str(l.id), 0.0) for l in u_open)
-                        u_closed_realized = float(_closed_trades_cache.get("user_realized_pnls", {}).get(str(u.id), platform_closed_realized))
+                        u_closed_realized = float(_closed_trades_cache.get("user_realized_pnls", {}).get(str(u.id), 0.0))
                         u_total_pnl = round(u_closed_realized + u_open_unrealized, 2)
-                        u_start = float(u.sandbox_starting_balance_usd or 10000.0)
+                        u_start = float(u.sandbox_starting_balance_usd)
                         u_bal = round(u_start + u_total_pnl, 2)
                         u.sandbox_balance_usd = u_bal
                         current_hwm = float(u.sandbox_high_water_mark_usd or u_start)
@@ -269,6 +217,22 @@ class MarkToMarketService:
             await client.close()
 
 mark_to_market_service = MarkToMarketService()
+
+def get_observed_price(cid: str = '', outcome: str = '', asset: str = '', max_age_seconds: float = 60.0):
+    """An actual fresh cached observation, or None. Never an entry-price substitute."""
+    import math
+    keys = ([asset] if asset else []) + ([f'{cid.lower().strip()}:{outcome.lower().strip()}'] if cid and outcome else [])
+    now = time.time()
+    for key in keys:
+        entry = _live_price_cache.get(key)
+        if not entry:
+            continue
+        price, observed = entry.get('price'), entry.get('ts')
+        if (isinstance(price, (float, int)) and not isinstance(price, bool) and math.isfinite(price)
+                and 0 <= price <= 1 and isinstance(observed, (float, int)) and math.isfinite(observed)
+                and 0 <= now - observed <= max_age_seconds):
+            return {'price': price, 'observed_at': observed, 'source': 'provider_cache'}
+    return None
 
 def get_live_price(cid: str = "", outcome: str = "Yes", asset: str = "", fallback: float = 0.5) -> float:
     """Resolves live market price with binary outcome (1 - p) complementary inversion and fresh cache validation."""
@@ -305,7 +269,7 @@ def get_live_price(cid: str = "", outcome: str = "Yes", asset: str = "", fallbac
 
 def set_live_price(cid: str = "", outcome: str = "Yes", price: float = 0.5, asset: str = ""):
     global _live_price_cache
-    if not (0.001 <= price <= 0.999):
+    if not (0.0 <= price <= 1.0):
         return
     entry = {"price": price, "ts": time.time()}
     if cid:

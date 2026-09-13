@@ -19,7 +19,7 @@ async def export_all_trades_to_disk() -> dict:
         BACKUP_DIR.mkdir(parents=True, exist_ok=True)
         
         async with SessionLocal() as db:
-            stmt = select(ExecutionLog).order_by(ExecutionLog.executed_at.desc())
+            stmt = select(ExecutionLog).execution_options(include_archived_runs=True).order_by(ExecutionLog.executed_at.desc())
             logs = (await db.execute(stmt)).scalars().all()
             
             if not logs:
@@ -31,6 +31,9 @@ async def export_all_trades_to_disk() -> dict:
             for log in logs:
                 rec = {
                     "id": str(log.id),
+                    "user_id": str(log.user_id) if log.user_id else None,
+                    "run_id": str(log.run_id) if log.run_id else None,
+                    "is_sandbox": log.is_sandbox,
                     "timestamp": log.executed_at.isoformat() if log.executed_at else None,
                     "wallet_address": log.source_wallet_address,
                     "market_condition_id": log.market_condition_id,

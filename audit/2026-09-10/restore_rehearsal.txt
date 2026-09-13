@@ -1,0 +1,1 @@
+{"passed": true, "schema_version": 10, "fixture_balance": 4321.25, "source_database": "baleen_src_e089f78ca564", "restored_database": "baleen_dst_e089f78ca564", "dump": "/tmp/baleen-restore-e089f78ca564.dump"}

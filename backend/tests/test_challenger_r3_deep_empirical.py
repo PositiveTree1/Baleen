@@ -327,7 +327,7 @@ class TestOvernightResilience:
     async def test_mtm_watchdog_restart_gap_recovery(self):
         """
         Verify that when a restart gap (>30m) occurs, MarkToMarketService._ensure_snapshot_continuity()
-        safely carries forward the last known balance and total PnL without cold-cache collapse.
+        preserves the last known values and timestamp without inventing a fresh observation.
         """
         mtm = MarkToMarketService()
         now = datetime.utcnow()
@@ -354,13 +354,12 @@ class TestOvernightResilience:
             ).order_by(PortfolioSnapshot.timestamp.desc())
             snapshots = (await db.execute(stmt)).scalars().all()
 
-            assert len(snapshots) >= 2
+            assert len(snapshots) == 1
             latest = snapshots[0]
             assert latest.balance == 14500.0
             assert latest.total_pnl == 4500.0
             assert latest.active_trades_count == 8
-            # Snapshot was written at current time
-            assert (now - latest.timestamp).total_seconds() < 10
+            assert latest.timestamp == gap_time
 
     @pytest.mark.asyncio
     async def test_disk_backup_export_format_and_completeness(self):

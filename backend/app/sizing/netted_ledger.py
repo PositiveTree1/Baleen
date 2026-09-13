@@ -29,9 +29,12 @@ async def get_or_create_ledger_entry(
     outcome: str,
     market_question: str = "",
     asset_id: str = "",
-    whale_price: Optional[float] = None
+    whale_price: Optional[float] = None,
+    user_id: Optional[Any] = None,
+    mode: str = "sandbox",
+    run_id: Optional[Any] = None
 ) -> ExposureLedger:
-    """Fetches active ledger entry or initializes a new one for (wallet, condition, outcome)."""
+    """Fetches active ledger entry or initializes a new one for (wallet, condition, outcome, account, mode, run)."""
     norm_addr = wallet_address.lower()
     norm_cid = condition_id.lower()
     norm_outcome = outcome.strip().lower()
@@ -40,13 +43,25 @@ async def get_or_create_ledger_entry(
         func.lower(ExposureLedger.wallet_address) == norm_addr,
         func.lower(ExposureLedger.market_condition_id) == norm_cid,
         func.lower(ExposureLedger.outcome) == norm_outcome,
-        ExposureLedger.status != "closed"
-    ).limit(1)
+    )
+    if user_id is not None:
+        stmt = stmt.where(ExposureLedger.user_id == user_id)
+    else:
+        stmt = stmt.where(ExposureLedger.user_id.is_(None))
+    stmt = stmt.where(ExposureLedger.mode == mode)
+    if run_id is not None:
+        stmt = stmt.where(ExposureLedger.run_id == run_id)
+    else:
+        stmt = stmt.where(ExposureLedger.run_id.is_(None))
+    stmt = stmt.limit(1)
     
     entry = (await db.execute(stmt)).scalars().first()
     if not entry:
         entry = ExposureLedger(
             id=uuid.uuid4(),
+            user_id=user_id,
+            mode=mode,
+            run_id=run_id,
             wallet_address=wallet_address,
             market_condition_id=condition_id,
             outcome=outcome,
@@ -61,6 +76,13 @@ async def get_or_create_ledger_entry(
         )
         db.add(entry)
         await db.flush()
+    elif entry.status == "closed":
+        entry.status = "accumulating"
+        entry.virtual_position_usd = 0.0
+        entry.executed_position_usd = 0.0
+        entry.last_whale_price = whale_price
+        entry.last_updated_at = datetime.utcnow()
+        await db.flush()
 
     return entry
 
@@ -73,7 +95,10 @@ async def update_intended_exposure(
     whale_price: float,
     market_question: str = "",
     asset_id: str = "",
-    min_threshold_usd: float = 1.0
+    min_threshold_usd: float = 1.0,
+    user_id: Optional[Any] = None,
+    mode: str = "sandbox",
+    run_id: Optional[Any] = None
 ) -> NettedActionResult:
     """
     Updates the running virtual position for (wallet, condition, outcome).
@@ -87,7 +112,10 @@ async def update_intended_exposure(
         outcome=outcome,
         market_question=market_question,
         asset_id=asset_id,
-        whale_price=whale_price
+        whale_price=whale_price,
+        user_id=user_id,
+        mode=mode,
+        run_id=run_id
     )
 
     # 1. Update virtual intended position

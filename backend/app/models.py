@@ -1,9 +1,24 @@
 import uuid
+from sqlalchemy import BigInteger
 from datetime import datetime
-from sqlalchemy import Column, String, Float, Integer, Boolean, DateTime, ForeignKey, UniqueConstraint, CheckConstraint, JSON
+from sqlalchemy import Column, String, Float, Integer, Boolean, DateTime, ForeignKey, UniqueConstraint, CheckConstraint, JSON, Numeric
 from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.orm import relationship
 from app.database import Base
+
+
+class RevokedAccessToken(Base):
+    __tablename__ = "revoked_access_tokens"
+    token_hash = Column(String(64), primary_key=True)
+    expires_at = Column(Float, nullable=False, index=True)
+
+
+class RateLimitBucket(Base):
+    __tablename__ = "rate_limit_buckets"
+    key = Column(String(64), primary_key=True)
+    expires_at = Column(Float, nullable=False, index=True)
+    count = Column(Integer, nullable=False)
+
 
 # Polyfill for generic UUID handling in SQLite vs Postgres
 import sqlalchemy.types as types
@@ -87,9 +102,12 @@ class User(Base):
     sandbox_starting_balance_usd = Column(Float, default=10000.0)
     sandbox_balance_usd = Column(Float, default=10000.0)
     sandbox_high_water_mark_usd = Column(Float, default=10000.0)
+    active_paper_run_id = Column(GUID(), nullable=True)
     live_trading_enabled = Column(Boolean, default=False)
     live_high_water_mark_usd = Column(Float, nullable=True)
     daily_digest_opt_in = Column(Boolean, default=True)
+    is_admin = Column(Boolean, default=False)
+    role = Column(String, default="user")
     created_at = Column(DateTime, default=datetime.utcnow)
 
 class LiveWalletLink(Base):
@@ -102,6 +120,8 @@ class LiveWalletLink(Base):
     clob_api_key_enc = Column(String)
     clob_api_secret_enc = Column(String, nullable=True)
     clob_api_passphrase_enc = Column(String, nullable=True)
+    signer_address = Column(String(42), nullable=True)
+    signature_type = Column(Integer, nullable=True)
     is_live_active = Column(Boolean, default=False)
     live_balance_usdc = Column(Float, default=0.0)
     last_verified_at = Column(DateTime, nullable=True)
@@ -109,11 +129,178 @@ class LiveWalletLink(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
     last_used_at = Column(DateTime, nullable=True)
 
+class SignalInbox(Base):
+    __tablename__ = "signal_inbox"
+
+    id = Column(GUID(), primary_key=True, default=uuid.uuid4)
+    source = Column(String(50), nullable=False)  # 'listener', 'rest'
+    idempotency_key = Column(String(255), unique=True, nullable=False, index=True)
+    payload = Column(JSON, nullable=False)
+    status = Column(String(50), nullable=False, default="PENDING", index=True)  # PENDING, PROCESSING, PROCESSED, FAILED, QUARANTINED
+    received_at = Column(DateTime, default=datetime.utcnow)
+    processed_at = Column(DateTime, nullable=True)
+    error_detail = Column(String, nullable=True)
+    attempts = Column(Integer, nullable=False, default=0)
+    retry_at = Column(DateTime, nullable=True)
+
+
+class LiveExecutionAccount(Base):
+    __tablename__ = 'live_execution_accounts'
+    user_id = Column(GUID(), ForeignKey('users.id'), primary_key=True)
+    run_id = Column(GUID(), nullable=False)
+    wallet_address = Column(String(42), nullable=False)
+    cash = Column(Numeric(38, 18), nullable=False, default=0)
+    reserved_cash = Column(Numeric(38, 18), nullable=False, default=0)
+    reconciled_at = Column(DateTime, nullable=True)
+    enabled = Column(Boolean, nullable=False, default=False)
+
+
+class LiveSigningSession(Base):
+    __tablename__ = 'live_signing_sessions'
+    user_id = Column(GUID(), ForeignKey('users.id'), primary_key=True)
+    wallet_address = Column(String(42), nullable=False)
+    session_address = Column(String(42), nullable=False)
+    encrypted_key = Column(String, nullable=False)
+    verified_at = Column(DateTime, nullable=True)
+    valid_until = Column(DateTime, nullable=True)
+    revoked_at = Column(DateTime, nullable=True)
+
+
+class LiveWalletBaseline(Base):
+    __tablename__ = 'live_wallet_baselines'
+    user_id = Column(GUID(), ForeignKey('live_execution_accounts.user_id'), primary_key=True)
+    run_id = Column(GUID(), nullable=False)
+    block_number = Column(BigInteger, nullable=False)
+    block_hash = Column(String(66), nullable=False)
+    block_time = Column(DateTime, nullable=False)
+    starting_cash = Column(Numeric(38,18), nullable=False)
+    observed_tokens = Column(JSON, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+
+class LiveCopyPolicy(Base):
+    __tablename__ = 'live_copy_policies'
+    user_id = Column(GUID(), ForeignKey('users.id'), primary_key=True)
+    revision = Column(Integer, nullable=False)
+    source_wallets = Column(JSON, nullable=False)
+    copy_ratio = Column(Numeric(38,18), nullable=False)
+    limits = Column(JSON, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+
+class LiveSessionOperation(Base):
+    __tablename__ = 'live_session_operations'
+    id = Column(GUID(), primary_key=True, default=uuid.uuid4)
+    user_id = Column(GUID(), ForeignKey('users.id'), nullable=False, index=True)
+    kind = Column(String(16), nullable=False)
+    owner_address = Column(String(42), nullable=False)
+    wallet_address = Column(String(42), nullable=False)
+    session_address = Column(String(42), nullable=False)
+    nonce = Column(String(80), nullable=False)
+    deadline = Column(BigInteger, nullable=False)
+    valid_until = Column(BigInteger, nullable=True)
+    state = Column(String(24), nullable=False, default='PREPARED')
+    signature_hash = Column(String(66), nullable=True)
+    transaction_id = Column(String(255), nullable=True)
+    transaction_hash = Column(String(66), nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+
+class LiveSourcePosition(Base):
+    __tablename__ = 'live_source_positions'
+    user_id = Column(GUID(), ForeignKey('live_execution_accounts.user_id'), primary_key=True)
+    source_wallet_address = Column(String(42), primary_key=True)
+    token_id = Column(String(100), primary_key=True)
+    quantity = Column(Numeric(38,18), nullable=False, default=0)
+
+
+class LiveOrderIntent(Base):
+    __tablename__ = 'live_order_intents'
+    id = Column(GUID(), primary_key=True, default=uuid.uuid4)
+    user_id = Column(GUID(), ForeignKey('live_execution_accounts.user_id'), nullable=False)
+    run_id = Column(GUID(), nullable=False)
+    intent_key = Column(String(255), nullable=False)
+    token_id = Column(String(100), nullable=False)
+    side = Column(String(4), nullable=False)
+    quantity = Column(Numeric(38, 18), nullable=False)
+    limit_price = Column(Numeric(38, 18), nullable=False)
+    fee_budget = Column(Numeric(38, 18), nullable=False)
+    filled_quantity = Column(Numeric(38, 18), nullable=False, default=0)
+    reserved_cash = Column(Numeric(38, 18), nullable=False, default=0)
+    state = Column(String(24), nullable=False, default='PREPARED')
+    signed_order_hash = Column(String(66), nullable=False)
+    envelope = Column(JSON, nullable=False)
+    risk_context = Column(JSON, nullable=True)
+    cancel_requested_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    __table_args__ = (UniqueConstraint('user_id', 'run_id', 'intent_key', name='uq_live_copy_intent'),
+                     UniqueConstraint('user_id', 'signed_order_hash', name='uq_live_signed_order'))
+
+
+class LivePosition(Base):
+    __tablename__ = 'live_positions'
+    user_id = Column(GUID(), ForeignKey('live_execution_accounts.user_id'), primary_key=True)
+    token_id = Column(String(100), primary_key=True)
+    quantity = Column(Numeric(38, 18), nullable=False, default=0)
+    reserved_quantity = Column(Numeric(38, 18), nullable=False, default=0)
+    cost_basis = Column(Numeric(38, 18), nullable=False, default=0)
+
+
+class LiveConfirmedFill(Base):
+    __tablename__ = 'live_confirmed_fills'
+    order_id = Column(GUID(), ForeignKey('live_order_intents.id'), primary_key=True)
+    trade_id = Column(String(255), primary_key=True)
+    quantity = Column(Numeric(38, 18), nullable=False)
+    price = Column(Numeric(38, 18), nullable=False)
+    fee = Column(Numeric(38, 18), nullable=False)
+    cash_amount = Column(Numeric(38, 18), nullable=True)
+    realized_pnl = Column(Numeric(38,18), nullable=True)
+    confirmed_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+
+class LiveReconciliation(Base):
+    __tablename__ = 'live_reconciliations'
+    id = Column(GUID(), primary_key=True, default=uuid.uuid4)
+    user_id = Column(GUID(), ForeignKey('live_execution_accounts.user_id'), nullable=False, index=True)
+    started_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    finished_at = Column(DateTime, nullable=True)
+    status = Column(String(24), nullable=False, default='RUNNING')
+    detail = Column(String(255), nullable=True)
+    observed_cash = Column(Numeric(38, 18), nullable=True)
+
+class CanonicalSourceEvent(Base):
+    __tablename__ = "canonical_source_events"
+
+    id = Column(GUID(), primary_key=True, default=uuid.uuid4)
+    chain_id = Column(Integer, default=137, nullable=False)
+    emitting_contract = Column(String(66), nullable=True)
+    tx_hash = Column(String(66), nullable=False, index=True)
+    log_index = Column(Integer, nullable=True)
+    block_number = Column(Integer, nullable=True)
+    block_hash = Column(String(66), nullable=True)
+    block_time = Column(DateTime, nullable=True)
+    source_wallet_address = Column(String(42), nullable=False, index=True)
+    maker_address = Column(String(42), nullable=True)
+    taker_address = Column(String(42), nullable=True)
+    condition_id = Column(String(66), nullable=True, index=True)
+    token_id = Column(String(100), nullable=True)
+    outcome = Column(String(50), nullable=True)
+    side = Column(String(10), nullable=False)
+    price = Column(Float, nullable=False)
+    shares = Column(Float, nullable=False)
+    notional_usd = Column(Float, nullable=False)
+    status = Column(String(50), default="CONFIRMED")  # CONFIRMED, QUARANTINED, ORPHANED
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    __table_args__ = (
+        UniqueConstraint('chain_id', 'tx_hash', 'log_index', 'source_wallet_address', name='uix_chain_tx_log_wallet'),
+    )
+
 class ExecutionLog(Base):
     __tablename__ = "execution_logs"
 
     id = Column(GUID(), primary_key=True, default=uuid.uuid4)
-    user_id = Column(GUID(), ForeignKey("users.id"))
+    user_id = Column(GUID(), ForeignKey("users.id"), nullable=True)
     source_wallet_address = Column(String, ForeignKey("wallets.address"))
     market_condition_id = Column(String)
     market_question = Column(String)
@@ -134,6 +321,10 @@ class ExecutionLog(Base):
     market_category = Column(String, default="General")
     onchain_tx_hash = Column(String, nullable=True)
     onchain_log_index = Column(Integer, nullable=True)
+    token_id = Column(String(100), nullable=True)
+    mode = Column(String(50), default="sandbox")  # 'sandbox', 'live'
+    run_id = Column(GUID(), ForeignKey("sandbox_runs.id"), nullable=True)
+    source_event_id = Column(GUID(), ForeignKey("canonical_source_events.id"), nullable=True)
     executed_at = Column(DateTime, default=datetime.utcnow)
     resolved_at = Column(DateTime, nullable=True)
 
@@ -170,6 +361,7 @@ class PortfolioSnapshot(Base):
 
     id = Column(GUID(), primary_key=True, default=uuid.uuid4)
     user_id = Column(GUID(), ForeignKey("users.id"), nullable=True)
+    run_id = Column(GUID(), ForeignKey('sandbox_runs.id'), nullable=True)
     timestamp = Column(DateTime, default=datetime.utcnow)
     balance = Column(Float, nullable=False)
     total_pnl = Column(Float, nullable=False)
@@ -192,9 +384,11 @@ class SandboxRun(Base):
     __tablename__ = "sandbox_runs"
 
     id = Column(GUID(), primary_key=True, default=uuid.uuid4)
+    user_id = Column(GUID(), ForeignKey('users.id'), nullable=True)
     run_number = Column(Integer, autoincrement=True, nullable=True)
     started_at = Column(DateTime, default=datetime.utcnow)
     ended_at = Column(DateTime, nullable=True)
+    source_cutoff_at = Column(DateTime, nullable=True)
     initial_balance_usd = Column(Float, default=10000.0)
     final_balance_usd = Column(Float, nullable=True)
     total_realized_pnl_usd = Column(Float, default=0.0)
@@ -228,6 +422,9 @@ class ExposureLedger(Base):
     __tablename__ = "exposure_ledger"
 
     id = Column(GUID(), primary_key=True, default=uuid.uuid4)
+    user_id = Column(GUID(), ForeignKey("users.id"), nullable=True)
+    mode = Column(String(50), default="sandbox", nullable=False)
+    run_id = Column(GUID(), ForeignKey("sandbox_runs.id"), nullable=True)
     wallet_address = Column(String(66), nullable=False, index=True)
     market_condition_id = Column(String(100), nullable=False, index=True)
     outcome = Column(String(100), nullable=False)
@@ -241,8 +438,5 @@ class ExposureLedger(Base):
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
     __table_args__ = (
-        UniqueConstraint("wallet_address", "market_condition_id", "outcome", name="uq_wallet_market_outcome"),
+        UniqueConstraint("user_id", "mode", "run_id", "wallet_address", "market_condition_id", "outcome", name="uq_user_mode_run_wallet_market_outcome"),
     )
-
-
-

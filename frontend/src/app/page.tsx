@@ -67,7 +67,7 @@ export default function LandingPage() {
       <footer className="py-8 sm:py-12 border-t border-black/[0.06] dark:border-white/[0.08] bg-[#F8F9FB] dark:bg-[#0A0B0E] text-slate-500 dark:text-[#8E8F99] text-xs">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-20 flex flex-col sm:flex-row items-center justify-between gap-4 text-center sm:text-left">
           <BrandLogo size="sm" />
-          <p>© {new Date().getFullYear()} Baleen. All rights reserved. Automated non-custodial copy-trading.</p>
+          <p>© {new Date().getFullYear()} Baleen. All rights reserved. Experimental paper copy trading.</p>
         </div>
       </footer>
     </main>

@@ -1,0 +1,33 @@
+
+> baleen-listener@0.1.0 test
+> jest --runInBand
+
+ts-jest[config] (WARN) message TS151002: Using hybrid module kind (Node16/18/Next) is only supported in "isolatedModules: true". Please set "isolatedModules: true" in your tsconfig.json. To disable this message, you can set "diagnostics.ignoreCodes" to include 151002 in your ts-jest config. See more at https://kulshekhar.github.io/ts-jest/docs/getting-started/options/diagnostics
+ts-jest[config] (WARN) message TS151002: Using hybrid module kind (Node16/18/Next) is only supported in "isolatedModules: true". Please set "isolatedModules: true" in your tsconfig.json. To disable this message, you can set "diagnostics.ignoreCodes" to include 151002 in your ts-jest config. See more at https://kulshekhar.github.io/ts-jest/docs/getting-started/options/diagnostics
+PASS tests/v1_v2_processor.test.ts
+ts-jest[config] (WARN) message TS151002: Using hybrid module kind (Node16/18/Next) is only supported in "isolatedModules: true". Please set "isolatedModules: true" in your tsconfig.json. To disable this message, you can set "diagnostics.ignoreCodes" to include 151002 in your ts-jest config. See more at https://kulshekhar.github.io/ts-jest/docs/getting-started/options/diagnostics
+ts-jest[config] (WARN) message TS151002: Using hybrid module kind (Node16/18/Next) is only supported in "isolatedModules: true". Please set "isolatedModules: true" in your tsconfig.json. To disable this message, you can set "diagnostics.ignoreCodes" to include 151002 in your ts-jest config. See more at https://kulshekhar.github.io/ts-jest/docs/getting-started/options/diagnostics
+PASS tests/envio.test.ts
+PASS tests/queue.test.ts
+  ● Console
+
+    console.error
+      [ERROR] Failed to post signal 0x0000000000000000000000000000000000000000000000000000000000000003:0:0x1111111111111111111111111111111111111111 to backend: HTTP 409
+
+      52 |
+      53 |     if (!response.ok) {
+    > 54 |       console.error(`[ERROR] Failed to post signal ${signalIdentityKey(signal)} to backend: HTTP ${response.status} ${response.statusText}`);
+         |               ^
+      55 |       return false;
+      56 |     }
+      57 |     let body: unknown;
+
+      at postSignalToBackend (src/queue.ts:54:15)
+      at src/queue.ts:79:11
+
+
+Test Suites: 3 passed, 3 total
+Tests:       12 passed, 12 total
+Snapshots:   0 total
+Time:        4.917 s
+Ran all test suites.

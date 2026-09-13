@@ -51,14 +51,14 @@ def compute_raw_factors(stats: dict) -> dict:
             stdev = math.sqrt(variance)
             trailing_sharpe = mean_pnl / (stdev + 1e-6) if stdev > 0 else (1.5 if mean_pnl > 0 else 0.0)
         else:
-            trailing_sharpe = 1.0
+            trailing_sharpe = 0.0
 
     # 3. S_profitfactor: Gross wins / gross losses, target > 2.5
     profit_factor = stats.get('profit_factor')
     if profit_factor is not None:
         pf_val = float(profit_factor)
     else:
-        pf_val = 1.5 + min(1.5, pnl / 100000.0) if pnl > 0 else 1.0
+        pf_val = 0.0
 
     # 4. S_recency: 30-day realized-PnL momentum EMA
     recency_ema = float(stats.get('recency_ema', 0.0) or 0.0)
@@ -67,8 +67,8 @@ def compute_raw_factors(stats: dict) -> dict:
         for h in daily_history:
             net_d = float(h.get("daily_pnl") or h.get("net_pnl") or 0.0)
             recency_ema = (1.0 - alpha_30d) * recency_ema + alpha_30d * net_d
-    elif recency_ema == 0.0 and pnl > 0:
-        recency_ema = pnl / 30.0
+    elif recency_ema == 0.0:
+        recency_ema = 0.0
 
     # Category breadth bonus & copyability penalty
     cat_bonus = min(5.0, (float(category_count) / 3.0) * 5.0)
@@ -354,7 +354,7 @@ async def refresh_basket(db: AsyncSession, trigger_type: str = "SCHEDULED_CRON")
     # Audit logging for re-evaluation in Supabase
     try:
         from app.models import SandboxRun, SandboxReevaluation
-        stmt_run = select(SandboxRun).where(SandboxRun.status == "ACTIVE").order_by(SandboxRun.started_at.desc()).limit(1)
+        stmt_run = select(SandboxRun).where(SandboxRun.status == "ACTIVE", SandboxRun.user_id.is_(None)).order_by(SandboxRun.started_at.desc()).limit(1)
         active_run = (await db.execute(stmt_run)).scalars().first()
 
         promotions = [

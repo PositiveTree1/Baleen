@@ -1,8 +1,13 @@
 import NextAuth from 'next-auth';
 import Credentials from 'next-auth/providers/credentials';
 
+const authSecret = process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET || 'baleen_super_secret_sandbox_jwt_key_2026_polymarket';
+if (!process.env.AUTH_SECRET && !process.env.NEXTAUTH_SECRET && process.env.NODE_ENV === 'production') {
+  throw new Error("AUTH_SECRET or NEXTAUTH_SECRET is required in production");
+}
+
 export const { handlers, signIn, signOut, auth } = NextAuth({
-  secret: process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET || 'baleen_super_secret_sandbox_jwt_key_2026_polymarket',
+  secret: authSecret,
   trustHost: true,
   providers: [
     Credentials({
@@ -17,20 +22,6 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         const email = String(credentials.email).toLowerCase().trim();
         const password = String(credentials.password);
 
-        // Instant guest / demo authorization (zero latency, bulletproof failover)
-        if (
-          email === 'guest@baleen.local' || 
-          email === 'guest@baleen.io' || 
-          email === 'demo@baleen.io' ||
-          email.startsWith('guest')
-        ) {
-          return {
-            id: '00000000-0000-0000-0000-000000000001',
-            email: email,
-            name: 'Guest Trader',
-          };
-        }
-
         let backendUrl = (
           process.env.BACKEND_URL || 
           process.env.NEXT_PUBLIC_BACKEND_URL || 
@@ -43,9 +34,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         }
 
         try {
-          // 3s timeout prevents long hanging if backend is cold starting
           const controller = new AbortController();
-          const timeoutId = setTimeout(() => controller.abort(), 3000);
+          const timeoutId = setTimeout(() => controller.abort(), 5000);
 
           const res = await fetch(
             `${backendUrl}/api/auth/login`,
@@ -53,8 +43,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
-                email: credentials.email,
-                password: credentials.password,
+                email,
+                password,
               }),
               signal: controller.signal,
             }
@@ -63,18 +53,16 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
 
           if (res.ok) {
             const user = await res.json();
-            return { id: user.id, email: user.email };
+            return {
+              id: user.id,
+              email: user.email,
+              name: user.name || user.email,
+              isAdmin: Boolean(user.is_admin || user.isAdmin),
+              accessToken: user.access_token,
+            };
           }
         } catch (e) {
-          console.error("NextAuth backend authorize note:", e);
-        }
-
-        // Sandbox failover credentials
-        if (password === 'baleen_shared_guest_sandbox_password' || password === 'demo1234') {
-          return {
-            id: '00000000-0000-0000-0000-000000000001',
-            email: email,
-          };
+          console.error("NextAuth backend authorize error:", e);
         }
 
         return null;
@@ -83,6 +71,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   ],
   session: {
     strategy: 'jwt',
+    maxAge: 72 * 60 * 60,
   },
   pages: {
     signIn: '/auth/login',
@@ -91,13 +80,19 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     async jwt({ token, user }) {
       if (user) {
         token.id = user.id;
+        token.isAdmin = (user as { isAdmin?: boolean }).isAdmin;
+        token.accessToken = (user as { accessToken?: string }).accessToken;
       }
       return token;
     },
     async session({ session, token }) {
       if (session.user) {
-        (session.user as any).id = token.id as string;
+        const u = session.user as { id?: string; isAdmin?: boolean; accessToken?: string };
+        u.id = token.id as string;
+        u.isAdmin = Boolean(token.isAdmin);
+        u.accessToken = token.accessToken as string;
       }
+      (session as { accessToken?: string }).accessToken = token.accessToken as string;
       return session;
     },
   },

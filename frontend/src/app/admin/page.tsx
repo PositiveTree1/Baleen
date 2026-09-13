@@ -1,59 +1,81 @@
 'use client';
 import { useState, useEffect } from 'react';
-import { fetchAdminStatus, fetchAdminWallets, getCachedAdminStatus, getCachedAdminWallets, reEvaluateWallets, purgeAndRescanWallets, fetchDiscoveryProgress } from '@/lib/api-client';
+import { useSession } from 'next-auth/react';
+import { fetchAdminStatus, fetchAdminWallets, getCachedAdminStatus, getCachedAdminWallets, reEvaluateWallets, purgeAndRescanWallets, fetchDiscoveryProgress, setAuthToken, fetchWithAuth, AdminStatus, AdminWallet, DiscoveryProgress } from '@/lib/api-client';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { BrandLogo } from '@/components/ui/BrandLogo';
 import Link from 'next/link';
-import { ArrowLeft, Activity, Database, Users, Wallet, CheckCircle, AlertTriangle, RefreshCw, Sparkles, Filter, RotateCw, Trash2, Search, ExternalLink, Sun, Moon } from 'lucide-react';
+import { ArrowLeft, Activity, Database, Users, Wallet, CheckCircle, AlertTriangle, RefreshCw, Sparkles, Filter, RotateCw, Trash2, Search, ExternalLink, Sun, Moon, Lock } from 'lucide-react';
 import { useTheme } from '@/context/ThemeContext';
 import { motion, AnimatePresence } from 'framer-motion';
 
 export default function AdminPage() {
-  const [status, setStatus] = useState<any>(() => getCachedAdminStatus() || null);
-  const [wallets, setWallets] = useState<any[]>(() => getCachedAdminWallets() || []);
+  const { data: session, status: sessionStatus } = useSession();
+  const [status, setStatus] = useState<AdminStatus | null>(() => getCachedAdminStatus() || null);
+  const [wallets, setWallets] = useState<AdminWallet[]>(() => getCachedAdminWallets() || []);
   const [initialLoading, setInitialLoading] = useState(() => !getCachedAdminStatus());
   const [justRefreshed, setJustRefreshed] = useState(false);
   const [triggering, setTriggering] = useState(false);
   const [evaluating, setEvaluating] = useState(false);
-  const [progress, setProgress] = useState<any>(null);
+  const [progress, setProgress] = useState<DiscoveryProgress | null>(null);
   const [filter, setFilter] = useState<'all' | 'active' | 'pending' | 'rejected'>('all');
   const { theme, toggleTheme } = useTheme();
   const [wipingAll, setWipingAll] = useState(false);
   const [search, setSearch] = useState('');
-
-  const loadData = async (isManual = false) => {
-    try {
-      const [statusData, walletsData] = await Promise.all([
-        fetchAdminStatus(),
-        fetchAdminWallets()
-      ]);
-      setStatus(statusData);
-      setWallets(walletsData);
-      
-      if (statusData?.discovery_state?.status === 'running') {
-        setProgress(statusData.discovery_state);
-        setEvaluating(true);
-      } else if (statusData?.discovery_state?.status === 'completed' && evaluating) {
-        setEvaluating(false);
-        setProgress(null);
-      }
-      
-      setJustRefreshed(true);
-      setTimeout(() => setJustRefreshed(false), 900);
-    } catch (e) {
-      console.error("Admin refresh error:", e);
-    } finally {
-      setInitialLoading(false);
-    }
-  };
+  const [refreshKey, setRefreshKey] = useState(0);
+  const [referenceNow, setReferenceNow] = useState(0);
 
   useEffect(() => {
-    loadData();
-    const interval = setInterval(() => loadData(false), 5000);
-    return () => clearInterval(interval);
-  }, []);
+    const token = session?.user?.accessToken || (session as { accessToken?: string })?.accessToken;
+    if (token) {
+      setAuthToken(token);
+    }
+
+    if (sessionStatus !== 'authenticated' || !session?.user?.isAdmin) {
+      return;
+    }
+    let isMounted = true;
+
+    const runLoad = async () => {
+      try {
+        const [statusData, walletsData] = await Promise.all([
+          fetchAdminStatus(),
+          fetchAdminWallets()
+        ]);
+        if (!isMounted) return;
+        setReferenceNow(Date.now());
+        setStatus(statusData);
+        setWallets(walletsData);
+
+        if (statusData?.discovery_state?.status === 'running') {
+          setProgress(statusData.discovery_state);
+          setEvaluating(true);
+        } else if (statusData?.discovery_state?.status === 'completed') {
+          setEvaluating(false);
+          setProgress(null);
+        }
+      } catch (e) {
+        console.error("Admin refresh error:", e);
+      } finally {
+        if (isMounted) setInitialLoading(false);
+      }
+    };
+
+    void runLoad();
+    const interval = setInterval(runLoad, 5000);
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, [refreshKey, sessionStatus, session]);
+
+  const handleManualRefresh = () => {
+    setRefreshKey(k => k + 1);
+    setJustRefreshed(true);
+    setTimeout(() => setJustRefreshed(false), 900);
+  };
 
   const startProgressPolling = () => {
     const pInterval = setInterval(async () => {
@@ -65,7 +87,7 @@ export default function AdminPage() {
           setTimeout(() => {
             setEvaluating(false);
             setProgress(null);
-            loadData();
+            setRefreshKey(k => k + 1);
           }, 1200);
         }
       }
@@ -100,10 +122,10 @@ export default function AdminPage() {
     setWipingAll(true);
     try {
       const backendUrl = (
-        process.env.NEXT_PUBLIC_API_URL || 
+        process.env.NEXT_PUBLIC_API_URL ||
         'http://localhost:8000'
       ).replace(/\/$/, '');
-      const res = await fetch(`${backendUrl}/api/admin/hard-wipe-all`, { method: 'POST' });
+      const res = await fetchWithAuth(`${backendUrl}/api/admin/hard-wipe-all`, { method: 'POST' });
       if (res.ok) {
         alert("Database successfully wiped and reset to clean genesis state!");
         window.location.reload();
@@ -121,13 +143,13 @@ export default function AdminPage() {
     setTriggering(true);
     try {
       const backendUrl = (
-        process.env.NEXT_PUBLIC_BACKEND_URL || 
-        process.env.NEXT_PUBLIC_API_URL || 
+        process.env.NEXT_PUBLIC_BACKEND_URL ||
+        process.env.NEXT_PUBLIC_API_URL ||
         'http://localhost:8000'
       ).replace(/\/$/, '');
-      await fetch(`${backendUrl}/api/admin/trigger-discovery`, { method: 'POST' });
+      await fetchWithAuth(`${backendUrl}/api/admin/trigger-discovery`, { method: 'POST' });
       setTimeout(() => {
-        loadData();
+        setRefreshKey(k => k + 1);
         setTriggering(false);
       }, 2000);
     } catch {
@@ -152,15 +174,70 @@ export default function AdminPage() {
     return `${s}s`;
   };
 
-  const formatCronTime = (timestamp: number | null) => {
-    if (!timestamp) return 'Waiting for ping...';
-    const secondsAgo = Math.floor(Date.now() / 1000 - timestamp);
+  const formatCronTime = (timestamp: number | null, currentTs: number) => {
+    if (!timestamp || !currentTs) return 'Waiting for ping...';
+    const secondsAgo = Math.floor(currentTs / 1000 - timestamp);
     if (secondsAgo < 60) return 'Just now';
     return `${Math.floor(secondsAgo / 60)}m ago`;
   };
 
   const dbType = status?.database?.type || (status?.database?.using_sqlite_fallback ? 'SQLite (Local Failover)' : 'Supabase PostgreSQL');
   const isPostgres = !status?.database?.using_sqlite_fallback && !dbType.includes('SQLite');
+
+  if (sessionStatus === 'loading') {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#F8F9FB] dark:bg-[#000000] text-slate-900 dark:text-white">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-8 h-8 rounded-full border-2 border-[#00D09C] border-t-transparent animate-spin" />
+          <span className="text-xs font-mono text-[#8E8F99]">Verifying administrator credentials...</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (sessionStatus === 'unauthenticated') {
+    return (
+      <div className="min-h-screen bg-[#F8F9FB] dark:bg-[#000000] text-slate-900 dark:text-white flex flex-col items-center justify-center p-6">
+        <div className="w-full max-w-md p-8 rounded-2xl bg-white dark:bg-[#16171B] border border-black/10 dark:border-white/10 shadow-xl text-center space-y-4">
+          <div className="w-12 h-12 mx-auto rounded-2xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800/60 flex items-center justify-center text-rose-600 dark:text-rose-400">
+            <Lock size={24} />
+          </div>
+          <h2 className="text-lg font-bold">Authentication Required</h2>
+          <p className="text-xs text-slate-500 dark:text-[#8E8F99]">
+            The Baleen Control Plane is restricted. Please sign in with administrator credentials.
+          </p>
+          <Link
+            href="/auth/login"
+            className="inline-block w-full py-3 rounded-full bg-slate-950 dark:bg-white text-white dark:text-black text-xs font-bold hover:bg-slate-800 dark:hover:bg-slate-200 transition-all cursor-pointer"
+          >
+            Sign In
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  if (!session?.user?.isAdmin) {
+    return (
+      <div className="min-h-screen bg-[#F8F9FB] dark:bg-[#000000] text-slate-900 dark:text-white flex flex-col items-center justify-center p-6">
+        <div className="w-full max-w-md p-8 rounded-2xl bg-white dark:bg-[#16171B] border border-black/10 dark:border-white/10 shadow-xl text-center space-y-4">
+          <div className="w-12 h-12 mx-auto rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60 flex items-center justify-center text-amber-600 dark:text-amber-400">
+            <AlertTriangle size={24} />
+          </div>
+          <h2 className="text-lg font-bold">Access Denied</h2>
+          <p className="text-xs text-slate-500 dark:text-[#8E8F99]">
+            Your account ({session?.user?.email || 'authenticated user'}) does not have administrator privileges.
+          </p>
+          <Link
+            href="/dashboard"
+            className="inline-block w-full py-3 rounded-full bg-[#00D09C] hover:bg-[#00b084] text-black text-xs font-bold transition-all cursor-pointer"
+          >
+            Return to Dashboard
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#F8F9FB] dark:bg-[#000000] text-slate-900 dark:text-white p-6 lg:p-12 selection:bg-[#00D09C] selection:text-black transition-colors duration-150">
@@ -183,43 +260,43 @@ export default function AdminPage() {
             >
               {theme === 'light' ? <Moon size={15} /> : <Sun size={15} className="text-amber-400" />}
             </button>
-            <Button 
-              variant="secondary" 
-              onClick={() => loadData(true)} 
+            <Button
+              variant="secondary"
+              onClick={handleManualRefresh}
               disabled={initialLoading || justRefreshed || wipingAll}
               className="text-xs py-2 px-3 shadow-sm"
             >
               <RefreshCw size={14} className={justRefreshed ? 'animate-spin text-indigo-600' : ''} /> Refresh
             </Button>
-            <Button 
-              variant="secondary" 
-              onClick={handleReevaluate} 
+            <Button
+              variant="secondary"
+              onClick={handleReevaluate}
               disabled={evaluating || wipingAll}
               className="text-xs py-2 px-3.5 shadow-sm border-indigo-200 text-indigo-900 bg-indigo-50/50 hover:bg-indigo-100/60 font-semibold"
             >
-              <RotateCw size={14} className={evaluating ? 'animate-spin text-indigo-600' : 'text-indigo-600'} /> 
+              <RotateCw size={14} className={evaluating ? 'animate-spin text-indigo-600' : 'text-indigo-600'} />
               {evaluating ? 'Evaluating...' : 'Re-evaluate All'}
             </Button>
-            <Button 
-              variant="danger" 
-              onClick={handlePurgeAndRescan} 
+            <Button
+              variant="danger"
+              onClick={handlePurgeAndRescan}
               disabled={evaluating || wipingAll}
               className="text-xs py-2 px-3.5 shadow-sm border border-rose-200 text-rose-700 bg-rose-50 hover:bg-rose-100 font-semibold"
             >
               <Trash2 size={14} /> Purge &amp; Rescan
             </Button>
-            <Button 
-              variant="danger" 
-              onClick={handleHardWipeAll} 
+            <Button
+              variant="danger"
+              onClick={handleHardWipeAll}
               disabled={wipingAll || evaluating}
               className="text-xs py-2 px-3.5 shadow-sm bg-rose-600 hover:bg-rose-700 text-white font-bold"
               title="Completely wipe all database tables and reset system"
             >
               <Trash2 size={14} /> {wipingAll ? 'Wiping...' : 'Factory Reset DB'}
             </Button>
-            <Button 
-              variant="primary" 
-              onClick={handleTriggerDiscovery} 
+            <Button
+              variant="primary"
+              onClick={handleTriggerDiscovery}
               disabled={triggering || evaluating || wipingAll}
               className="text-xs py-2 px-4 font-semibold"
             >
@@ -254,7 +331,7 @@ export default function AdminPage() {
                 </div>
               </div>
               <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
-                <div 
+                <div
                   className="h-full bg-indigo-600 rounded-full transition-all duration-300"
                   style={{ width: `${progress.progress_pct || 5}%` }}
                 />
@@ -262,7 +339,7 @@ export default function AdminPage() {
             </motion.div>
           )}
         </AnimatePresence>
-        
+
         <div className="mb-10">
           <h1 className="text-3xl font-bold tracking-tight text-slate-900 mb-2 flex items-center gap-3">
             <Activity className="text-slate-900" size={26} /> Engine Control Plane
@@ -324,7 +401,7 @@ export default function AdminPage() {
                 <span className="text-slate-800 font-semibold">Database Engine</span>
                 <span className={`inline-flex items-center gap-1 text-[11px] font-mono font-bold px-2.5 py-0.5 rounded-full border ${
                   isPostgres
-                    ? 'text-emerald-800 bg-emerald-50 border-emerald-200' 
+                    ? 'text-emerald-800 bg-emerald-50 border-emerald-200'
                     : 'text-amber-800 bg-amber-50 border-amber-200'
                 }`}>
                   {isPostgres ? <CheckCircle size={12} /> : <AlertTriangle size={12} />}
@@ -340,7 +417,7 @@ export default function AdminPage() {
               <div className="flex items-center justify-between p-3 rounded-2xl bg-slate-50 border border-black/[0.04]">
                 <span className="text-slate-800 font-semibold">Keep-Alive Heartbeat</span>
                 <span className="font-mono font-bold text-slate-700 bg-white px-2.5 py-0.5 rounded-full border shadow-sm">
-                  {formatCronTime(status?.last_cron_ping)}
+                  {formatCronTime(status?.last_cron_ping ?? null, referenceNow)}
                 </span>
               </div>
             </div>
@@ -373,7 +450,7 @@ export default function AdminPage() {
               <div className="border-t border-black/[0.06] pt-2">
                 <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 block mb-1.5">Top Rejection Reasons</span>
                 <div className="space-y-1">
-                  {(status?.audit?.rejection_breakdown || []).slice(0, 3).map((r: any, idx: number) => (
+                  {(status?.audit?.rejection_breakdown || []).slice(0, 3).map((r: { reason: string; count: number }, idx: number) => (
                     <div key={idx} className="flex justify-between text-[11px]">
                       <span className="text-slate-500 truncate max-w-[170px]">{r.reason}</span>
                       <span className="font-mono font-bold text-rose-600">{r.count}</span>
@@ -387,8 +464,8 @@ export default function AdminPage() {
 
         {/* Whale Pipeline Table */}
         <div className={`rounded-3xl overflow-hidden border transition-all duration-700 bg-white ${
-          justRefreshed 
-            ? 'border-indigo-400/80 shadow-[0_0_24px_rgba(99,102,241,0.16)] ring-1 ring-indigo-300/50' 
+          justRefreshed
+            ? 'border-indigo-400/80 shadow-[0_0_24px_rgba(99,102,241,0.16)] ring-1 ring-indigo-300/50'
             : 'border-black/[0.08] shadow-[inset_0_1px_0_rgba(255,255,255,1),0_2px_8px_rgba(0,0,0,0.03),0_16px_36px_-6px_rgba(0,0,0,0.05)]'
         }`}>
           <div className="p-6 border-b border-black/[0.06] flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-slate-50/50">
@@ -405,7 +482,7 @@ export default function AdminPage() {
               </div>
               <p className="text-xs text-slate-500 mt-1">Full auditable funnel of all candidate and active wallets.</p>
             </div>
-            
+
             <div className="flex flex-wrap items-center gap-3">
               <div className="relative">
                 <Search size={12} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -454,7 +531,7 @@ export default function AdminPage() {
                     </tr>
                   ))
                 ) : filteredWallets.length > 0 ? (
-                  filteredWallets.map((w: any) => {
+                  filteredWallets.map((w: AdminWallet) => {
                     const statusVal = (w.status || 'pending').toLowerCase();
                     const winRate = w.winRatePct ?? w.win_rate_pct ?? 0;
                     const pnl = w.allTimePnlUsd ?? w.all_time_pnl_usd ?? 0;
@@ -464,7 +541,7 @@ export default function AdminPage() {
                     return (
                       <tr key={w.address} className="hover:bg-slate-50/80 transition-colors text-xs">
                         <td className="p-4 sm:px-6 font-mono text-slate-800 font-semibold">
-                          <a 
+                          <a
                             href={`https://polymarket.com/profile/${w.address}`}
                             target="_blank"
                             rel="noreferrer"
@@ -476,10 +553,10 @@ export default function AdminPage() {
                         </td>
                         <td className="p-4">
                           <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold capitalize border shadow-sm ${
-                            statusVal === 'active' 
-                              ? 'bg-emerald-50 text-emerald-800 border-emerald-200' 
-                              : statusVal === 'rejected' 
-                              ? 'bg-rose-50 text-rose-800 border-rose-200' 
+                            statusVal === 'active'
+                              ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                              : statusVal === 'rejected'
+                              ? 'bg-rose-50 text-rose-800 border-rose-200'
                               : 'bg-amber-50 text-amber-800 border-amber-200'
                           }`}>
                             {statusVal}

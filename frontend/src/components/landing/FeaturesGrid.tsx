@@ -5,7 +5,7 @@ export function FeaturesGrid() {
   const features = [
     {
       title: 'Real-time Envio Indexing',
-      description: 'Zero-delay contract event streaming straight from Polygon CTF contracts with sub-second detection.',
+      description: 'Contract event streaming from Polygon CTF contracts for researching observed market activity.',
       icon: Database,
     },
     {
@@ -20,7 +20,7 @@ export function FeaturesGrid() {
     },
     {
       title: 'Non-Custodial Paper Sandbox',
-      description: 'Test strategies with $10,000 in virtual funds mirroring real live fills before connecting any wallet.',
+      description: 'Test strategies with virtual funds against observed activity before connecting any wallet.',
       icon: Wallet2,
     },
   ];
@@ -30,7 +30,7 @@ export function FeaturesGrid() {
       <div className="max-w-6xl mx-auto">
         <div className="text-center mb-16">
           <h2 className="text-3xl md:text-5xl font-bold text-slate-900 tracking-tight mb-4">Industrial Grade Infrastructure</h2>
-          <p className="text-slate-600 text-base max-w-xl mx-auto font-normal">Engineered on Next.js, FastAPI, and Envio HyperSync for sub-second execution accuracy.</p>
+          <p className="text-slate-600 text-base max-w-xl mx-auto font-normal">Engineered on Next.js, FastAPI, and Envio HyperSync for transparent paper trading research.</p>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

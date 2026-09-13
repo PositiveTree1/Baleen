@@ -3,11 +3,13 @@ import json
 import asyncio
 import os
 import time
+import subprocess
 from pathlib import Path
 from datetime import datetime
 
 # Add backend directory to sys.path
 backend_dir = Path(__file__).resolve().parent
+repo_dir = backend_dir.parent
 if str(backend_dir) not in sys.path:
     sys.path.insert(0, str(backend_dir))
 
@@ -108,19 +110,78 @@ TOOLS = [
     },
     {
         "name": "baleen_admin_trigger_deploy",
-        "description": "Triggers a production deployment on Render and/or Vercel using configured deploy hooks.",
+        "description": "Triggers a production deployment on Railway and/or Vercel using configured deploy hooks.",
         "inputSchema": {
             "type": "object",
             "properties": {
                 "target": {
                     "type": "string",
-                    "description": "Target service: 'all', 'render', or 'vercel' (default 'all')."
+                    "description": "Target service: 'all', 'railway', or 'vercel' (default 'all')."
+                }
+            },
+            "additionalProperties": False
+        }
+    },
+    {
+        "name": "baleen_git_status",
+        "description": "Shows the current Baleen git branch, origin remote, and short working tree status before committing or deploying.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {},
+            "additionalProperties": False
+        }
+    },
+    {
+        "name": "baleen_git_commit",
+        "description": "Stages all local Baleen repo changes and creates a git commit with the supplied message. Does not push.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "message": {
+                    "type": "string",
+                    "description": "Required git commit message."
+                }
+            },
+            "required": ["message"],
+            "additionalProperties": False
+        }
+    },
+    {
+        "name": "baleen_git_deploy",
+        "description": "Stages all local Baleen repo changes, commits them with the supplied message when needed, then pushes the current branch to origin so Railway and Vercel auto-deploy.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "message": {
+                    "type": "string",
+                    "description": "Git commit message. Required when there are local changes."
                 }
             },
             "additionalProperties": False
         }
     }
 ]
+
+def run_git_command(args, check=True):
+    completed = subprocess.run(
+        ["git", *args],
+        cwd=repo_dir,
+        text=True,
+        capture_output=True
+    )
+    if check and completed.returncode != 0:
+        raise RuntimeError((completed.stderr or completed.stdout or "git command failed").strip())
+    return completed
+
+def get_git_status_payload():
+    branch = run_git_command(["branch", "--show-current"]).stdout.strip()
+    remote = run_git_command(["ls-remote", "--get-url", "origin"]).stdout.strip()
+    status = run_git_command(["status", "--short", "--branch"]).stdout.strip()
+    return {
+        "branch": branch,
+        "origin": remote,
+        "status": status,
+    }
 
 async def handle_baleen_admin_system(args):
     await init_db()
@@ -291,18 +352,18 @@ async def handle_baleen_admin_trigger_deploy(args):
     import httpx
     results = {}
     
-    render_hook = os.environ.get("RENDER_DEPLOY_HOOK_URL")
+    railway_hook = os.environ.get("RAILWAY_DEPLOY_HOOK_URL")
     vercel_hook = os.environ.get("VERCEL_DEPLOY_HOOK_URL")
     
     async with httpx.AsyncClient(timeout=15.0) as client:
-        if (target in ("all", "render")) and render_hook:
+        if (target in ("all", "railway")) and railway_hook:
             try:
-                resp = await client.post(render_hook)
-                results["render"] = f"Triggered successfully (HTTP {resp.status_code})"
+                resp = await client.post(railway_hook)
+                results["railway"] = f"Triggered successfully (HTTP {resp.status_code})"
             except Exception as e:
-                results["render"] = f"Error: {e}"
-        elif target in ("all", "render"):
-            results["render"] = "Set RENDER_DEPLOY_HOOK_URL in environment or git push to deploy."
+                results["railway"] = f"Error: {e}"
+        elif target in ("all", "railway"):
+            results["railway"] = "Set RAILWAY_DEPLOY_HOOK_URL in environment or git push to deploy."
 
         if (target in ("all", "vercel")) and vercel_hook:
             try:
@@ -314,6 +375,62 @@ async def handle_baleen_admin_trigger_deploy(args):
             results["vercel"] = "Set VERCEL_DEPLOY_HOOK_URL in environment or git push to deploy."
             
     return results
+
+async def handle_baleen_git_status(args):
+    return get_git_status_payload()
+
+async def handle_baleen_git_commit(args):
+    message = (args.get("message") or "").strip()
+    if not message:
+        return {"error": "A commit message is required."}
+
+    branch = run_git_command(["branch", "--show-current"]).stdout.strip()
+    if not branch:
+        return {"error": "Refusing to commit from a detached HEAD. Check out a branch first."}
+
+    run_git_command(["add", "--all"])
+    diff = run_git_command(["diff", "--cached", "--quiet"], check=False)
+    if diff.returncode == 0:
+        return {
+            "committed": False,
+            "message": "No local changes to commit.",
+            **get_git_status_payload()
+        }
+
+    commit = run_git_command(["commit", "-m", message])
+    return {
+        "committed": True,
+        "commit": commit.stdout.strip(),
+        **get_git_status_payload()
+    }
+
+async def handle_baleen_git_deploy(args):
+    message = (args.get("message") or "").strip()
+    branch = run_git_command(["branch", "--show-current"]).stdout.strip()
+    if not branch:
+        return {"error": "Refusing to deploy from a detached HEAD. Check out a branch first."}
+
+    run_git_command(["add", "--all"])
+    diff = run_git_command(["diff", "--cached", "--quiet"], check=False)
+    committed = False
+    commit_output = None
+
+    if diff.returncode != 0:
+        if not message:
+            return {"error": "A commit message is required when there are local changes."}
+        commit = run_git_command(["commit", "-m", message])
+        committed = True
+        commit_output = commit.stdout.strip()
+
+    push = run_git_command(["push", "origin", "HEAD"])
+    return {
+        "committed": committed,
+        "commit": commit_output,
+        "pushed": True,
+        "push": push.stdout.strip() or push.stderr.strip(),
+        "message": "Pushed to origin. Railway and Vercel should auto-deploy from the new commit.",
+        **get_git_status_payload()
+    }
 
 async def process_message(msg):
     method = msg.get("method")
@@ -370,6 +487,12 @@ async def process_message(msg):
                 res = await handle_baleen_admin_trigger_discovery(args)
             elif tool_name in ("baleen_admin_trigger_deploy", "baleen_trigger_deploy"):
                 res = await handle_baleen_admin_trigger_deploy(args)
+            elif tool_name == "baleen_git_status":
+                res = await handle_baleen_git_status(args)
+            elif tool_name == "baleen_git_commit":
+                res = await handle_baleen_git_commit(args)
+            elif tool_name == "baleen_git_deploy":
+                res = await handle_baleen_git_deploy(args)
             else:
                 return {
                     "jsonrpc": "2.0",

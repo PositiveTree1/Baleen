@@ -451,7 +451,7 @@ def test_score_wallet_resilient_to_none_values():
 
 
 @pytest.mark.asyncio
-async def test_live_poller_executes_live_orders_for_live_active_links():
+async def test_paper_poller_never_fabricates_live_fills_even_with_legacy_flag():
     from app.database import SessionLocal, init_db
     from app.models import User, LiveWalletLink, Wallet, ExecutionLog
     from app.services.live_poller import LiveTradeMirrorService
@@ -511,77 +511,77 @@ async def test_live_poller_executes_live_orders_for_live_active_links():
         db.add(link)
         await db.commit()
 
-    service = LiveTradeMirrorService()
+    from app.config import settings
+    orig_flag = getattr(settings, "LIVE_EXECUTION_ENABLED", False)
+    settings.LIVE_EXECUTION_ENABLED = True
 
-    # Process BUY fill
-    await service.process_trade_fill(
-        wallet_address=whale_addr,
-        condition_id=cond_id,
-        title="Will Baleen L2 Live Mirror Succeed?",
-        side="BUY",
-        price=0.50,
-        cash_usd=5000.0,
-        dt=datetime.utcnow(),
-        outcome="Yes",
-        asset="0xassetLive1"
-    )
+    try:
+        service = LiveTradeMirrorService()
 
-    async with SessionLocal() as db:
-        # Check that BOTH sandbox and live execution logs were created
-        stmt_sandbox = select(ExecutionLog).where(
-            ExecutionLog.market_condition_id == cond_id,
-            ExecutionLog.is_sandbox == True
+        # Process BUY fill
+        await service.process_trade_fill(
+            wallet_address=whale_addr,
+            condition_id=cond_id,
+            title="Will Baleen L2 Live Mirror Succeed?",
+            side="BUY",
+            price=0.50,
+            cash_usd=5000.0,
+            dt=datetime.utcnow(),
+            outcome="Yes",
+            asset="0xassetLive1"
         )
-        sandbox_logs = (await db.execute(stmt_sandbox)).scalars().all()
-        assert len(sandbox_logs) >= 1
 
-        stmt_live = select(ExecutionLog).where(
-            ExecutionLog.market_condition_id == cond_id,
-            ExecutionLog.is_sandbox == False
+        async with SessionLocal() as db:
+            # Paper fills remain available; an enabled legacy flag is not exchange evidence.
+            stmt_sandbox = select(ExecutionLog).where(
+                ExecutionLog.market_condition_id == cond_id,
+                ExecutionLog.is_sandbox == True
+            )
+            sandbox_logs = (await db.execute(stmt_sandbox)).scalars().all()
+            assert len(sandbox_logs) >= 1
+
+            stmt_live = select(ExecutionLog).where(
+                ExecutionLog.market_condition_id == cond_id,
+                ExecutionLog.is_sandbox == False
+            )
+            live_logs = (await db.execute(stmt_live)).scalars().all()
+            assert live_logs == []
+
+            # Simulation must not debit authenticated exchange cash.
+            stmt_link_check = select(LiveWalletLink).where(LiveWalletLink.user_id == u.id)
+            updated_link = (await db.execute(stmt_link_check)).scalar_one()
+            assert updated_link.live_balance_usdc == 5000.0
+
+        # Process SELL fill
+        await service.process_trade_fill(
+            wallet_address=whale_addr,
+            condition_id=cond_id,
+            title="Will Baleen L2 Live Mirror Succeed?",
+            side="SELL",
+            price=0.80,  # Profitable exit
+            cash_usd=5000.0,
+            dt=datetime.utcnow(),
+            outcome="Yes",
+            asset="0xassetLive1"
         )
-        live_logs = (await db.execute(stmt_live)).scalars().all()
-        assert len(live_logs) >= 1
-        live_entry = live_logs[0]
-        assert live_entry.side == "BUY"
-        assert live_entry.status == "FILLED"
-        assert live_entry.notional_usd > 0.0
 
-        # Live balance should have been decremented
-        stmt_link_check = select(LiveWalletLink).where(LiveWalletLink.user_id == u.id)
-        updated_link = (await db.execute(stmt_link_check)).scalar_one()
-        assert updated_link.live_balance_usdc < 5000.0
+        async with SessionLocal() as db:
+            stmt_live_sell = select(ExecutionLog).where(
+                ExecutionLog.market_condition_id == cond_id,
+                ExecutionLog.is_sandbox == False,
+                ExecutionLog.side == "SELL"
+            )
+            live_sells = (await db.execute(stmt_live_sell)).scalars().all()
+            assert live_sells == []
 
-    # Process SELL fill
-    await service.process_trade_fill(
-        wallet_address=whale_addr,
-        condition_id=cond_id,
-        title="Will Baleen L2 Live Mirror Succeed?",
-        side="SELL",
-        price=0.80,  # Profitable exit
-        cash_usd=5000.0,
-        dt=datetime.utcnow(),
-        outcome="Yes",
-        asset="0xassetLive1"
-    )
-
-    async with SessionLocal() as db:
-        stmt_live_sell = select(ExecutionLog).where(
-            ExecutionLog.market_condition_id == cond_id,
-            ExecutionLog.is_sandbox == False,
-            ExecutionLog.side == "SELL"
-        )
-        live_sells = (await db.execute(stmt_live_sell)).scalars().all()
-        assert len(live_sells) >= 1
-        assert live_sells[0].status == "CLOSED"
-        assert live_sells[0].realized_pnl_usd is not None
-        assert live_sells[0].realized_pnl_usd > 0  # Sold at 0.80 vs bought at 0.50
-
-        # Clean test records
-        await db.execute(delete(ExecutionLog).where(ExecutionLog.market_condition_id == cond_id))
-        await db.execute(delete(LiveWalletLink).where(LiveWalletLink.user_id == u.id))
-        await db.execute(delete(User).where(User.id == u.id))
-        await db.execute(delete(Wallet).where(Wallet.address == whale_addr))
-        await db.commit()
+            # Clean test records
+            await db.execute(delete(ExecutionLog).where(ExecutionLog.market_condition_id == cond_id))
+            await db.execute(delete(LiveWalletLink).where(LiveWalletLink.user_id == u.id))
+            await db.execute(delete(User).where(User.id == u.id))
+            await db.execute(delete(Wallet).where(Wallet.address == whale_addr))
+            await db.commit()
+    finally:
+        settings.LIVE_EXECUTION_ENABLED = orig_flag
 
 
 # =========================================================================
@@ -813,5 +813,4 @@ def test_spec_v2_gate_14_pairwise_correlation_filter():
     assert len(roster) == 2
     assert roster[0].address == "0xCandidateA"
     assert roster[1].address == "0xCandidateC"  # B skipped due to correlation!
-
 

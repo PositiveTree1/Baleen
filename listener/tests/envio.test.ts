@@ -2,15 +2,18 @@ import { createHyperSyncClient, buildQuery } from '../src/hypersync';
 import { getResumeBlock, saveCheckpoint } from '../src/checkpoint';
 import fs from 'fs';
 import path from 'path';
+import os from 'os';
 
 describe('HyperSync and Checkpoint Tests', () => {
-  const CHECKPOINT_FILE = path.join(__dirname, '../checkpoint.json');
+  const CHECKPOINT_FILE = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'baleen-checkpoint-test-')), 'checkpoint.json');
 
   beforeAll(() => {
+    process.env.LISTENER_CHECKPOINT_FILE = CHECKPOINT_FILE;
     if (fs.existsSync(CHECKPOINT_FILE)) {
       fs.unlinkSync(CHECKPOINT_FILE);
     }
   });
+  afterAll(() => { delete process.env.LISTENER_CHECKPOINT_FILE; });
 
   it('should build a valid query', () => {
     const query = buildQuery(1000);

@@ -1,0 +1,112 @@
+{
+  "checks": [
+    {
+      "check": "settlement_after_MTM",
+      "observed": {
+        "equity": 10180.0,
+        "hwm": 10180.0
+      },
+      "expected": {
+        "equity": 10100,
+        "hwm": 10100
+      },
+      "passed": false
+    },
+    {
+      "check": "private_executions_require_auth",
+      "observed": {
+        "http_status": 401,
+        "rows": null
+      },
+      "expected": "401 or 403",
+      "passed": true
+    },
+    {
+      "check": "protected_settings_without_bearer",
+      "observed": 401,
+      "expected": 401,
+      "passed": true
+    },
+    {
+      "check": "credential_write_requires_auth",
+      "observed": 401,
+      "expected": "401 or 403",
+      "passed": true
+    },
+    {
+      "check": "zero_balance_not_defaulted",
+      "observed": 0.0,
+      "expected": 0,
+      "passed": true
+    },
+    {
+      "check": "both_outcomes_count_in_wallet_curve",
+      "observed": 50.0,
+      "expected": -50,
+      "passed": false
+    },
+    {
+      "check": "redemption_observation_idempotency",
+      "observed": 100.0,
+      "expected": 50,
+      "passed": false
+    },
+    {
+      "check": "missing_redemption_basis_not_invented",
+      "observed": 50.0,
+      "expected": "unknown/excluded, not fabricated +50",
+      "passed": false
+    },
+    {
+      "check": "rejected_backtest_exit_has_no_fill",
+      "observed": {
+        "cash": 1030.0,
+        "open_positions": 0
+      },
+      "expected": {
+        "cash": 950,
+        "open_positions": 1
+      },
+      "passed": false
+    },
+    {
+      "check": "wrong_market_price_rejected",
+      "observed": {
+        "yes": 0.9,
+        "no": 0.1
+      },
+      "expected": null,
+      "passed": false
+    },
+    {
+      "check": "summary_matches_settled_account",
+      "observed": 10100.0,
+      "expected": 10100,
+      "passed": true
+    },
+    {
+      "check": "paper_reset_requires_auth",
+      "observed": 401,
+      "expected": "401 or 403",
+      "passed": true
+    },
+    {
+      "check": "paper_capital_conservation",
+      "observed": {
+        "starting_cash": 100,
+        "open_cost": 120.0,
+        "fees": 3.0
+      },
+      "expected": "open_cost + fees <= 100 without borrowing",
+      "passed": false
+    },
+    {
+      "check": "dual_provider_single_economic_event",
+      "observed": 2,
+      "expected": 1,
+      "passed": false
+    }
+  ],
+  "passed": 6,
+  "failed": 8
+}

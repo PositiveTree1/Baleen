@@ -1,0 +1,16 @@
+........F.....F                                                          [100%]
+================================== FAILURES ===================================
+____________ test_persisted_inbox_recovery_runs_real_consumer_once ____________
+tests\test_real_postgres_batch_b_review.py:79: in test_persisted_inbox_recovery_runs_real_consumer_once
+    assert count == 1
+E   assert 0 == 1
+________________ test_settle_market_resolution_multi_user_hwm _________________
+tests\test_live_poller_m_a3.py:459: in test_settle_market_resolution_multi_user_hwm
+    assert bal_after > bal_before
+E   assert 10000.0 > 10000.0
+----------------------------- Captured log setup ------------------------------
+WARNING  app.database:database.py:116 ⚠️  Database initialized with LOCAL SQLite (sqlite+aiosqlite), schema v12. Data will NOT persist across deploys/restarts! Set DATABASE_URL to your Supabase PostgreSQL connection string.
+=========================== short test summary info ===========================
+FAILED tests/test_real_postgres_batch_b_review.py::test_persisted_inbox_recovery_runs_real_consumer_once
+FAILED tests/test_live_poller_m_a3.py::test_settle_market_resolution_multi_user_hwm
+2 failed, 13 passed in 4.04s

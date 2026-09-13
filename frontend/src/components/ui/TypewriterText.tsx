@@ -11,11 +11,15 @@ interface TypewriterTextProps {
 export function TypewriterText({ text, speed = 10, delay = 250, className = '' }: TypewriterTextProps) {
   const [displayedText, setDisplayedText] = useState('');
   const [isDone, setIsDone] = useState(false);
+  const [prevText, setPrevText] = useState(text);
 
-  useEffect(() => {
+  if (prevText !== text) {
+    setPrevText(text);
     setDisplayedText('');
     setIsDone(false);
+  }
 
+  useEffect(() => {
     let currentIndex = 0;
     const timeout = setTimeout(() => {
       const interval = setInterval(() => {

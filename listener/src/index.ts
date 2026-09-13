@@ -1,14 +1,16 @@
 import { config } from './config';
 import { getResumeBlock } from './checkpoint';
 import { createHyperSyncClient, streamEvents } from './hypersync';
-import { matchesBasketWallet } from './event-processor';
-import { enqueueSignal, postSignalToBackend } from './queue';
+import { matchesBasketWallets } from './event-processor';
+import { enqueueSignal, drainQueue } from './queue';
 
 async function fetchBasketWallets(retries = 5, backoffMs = 2000): Promise<Set<string>> {
   for (let attempt = 1; attempt <= retries; attempt++) {
     try {
-      const url = `${config.BACKEND_URL}/api/wallets?status=active`;
-      const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
+      const url = `${config.BACKEND_URL}/api/signals/watched-wallets`;
+      const headers: Record<string, string> = {};
+      if (config.LISTENER_SERVICE_KEY) headers['X-Service-Key'] = config.LISTENER_SERVICE_KEY;
+      const res = await fetch(url, { headers, signal: AbortSignal.timeout(8000) });
       if (res.ok) {
         const wallets: any[] = await res.json();
         const set = new Set<string>(wallets.map(w => (w.address || w).toLowerCase()));
@@ -50,22 +52,36 @@ async function main() {
     }
   } catch (e: any) {
     console.warn(`[WARN] Could not fetch chain height, starting from ${startBlock || 'tip'}: ${e?.message || e}`);
-    if (!startBlock) startBlock = 68000000;
+    if (!startBlock) throw new Error('Cannot initialize cursor without verified chain height');
   }
 
   let eventsProcessed = 0;
   let matchesFound = 0;
+  let draining = false;
+  const deliver = async () => {
+    if (draining) return;
+    draining = true;
+    try { await drainQueue(); } finally { draining = false; }
+  };
+  await deliver();
+  setInterval(() => { void deliver().catch(console.error); }, 5000);
 
   setInterval(async () => {
-    basketWallets = await fetchBasketWallets();
+    const updated = await fetchBasketWallets();
+    // Retain monitored wallets for exits until a holdings-aware roster exists.
+    for (const wallet of updated) basketWallets.add(wallet);
   }, 60000);
 
   setInterval(() => {
     console.log(`Stats - Events: ${eventsProcessed}, Matches: ${matchesFound}, Block: ${getResumeBlock()}`);
     // Send heartbeat to backend
+    const hbHeaders: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (config.LISTENER_SERVICE_KEY) {
+      hbHeaders['X-Service-Key'] = config.LISTENER_SERVICE_KEY;
+    }
     fetch(`${config.BACKEND_URL}/api/admin/heartbeat`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: hbHeaders,
       body: JSON.stringify({
         eventsProcessed,
         matchesFound,
@@ -77,13 +93,12 @@ async function main() {
 
   await streamEvents(client, startBlock, async (event) => {
     eventsProcessed++;
-    const signal = matchesBasketWallet(event, basketWallets);
+    const signals = matchesBasketWallets(event, basketWallets);
     
-    if (signal) {
+    for (const signal of signals) {
       matchesFound++;
       console.log('Match found!', signal);
       await enqueueSignal(signal);
-      await postSignalToBackend(signal);
     }
   });
 

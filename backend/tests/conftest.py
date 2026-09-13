@@ -1,8 +1,9 @@
 import os
+import uuid
 from pathlib import Path
 
 # Ensure tests run against an isolated test SQLite DB
-test_db_path = Path(__file__).resolve().parent.parent / "test_baleen.db"
+test_db_path = Path(__file__).resolve().parent.parent / f"test_baleen_{uuid.uuid4().hex}.db"
 os.environ["TESTING"] = "1"
 os.environ["DATABASE_URL"] = f"sqlite+aiosqlite:///{test_db_path.as_posix()}"
 

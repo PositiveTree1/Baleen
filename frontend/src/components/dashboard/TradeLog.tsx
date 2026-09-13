@@ -113,7 +113,7 @@ export function TradeLog({
               Execution Audit &amp; Transactions Feed
             </h3>
             <p className="text-xs text-slate-500 dark:text-[#8E8F99]">
-              Live Polymarket CLOB positions, fill audits &amp; PnL tracking
+              Paper positions, simulated fills &amp; paper PnL tracking
             </p>
           </div>
 
@@ -140,6 +140,7 @@ export function TradeLog({
 
             <button
               onClick={() => setIsSpreadsheetOpen(true)}
+              aria-label="Open full execution history modal"
               className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-[#F1F3F5] dark:bg-[#1C1D22] hover:bg-[#E2E6EA] dark:hover:bg-[#2C2D35] text-slate-800 dark:text-white text-xs font-semibold border border-black/[0.04] dark:border-white/10 transition-all cursor-pointer shadow-2xs"
               title="Open full execution history modal"
             >
@@ -176,10 +177,10 @@ export function TradeLog({
           ) : (
             displayedLogs.map((trade) => {
               const notional = trade.size ?? 0.0;
-              const pnl = trade.pnl ?? 0.0;
-              const fillPrice = trade.fillPrice || trade.entryPrice || 0.0;
-              const livePrice = trade.currentPrice || fillPrice;
-              const isProfit = pnl >= 0;
+              const pnl = trade.pnl;
+              const fillPrice = trade.fillPrice ?? trade.entryPrice;
+              const livePrice = trade.currentPrice;
+              const isProfit = pnl !== null && pnl !== undefined && pnl >= 0;
               const isClosed = trade.status === 'CLOSED' || trade.status === 'RESOLVED' || trade.side === 'SELL';
               const whaleDisplay = trade.whaleName || trade.whalePseudonym || (trade.walletAddress ? `${trade.walletAddress.slice(0, 6)}...${trade.walletAddress.slice(-4)}` : 'Whale');
 
@@ -187,7 +188,16 @@ export function TradeLog({
                 <div
                   key={trade.id}
                   onClick={() => onSelectTrade && onSelectTrade(trade)}
-                  className="py-2.5 px-2 rounded-2xl hover:bg-slate-50 dark:hover:bg-[#1C1D22] transition-colors cursor-pointer flex items-center justify-between gap-2.5 group min-w-0"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      onSelectTrade && onSelectTrade(trade);
+                    }
+                  }}
+                  role="button"
+                  tabIndex={0}
+                  aria-label={`View trade details for ${trade.marketQuestion || 'contract'}`}
+                  className="py-2.5 px-2 rounded-2xl hover:bg-slate-50 dark:hover:bg-[#1C1D22] transition-colors cursor-pointer flex items-center justify-between gap-2.5 group min-w-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00D09C]"
                 >
                   {/* Left: Outcome / Market Icon & Title */}
                   <div className="flex items-center gap-2.5 min-w-0 flex-1">
@@ -211,10 +221,10 @@ export function TradeLog({
                           {whaleDisplay}
                         </span>
                         <span className="opacity-40">•</span>
-                        <span className="shrink-0">Fill ${fillPrice.toFixed(3)}</span>
+                        <span className="shrink-0">Fill {fillPrice === null ? 'Unavailable' : `$${fillPrice.toFixed(3)}`}</span>
                         <span className="opacity-40">•</span>
                         <span className="shrink-0 font-bold text-slate-900 dark:text-white">
-                          {isClosed ? 'Exit' : 'Live'} ${livePrice.toFixed(3)}
+                          {isClosed ? 'Exit' : 'Mark'} {livePrice === null || livePrice === undefined ? 'Unavailable' : `$${livePrice.toFixed(3)}`}
                         </span>
                       </div>
                     </div>
@@ -225,8 +235,8 @@ export function TradeLog({
                     <div className="text-xs font-bold font-mono text-slate-950 dark:text-white">
                       ${notional.toFixed(2)}
                     </div>
-                    <div className={`text-[11px] font-bold font-mono ${isProfit ? 'text-emerald-600 dark:text-[#00D09C]' : 'text-rose-600 dark:text-[#FF453A]'}`}>
-                      {isProfit ? '+' : ''}${pnl.toFixed(2)}
+                    <div className={`text-[11px] font-bold font-mono ${pnl === null || pnl === undefined ? 'text-slate-400' : isProfit ? 'text-emerald-600 dark:text-[#00D09C]' : 'text-rose-600 dark:text-[#FF453A]'}`}>
+                      {pnl === null || pnl === undefined ? '—' : `${isProfit ? '+' : ''}$${pnl.toFixed(2)}`}
                     </div>
                   </div>
                 </div>

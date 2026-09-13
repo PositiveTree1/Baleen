@@ -1,0 +1,2 @@
+C:\Users\arthu\repos\Baleen\audit\2026-09-08\independent_checks.py:48: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+  now = datetime.utcnow()

@@ -3,6 +3,7 @@ import { useState, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ExecutionLog } from '@/types';
 import { fetchExecutionLogs } from '@/lib/api-client';
+import { Modal } from '../ui/Modal';
 import { 
   X, 
   Download, 
@@ -67,8 +68,8 @@ export function FullHistorySpreadsheetModal({
 
     // Sorting
     list.sort((a, b) => {
-      let valA: any = 0;
-      let valB: any = 0;
+      let valA: string | number = 0;
+      let valB: string | number = 0;
 
       switch (sortField) {
         case 'timestamp':
@@ -170,7 +171,7 @@ export function FullHistorySpreadsheetModal({
       'Side',
       'Traded Outcome',
       'Fill Price ($)',
-      'Live Price ($)',
+      'Current / Exit Price ($)',
       'Notional Size ($)',
       'Fee ($)',
       'Net PnL ($)',
@@ -178,10 +179,10 @@ export function FullHistorySpreadsheetModal({
     ];
 
     const rows = listToExport.map(l => {
-      const fillP = l.fillPrice ?? l.entryPrice ?? 0.0;
-      const curP = l.currentPrice ?? fillP;
-      const fee = l.feeUsd ?? 0;
-      const pnl = l.pnl ?? 0;
+      const fillP = l.fillPrice ?? l.entryPrice;
+      const curP = l.currentPrice;
+      const fee = l.feeUsd;
+      const pnl = l.pnl;
 
       return [
         `"${l.id}"`,
@@ -192,11 +193,11 @@ export function FullHistorySpreadsheetModal({
         `"${(l.marketQuestion || '').replace(/"/g, '""')}"`,
         `"${l.side}"`,
         `"${l.outcome || 'Yes'}"`,
-        fillP.toFixed(4),
-        curP.toFixed(4),
+        fillP === null ? 'Unavailable' : fillP.toFixed(4),
+        curP === null || curP === undefined ? 'Unavailable' : curP.toFixed(4),
         (l.size ?? 0).toFixed(2),
-        fee.toFixed(4),
-        pnl.toFixed(2),
+        fee === null || fee === undefined ? 'Unavailable' : fee.toFixed(4),
+        pnl === null || pnl === undefined ? 'Unavailable' : pnl.toFixed(2),
         `"${l.status || 'FILLED'}"`
       ].join(',');
     });
@@ -211,28 +212,16 @@ export function FullHistorySpreadsheetModal({
     document.body.removeChild(link);
   };
 
-  if (!isOpen) return null;
-
   return (
-    <AnimatePresence>
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-6 overflow-hidden">
-        {/* Backdrop */}
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          onClick={onClose}
-          className="fixed inset-0 bg-black/60 dark:bg-black/80 backdrop-blur-md"
-        />
-
-        {/* Modal Window */}
-        <motion.div
-          initial={{ opacity: 0, scale: 0.95, y: 15 }}
-          animate={{ opacity: 1, scale: 1, y: 0 }}
-          exit={{ opacity: 0, scale: 0.95, y: 15 }}
-          transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-          className="relative w-full max-w-7xl max-h-[94vh] bg-white dark:bg-[#16171B] text-slate-900 dark:text-white rounded-[22px] sm:rounded-3xl border border-black/[0.08] dark:border-white/10 shadow-2xl flex flex-col overflow-hidden z-10"
-        >
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      maxWidth="max-w-7xl"
+      ariaLabel="Master Execution Spreadsheet & Archive"
+      contentClassName="p-0 flex flex-col flex-1 overflow-hidden"
+      hideCloseButton
+    >
+      <div className="relative w-full max-h-[94vh] bg-white dark:bg-[#16171B] text-slate-900 dark:text-white flex flex-col overflow-hidden">
           {/* Header */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between p-4 sm:p-6 gap-3 border-b border-black/[0.06] dark:border-white/10 bg-slate-50/80 dark:bg-[#1C1D22]">
             <div className="flex items-center gap-2.5 sm:gap-3">
@@ -244,7 +233,7 @@ export function FullHistorySpreadsheetModal({
                   Master Execution Spreadsheet &amp; Archive
                 </h3>
                 <p className="text-[11px] sm:text-xs text-slate-500 dark:text-[#8E8F99] font-medium line-clamp-1">
-                  Institutional audit logs, fills &amp; mark-to-market positions
+                  Paper execution logs, simulated fills &amp; mark-to-market positions
                 </p>
               </div>
             </div>
@@ -252,6 +241,7 @@ export function FullHistorySpreadsheetModal({
             <div className="flex items-center gap-2 sm:gap-2.5 flex-wrap">
               <button
                 onClick={() => exportToCSV()}
+                aria-label="Export CSV"
                 className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold shadow-sm transition-all cursor-pointer"
               >
                 <Download size={14} />
@@ -259,6 +249,7 @@ export function FullHistorySpreadsheetModal({
               </button>
               <button
                 onClick={onClose}
+                aria-label="Close modal"
                 className="p-2 text-slate-400 dark:text-[#8E8F99] hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/60 dark:hover:bg-[#2C2D35] rounded-xl transition-colors cursor-pointer"
               >
                 <X size={18} />
@@ -287,7 +278,7 @@ export function FullHistorySpreadsheetModal({
               </div>
             </div>
             <div className="p-2.5 px-3 bg-white dark:bg-[#1C1D22] rounded-xl border border-black/[0.04] dark:border-white/5 shadow-2xs">
-              <div className="text-[10px] uppercase font-bold text-slate-400 dark:text-[#8E8F99]">Net Portfolio P&L</div>
+              <div className="text-[10px] uppercase font-bold text-slate-400 dark:text-[#8E8F99]">Simulated Portfolio P&L</div>
               <div className={`text-sm font-bold font-mono mt-0.5 ${stats.totalPnl >= 0 ? 'text-emerald-600 dark:text-[#00D09C]' : 'text-rose-600 dark:text-[#FF453A]'}`}>
                 {stats.totalPnl >= 0 ? '+' : '-'}${Math.abs(stats.totalPnl).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </div>
@@ -301,6 +292,7 @@ export function FullHistorySpreadsheetModal({
               <input
                 type="text"
                 placeholder="Search market, whale, outcome..."
+                aria-label="Search market, whale, outcome"
                 value={search}
                 onChange={(e) => { setSearch(e.target.value); setPage(1); }}
                 className="w-full pl-9 pr-3 py-1.5 text-xs bg-slate-50 dark:bg-[#1C1D22] text-slate-900 dark:text-white border border-black/[0.08] dark:border-white/10 rounded-xl focus:outline-none focus:border-slate-400 font-mono"
@@ -394,10 +386,10 @@ export function FullHistorySpreadsheetModal({
               </thead>
               <tbody className="divide-y divide-black/[0.04] dark:divide-white/5 text-slate-800 dark:text-white">
                 {paginatedLogs.map((trade) => {
-                  const fillP = trade.fillPrice ?? trade.entryPrice ?? 0.5;
-                  const curP = trade.currentPrice ?? fillP;
-                  const pnl = trade.pnl ?? 0;
-                  const isProfit = pnl >= 0;
+                  const fillP = trade.fillPrice ?? trade.entryPrice;
+                  const curP = trade.currentPrice;
+                  const pnl = trade.pnl;
+                  const isProfit = pnl !== null && pnl !== undefined && pnl >= 0;
 
                   return (
                     <tr 
@@ -424,16 +416,16 @@ export function FullHistorySpreadsheetModal({
                         </span>
                       </td>
                       <td className="p-3.5 text-right font-mono text-xs">
-                        ${fillP.toFixed(3)}
+                        {fillP === null ? 'Unavailable' : `$${fillP.toFixed(3)}`}
                       </td>
                       <td className="p-3.5 text-right font-mono text-xs font-bold text-slate-900 dark:text-white">
-                        ${curP.toFixed(3)}
+                        {curP === null || curP === undefined ? 'Unavailable' : `$${curP.toFixed(3)}`}
                       </td>
                       <td className="p-3.5 text-right font-mono text-xs font-bold">
                         ${(trade.size ?? 0).toFixed(2)}
                       </td>
                       <td className={`p-3.5 text-right font-mono text-xs font-bold ${isProfit ? 'text-emerald-600 dark:text-[#00D09C]' : 'text-rose-600 dark:text-[#FF453A]'}`}>
-                        {isProfit ? '+' : ''}${pnl.toFixed(2)}
+                        {pnl === null || pnl === undefined ? '—' : `${isProfit ? '+' : ''}$${pnl.toFixed(2)}`}
                       </td>
                     </tr>
                   );
@@ -467,8 +459,7 @@ export function FullHistorySpreadsheetModal({
               </button>
             </div>
           </div>
-        </motion.div>
       </div>
-    </AnimatePresence>
+    </Modal>
   );
 }

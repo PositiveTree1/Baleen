@@ -1,4 +1,5 @@
 import uuid
+from decimal import Decimal
 from datetime import datetime
 import pytest
 from httpx import AsyncClient, ASGITransport
@@ -6,13 +7,15 @@ from sqlalchemy import select, delete
 
 from app.main import app
 from app.database import SessionLocal, init_db
-from app.models import User, LiveWalletLink, ExecutionLog
+from app.models import User, LiveWalletLink, ExecutionLog, LiveExecutionAccount
+from app.auth import get_current_user, get_current_user_optional
 
 
 @pytest.fixture(autouse=True)
 async def setup_test_db():
     await init_db()
     test_user_email = "livetrader_test@baleen.ai"
+    user = None
     async with SessionLocal() as db:
         # Check if test user exists
         stmt = select(User).where(User.email == test_user_email)
@@ -27,15 +30,58 @@ async def setup_test_db():
             )
             db.add(user)
             await db.commit()
+            await db.refresh(user)
+
+    app.dependency_overrides[get_current_user] = lambda: user
+    app.dependency_overrides[get_current_user_optional] = lambda: user
     yield
+    app.dependency_overrides.pop(get_current_user, None)
+    app.dependency_overrides.pop(get_current_user_optional, None)
     async with SessionLocal() as db:
         stmt = select(User).where(User.email == test_user_email)
         user = (await db.execute(stmt)).scalar_one_or_none()
         if user:
+            await db.execute(delete(LiveExecutionAccount).where(LiveExecutionAccount.user_id == user.id))
             await db.execute(delete(LiveWalletLink).where(LiveWalletLink.user_id == user.id))
             await db.execute(delete(ExecutionLog).where(ExecutionLog.user_id == user.id))
             await db.execute(delete(User).where(User.id == user.id))
             await db.commit()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize('operation', ['disable', 'rotate'])
+async def test_disable_and_credential_rotation_stop_order_account_preserving_reservations(operation):
+    async with SessionLocal() as db, db.begin():
+        user = (await db.execute(select(User).where(User.email == 'livetrader_test@baleen.ai'))).scalar_one()
+        uid = user.id
+        db.add(LiveWalletLink(user_id=uid, polymarket_wallet_address='0x' + '1' * 40,
+            signer_address='0x' + '1' * 40, signature_type=0, clob_api_key_enc='fixture-original'))
+        db.add(LiveExecutionAccount(user_id=uid, run_id=uuid.uuid4(), wallet_address='0x' + '1' * 40,
+            cash=100, reserved_cash=50, enabled=True, reconciled_at=datetime.utcnow()))
+    async with AsyncClient(transport=ASGITransport(app=app), base_url='http://test') as ac:
+        if operation == 'disable':
+            response = await ac.post('/api/live-trading/toggle', json={'enabled': False})
+        else:
+            response = await ac.post('/api/live-trading/credentials', json={
+                'polymarket_wallet_address': '0x' + '1' * 40,
+                'clob_api_key': 'fixture', 'clob_api_secret': 'fixture', 'clob_api_passphrase': 'fixture'})
+        assert response.status_code == 200
+        state = (await ac.get('/api/live-trading/execution-state')).json()
+        assert Decimal(state['cash']) == 100 and Decimal(state['reservedCash']) == 50
+        assert state['liveExecutionReady'] is False
+        assert 'envelope' not in str(state)
+    async with SessionLocal() as db:
+        account = await db.get(LiveExecutionAccount, uid)
+        assert not account.enabled and account.reserved_cash == 50
+
+
+@pytest.mark.asyncio
+async def test_execution_state_does_not_invent_cash_or_live_readiness():
+    async with AsyncClient(transport=ASGITransport(app=app), base_url='http://test') as ac:
+        state = (await ac.get('/api/live-trading/execution-state')).json()
+        assert state['status'] == 'unavailable' and state['cash'] is None
+        capabilities = (await ac.get('/api/live-trading/capabilities')).json()
+        assert not capabilities['live_execution_ready'] and not capabilities['credentials_verified']
 
 
 @pytest.mark.asyncio
@@ -79,7 +125,12 @@ async def test_save_and_get_credentials():
 
 
 @pytest.mark.asyncio
-async def test_test_connection_and_balance():
+async def test_test_connection_and_balance(monkeypatch):
+    from decimal import Decimal
+    from unittest.mock import AsyncMock
+    from app.services.clob_gateway import ClobGateway
+    monkeypatch.setattr(ClobGateway, 'collateral_balance', AsyncMock(return_value={
+        'balance': Decimal('0'), 'allowances': {}, 'source': 'authenticated_clob'}))
     test_addr = "0x" + "2" * 40
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
         # Save credentials first
@@ -87,7 +138,9 @@ async def test_test_connection_and_balance():
             "polymarket_wallet_address": test_addr,
             "clob_api_key": "testkey12345678",
             "clob_api_secret": "testsecret",
-            "clob_api_passphrase": "testpassphrase"
+            "clob_api_passphrase": "testpassphrase",
+            "signer_address": test_addr,
+            "signature_type": 0
         })
 
         # Test connection
@@ -97,8 +150,28 @@ async def test_test_connection_and_balance():
         assert res.status_code == 200
         data = res.json()
         assert data["connected"] is True
-        assert data["balance_usdc"] > 0
+        assert data["balance_usdc"] == 0.0
+        assert data['live_execution_ready'] is False
         assert data["wallet_address"] == test_addr.lower()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize('bound', [False, True])
+async def test_deposit_wallet_balance_requires_authenticated_wallet_identity(monkeypatch, bound):
+    from unittest.mock import AsyncMock
+    from app.services.clob_gateway import ClobGateway
+    wallet = '0x'+'2'*40
+    monkeypatch.setattr(ClobGateway, 'collateral_balance', AsyncMock(return_value={
+        'balance':Decimal('27.25'), 'allowances':{}, 'source':'authenticated_clob'}))
+    monkeypatch.setattr(ClobGateway, '_get', AsyncMock(return_value={
+        'wallet':wallet if bound else '0x'+'4'*40, 'signers':[]}))
+    async with AsyncClient(transport=ASGITransport(app=app), base_url='http://test') as client:
+        response = await client.post('/api/live-trading/test-connection', json={
+            'polymarket_wallet_address':wallet, 'signer_address':'0x'+'3'*40, 'signature_type':3,
+            'clob_api_key':'fixture', 'clob_api_secret':'fixture', 'clob_api_passphrase':'fixture'})
+        assert response.status_code == 200
+        assert response.json()['wallet_binding_verified'] == bound
+        assert response.json()['balance_usdc'] == (27.25 if bound else None)
 
 
 @pytest.mark.asyncio
@@ -115,18 +188,28 @@ async def test_toggle_live_trading():
             "clob_api_passphrase": "pass"
         })
 
-        # Enable live trading
-        res_on = await ac.post("/api/live-trading/toggle", json={"enabled": True})
-        assert res_on.status_code == 200
-        data_on = res_on.json()
-        assert data_on["is_live_active"] is True
-        assert "Active" in data_on["status"]
+        # 1. When LIVE_EXECUTION_ENABLED is False (default), enabling live trading MUST return 400
+        from app.config import settings
+        orig_live_flag = getattr(settings, "LIVE_EXECUTION_ENABLED", False)
+        settings.LIVE_EXECUTION_ENABLED = False
+        try:
+            res_blocked = await ac.post("/api/live-trading/toggle", json={"enabled": True})
+            assert res_blocked.status_code == 400
+            assert "Live exchange execution is currently disabled" in res_blocked.json()["detail"]
 
-        # Disable live trading
-        res_off = await ac.post("/api/live-trading/toggle", json={"enabled": False})
-        assert res_off.status_code == 200
-        data_off = res_off.json()
-        assert data_off["is_live_active"] is False
+            # A flag cannot turn the paper simulator into a verified exchange adapter.
+            settings.LIVE_EXECUTION_ENABLED = True
+            res_on = await ac.post("/api/live-trading/toggle", json={"enabled": True})
+            assert res_on.status_code == 409
+            assert 'reconciliation' in res_on.json()['detail']
+
+            # 3. Disable live trading
+            res_off = await ac.post("/api/live-trading/toggle", json={"enabled": False})
+            assert res_off.status_code == 200
+            data_off = res_off.json()
+            assert data_off["is_live_active"] is False
+        finally:
+            settings.LIVE_EXECUTION_ENABLED = orig_live_flag
 
 
 @pytest.mark.asyncio
@@ -185,16 +268,11 @@ async def test_live_trading_dashboard():
         assert res.status_code == 200
         data = res.json()
         assert data["is_configured"] is True
-        assert data["is_live_active"] is True
-        assert data["usdc_balance"] == 5420.50
-        assert data["open_positions_value"] >= 150.0
-        assert data["portfolio_net_worth"] == round(data["usdc_balance"] + data["open_positions_value"], 2)
-
-        # Ensure execution logs only include live logs (isSandbox == False)
-        for log in data["execution_logs"]:
-            assert log["isSandbox"] is False
-
-        # Ensure active position is present
-        positions = [p for p in data["active_positions"] if p["conditionId"] == "0xconditionEth"]
-        assert len(positions) == 1
-        assert positions[0]["notionalUsd"] == 150.0
+        assert data["is_live_active"] is False
+        assert data['usdc_balance'] is None and data['portfolio_net_worth'] is None
+        assert data['open_positions_value'] is None and data['live_pnl'] is None
+        assert data['execution_logs'] == [] and data['active_positions'] == []
+        assert data['execution_evidence'] == 'legacy_unverified'
+        records = [r for r in data['legacy_records'] if r['marketConditionId'] == '0xconditionEth']
+        assert len(records) == 1 and records[0]['size'] == 150.0
+        assert all(r['evidence'] == 'legacy_unverified' for r in data['legacy_records'])

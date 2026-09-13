@@ -22,7 +22,7 @@ export function BalanceCounter({
   onRebalanceClick,
   onMirrorClick
 }: BalanceCounterProps) {
-  const initialVal = balance ?? 10000.0;
+  const initialVal = balance ?? 0.0;
   const motionVal = useMotionValue(initialVal);
   const isFirstMount = useRef(true);
 
@@ -62,7 +62,7 @@ export function BalanceCounter({
       {/* Main Authoritative Balance */}
       <div className="flex flex-col sm:flex-row sm:items-baseline gap-2 sm:gap-3" aria-live="polite">
         <h1 className="text-3xl sm:text-5xl lg:text-6xl font-bold tracking-tight text-slate-950 dark:text-white font-outfit tabular-nums">
-          <motion.span>{displayValue}</motion.span>
+          {balance === null || balance === undefined ? <span>Unavailable</span> : <motion.span>{displayValue}</motion.span>}
         </h1>
 
         {/* PnL Pill Badge */}

@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useState, useMemo } from 'react';
-import { fetchWallets, getCachedWallets, reEvaluateWallets, fetchDiscoveryProgress, fetchExecutionLogs, fetchCopiedWhalesStats } from '@/lib/api-client';
+import { fetchWallets, getCachedWallets, reEvaluateWallets, fetchDiscoveryProgress, fetchExecutionLogs, fetchCopiedWhalesStats, CopiedWhaleStat, DiscoveryProgress } from '@/lib/api-client';
 import { Wallet, ExecutionLog } from '@/types';
 import { RotateCw, Search, ChevronRight } from 'lucide-react';
 
@@ -9,20 +9,47 @@ interface WalletLeaderboardProps {
   onSelectWallet: (address: string) => void;
 }
 
+interface LeaderboardDisplayItem {
+  address: string;
+  name?: string | null;
+  pseudonym?: string | null;
+  profileImage?: string | null;
+  mirroredPnl?: number | null;
+  pnl?: number | null;
+  winRate?: number | null;
+  tier?: string | null;
+  fillsCount?: number;
+  wins?: number;
+  losses?: number;
+  copyRatePct?: number;
+  score?: number | null;
+  roi?: number | null;
+  tradesCopied?: number | null;
+  profitFactor?: number | null;
+  avgHoldHours?: number | null;
+  status?: string | null;
+  isCopied?: boolean;
+  dormant?: boolean;
+  isHft?: boolean;
+  tradesPerDay?: number | null;
+  unvaluedTradesCount?: number;
+  knownPnlUsd?: number | null;
+}
+
 export function WalletLeaderboard({ userId, onSelectWallet }: WalletLeaderboardProps) {
   const [wallets, setWallets] = useState<Wallet[]>(() => getCachedWallets() || []);
   const [logs, setLogs] = useState<ExecutionLog[]>([]);
-  const [copiedStats, setCopiedStats] = useState<any[]>([]);
+  const [copiedStats, setCopiedStats] = useState<CopiedWhaleStat[]>([]);
   const [loading, setLoading] = useState(() => (getCachedWallets()?.length || 0) === 0);
   const [evaluating, setEvaluating] = useState(false);
-  const [progress, setProgress] = useState<any>(null);
+  const [, setProgress] = useState<DiscoveryProgress | null>(null);
   const [search, setSearch] = useState('');
   const [tab, setTab] = useState<'copied' | 'top10' | 'all'>('copied');
 
   const top10Addresses = useMemo(() => {
     const sorted = [...wallets]
       .filter((w) => w.tier !== 'dormant' && !w.dormant)
-      .sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
+      .sort((a, b) => (b.score ?? -Infinity) - (a.score ?? -Infinity));
     return new Set(sorted.slice(0, 10).map((w) => (w.address || '').toLowerCase()));
   }, [wallets]);
 
@@ -40,9 +67,27 @@ export function WalletLeaderboard({ userId, onSelectWallet }: WalletLeaderboardP
   };
 
   useEffect(() => {
-    load();
-    const interval = setInterval(load, 8000);
-    return () => clearInterval(interval);
+    let isMounted = true;
+    const fetchData = async () => {
+      if (typeof document !== 'undefined' && document.hidden) return;
+      const [walletsData, logsData, copiedData] = await Promise.all([
+        fetchWallets(),
+        fetchExecutionLogs(userId, { limit: '1000' }),
+        fetchCopiedWhalesStats(userId)
+      ]);
+      if (!isMounted) return;
+      if (walletsData && walletsData.length > 0) setWallets(walletsData);
+      if (Array.isArray(logsData)) setLogs(logsData);
+      if (Array.isArray(copiedData) && copiedData.length > 0) setCopiedStats(copiedData);
+      setLoading(false);
+    };
+
+    void fetchData();
+    const interval = setInterval(fetchData, 8000);
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
   }, [userId]);
 
   const handleReevaluate = async () => {
@@ -81,23 +126,26 @@ export function WalletLeaderboard({ userId, onSelectWallet }: WalletLeaderboardP
         name: c.name || c.pseudonym || `${c.address.slice(0, 6)}...${c.address.slice(-4)}`,
         pseudonym: c.pseudonym,
         profileImage: c.profileImage,
-        mirroredPnl: c.mirroredPnl ?? c.netPnl ?? 0,
+        mirroredPnl: c.mirroredPnl ?? c.netPnl ?? null,
         fillsCount: c.fillsCount ?? c.tradesCopied ?? 0,
-        wins: c.wins ?? 0,
-        losses: c.losses ?? 0,
+        wins: c.wins,
+        losses: c.losses,
+        unvaluedTradesCount: c.unvaluedTradesCount ?? 0,
+        knownPnlUsd: c.knownPnlUsd ?? null,
         tier: c.tier || 'standard',
         copyRatePct: c.copyRatePct ?? 100,
-      })).sort((a, b) => b.mirroredPnl - a.mirroredPnl);
+      })).sort((a, b) => (b.mirroredPnl ?? -Infinity) - (a.mirroredPnl ?? -Infinity));
     }
 
     const map = new Map<string, {
       address: string;
       name: string;
-      mirroredPnl: number;
+      mirroredPnl: number | null;
       fillsCount: number;
       wins: number;
       losses: number;
       tier: string;
+      unvaluedTradesCount: number;
     }>();
 
     logs.forEach((l) => {
@@ -107,22 +155,26 @@ export function WalletLeaderboard({ userId, onSelectWallet }: WalletLeaderboardP
         map.set(addr, {
           address: l.walletAddress,
           name: l.whaleName || l.whalePseudonym || `${l.walletAddress.slice(0, 6)}...${l.walletAddress.slice(-4)}`,
-          mirroredPnl: 0,
+          mirroredPnl: null,
           fillsCount: 0,
           wins: 0,
           losses: 0,
           tier: l.whaleTier || 'standard',
+          unvaluedTradesCount: 0,
         });
       }
       const item = map.get(addr)!;
-      const pnl = l.pnl ?? 0.0;
-      item.mirroredPnl += pnl;
       item.fillsCount += 1;
-      if (pnl > 0) item.wins += 1;
-      else if (pnl < 0) item.losses += 1;
+      if (l.pnl == null) {
+        item.unvaluedTradesCount += 1;
+      } else {
+        item.mirroredPnl = (item.mirroredPnl ?? 0) + l.pnl;
+        if (l.pnl > 0) item.wins += 1;
+        else if (l.pnl < 0) item.losses += 1;
+      }
     });
 
-    return Array.from(map.values()).sort((a, b) => b.mirroredPnl - a.mirroredPnl);
+    return Array.from(map.values()).sort((a, b) => (b.mirroredPnl ?? -Infinity) - (a.mirroredPnl ?? -Infinity));
   }, [copiedStats, logs]);
 
   const filteredWallets = wallets.filter((w) => {
@@ -136,7 +188,7 @@ export function WalletLeaderboard({ userId, onSelectWallet }: WalletLeaderboardP
     return true;
   });
 
-  const displayList = tab === 'copied' ? filteredCopied : filteredWallets;
+  const displayList: LeaderboardDisplayItem[] = tab === 'copied' ? filteredCopied : filteredWallets;
 
   return (
     <div className="revolut-card rounded-[26px] p-5 sm:p-6 flex flex-col h-[480px] space-y-4">
@@ -144,11 +196,12 @@ export function WalletLeaderboard({ userId, onSelectWallet }: WalletLeaderboardP
       <div className="flex items-center justify-between">
         <div>
           <h3 className="text-base font-bold text-slate-950 dark:text-white tracking-tight">Active Index Whales</h3>
-          <p className="text-xs text-slate-500 dark:text-[#8E8F99]">Top 10 isolated sleeve roster</p>
+          <p className="text-xs text-slate-500 dark:text-[#8E8F99]">Candidate paper sleeve roster (Polymarket public wallets)</p>
         </div>
         <button
           onClick={handleReevaluate}
           disabled={evaluating}
+          aria-label={evaluating ? "Evaluating whales..." : "Scan whales"}
           className="flex items-center gap-1.5 px-3 py-1.5 bg-[#F1F3F5] dark:bg-[#1C1D22] hover:bg-[#E2E6EA] dark:hover:bg-[#2C2D35] text-slate-800 dark:text-white text-xs font-semibold rounded-full border border-black/[0.04] dark:border-white/10 transition-all cursor-pointer disabled:opacity-50"
         >
           <RotateCw size={12} className={evaluating ? "animate-spin text-[#00D09C]" : ""} />
@@ -163,6 +216,7 @@ export function WalletLeaderboard({ userId, onSelectWallet }: WalletLeaderboardP
           <input
             type="text"
             placeholder="Search address or pseudonym..."
+            aria-label="Search address or pseudonym"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="w-full pl-9 pr-3 py-2 bg-[#F1F3F5] dark:bg-[#1C1D22] border border-black/[0.04] dark:border-white/5 rounded-full text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-[#8E8F99] focus:outline-none focus:border-black/20 dark:focus:border-white/20"
@@ -215,11 +269,11 @@ export function WalletLeaderboard({ userId, onSelectWallet }: WalletLeaderboardP
             <span>No whales found</span>
           </div>
         ) : (
-          displayList.map((w: any) => {
+          displayList.map((w: LeaderboardDisplayItem) => {
             const name = w.name || w.pseudonym || `${w.address.slice(0, 6)}...${w.address.slice(-4)}`;
             const isCopiedTab = (tab === 'copied');
-            const pnl = isCopiedTab && w.mirroredPnl !== undefined ? w.mirroredPnl : (w.pnl ?? 0.0);
-            const winRate = w.winRate ?? 0.0;
+            const pnl = isCopiedTab ? w.mirroredPnl : w.pnl;
+            const winRate = w.winRate;
             const isGold = (w.tier === 'gold_sniper');
             const fillsCount = w.fillsCount ?? 0;
             const isTop10 = top10Addresses.has((w.address || '').toLowerCase());
@@ -227,8 +281,17 @@ export function WalletLeaderboard({ userId, onSelectWallet }: WalletLeaderboardP
             return (
               <div
                 key={w.address}
+                role="button"
+                tabIndex={0}
+                aria-label={`View wallet details for ${name}`}
                 onClick={() => onSelectWallet(w.address)}
-                className={`pt-2 flex items-center justify-between p-2 rounded-2xl hover:bg-slate-50 dark:hover:bg-[#1C1D22] transition-all cursor-pointer group ${
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    onSelectWallet(w.address);
+                  }
+                }}
+                className={`pt-2 flex items-center justify-between p-2 rounded-2xl hover:bg-slate-50 dark:hover:bg-[#1C1D22] transition-all cursor-pointer group focus:outline-none focus:ring-1 focus:ring-[#00D09C] ${
                   !isCopiedTab && !isTop10 ? 'opacity-40 hover:opacity-90 grayscale-[35%]' : 'opacity-100'
                 }`}
               >
@@ -267,8 +330,8 @@ export function WalletLeaderboard({ userId, onSelectWallet }: WalletLeaderboardP
                     </div>
                     <span className="text-[11px] text-slate-500 dark:text-[#8E8F99] font-mono block truncate">
                       {isCopiedTab
-                        ? `${fillsCount} Fills • Active Basket`
-                        : `${formatWinRate(winRate)} Win Rate${fillsCount > 0 ? ` • ${fillsCount} Fills` : ''}`}
+                        ? `${fillsCount} Fills • Active Basket${(w.unvaluedTradesCount ?? 0) > 0 ? ` • ${w.unvaluedTradesCount} Unavailable` : ''}`
+                        : `${winRate == null ? 'Unavailable' : `${formatWinRate(winRate)} Win Rate`}${fillsCount > 0 ? ` • ${fillsCount} Fills` : ''}`}
                     </span>
                   </div>
                 </div>
@@ -276,11 +339,11 @@ export function WalletLeaderboard({ userId, onSelectWallet }: WalletLeaderboardP
                 {/* Right: Net PnL & Arrow */}
                 <div className="flex items-center gap-2 shrink-0">
                   <div className="text-right">
-                    <div className={`text-xs font-bold font-mono ${pnl >= 0 ? 'text-emerald-600 dark:text-[#00D09C]' : 'text-rose-600 dark:text-[#FF453A]'}`}>
-                      {pnl >= 0 ? '+' : '-'}${Math.abs(pnl).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    <div className={`text-xs font-bold font-mono ${pnl == null ? 'text-slate-400 dark:text-[#8E8F99]' : pnl >= 0 ? 'text-emerald-600 dark:text-[#00D09C]' : 'text-rose-600 dark:text-[#FF453A]'}`}>
+                      {pnl == null ? 'Unavailable' : `${pnl >= 0 ? '+' : '-'}$${Math.abs(pnl).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
                     </div>
                     <span className="text-[10px] text-slate-400 dark:text-[#8E8F99]">
-                      {isCopiedTab ? 'Mirrored PnL' : 'All-time PnL'}
+                      {isCopiedTab ? 'Copied Paper PnL' : 'Source Wallet PnL'}
                     </span>
                   </div>
                   <ChevronRight size={14} className="text-slate-400 dark:text-[#8E8F99] group-hover:text-slate-900 dark:group-hover:text-white transition-colors" />

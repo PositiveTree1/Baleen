@@ -13,30 +13,30 @@ export function InfrastructureSection() {
           {/* Left Text Column */}
           <div className="lg:col-span-5 space-y-6">
             <span className="text-[11px] font-bold tracking-[0.2em] uppercase text-slate-400 dark:text-[#8E8F99] font-mono">
-              Built for Performance
+              Research preview
             </span>
             <h2 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-slate-950 dark:text-white tracking-[-0.03em] leading-[1.12] text-balance">
-              Institutional-grade <br />
-              infrastructure.
+              Understand each <br />
+              simulated trade.
             </h2>
             <p className="text-base text-slate-600 dark:text-[#8E8F99] leading-relaxed max-w-md font-normal">
-              Engineered for speed, security and precision. Baleen runs on a robust async execution engine designed for automated prediction market copy-trading.
+              Explore trader activity, paper fills and portfolio changes in one place. Accounting and data validation are in progress, so current results are not verified performance.
             </p>
           </div>
 
           {/* Middle Stats Column */}
           <div className="lg:col-span-3 space-y-8 lg:border-l lg:border-black/[0.06] dark:lg:border-white/10 lg:pl-10">
             <div>
-              <div className="text-3xl font-extrabold text-slate-950 dark:text-white font-mono tracking-tight tabular-nums">&lt; 350ms</div>
-              <div className="text-xs text-slate-500 dark:text-[#8E8F99] font-semibold mt-1">CLOB Taker Latency</div>
+              <div className="text-3xl font-extrabold text-slate-950 dark:text-white font-mono tracking-tight tabular-nums">Paper</div>
+              <div className="text-xs text-slate-500 dark:text-[#8E8F99] font-semibold mt-1">Current trading mode</div>
             </div>
             <div>
-              <div className="text-3xl font-extrabold text-slate-950 dark:text-white font-mono tracking-tight tabular-nums">99.98%</div>
-              <div className="text-xs text-slate-500 dark:text-[#8E8F99] font-semibold mt-1">Engine Uptime</div>
+              <div className="text-3xl font-extrabold text-slate-950 dark:text-white font-mono tracking-tight tabular-nums">Preview</div>
+              <div className="text-xs text-slate-500 dark:text-[#8E8F99] font-semibold mt-1">Validation in progress</div>
             </div>
             <div>
-              <div className="text-3xl font-extrabold text-slate-950 dark:text-white font-mono tracking-tight tabular-nums">1.5 Cents</div>
-              <div className="text-xs text-slate-500 dark:text-[#8E8F99] font-semibold mt-1">Max Slippage Limit</div>
+              <div className="text-3xl font-extrabold text-slate-950 dark:text-white font-mono tracking-tight tabular-nums">Simulated</div>
+              <div className="text-xs text-slate-500 dark:text-[#8E8F99] font-semibold mt-1">Fills and portfolio returns</div>
             </div>
           </div>
 

@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Sparkles, 
@@ -24,7 +24,7 @@ interface Message {
   id: string;
   role: 'user' | 'assistant';
   content: string;
-  toolCalls?: { name: string; args: any; summary: string }[];
+  toolCalls?: { name: string; args: Record<string, unknown>; summary: string }[];
   timestamp: Date;
 }
 
@@ -41,7 +41,7 @@ export function BaleenCopilot() {
     {
       id: 'welcome',
       role: 'assistant',
-      content: "Hello! I'm the **Baleen AI Copilot**, powered by quantitative tool-calling models.\n\nI have direct read access to all **5,000+ live executions**, wallet baskets, consensus signals, and fee structures. Ask me anything about performance, specific whales, or risk attribution!",
+      content: "Hello! I'm the **Baleen AI Copilot**, powered by quantitative tool-calling models.\n\nI have direct read access to logged paper executions, observed candidate wallet baskets, consensus signals, and simulated fee structures. Ask me anything about performance, specific whales, or risk attribution!",
       timestamp: new Date(),
     }
   ]);
@@ -53,17 +53,20 @@ export function BaleenCopilot() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Keyboard shortcut: Cmd+K or Ctrl+K to toggle Copilot
+  // Keyboard shortcut: Cmd+K or Ctrl+K to toggle Copilot, Escape to close
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
         e.preventDefault();
         setIsOpen(prev => !prev);
       }
+      if (e.key === 'Escape' && isOpen) {
+        setIsOpen(false);
+      }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
+  }, [isOpen]);
 
   useEffect(() => {
     if (isOpen) {
@@ -75,7 +78,7 @@ export function BaleenCopilot() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, loading]);
 
-  const handleSend = async (textToSend?: string) => {
+  const handleSend = useCallback(async (textToSend?: string) => {
     const query = textToSend || input.trim();
     if (!query || loading) return;
 
@@ -135,7 +138,7 @@ export function BaleenCopilot() {
       setLoading(false);
       setActiveTool(null);
     }
-  };
+  }, [input, loading, messages]);
 
   const handleClear = () => {
     setMessages([
@@ -212,6 +215,7 @@ export function BaleenCopilot() {
           whileHover={{ scale: 1.06 }}
           whileTap={{ scale: 0.94 }}
           onClick={() => setIsOpen(true)}
+          aria-label="Open Baleen Copilot (⌘K / Ctrl+K)"
           className="w-10 h-10 rounded-full bg-white/95 backdrop-blur-md text-slate-800 shadow-md hover:shadow-lg border border-black/[0.08] hover:border-indigo-300 flex items-center justify-center transition-all cursor-pointer group"
           title="Open Baleen Copilot (⌘K / Ctrl+K)"
         >
@@ -255,13 +259,14 @@ export function BaleenCopilot() {
                         <Zap size={9} /> Groq LLaMA 3.3 70B
                       </span>
                     </div>
-                    <p className="text-[11px] text-slate-400 font-medium">Dynamic tool calling across 5,000+ executions</p>
+                    <p className="text-[11px] text-slate-400 font-medium">Dynamic tool calling across portfolio and market data</p>
                   </div>
                 </div>
 
                 <div className="flex items-center gap-1 text-slate-400">
                   <button
                     onClick={() => setIsExpanded(prev => !prev)}
+                    aria-label={isExpanded ? 'Collapse panel' : 'Expand panel'}
                     className="p-1.5 hover:text-slate-700 hover:bg-slate-200/60 rounded-xl transition-colors cursor-pointer"
                     title={isExpanded ? 'Collapse panel' : 'Expand panel'}
                   >
@@ -269,6 +274,7 @@ export function BaleenCopilot() {
                   </button>
                   <button
                     onClick={handleClear}
+                    aria-label="Clear conversation"
                     className="p-1.5 hover:text-slate-700 hover:bg-slate-200/60 rounded-xl transition-colors cursor-pointer"
                     title="Clear conversation"
                   >
@@ -276,6 +282,7 @@ export function BaleenCopilot() {
                   </button>
                   <button
                     onClick={() => setIsOpen(false)}
+                    aria-label="Close copilot"
                     className="p-1.5 hover:text-slate-700 hover:bg-slate-200/60 rounded-xl transition-colors cursor-pointer ml-1"
                   >
                     <X size={18} />
@@ -401,12 +408,14 @@ export function BaleenCopilot() {
                     value={input}
                     onChange={(e) => setInput(e.target.value)}
                     placeholder="Ask about whales, trades, fees, PnL, consensus..."
+                    aria-label="Ask Baleen Copilot"
                     disabled={loading}
                     className="flex-1 bg-slate-100 hover:bg-slate-100/80 focus:bg-white text-xs sm:text-sm text-slate-900 placeholder:text-slate-400 px-3.5 py-2.5 rounded-xl border border-black/[0.06] focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 outline-none transition-all"
                   />
                   <button
                     type="submit"
                     disabled={!input.trim() || loading}
+                    aria-label="Send message"
                     className="p-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 disabled:opacity-40 text-white transition-all cursor-pointer shrink-0 shadow-xs"
                     title="Send message (Enter)"
                   >

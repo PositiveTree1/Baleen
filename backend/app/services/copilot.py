@@ -122,12 +122,23 @@ COPILOT_TOOLS = [
 
 # --- Tool Execution Handlers ---
 
-async def _tool_get_portfolio_overview(args: Dict[str, Any]) -> Dict[str, Any]:
+async def _tool_get_portfolio_overview(args: Dict[str, Any], user_id: Optional[str] = None, starting_balance: float = 10000.0) -> Dict[str, Any]:
     async with SessionLocal() as db:
-        stmt = select(ExecutionLog).where(
-            ExecutionLog.status.in_(["FILLED", "CLOSED", "RESOLVED"]),
-            ExecutionLog.user_id.is_(None)
-        )
+        if user_id:
+            u = await db.get(User, user_id)
+            if u:
+                starting_balance = float(u.sandbox_starting_balance_usd or 10000.0)
+            stmt = select(ExecutionLog).where(
+                ExecutionLog.status.in_(["FILLED", "CLOSED", "RESOLVED"]),
+                ExecutionLog.user_id == user_id,
+                ExecutionLog.is_sandbox == True
+            )
+        else:
+            stmt = select(ExecutionLog).where(
+                ExecutionLog.status.in_(["FILLED", "CLOSED", "RESOLVED"]),
+                ExecutionLog.user_id.is_(None),
+                ExecutionLog.is_sandbox == True
+            )
         raw_logs = (await db.execute(stmt)).scalars().all()
         
         buy_keys = {
@@ -141,9 +152,9 @@ async def _tool_get_portfolio_overview(args: Dict[str, Any]) -> Dict[str, Any]:
         ]
 
         total_trades = len(logs)
-        total_pnl = sum(float(l.realized_pnl_usd or 0.0) for l in logs)
-        total_notional = sum(float(l.notional_usd or 0.0) for l in logs)
-        total_fees = sum(float(l.fee_usd or 0.0) for l in logs)
+        total_pnl = sum(l.realized_pnl_usd for l in logs)
+        total_notional = sum(l.notional_usd for l in logs)
+        total_fees = sum(l.fee_usd for l in logs)
         
         wins = sum(1 for l in logs if (l.realized_pnl_usd or 0.0) > 0)
         losses = sum(1 for l in logs if (l.realized_pnl_usd or 0.0) < 0)
@@ -153,10 +164,10 @@ async def _tool_get_portfolio_overview(args: Dict[str, Any]) -> Dict[str, Any]:
         closed_positions = sum(1 for l in logs if l.status in ["CLOSED", "RESOLVED"])
 
         return {
-            "starting_balance_usd": 10000.0,
-            "current_balance_usd": round(10000.0 + total_pnl, 2),
+            "starting_balance_usd": starting_balance,
+            "current_balance_usd": round(starting_balance + total_pnl, 2),
             "total_net_pnl_usd": round(total_pnl, 2),
-            "total_roi_pct": round((total_pnl / 10000.0) * 100, 2),
+            "total_roi_pct": round((total_pnl / starting_balance) * 100, 2) if starting_balance > 0 else 0.0,
             "total_trades_executed": total_trades,
             "open_positions_count": open_positions,
             "closed_trades_count": closed_positions,
@@ -200,7 +211,7 @@ async def _tool_get_top_whales(args: Dict[str, Any]) -> Dict[str, Any]:
             ]
         }
 
-async def _tool_search_trades(args: Dict[str, Any]) -> Dict[str, Any]:
+async def _tool_search_trades(args: Dict[str, Any], user_id: Optional[str] = None) -> Dict[str, Any]:
     query_str = args.get("query", "").strip().lower()
     status_filter = args.get("status", "ALL")
     profitable_only = args.get("profitable_only", False)
@@ -209,8 +220,12 @@ async def _tool_search_trades(args: Dict[str, Any]) -> Dict[str, Any]:
     async with SessionLocal() as db:
         stmt = select(ExecutionLog).where(
             ExecutionLog.status.in_(["FILLED", "CLOSED", "RESOLVED"]),
-            ExecutionLog.user_id.is_(None)
+            ExecutionLog.is_sandbox == True
         )
+        if user_id:
+            stmt = stmt.where(ExecutionLog.user_id == user_id)
+        else:
+            stmt = stmt.where(ExecutionLog.user_id.is_(None))
         
         if status_filter == "FILLED":
             stmt = stmt.where(ExecutionLog.status == "FILLED")
@@ -235,12 +250,12 @@ async def _tool_search_trades(args: Dict[str, Any]) -> Dict[str, Any]:
                 "market_question": l.market_question,
                 "outcome": l.resolution_outcome or "Yes",
                 "side": l.side,
-                "entry_price": float(l.user_fill_price or l.whale_entry_price or 0.5),
-                "notional_size_usd": float(l.notional_usd or 0.0),
-                "net_pnl_usd": float(l.realized_pnl_usd or 0.0),
+                "entry_price": l.user_fill_price,
+                "notional_size_usd": l.notional_usd,
+                "net_pnl_usd": l.realized_pnl_usd,
                 "status": l.status,
                 "category": l.market_category or "General",
-                "fee_usd": float(l.fee_usd or 0.0),
+                "fee_usd": l.fee_usd,
                 "executed_at": l.executed_at.strftime("%Y-%m-%d %H:%M:%S") if l.executed_at else None
             })
             if len(results) >= limit:
@@ -256,7 +271,7 @@ async def _tool_get_live_consensus(args: Dict[str, Any]) -> Dict[str, Any]:
         stmt = select(ExecutionLog).where(
             ExecutionLog.status == "FILLED",
             ExecutionLog.side == "BUY",
-            ExecutionLog.user_id.is_(None)
+            ExecutionLog.is_sandbox == True
         ).order_by(desc(ExecutionLog.executed_at)).limit(100)
         logs = (await db.execute(stmt)).scalars().all()
         
@@ -283,19 +298,23 @@ async def _tool_get_live_consensus(args: Dict[str, Any]) -> Dict[str, Any]:
             "consensus_markets": consensus_items[:5]
         }
 
-async def _tool_get_fee_analysis(args: Dict[str, Any]) -> Dict[str, Any]:
+async def _tool_get_fee_analysis(args: Dict[str, Any], user_id: Optional[str] = None) -> Dict[str, Any]:
     async with SessionLocal() as db:
         stmt = select(ExecutionLog).where(
             ExecutionLog.status.in_(["FILLED", "CLOSED", "RESOLVED"]),
-            ExecutionLog.user_id.is_(None)
+            ExecutionLog.is_sandbox == True
         )
+        if user_id:
+            stmt = stmt.where(ExecutionLog.user_id == user_id)
+        else:
+            stmt = stmt.where(ExecutionLog.user_id.is_(None))
         logs = (await db.execute(stmt)).scalars().all()
         
         category_breakdown = {}
         total_fees = 0.0
         for l in logs:
             cat = l.market_category or "General"
-            fee = float(l.fee_usd or 0.0)
+            fee = l.fee_usd
             total_fees += fee
             if cat not in category_breakdown:
                 category_breakdown[cat] = {"count": 0, "fees_usd": 0.0}
@@ -389,9 +408,14 @@ SYSTEM_PROMPT = """You are the **Baleen Copilot**, an institutional quantitative
    - Maintain a sophisticated, sharp, institutional hedge-fund tone (confident, precise, quantitative).
 """
 
-async def execute_copilot_chat(messages: List[Dict[str, str]]) -> Dict[str, Any]:
+async def execute_copilot_chat(
+    messages: List[Dict[str, str]],
+    user_id: Optional[str] = None,
+    starting_balance: float = 10000.0
+) -> Dict[str, Any]:
     """
     Executes a multi-turn chat interaction with tool calling and automatic fallback.
+    Scoped to the target user's portfolio.
     """
     client = get_groq_client()
     if not client:
@@ -400,11 +424,11 @@ async def execute_copilot_chat(messages: List[Dict[str, str]]) -> Dict[str, Any]
             "tool_calls_executed": []
         }
 
-    # Prepare chat message history
+    # Prepare chat message history (strictly allow user/assistant roles from client)
     formatted_messages = [{"role": "system", "content": SYSTEM_PROMPT}]
     for msg in messages[-8:]:  # keep last 8 turns for context hygiene
         role = msg.get("role", "user")
-        if role in ["user", "assistant", "system"]:
+        if role in ["user", "assistant"]:
             formatted_messages.append({"role": role, "content": msg.get("content", "")})
 
     tools_executed = []
@@ -445,7 +469,13 @@ async def execute_copilot_chat(messages: List[Dict[str, str]]) -> Dict[str, Any]
                         function_args = {}
 
                     if handler:
-                        tool_result = await handler(function_args)
+                        if function_name == "get_portfolio_overview":
+                            tool_result = await handler(function_args, user_id=user_id, starting_balance=starting_balance)
+                        elif function_name in ("search_trades", "get_fee_analysis"):
+                            tool_result = await handler(function_args, user_id=user_id)
+                        else:
+                            tool_result = await handler(function_args)
+
                         tools_executed.append({
                             "name": function_name,
                             "args": function_args,
@@ -484,7 +514,7 @@ async def execute_copilot_chat(messages: List[Dict[str, str]]) -> Dict[str, Any]
     # Priority 2: Guaranteed Context-Augmented Fallback (100% Reliable across all Groq models)
     try:
         # Pre-fetch live state
-        overview = await _tool_get_portfolio_overview({})
+        overview = await _tool_get_portfolio_overview({}, user_id=user_id, starting_balance=starting_balance)
         top_whales = await _tool_get_top_whales({"limit": 5})
         consensus = await _tool_get_live_consensus({})
         
@@ -495,7 +525,7 @@ async def execute_copilot_chat(messages: List[Dict[str, str]]) -> Dict[str, Any]
 
         live_context = f"""
 LIVE BALEEN PORTFOLIO TELEMETRY:
-- Balance: ${overview['current_balance_usd']:,.2f} (Starting: $10,000.00 | Net PnL: ${overview['total_net_pnl_usd']:+,.2f} | ROI: {overview['total_roi_pct']:+.2f}%)
+- Balance: ${overview['current_balance_usd']:,.2f} (Starting: ${overview['starting_balance_usd']:,.2f} | Net PnL: ${overview['total_net_pnl_usd']:+,.2f} | ROI: {overview['total_roi_pct']:+.2f}%)
 - Trade Counts: {overview['total_trades_executed']} total executions ({overview['open_positions_count']} open positions, {overview['closed_trades_count']} closed)
 - Win Rate: {overview['win_rate_pct']}% ({overview['win_count']} wins / {overview['loss_count']} losses)
 - Polymarket Fees Paid: ${overview['total_taker_fees_paid_usd']:,.2f}
@@ -529,7 +559,7 @@ LIVE BALEEN PORTFOLIO TELEMETRY:
         logger.error(f"Fallback generation error: {e}")
 
     return {
-        "message": "Quantitative AI Copilot is currently active. Portfolio balance is **$11,842.58** (+18.4% ROI) across **5,049** trade executions. Please try your specific question again!",
+        "message": f"Quantitative AI Copilot is active for your account. Portfolio balance is **${overview.get('current_balance_usd', 10000.0):,.2f}** ({overview.get('total_roi_pct', 0.0):+.2f}% ROI) across **{overview.get('total_trades_executed', 0)}** trade executions.",
         "tool_calls_executed": tools_executed
     }
 

@@ -1,0 +1,117 @@
+DEPRECATED: The legacy builder is deprecated and will be removed in a future release.
+            Install the buildx component to build images with BuildKit:
+            https://docs.docker.com/go/buildx/
+
+Sending build context to Docker daemon  2.483MB
+
+Step 1/10 : FROM python:3.12-slim
+ ---> 78387bc3881b
+Step 2/10 : ENV PYTHONUNBUFFERED=1     PYTHONDONTWRITEBYTECODE=1
+ ---> Using cache
+ ---> 9ca5f3b6e9e2
+Step 3/10 : WORKDIR /app
+ ---> Using cache
+ ---> 131f3ab4c64a
+Step 4/10 : RUN apt-get update &&     apt-get install -y --no-install-recommends curl gcc python3-dev &&     apt-get clean &&     rm -rf /var/lib/apt/lists/*
+ ---> Using cache
+ ---> 333ace372aa2
+Step 5/10 : COPY requirements-pinned.txt .
+ ---> Using cache
+ ---> 8d6d88afa4dc
+Step 6/10 : RUN pip install --no-cache-dir --require-hashes -r requirements-pinned.txt
+ ---> Using cache
+ ---> eda836485307
+Step 7/10 : COPY . .
+ ---> 300d3d2ec730
+Step 8/10 : RUN python -c "import app.main"
+ ---> Running in 32f1756e00b9
+ ---> Removed intermediate container 32f1756e00b9
+ ---> afabfdcb4fe9
+Step 9/10 : EXPOSE 8000
+ ---> Running in 4d9005e372dd
+ ---> Removed intermediate container 4d9005e372dd
+ ---> a9cafe204b06
+Step 10/10 : CMD ["python", "run.py"]
+ ---> Running in 59b8ce8a967c
+ ---> Removed intermediate container 59b8ce8a967c
+ ---> 6aa762761073
+Successfully built 6aa762761073
+Successfully tagged baleen-batch-a-api-review:latest
+DEPRECATED: The legacy builder is deprecated and will be removed in a future release.
+            Install the buildx component to build images with BuildKit:
+            https://docs.docker.com/go/buildx/
+
+Sending build context to Docker daemon  2.484MB
+
+Step 1/10 : FROM python:3.12-slim
+ ---> 78387bc3881b
+Step 2/10 : ENV PYTHONUNBUFFERED=1     PYTHONDONTWRITEBYTECODE=1
+ ---> Using cache
+ ---> 9ca5f3b6e9e2
+Step 3/10 : WORKDIR /app
+ ---> Using cache
+ ---> 131f3ab4c64a
+Step 4/10 : RUN apt-get update &&     apt-get install -y --no-install-recommends curl gcc python3-dev &&     apt-get clean &&     rm -rf /var/lib/apt/lists/*
+ ---> Using cache
+ ---> 333ace372aa2
+Step 5/10 : COPY requirements-pinned.txt .
+ ---> Using cache
+ ---> 8d6d88afa4dc
+Step 6/10 : RUN pip install --no-cache-dir --require-hashes -r requirements-pinned.txt
+ ---> Using cache
+ ---> eda836485307
+Step 7/10 : COPY . .
+ ---> d020da9c2fb8
+Step 8/10 : RUN python -c "import app.main"
+ ---> Running in 60387a1c1952
+ ---> Removed intermediate container 60387a1c1952
+ ---> c2396076d824
+Step 9/10 : EXPOSE 8000
+ ---> Running in f4449c064095
+ ---> Removed intermediate container f4449c064095
+ ---> 93ec1634a159
+Step 10/10 : CMD ["python", "run.py"]
+ ---> Running in 17c83558cdc9
+ ---> Removed intermediate container 17c83558cdc9
+ ---> 94054fc529d0
+Successfully built 94054fc529d0
+Successfully tagged baleen-batch-a-api-review:latest
+DEPRECATED: The legacy builder is deprecated and will be removed in a future release.
+            Install the buildx component to build images with BuildKit:
+            https://docs.docker.com/go/buildx/
+
+Sending build context to Docker daemon  2.486MB
+
+Step 1/10 : FROM python:3.12-slim
+ ---> 78387bc3881b
+Step 2/10 : ENV PYTHONUNBUFFERED=1     PYTHONDONTWRITEBYTECODE=1
+ ---> Using cache
+ ---> 9ca5f3b6e9e2
+Step 3/10 : WORKDIR /app
+ ---> Using cache
+ ---> 131f3ab4c64a
+Step 4/10 : RUN apt-get update &&     apt-get install -y --no-install-recommends curl gcc python3-dev &&     apt-get clean &&     rm -rf /var/lib/apt/lists/*
+ ---> Using cache
+ ---> 333ace372aa2
+Step 5/10 : COPY requirements-pinned.txt .
+ ---> Using cache
+ ---> 8d6d88afa4dc
+Step 6/10 : RUN pip install --no-cache-dir --require-hashes -r requirements-pinned.txt
+ ---> Using cache
+ ---> eda836485307
+Step 7/10 : COPY . .
+ ---> 9c357738bcac
+Step 8/10 : RUN python -c "import app.main"
+ ---> Running in 8bd79076386e
+ ---> Removed intermediate container 8bd79076386e
+ ---> 0e65c299287f
+Step 9/10 : EXPOSE 8000
+ ---> Running in e71103689a75
+ ---> Removed intermediate container e71103689a75
+ ---> 17eda16c6ebc
+Step 10/10 : CMD ["python", "run.py"]
+ ---> Running in 785aa536f3e9
+ ---> Removed intermediate container 785aa536f3e9
+ ---> d724d4314766
+Successfully built d724d4314766
+Successfully tagged baleen-batch-a-api-review:latest

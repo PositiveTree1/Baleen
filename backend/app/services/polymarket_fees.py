@@ -24,7 +24,7 @@ Rounding Rule:
 """
 
 import decimal
-from typing import Dict, Any, Tuple
+from typing import Dict, Any, Tuple, Optional
 
 _CRYPTO_KEYWORDS = (
     "bitcoin", "btc", "ethereum", "eth", "solana", "sol", "xrp", "doge", "crypto",
@@ -96,13 +96,17 @@ def classify_market_category(market_title: str) -> Tuple[str, float]:
 def calculate_polymarket_fee(
     notional_usd: float,
     price: float,
-    market_title: str,
-    is_maker: bool = False
+    market_title: str = "",
+    is_maker: bool = False,
+    fee_rate: Optional[float] = None,
+    precision: int = 2
 ) -> Dict[str, Any]:
     """
     Calculates exact Polymarket taker/maker fee using Banker's Rounding (ROUND_HALF_EVEN).
+    Supports authoritative venue fee parameters (fee_rate / theta override) and 5-decimal precision.
     """
-    category, theta = classify_market_category(market_title)
+    category, default_theta = classify_market_category(market_title)
+    theta = float(fee_rate) if fee_rate is not None else default_theta
 
     if is_maker or notional_usd <= 0 or theta == 0.0:
         return {
@@ -119,8 +123,9 @@ def calculate_polymarket_fee(
     # Dynamic Taker Fee: Fee = Theta * Notional * (1 - p)
     raw_fee = notional_usd * theta * (1.0 - p)
     
-    # Banker's Rounding (round half to even)
-    d_fee = decimal.Decimal(str(raw_fee)).quantize(decimal.Decimal('0.01'), rounding=decimal.ROUND_HALF_EVEN)
+    # Banker's Rounding (round half to even) with configurable precision
+    q_str = '0.' + '0' * (precision - 1) + '1' if precision > 0 else '1'
+    d_fee = decimal.Decimal(str(raw_fee)).quantize(decimal.Decimal(q_str), rounding=decimal.ROUND_HALF_EVEN)
     fee_usd = float(d_fee)
     
     effective_pct = round((fee_usd / notional_usd) * 100.0, 3) if notional_usd > 0 else 0.0

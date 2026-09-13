@@ -197,23 +197,14 @@ class TestR3EmpiricalSnapshotConvergence:
             snaps_all = await get_portfolio_snapshots(timeframe="all", db=db)
             summary = await get_portfolio_summary(timeframe="all", db=db)
 
-        # 1. Verification of Non-Empty Results
-        assert len(snaps_1h) >= 1, "1H timeframe returned empty"
-        assert len(snaps_1d) >= 1, "1D timeframe returned empty"
-        assert len(snaps_1w) >= 1, "1W timeframe returned empty"
-        assert len(snaps_all) >= 1, "ALL timeframe returned empty"
-
-        # 2. Terminal Convergence Verification (ZERO BALANCE JUMPS)
-        terminal_1h = snaps_1h[-1]["balance"]
-        terminal_1d = snaps_1d[-1]["balance"]
-        terminal_1w = snaps_1w[-1]["balance"]
-        terminal_all = snaps_all[-1]["balance"]
-        summary_bal = summary["currentBalance"]
-
-        assert terminal_1h == terminal_1d, f"1H ({terminal_1h}) != 1D ({terminal_1d})"
-        assert terminal_1d == terminal_1w, f"1D ({terminal_1d}) != 1W ({terminal_1w})"
-        assert terminal_1w == terminal_all, f"1W ({terminal_1w}) != ALL ({terminal_all})"
-        assert terminal_all == summary_bal, f"ALL ({terminal_all}) != Summary ({summary_bal})"
+        # The newest recorded point is 86.4 minutes old. An empty 1H view
+        # is truthful; moving old evidence into the requested hour is not.
+        assert snaps_1h == []
+        assert snaps_1d and snaps_1w and snaps_all
+        assert snaps_1d[-1]['timestamp'] == snapshots[-1].timestamp.isoformat() + 'Z'
+        assert snaps_1d[-1]['balance'] == snaps_1w[-1]['balance'] == snaps_all[-1]['balance']
+        # Historical snapshots do not prove a current executable valuation.
+        assert summary['knownPnlUsd'] == 0
 
         # 3. Genesis Baseline for ALL timeframe
         assert snaps_all[0]["balance"] == 10000.0, f"ALL genesis point must be 10,000.00, got {snaps_all[0]['balance']}"

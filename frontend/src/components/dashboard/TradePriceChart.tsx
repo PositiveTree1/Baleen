@@ -7,8 +7,8 @@ import { TrendingUp, TrendingDown, Clock, Activity, ExternalLink } from 'lucide-
 
 interface TradePriceChartProps {
   tradeId: string;
-  fillPrice: number;
-  currentPrice: number;
+  fillPrice: number | null;
+  currentPrice: number | null;
   side: string;
 }
 
@@ -36,10 +36,11 @@ export function TradePriceChart({ tradeId, fillPrice, currentPrice, side }: Trad
     };
   }, [tradeId]);
 
-  const isProfitable = side === 'BUY' ? currentPrice >= fillPrice : currentPrice <= fillPrice;
+  const hasPrices = fillPrice !== null && currentPrice !== null;
+  const isProfitable = hasPrices && (side === 'BUY' ? currentPrice >= fillPrice : currentPrice <= fillPrice);
   const strokeColor = isProfitable ? '#10B981' : '#F43F5E';
   const fillColor = isProfitable ? '#10B981' : '#F43F5E';
-  const priceMovePct = fillPrice > 0 ? ((currentPrice - fillPrice) / fillPrice) * 100 * (side === 'BUY' ? 1 : -1) : 0;
+  const priceMovePct = hasPrices && fillPrice > 0 ? ((currentPrice - fillPrice) / fillPrice) * 100 * (side === 'BUY' ? 1 : -1) : null;
 
   if (loading) {
     return (
@@ -54,7 +55,7 @@ export function TradePriceChart({ tradeId, fillPrice, currentPrice, side }: Trad
   }
 
   const history = data?.history || [];
-  const allPrices = [...history.map(h => h.price), fillPrice, currentPrice].filter(p => p > 0);
+  const allPrices = [...history.map(h => h.price), fillPrice, currentPrice].filter((p): p is number => p !== null && p > 0);
   const rawMin = allPrices.length > 0 ? Math.min(...allPrices) : 0.0;
   const rawMax = allPrices.length > 0 ? Math.max(...allPrices) : 1.0;
   const padding = Math.max(0.02, (rawMax - rawMin) * 0.15);
@@ -72,7 +73,7 @@ export function TradePriceChart({ tradeId, fillPrice, currentPrice, side }: Trad
         </div>
         <div className="flex items-center gap-1.5 font-mono text-xs font-bold">
           <span className={isProfitable ? 'text-emerald-700 dark:text-[#00D09C]' : 'text-rose-700 dark:text-[#FF453A]'}>
-            {isProfitable ? '+' : ''}{priceMovePct.toFixed(1)}%
+            {priceMovePct === null ? 'Unavailable' : `${isProfitable ? '+' : ''}${priceMovePct.toFixed(1)}%`}
           </span>
         </div>
       </div>
@@ -119,11 +120,11 @@ export function TradePriceChart({ tradeId, fillPrice, currentPrice, side }: Trad
                 }}
               />
               <ReferenceLine 
-                y={fillPrice} 
+                y={fillPrice ?? undefined}
                 stroke="#6366F1" 
                 strokeDasharray="3 3" 
                 label={{ 
-                  value: `Entry: $${fillPrice.toFixed(3)}`, 
+                  value: fillPrice === null ? 'Entry unavailable' : `Entry: $${fillPrice.toFixed(3)}`,
                   position: 'right', 
                   fill: '#4F46E5', 
                   fontSize: 9,
@@ -151,8 +152,8 @@ export function TradePriceChart({ tradeId, fillPrice, currentPrice, side }: Trad
       </div>
 
       <div className="flex items-center justify-between text-[10px] font-mono text-slate-400 pt-1 border-t border-black/[0.04]">
-        <span>Dashed line: <strong>Whale Entry Fill (${fillPrice.toFixed(3)})</strong></span>
-        <span>Latest: <strong>${currentPrice.toFixed(3)}</strong></span>
+        <span>Dashed line: <strong>Whale Entry Fill ({fillPrice === null ? 'Unavailable' : `$${fillPrice.toFixed(3)}`})</strong></span>
+        <span>Latest: <strong>{currentPrice === null ? 'Unavailable' : `$${currentPrice.toFixed(3)}`}</strong></span>
       </div>
     </div>
   );

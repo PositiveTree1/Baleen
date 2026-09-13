@@ -54,7 +54,7 @@ export function ScoreHistoryChart({ data }: ScoreHistoryChartProps) {
             }}
             itemStyle={{ color: '#0F172A', fontWeight: 600 }}
             labelStyle={{ color: '#64748B', marginBottom: '2px', fontSize: '11px' }}
-            labelFormatter={(val: any) => {
+            labelFormatter={(val: unknown) => {
               try {
                 return formatFrenchDateTime(String(val));
               } catch {

@@ -13,18 +13,21 @@ RUN apt-get update && \
 WORKDIR /app
 
 # Copy dependency files first
-COPY backend/requirements.txt ./backend/
-COPY listener/package.json ./listener/
+COPY backend/requirements.txt backend/requirements-pinned.txt ./backend/
+COPY listener/package.json listener/package-lock.json ./listener/
 
 # Install Python dependencies
-RUN pip install --no-cache-dir -r backend/requirements.txt
+RUN pip install --no-cache-dir --require-hashes -r backend/requirements-pinned.txt
 
 # Install Node dependencies
-RUN cd listener && npm install
+RUN cd listener && npm ci
 
 # Copy all code
 COPY backend/ ./backend/
 COPY listener/ ./listener/
+
+# Verify clean Python import
+RUN cd backend && python -c "import app.main; print('Backend smoke-test passed')"
 
 # Build Node TypeScript
 RUN cd listener && npm run build

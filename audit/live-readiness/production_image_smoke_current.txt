@@ -1,0 +1,64 @@
+INFO:app.migrations:Applying schema migration 001_base_schema...
+INFO:app.migrations:✅ Schema migration 001_base_schema applied successfully.
+INFO:app.migrations:Applying schema migration 002_metadata_columns...
+INFO:app.migrations:✅ Schema migration 002_metadata_columns applied successfully.
+INFO:app.migrations:Applying schema migration 003_user_roles_and_admin...
+INFO:app.migrations:✅ Schema migration 003_user_roles_and_admin applied successfully.
+INFO:app.migrations:Applying schema migration 004_live_wallet_encryption...
+INFO:app.migrations:✅ Schema migration 004_live_wallet_encryption applied successfully.
+INFO:app.migrations:Applying schema migration 005_ledger_and_execution_indexes...
+INFO:app.migrations:✅ Schema migration 005_ledger_and_execution_indexes applied successfully.
+INFO:app.migrations:Applying schema migration 006_durable_security_state...
+INFO:app.migrations:✅ Schema migration 006_durable_security_state applied successfully.
+INFO:app.migrations:Applying schema migration 007_canonical_ingestion_and_isolated_exposure...
+INFO:app.migrations:✅ Schema migration 007_canonical_ingestion_and_isolated_exposure applied successfully.
+INFO:app.migrations:Applying schema migration 008_signal_retry_state...
+INFO:app.migrations:✅ Schema migration 008_signal_retry_state applied successfully.
+INFO:app.migrations:Applying schema migration 009_live_signer_identity...
+INFO:app.migrations:✅ Schema migration 009_live_signer_identity applied successfully.
+INFO:app.migrations:Applying schema migration 010_live_order_journal...
+INFO:app.migrations:✅ Schema migration 010_live_order_journal applied successfully.
+INFO:app.migrations:Applying schema migration 011_live_reconciliation_evidence...
+INFO:app.migrations:✅ Schema migration 011_live_reconciliation_evidence applied successfully.
+INFO:app.migrations:Applying schema migration 012_account_owned_paper_runs...
+INFO:app.migrations:✅ Schema migration 012_account_owned_paper_runs applied successfully.
+INFO:app.migrations:Applying schema migration 013_durable_live_cancel_requests...
+INFO:app.migrations:✅ Schema migration 013_durable_live_cancel_requests applied successfully.
+INFO:app.migrations:Applying schema migration 014_exact_settlement_cash...
+INFO:app.migrations:✅ Schema migration 014_exact_settlement_cash applied successfully.
+INFO:app.migrations:Applying schema migration 015_scoped_runtime_and_copy_policy...
+INFO:app.migrations:✅ Schema migration 015_scoped_runtime_and_copy_policy applied successfully.
+INFO:app.migrations:Applying schema migration 016_unique_scoped_wallet_owner...
+INFO:app.migrations:✅ Schema migration 016_unique_scoped_wallet_owner applied successfully.
+INFO:app.migrations:Applying schema migration 017_owner_session_operation_journal...
+INFO:app.migrations:✅ Schema migration 017_owner_session_operation_journal applied successfully.
+INFO:app.migrations:Applying schema migration 018_verified_live_wallet_baseline...
+INFO:app.migrations:✅ Schema migration 018_verified_live_wallet_baseline applied successfully.
+INFO:app.database:✅ Database initialized successfully — connected to Supabase PostgreSQL (postgresql+asyncpg), schema v18.
+INFO:app.main:Background scheduler and poller are disabled for this API process.
+INFO:httpx:HTTP Request: GET http://test/ready "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: POST http://test/api/auth/signup "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: POST http://test/api/auth/login "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: POST http://test/api/auth/signup "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: POST http://test/api/auth/login "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: GET http://test/api/live-trading/session "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: GET http://test/api/live-trading/session "HTTP/1.1 401 Unauthorized"
+INFO:httpx:HTTP Request: POST http://test/api/live-trading/session "HTTP/1.1 409 Conflict"
+INFO:httpx:HTTP Request: POST http://test/api/live-trading/session/operations "HTTP/1.1 409 Conflict"
+INFO:httpx:HTTP Request: POST http://test/api/live-trading/initialize-account "HTTP/1.1 409 Conflict"
+INFO:httpx:HTTP Request: GET http://test/api/me "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: GET http://test/api/users/a830789d-091e-41e1-b977-ae2bc6f7fa8d "HTTP/1.1 401 Unauthorized"
+INFO:httpx:HTTP Request: GET http://test/api/users/a5a2889f-f27d-4a73-875b-e2e015fde93d "HTTP/1.1 403 Forbidden"
+INFO:httpx:HTTP Request: GET http://test/api/admin/status "HTTP/1.1 403 Forbidden"
+INFO:httpx:HTTP Request: PATCH http://test/api/users/a830789d-091e-41e1-b977-ae2bc6f7fa8d "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: GET http://test/api/users/a830789d-091e-41e1-b977-ae2bc6f7fa8d "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: GET http://test/api/me "HTTP/1.1 401 Unauthorized"
+INFO:httpx:HTTP Request: POST http://test/api/executions/reset-sandbox?userId=a830789d-091e-41e1-b977-ae2bc6f7fa8d "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: GET http://test/api/users/a5a2889f-f27d-4a73-875b-e2e015fde93d "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: POST http://test/api/auth/logout "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: GET http://test/api/me "HTTP/1.1 401 Unauthorized"
+INFO:httpx:HTTP Request: GET http://test/api/me "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: POST http://test/api/auth/guest "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: GET http://test/api/me "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: POST http://test/api/auth/login "HTTP/1.1 422 Unprocessable Entity"
+{"ready": {"status": "ready", "service": "Baleen Backend", "database": "PostgreSQL", "schema_version": 18, "listener": "UNKNOWN", "timestamp": "2026-09-13T09:04:18.513481"}, "passed": ["signup", "login", "settings_save", "anonymous_rejection", "cross_account_rejection", "admin_rejection", "expired_token", "own_reset_isolation", "persistent_logout", "guest", "payload_bound", "session_account_auth", "session_setup_gate", "builder_setup_gate", "wallet_funding_gate"]}

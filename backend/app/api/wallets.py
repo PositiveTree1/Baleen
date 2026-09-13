@@ -8,7 +8,8 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.analysis.ai_summary import generate_summary
 from app.database import get_db
-from app.models import ExecutionLog, Wallet, WalletSnapshot
+from app.auth import get_current_user_optional
+from app.models import ExecutionLog, Wallet, WalletSnapshot, User
 from app.services.mark_to_market import _last_known_pnl, get_live_price
 from app.services.polymarket_fees import calculate_polymarket_fee
 
@@ -23,16 +24,16 @@ def wallet_to_response(w: Wallet) -> dict:
         "pseudonym": w.pseudonym,
         "profileImage": w.profile_image,
         "tier": w.tier or "standard",
-        "win_rate_pct": w.win_rate_pct or 0.0,
+        "win_rate_pct": w.win_rate_pct,
         "wilson_lb": getattr(w, "wilson_lb", None),
-        "all_time_pnl_usd": w.all_time_pnl_usd or 0.0,
-        "avg_trades_per_day": w.avg_trades_per_day or 0.0,
+        "all_time_pnl_usd": w.all_time_pnl_usd,
+        "avg_trades_per_day": w.avg_trades_per_day,
         "trades_per_hour": getattr(w, "trades_per_hour", None),
-        "baleen_score": w.baleen_score or 0.0,
+        "baleen_score": w.baleen_score,
         "ai_style_tag": w.ai_style_tag,
         "ai_summary": w.ai_summary,
-        "max_drawdown_pct": w.max_drawdown_pct or 0.0,
-        "outlier_concentration_pct": w.outlier_concentration_pct or 0.0,
+        "max_drawdown_pct": w.max_drawdown_pct,
+        "outlier_concentration_pct": w.outlier_concentration_pct,
         "alpha_per_trade": getattr(w, "alpha_per_trade", None),
         "profit_factor": getattr(w, "profit_factor", None),
         "status": w.status or "active",
@@ -40,8 +41,9 @@ def wallet_to_response(w: Wallet) -> dict:
         "is_hft": bool(getattr(w, "is_hft", False)),
         "first_trade_at": w.first_trade_at.isoformat() if getattr(w, "first_trade_at", None) else None,
         "last_trade_at": w.last_trade_at.isoformat() if getattr(w, "last_trade_at", None) else None,
-        "total_trades_analyzed": w.total_trades_analyzed or 0,
-        "avg_hold_hours": getattr(w, "median_inter_trade_gap_hours", 12.0) or 12.0,
+        "total_trades_analyzed": w.total_trades_analyzed,
+        "avg_hold_hours": None,  # Trade spacing is not position holding duration.
+        "median_inter_trade_gap_hours": getattr(w, "median_inter_trade_gap_hours", None),
         "rejection_reason": w.rejection_reason,
         "first_seen_at": w.first_seen_at.isoformat() if w.first_seen_at else None,
         "last_scored_at": w.last_scored_at.isoformat() if w.last_scored_at else None,
@@ -77,25 +79,40 @@ async def list_wallets(
 async def get_copied_wallet_stats(
     user_id: Optional[str] = Query(None, alias="userId"),
     userId: Optional[str] = Query(None),
+    current_user: Optional[User] = Depends(get_current_user_optional),
     db: AsyncSession = Depends(get_db)
 ):
+    current_user = current_user if isinstance(current_user, User) else None
     from uuid import UUID
 
-    stmt = select(ExecutionLog).where(ExecutionLog.status.in_(["FILLED", "CLOSED", "RESOLVED"]))
-    eff_user_id = user_id or userId
+    stmt = select(ExecutionLog).where(ExecutionLog.is_sandbox.is_(True), ExecutionLog.side == "BUY", ExecutionLog.status.in_(["FILLED", "CLOSED", "RESOLVED"]))
+    eff_user_id = None
+    if isinstance(user_id, (str, UUID)):
+        eff_user_id = str(user_id).strip()
+    elif isinstance(userId, (str, UUID)):
+        eff_user_id = str(userId).strip()
+
     if eff_user_id:
+        if not current_user:
+            raise HTTPException(
+                status_code=401,
+                detail="Authentication required to view private copied wallet statistics."
+            )
         try:
             u_uuid = UUID(eff_user_id)
-            stmt_user = stmt.where(ExecutionLog.user_id == u_uuid)
-            user_logs = (await db.execute(stmt_user)).scalars().all()
-            if user_logs:
-                logs = user_logs
-            else:
-                stmt_global = stmt.where(ExecutionLog.user_id.is_(None))
-                logs = (await db.execute(stmt_global)).scalars().all()
         except Exception:
-            stmt_global = stmt.where(ExecutionLog.user_id.is_(None))
-            logs = (await db.execute(stmt_global)).scalars().all()
+            raise HTTPException(status_code=404, detail="User not found")
+        is_admin = getattr(current_user, "is_admin", False) or getattr(current_user, "role", "") == "admin"
+        if str(current_user.id) != str(u_uuid) and not is_admin:
+            raise HTTPException(
+                status_code=403,
+                detail="Forbidden: Cannot view another user's copied wallet statistics."
+            )
+        stmt_user = stmt.where(ExecutionLog.user_id == u_uuid)
+        logs = (await db.execute(stmt_user)).scalars().all()
+    elif current_user:
+        stmt_user = stmt.where(ExecutionLog.user_id == current_user.id)
+        logs = (await db.execute(stmt_user)).scalars().all()
     else:
         stmt_global = stmt.where(ExecutionLog.user_id.is_(None))
         logs = (await db.execute(stmt_global)).scalars().all()
@@ -123,59 +140,31 @@ async def get_copied_wallet_stats(
                 "trades_copied": 0,
                 "total_notional": 0.0,
                 "net_pnl": 0.0,
+                "unvalued": 0,
                 "wins": 0,
                 "losses": 0,
                 "gross_profit": 0.0,
                 "gross_loss": 0.0,
             }
         
-        notional = float(log.notional_usd or 0.0)
-        wallet_stats[addr]["trades_copied"] += 1
-        wallet_stats[addr]["total_notional"] += notional
-
-        # Determine trade PnL: Realized for closed/resolved trades, Mark-to-Market for open (FILLED) trades
-        if log.status != "FILLED" and log.realized_pnl_usd is not None:
-            pnl = float(log.realized_pnl_usd)
-        elif log.status == "FILLED":
-            log_id_str = str(log.id)
-            if log_id_str in _last_known_pnl:
-                pnl = float(_last_known_pnl[log_id_str])
-            else:
-                fill_p = float(log.user_fill_price or log.whale_entry_price or 0.5)
-                fee = float(log.fee_usd or 0.0)
-                if fee == 0.0 and notional > 0:
-                    fee_info = calculate_polymarket_fee(
-                        notional_usd=notional,
-                        price=fill_p,
-                        market_title=log.market_question or ""
-                    )
-                    fee = float(fee_info["fee_usd"])
-
-                cid = log.market_condition_id or ""
-                outc = log.resolution_outcome or "Yes"
-                asset_id = log.onchain_tx_hash or ""
-                cur_p = get_live_price(cid=cid, outcome=outc, asset=asset_id, fallback=fill_p)
-                if fill_p > 0 and cur_p > 0:
-                    if log.side == "BUY":
-                        gross_pnl = notional * ((cur_p - fill_p) / fill_p)
-                    else:
-                        gross_pnl = notional * ((fill_p - cur_p) / fill_p)
-                    pnl = round(gross_pnl - fee, 2)
-                else:
-                    pnl = round(-fee, 2)
-        elif log.realized_pnl_usd is not None:
-            pnl = float(log.realized_pnl_usd)
-        else:
-            pnl = 0.0
-
-        wallet_stats[addr]["net_pnl"] += pnl
-
-        if pnl > 0:
-            wallet_stats[addr]["wins"] += 1
-            wallet_stats[addr]["gross_profit"] += pnl
-        elif pnl < 0:
-            wallet_stats[addr]["losses"] += 1
-            wallet_stats[addr]["gross_loss"] += abs(pnl)
+        from app.services.execution_valuation import execution_valuation, finite
+        notional = finite(log.notional_usd)
+        stats = wallet_stats[addr]
+        stats["trades_copied"] += 1
+        stats["total_notional"] = (stats["total_notional"] + notional
+            if stats["total_notional"] is not None and notional is not None else None)
+        pnl = execution_valuation(log)['pnl']
+        if pnl is None:
+            stats['unvalued'] += 1
+            continue
+        stats['net_pnl'] += pnl
+        if log.status in ('CLOSED', 'RESOLVED'):
+            if pnl > 0:
+                stats['wins'] += 1
+                stats['gross_profit'] += pnl
+            elif pnl < 0:
+                stats['losses'] += 1
+                stats['gross_loss'] += abs(pnl)
 
     addrs = list(wallet_stats.keys())
     w_meta_map = {}
@@ -189,12 +178,12 @@ async def get_copied_wallet_stats(
     for addr, stats in wallet_stats.items():
         w_obj = w_meta_map.get(addr.lower())
         total_resolved = stats["wins"] + stats["losses"]
-        wr = (stats["wins"] / total_resolved * 100.0) if total_resolved > 0 else 0.0
-        pf = (stats["gross_profit"] / stats["gross_loss"]) if stats["gross_loss"] > 0 else (10.0 if stats["gross_profit"] > 0 else 1.0)
-        roi = (stats["net_pnl"] / stats["total_notional"] * 100.0) if stats["total_notional"] > 0 else 0.0
+        wr = (stats["wins"] / total_resolved * 100.0) if total_resolved > 0 else None
+        pf = (stats["gross_profit"] / stats["gross_loss"]) if stats["gross_loss"] > 0 else None
+        roi = (stats["net_pnl"] / stats["total_notional"] * 100.0) if stats["total_notional"] and not stats["unvalued"] else None
 
         disp_name = (w_obj.name if w_obj and w_obj.name else (w_obj.pseudonym if w_obj and w_obj.pseudonym else None))
-        copy_rate = 100.0
+        copy_rate = None  # No complete eligible-source denominator is recorded here.
 
         results.append({
             "address": stats["address"],
@@ -206,18 +195,20 @@ async def get_copied_wallet_stats(
             "aiStyleTag": w_obj.ai_style_tag if w_obj else "Tactical Whale",
             "tradesCopied": stats["trades_copied"],
             "fillsCount": stats["trades_copied"],
-            "totalNotional": round(stats["total_notional"], 2),
-            "netPnl": round(stats["net_pnl"], 2),
-            "mirroredPnl": round(stats["net_pnl"], 2),
-            "roiPct": round(roi, 2),
-            "winRateCopied": round(wr, 1),
-            "profitFactor": round(pf, 2),
+            "totalNotional": round(stats["total_notional"], 2) if stats["total_notional"] is not None else None,
+            "netPnl": round(stats["net_pnl"], 2) if not stats["unvalued"] else None,
+            "knownPnlUsd": round(stats["net_pnl"], 2),
+            "unvaluedTradesCount": stats["unvalued"],
+            "mirroredPnl": round(stats["net_pnl"], 2) if not stats["unvalued"] else None,
+            "roiPct": round(roi, 2) if roi is not None else None,
+            "winRateCopied": round(wr, 1) if wr is not None else None,
+            "profitFactor": round(pf, 2) if pf is not None else None,
             "wins": stats["wins"],
             "losses": stats["losses"],
             "copyRatePct": copy_rate,
         })
 
-    results.sort(key=lambda r: r["netPnl"], reverse=True)
+    results.sort(key=lambda r: (r["netPnl"] is not None, r["netPnl"] or 0), reverse=True)
     return results
 
 @router.get("/{address}")
@@ -247,7 +238,7 @@ async def get_wallet(address: str, db: AsyncSession = Depends(get_db)):
                 "all_time_pnl_usd": wallet.all_time_pnl_usd or 0.0,
                 "avg_trades_per_day": wallet.avg_trades_per_day or 0.0,
                 "max_drawdown_pct": wallet.max_drawdown_pct or 0.0,
-                "total_trades_analyzed": wallet.total_trades_analyzed or 50
+                "total_trades_analyzed": wallet.total_trades_analyzed
             }
             ai_summary, ai_style_tag = await asyncio.wait_for(generate_summary(stats_dict), timeout=2.5)
             if ai_summary:
@@ -258,18 +249,8 @@ async def get_wallet(address: str, db: AsyncSession = Depends(get_db)):
             await db.refresh(wallet)
         except Exception as e:
             logger.warning(f"Failed or timed out generating summary: {e}")
-            win_r = wallet.win_rate_pct or 0.0
-            pnl_val = wallet.all_time_pnl_usd or 0.0
-            vel = wallet.avg_trades_per_day or 0.0
-            if win_r >= 85.0 and vel <= 5.0 and vel > 0:
-                wallet.ai_summary = f"Elite low-frequency sniper executing with surgical {win_r:.1f}% accuracy across selective prediction markets. Captures ${pnl_val:,.0f} net alpha with patient, asymmetric positioning and exceptional risk discipline."
-                wallet.ai_style_tag = "Surgical Sniper"
-            elif win_r >= 80.0:
-                wallet.ai_summary = f"High-precision tactical whale maintaining {win_r:.1f}% accuracy with ${pnl_val:,.0f} net realized profit and disciplined drawdown management."
-                wallet.ai_style_tag = "High-Conviction Sniper"
-            else:
-                wallet.ai_summary = f"Systematic market participant with {win_r:.1f}% win rate and ${pnl_val:,.0f} lifetime profit across active Polymarket order books."
-                wallet.ai_style_tag = "Alpha Whale"
+            wallet.ai_summary = None
+            wallet.ai_style_tag = None
 
     # Score Snapshots
     snap_stmt = select(WalletSnapshot).where(
@@ -288,39 +269,19 @@ async def get_wallet(address: str, db: AsyncSession = Depends(get_db)):
             }
             for s in snapshots
         ]
-    else:
-        # Initial point
-        score_history = [
-            {
-                "date": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M"),
-                "score": round(wallet.baleen_score or 0.0, 1),
-                "win_rate": round(wallet.win_rate_pct or 0.0, 1),
-                "pnl": round(wallet.all_time_pnl_usd or 0.0, 2)
-            }
-        ]
     
     # Fetch recent execution logs for this specific whale
     stmt_trades = select(ExecutionLog).where(
-        func.lower(ExecutionLog.source_wallet_address) == clean_addr
+        func.lower(ExecutionLog.source_wallet_address) == clean_addr,
+        ExecutionLog.user_id.is_(None),
+        ExecutionLog.is_sandbox.is_(True),
     ).order_by(ExecutionLog.executed_at.desc()).limit(20)
     trades = (await db.execute(stmt_trades)).scalars().all()
     
     recent_trades = []
     for t in trades:
-        trade_pnl = t.realized_pnl_usd
-        if trade_pnl is None and t.status == "FILLED":
-            if str(t.id) in _last_known_pnl:
-                trade_pnl = _last_known_pnl[str(t.id)]
-            else:
-                tfp = float(t.user_fill_price or t.whale_entry_price or 0.5)
-                tnot = float(t.notional_usd or 0.0)
-                tfee = float(t.fee_usd or 0.0)
-                tcp = get_live_price(cid=t.market_condition_id or "", outcome=t.resolution_outcome or "Yes", asset=t.onchain_tx_hash or "", fallback=tfp)
-                if tfp > 0 and tcp > 0:
-                    gp = tnot * ((tcp - tfp) / tfp) if t.side == "BUY" else tnot * ((tfp - tcp) / tfp)
-                    trade_pnl = round(gp - tfee, 2)
-                else:
-                    trade_pnl = round(-tfee, 2)
+        from app.services.execution_valuation import execution_valuation
+        trade_pnl = execution_valuation(t)['pnl']
 
         recent_trades.append({
             "id": str(t.id),
@@ -329,7 +290,8 @@ async def get_wallet(address: str, db: AsyncSession = Depends(get_db)):
             "side": t.side,
             "outcome": t.resolution_outcome or "Yes",
             "notional_usd": t.notional_usd,
-            "fill_price": t.user_fill_price or t.whale_entry_price,
+            "fill_price": t.user_fill_price,
+            "execution_mode": "paper",
             "executed_at": t.executed_at.isoformat() if t.executed_at else None,
             "status": t.status,
             "pnl_usd": trade_pnl
@@ -383,41 +345,8 @@ async def get_wallet(address: str, db: AsyncSession = Depends(get_db)):
         except Exception as e:
             logger.debug(f"Error fetching live on-chain history for {clean_addr}: {e}")
 
-    # 3. Fallback to local DB copied executions only if on-chain history is completely unavailable
-    if not daily_pnl_history and trades:
-        daily_groups = {}
-        for t in sorted(trades, key=lambda x: x.executed_at or datetime.min):
-            if not t.executed_at:
-                continue
-            # Strictly only count fully closed positions with settled realized PnL
-            if str(t.status).upper() != "CLOSED" or t.realized_pnl_usd is None:
-                continue
-            dt_str = t.executed_at.strftime("%Y-%m-%d")
-            if dt_str not in daily_groups:
-                daily_groups[dt_str] = {"won": 0.0, "lost": 0.0, "count": 0}
-            p = float(t.realized_pnl_usd or 0.0)
-            if p >= 0:
-                daily_groups[dt_str]["won"] += p
-            else:
-                daily_groups[dt_str]["lost"] += abs(p)
-            daily_groups[dt_str]["count"] += 1
-
-        if daily_groups:
-            cum = 0.0
-            real_history = []
-            for d, vals in sorted(daily_groups.items()):
-                net = round(vals["won"] - vals["lost"], 2)
-                cum += net
-                real_history.append({
-                    "date": d,
-                    "won_usd": round(vals["won"], 2),
-                    "lost_usd": round(-abs(vals["lost"]), 2),
-                    "net_pnl": net,
-                    "daily_pnl": net,
-                    "cumulative_pnl": round(cum, 2),
-                    "trades_count": vals["count"]
-                })
-            daily_pnl_history = real_history
+    # Missing source history stays unavailable. Follower paper performance
+    # cannot substitute for the source wallet's on-chain performance.
 
     return {
         "wallet": wallet_to_response(wallet),

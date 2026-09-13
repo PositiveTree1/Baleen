@@ -1,0 +1,83 @@
+# Baleen Frontend UI & Status Inventory
+
+**Date:** 2026-09-10  
+**Scope:** Dashboard, Settings, Landing Page, Wallet Drawer, Trade Log, Analytics, Exports, and Copilot labels.  
+**Auditing Standard:** `GEMINI_APP_COMPLETION_WORK.md` (Task 1 & Task 2), `BATCH_B_REVIEW.md`, and `LIVE_EXECUTION_PREPARATION.md`.
+
+---
+
+## Terminology & Claim Rules
+
+1. **"Paper" vs "Live":** "Paper" must be used for simulated fills, models, and backtested results. "Live" is reserved strictly for exchange-confirmed execution backed by reviewed contracts.
+2. **Connectivity vs Authorization:** Reachability of public/private endpoints does not certify signing authority, deposit bindings, or order execution readiness.
+3. **Valid Zero vs Unavailable:** Zero cash, zero P&L, and empty positions are valid outputs. Network/API errors must display as `"Unavailable"` (never defaulted to `$0.00` or `$10,000.00`).
+4. **Timestamps & Freshness:** Display stored `as-of` or `reconciledAt` timestamps from the backend. Never fabricate freshness or current-time stamps on client render.
+5. **Unsupported Claims:** Remove all claims of guaranteed returns, audited performance, sub-38ms latency, 100% uptime, and flat fee certainty.
+6. **Source vs Follower Attribution:** Clearly distinguish source-wallet returns from simulated copied follower returns. Do not present whale profits as user earnings.
+
+---
+
+## Detailed Component Inventory
+
+| File | Line(s) | Category | Current Text / Behavior | Proposed Text / Behavior | Rationale / API Dependency |
+|---|---|---|---|---|---|
+| `frontend/src/components/landing/LiveTicker.tsx` | 40–46 | Claim Removal / Integrity | Hardcoded fake trades (`Fed Interest Rate Decision`, `Bitcoin $120k Target`, etc.) shown when trades list is empty | Remove fake trades; render clean empty state or real observed activity when available | Fabricated trades deceive users about actual platform activity |
+| `frontend/src/components/landing/LiveTicker.tsx` | 62 | Terminology | `Polymarket Live Stream` | `Polymarket Activity Stream (Paper Simulation)` | Live execution is disabled; trades shown are paper or observed |
+| `frontend/src/components/landing/LiveTicker.tsx` | 69 | Claim Removal | `{stats?.activeBasketWhales ?? 17} Gold Whales` | `{stats?.activeBasketWhales ?? 0} Candidate Wallets` | Remove arbitrary default of 17; use neutral "Candidate Wallets" |
+| `frontend/src/components/landing/LiveTicker.tsx` | 76 | Claim Removal | `Execution Speed: < 38ms (Polygon CTF)` | `Execution Mode: Paper Simulation (Polygon CTF)` | Unsupported latency claim; real execution is inactive |
+| `frontend/src/components/landing/Leaderboard.tsx` | 71 | Claim Removal | `Verified Polymarket On-Chain Ledger` | `Observed Polymarket Wallets (Candidate Basket)` | Wallets are observed candidates, not an audited or verified ledger |
+| `frontend/src/components/landing/Leaderboard.tsx` | 77 | Claim Removal | `Live quantitative leaderboard of audited whales...` | `Quantitative leaderboard of observed candidate whales. Click any address to inspect historical on-chain metrics, algorithmic scoring, and trading activity.` | Wallets are not audited by a certified third party; they are scraped and filtered |
+| `frontend/src/components/landing/Leaderboard.tsx` | 90 | Accessibility | `<input placeholder="Search 0x address..." />` missing `aria-label` | Add `aria-label="Search 0x address"` | Screen reader accessibility requirement |
+| `frontend/src/components/landing/ProfitSimulator.tsx` | 69 | Claim Removal | `Strategy Profile: Average Whale Basket Returns` | `Strategy Profile: Observed Whale Basket Performance` | Clarify these are source observed metrics, not guaranteed returns |
+| `frontend/src/components/landing/ProfitSimulator.tsx` | 73 | Claim Removal | `88.4% Win Rate` | `Historical Win Rate (Observed Source Wallets)` | Clarify source wallet historical basis |
+| `frontend/src/components/landing/ProfitSimulator.tsx` | 77 | Claim Removal | `Positions are dynamically sized across the top 17 audited Polymarket whales. Automated profit recycling reinvests gains into fresh high-conviction contract fills.` | `Positions are dynamically sized across observed candidate Polymarket whales in paper simulation. Illustrative projection only; past source wallet performance does not guarantee future results.` | Remove "audited" claim; add required past-performance disclaimer |
+| `frontend/src/components/landing/ProfitSimulator.tsx` | 131 | Claim Removal | `Projected Value` | `Hypothetical Projection (Illustrative Only)` | Avoid misleading expectation of realized gains |
+| `frontend/src/components/landing/ProfitSimulator.tsx` | 146 | Claim Removal | `🔥 Turn $20 into close to $10,000+` | `Hypothetical model projection based on historical parameters` | Guaranteed return claim prohibited |
+| `frontend/src/components/landing/ProfitSimulator.tsx` | 168–170 | Claim Removal | `Execution Speed` / `< 38ms` | `Execution Mode` / `Paper Sandbox` | Latency claim unsupported |
+| `frontend/src/components/landing/ProfitSimulator.tsx` | 177 | Terminology | `Start With $10,000 Paper Funds` | `Open Paper Trading Sandbox` | Neutral sandbox terminology |
+| `frontend/src/components/landing/ProfitSimulator.tsx` | 182 | Claim Removal | `Try the full engine completely risk-free in sandbox mode.` | `Explore simulated copy-trading in sandbox mode. Not financial advice.` | Clarify experimental nature and regulatory disclaimer |
+| `frontend/src/app/dashboard/page.tsx` | 216–218 | Terminology | `Live Trading · Unavailable` (with amber indicator) | `Live Trading · Unavailable (Gated)` | Clarify status that live pipeline is actively gated pending exchange signing and reconciliation |
+| `frontend/src/app/dashboard/page.tsx` | 403 | Terminology | `{liveDashboard?.status_badge || 'Credentials Required'}` | Default to `'Live Execution Disabled (Preparation in progress)'` | Clear status reflection when live execution is not enabled |
+| `frontend/src/app/dashboard/page.tsx` | 407 | Terminology | `Real-time L2 execution directly against Polymarket CLOB. Pure Proportional Sleeve Sizing active.` | `Live execution is disabled. Real exchange order routing is inactive pending signing and reconciliation gates.` | Avoid misleading impression of active CLOB execution |
+| `frontend/src/app/dashboard/page.tsx` | 437 | Terminology / Collateral | `Real USDC L2 Cash Balance` | `pUSD L2 Cash Balance (Observed / Unreconciled)` | Backend capabilities and gateway contracts use `pUSD` as collateral currency |
+| `frontend/src/app/dashboard/page.tsx` | 440, 453, 466 | Error vs Zero | Displays `$0.00` if live balance or net worth is missing/failed | Display `"Unavailable"` if endpoint returned error or null; preserve `$0.00` only if valid numeric zero is returned | Prevents mistaking network failures or unconfigured state as a wiped balance |
+| `frontend/src/app/dashboard/page.tsx` | 450 | Terminology | `Portfolio Net Worth (Cash + Open Legs)` | `Unreconciled Live Equity (Cash + Open Legs)` | Clearly demarcate unreconciled live state |
+| `frontend/src/app/dashboard/page.tsx` | 463 | Terminology | `Realized Live PnL` | `Unreconciled Exchange PnL (Snapshot)` | Distinguish snapshot from audited realized account P&L |
+| `frontend/src/app/settings/page.tsx` | 300–304 | Terminology | `Live Execution Active` / `Mirroring to CLOB` vs `Live Execution Paused` | Indicate clearly that live execution is disabled on backend: `Live Execution Unavailable (Gated)` / `Paper Sandbox Mode Active` | Backend `LIVE_EXECUTION_ENABLED = False` and `live_execution_ready = False`; toggle must not mislead user |
+| `frontend/src/app/settings/page.tsx` | 331 | Connectivity vs Auth | `L2 credentials securely saved! You can now test the connection and fetch your live USDC balance.` | `L2 credentials securely saved. Test reachability to verify private API transport.` | Avoid conflating reachability with execution readiness |
+| `frontend/src/app/settings/page.tsx` | 341 | Connectivity vs Auth | `Connection Verified` | `CLOB API Reachability Verified (Signing authority & live execution readiness unverified)` | Public/private API reachability does not certify cryptographic signing authorization |
+| `frontend/src/app/settings/page.tsx` | 348 | Collateral Currency | `Verified USDC Balance:` | `Reported Collateral Balance (pUSD / USDC):` | Aligns with backend `pUSD` collateral specification |
+| `frontend/src/app/settings/page.tsx` | 363, 381, 393, 407 | Accessibility | Form inputs lack explicit `id` linked to `label htmlFor` | Add `id` attributes matching `htmlFor` and explicit `aria-label`s | Required for screen reader focus and input identification |
+| `frontend/src/components/dashboard/TradeLog.tsx` | 116 | Terminology | `Paper positions, simulated fills & PnL tracking` | `Paper positions, simulated fills & paper PnL tracking` | Maintain explicit paper framing |
+| `frontend/src/components/dashboard/TradeLog.tsx` | 217 | Terminology | `{isClosed ? 'Exit' : 'Live'} ${livePrice.toFixed(3)}` | `{isClosed ? 'Exit' : 'Mark'} ${livePrice.toFixed(3)}` | "Live" here means current market mark; calling it "Mark" prevents confusion with live execution fills |
+| `frontend/src/components/dashboard/TradeLog.tsx` | 187 | Accessibility | Clickable trade row `div` missing keyboard interaction and semantic role | Add `role="button"`, `tabIndex={0}`, and `onKeyDown` Enter/Space handler | WCAG 2.1 keyboard accessibility |
+| `frontend/src/components/dashboard/WalletDrawer.tsx` | 154 | Claim Removal | `Whale Audit Profile` | `Observed Whale Profile` | Candidate wallets are observed on-chain, not audited entities |
+| `frontend/src/components/dashboard/WalletDrawer.tsx` | 251–256 | Source vs Follower | `Total PnL` / `All-Time Net` | `Source Wallet PnL` / `Source Historical Net` | Users must not confuse source trader returns with their own paper follower return |
+| `frontend/src/components/dashboard/WalletDrawer.tsx` | 169, 176, 193 | Accessibility | Icon buttons missing accessible names | Add `aria-label="Open profile on Polymarket"`, `aria-label="Close wallet drawer"`, `aria-label="Copy address"` | Screen reader accessibility |
+| `frontend/src/components/dashboard/FullHistorySpreadsheetModal.tsx` | 174 | Terminology | CSV header `Live Price ($)` | `Current / Exit Price ($)` | Distinguish current contract price from live execution fill |
+| `frontend/src/components/dashboard/FullHistorySpreadsheetModal.tsx` | 236 | Claim Removal | `Institutional audit logs, fills & mark-to-market positions` | `Paper execution logs, simulated fills & mark-to-market positions` | Remove "institutional audit" claim |
+| `frontend/src/components/dashboard/FullHistorySpreadsheetModal.tsx` | 279 | Terminology | `Net Portfolio P&L` | `Simulated Portfolio P&L` | Explicit simulated paper qualification |
+| `frontend/src/components/dashboard/FullHistorySpreadsheetModal.tsx` | 246, 251, 290 | Accessibility | Buttons and inputs missing `aria-label` | Add `aria-label="Export CSV"`, `aria-label="Close modal"`, `aria-label="Search trades"` | Screen reader compliance |
+| `frontend/src/components/dashboard/BaleenCopilot.tsx` | 44 | Claim Removal / Terminology | `I have direct read access to all **5,000+ live executions**, wallet baskets...` | `I have direct read access to logged paper executions, observed candidate wallet baskets...` | Prohibit calling simulated paper trades "live executions" |
+| `frontend/src/components/dashboard/BaleenCopilot.tsx` | 258 | Claim Removal | `Dynamic tool calling across 5,000+ executions` | `Dynamic tool calling across portfolio and market data` | Accurate description of copilot backend capabilities |
+| `frontend/src/components/dashboard/BaleenCopilot.tsx` | 215, 265, 272, 279, 405, 410 | Accessibility | Copilot controls missing `aria-label`s and Escape key listener | Add accessible names and global Escape key handler to close panel | Keyboard dismissibility and accessible control labelling |
+| `frontend/src/components/dashboard/WalletLeaderboard.tsx` | 190 | Terminology | `Top 10 isolated sleeve roster` | `Observed candidate wallets & paper allocations` | Accurate reflection of paper copy roster |
+| `frontend/src/components/dashboard/WalletLeaderboard.tsx` | 326 | Source vs Follower | `{isCopiedTab ? 'Mirrored PnL' : 'All-time PnL'}` | `{isCopiedTab ? 'Copied Paper PnL' : 'Source Wallet PnL'}` | Explicitly differentiate between copied paper PnL and source wallet PnL |
+| `frontend/src/components/dashboard/WalletLeaderboard.tsx` | 207, 271 | Accessibility | Input missing `aria-label`; row missing keyboard handling | Add `aria-label="Search address or pseudonym"`, `role="button"`, `tabIndex={0}`, keyboard navigation | WCAG keyboard navigation |
+| `frontend/src/components/dashboard/DeepAnalyticsModal.tsx` | 30 | Claim Removal | `Authoritative Portfolio Analytics` | `Paper Portfolio Analytics` | Prohibit "Authoritative" branding on simulated analytics |
+| `frontend/src/components/dashboard/DeepAnalyticsModal.tsx` | 31 | Terminology | `Mark-to-market performance, win rates & taker fee attribution` | `Paper mark-to-market performance, win rates & simulated fee attribution` | Explicit paper framing |
+| `frontend/src/components/dashboard/DeepAnalyticsModal.tsx` | 83 | Claim Removal | `Polymarket 15bps Model` | `Polymarket Fee Schedule` | Polymarket has dynamic taker fees across categories, not a flat 15bps rate |
+| `frontend/src/components/dashboard/DeepAnalyticsModal.tsx` | 101 | Claim Removal | `All mark-to-market values are backed by authoritative database snapshots.` | `All mark-to-market values are derived from stored paper simulation snapshots.` | Accurately describes data source without unwarranted authority claims |
+| `frontend/src/components/dashboard/MirrorStrategyModal.tsx` | 69 | Terminology | `Configure auto-copying weights across verified Polymarket indexers` | `Configure paper copy weights across observed Polymarket candidate wallets` | Remove "verified indexers"; wallets are observed candidates |
+| `frontend/src/components/dashboard/MirrorStrategyModal.tsx` | 81 | Terminology | `Live Autopilot` | `Paper Autopilot` | Avoid misleading "Live" branding when in paper mode |
+| `frontend/src/components/dashboard/MirrorStrategyModal.tsx` | 120–121 | Data Integrity | Hardcoded fallback `74%` win rate and `+$12.4k` PnL when missing | Display `—` if winRate or pnl is null/undefined | Prohibit inventing fallback financial metrics |
+| `frontend/src/components/dashboard/MirrorStrategyModal.tsx` | 148 | Terminology | `All orders executed via CLOB taker limit` | `Paper simulation orders modeled with Polymarket taker fees` | Clarify simulated execution |
+| `frontend/src/components/dashboard/RebalanceModal.tsx` | 44 | Terminology | `Re-allocate stake weights across active whale indexers` | `Re-allocate simulated paper stake weights across active whale indexers` | Clear paper framing |
+| `frontend/src/components/dashboard/RebalanceModal.tsx` | 131 | Terminology | `✓ Portfolio Rebalanced!` | `✓ Paper Weights Updated` | Clear paper framing |
+| `frontend/src/components/dashboard/RebalanceModal.tsx` | 54, 74, 94 | Accessibility | Interactive option containers are non-semantic `div`s | Add `role="button"`, `tabIndex={0}`, and Enter/Space keyboard selection | Keyboard accessibility |
+| `frontend/src/components/dashboard/ResetSandboxModal.tsx` | 126 | Accessibility | Custom amount input missing `aria-label` | Add `aria-label="Custom starting USD amount"` | Accessibility requirement |
+| `frontend/src/components/dashboard/LiveTape.tsx` | 112 | Terminology | `placeholder="Filter live order executions..."` | `placeholder="Filter paper executions..."` | Avoid confusing paper feed with live order execution |
+| `frontend/src/components/dashboard/LiveTape.tsx` | 158 | Accessibility | Tape row `div` missing keyboard handling | Add `role="button"`, `tabIndex={0}`, and Enter/Space handler | Keyboard accessibility |
+| `frontend/src/components/dashboard/ActivityFeed.tsx` | 46–64 | Accessibility | Drawer lacks keyboard Escape listener and close button lacks `aria-label` | Add `useEffect` listener for `Escape` key and `aria-label="Close activity feed"` | Keyboard dismissibility |
+| `frontend/src/components/ui/CommandPalette.tsx` | 130, 134 | Accessibility | Search input and clear button missing accessible names | Add `aria-label="Search command palette"` and `aria-label="Clear search"` | Screen reader support |
+| `frontend/src/components/ui/CommandPalette.tsx` | 151, 171 | Terminology / Source | `Mirrored Whales` / `PnL` | `Observed Candidate Whales` / `Source PnL` | Distinguish observed source performance from user results |

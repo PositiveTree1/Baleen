@@ -1,10 +1,13 @@
 {
-  "exported_at": "2026-08-31T10:41:40.789040",
+  "exported_at": "2026-09-13T09:00:30.649280",
   "total_trades": 2,
   "trades": [
     {
-      "id": "b473245f-dfa5-48c9-8650-72885148d8e7",
-      "timestamp": "2026-08-31T10:41:40.774127",
+      "id": "9659269f-41f9-4d11-9810-df1708e705c5",
+      "user_id": null,
+      "run_id": null,
+      "is_sandbox": true,
+      "timestamp": "2026-09-13T09:00:30.643285",
       "wallet_address": "0xempirical_backup_whale",
       "market_condition_id": "0xcond_backup_1",
       "market_question": "Will SpaceX reach Mars in 2026?",
@@ -20,8 +23,11 @@
       "tx_hash": null
     },
     {
-      "id": "3c5171e0-6aef-4152-84f3-c7425bed913f",
-      "timestamp": "2026-08-31T10:41:40.774127",
+      "id": "87658609-ed49-452f-9435-8ae50ed1df89",
+      "user_id": null,
+      "run_id": null,
+      "is_sandbox": true,
+      "timestamp": "2026-09-13T09:00:30.643285",
       "wallet_address": "0xempirical_backup_whale",
       "market_condition_id": "0xcond_backup_2",
       "market_question": "Will Apple launch foldable iPhone in 2026?",

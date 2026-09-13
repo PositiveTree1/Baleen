@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState } from 'react';
 import { fetchSystemEvents } from '@/lib/api-client';
 import { X, Bell, Filter, TrendingUp, AlertTriangle, CheckCircle2, Info, Wallet, ShieldAlert } from 'lucide-react';
 import { SystemEvent } from '@/types';
@@ -43,19 +43,36 @@ export function ActivityFeed({ isOpen, onClose }: ActivityFeedProps) {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<string>('all');
 
-  const loadEvents = useCallback(async () => {
-    if (typeof document !== 'undefined' && document.hidden) return;
-    const data = await fetchSystemEvents(200, filter === 'all' ? undefined : filter);
-    if (data && data.length > 0) setEvents(data as any);
-    setLoading(false);
-  }, [filter]);
+  useEffect(() => {
+    if (!isOpen) return;
+    let isMounted = true;
+
+    const loadEvents = async () => {
+      if (typeof document !== 'undefined' && document.hidden) return;
+      const data = await fetchSystemEvents(200, filter === 'all' ? undefined : filter);
+      if (!isMounted) return;
+      if (data && data.length > 0) setEvents(data);
+      setLoading(false);
+    };
+
+    void loadEvents();
+    const interval = setInterval(loadEvents, 5000);
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, [isOpen, filter]);
 
   useEffect(() => {
     if (!isOpen) return;
-    loadEvents();
-    const interval = setInterval(loadEvents, 5000);
-    return () => clearInterval(interval);
-  }, [isOpen, loadEvents]);
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
 
   if (!isOpen) return null;
 
@@ -75,7 +92,12 @@ export function ActivityFeed({ isOpen, onClose }: ActivityFeedProps) {
       />
 
       {/* Panel */}
-      <div className="fixed right-0 top-0 h-full w-full max-w-md bg-white dark:bg-[#16171B] border-l border-black/[0.08] dark:border-white/10 shadow-2xl z-50 flex flex-col animate-in slide-in-from-right duration-200">
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label="Activity Feed"
+        className="fixed right-0 top-0 h-full w-full max-w-md bg-white dark:bg-[#16171B] border-l border-black/[0.08] dark:border-white/10 shadow-2xl z-50 flex flex-col animate-in slide-in-from-right duration-200"
+      >
         {/* Header */}
         <div className="flex items-center justify-between p-5 border-b border-black/[0.06] dark:border-white/10 bg-slate-50 dark:bg-[#1C1D22]">
           <div className="flex items-center gap-2.5">
@@ -89,6 +111,7 @@ export function ActivityFeed({ isOpen, onClose }: ActivityFeedProps) {
           </div>
           <button
             onClick={onClose}
+            aria-label="Close activity feed"
             className="p-2 rounded-xl hover:bg-slate-200/60 dark:hover:bg-[#2C2D35] text-slate-400 dark:text-[#8E8F99] hover:text-slate-900 dark:hover:text-white transition-colors cursor-pointer"
           >
             <X size={18} />

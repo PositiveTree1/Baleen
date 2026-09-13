@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useSession } from 'next-auth/react';
 import { BalanceCounter } from '@/components/dashboard/BalanceCounter';
 import { LiveTape } from '@/components/dashboard/LiveTape';
@@ -14,26 +14,29 @@ import { RebalanceModal } from '@/components/dashboard/RebalanceModal';
 import { DeepAnalyticsModal } from '@/components/dashboard/DeepAnalyticsModal';
 import { ActivityFeed } from '@/components/dashboard/ActivityFeed';
 import { CommandPalette } from '@/components/ui/CommandPalette';
-import { 
-  fetchUserSettings, 
-  fetchPortfolioSummary, 
-  fetchExecutionLogs, 
-  getCachedExecutionLogs, 
+import {
+  fetchUserSettings,
+  fetchPortfolioSummary,
+  fetchExecutionLogs,
+  getCachedExecutionLogs,
   getCachedPortfolioSummary,
   getCachedPortfolioSnapshots,
   fetchLiveDashboard,
   fetchWallets,
-  getCachedWallets
+  getCachedWallets,
+  setAuthToken,
+  clearAllCache,
+  logoutBackend
 } from '@/lib/api-client';
-import { User, ExecutionLog, PortfolioSummary, LiveTradingDashboard } from '@/types';
+import { User, ExecutionLog, PortfolioSummary, LiveTradingDashboard, Wallet } from '@/types';
 import { useTheme } from '@/context/ThemeContext';
 import Link from 'next/link';
-import { 
-  Settings, 
-  LogOut, 
-  Volume2, 
-  VolumeX, 
-  Bell, 
+import {
+  Settings,
+  LogOut,
+  Volume2,
+  VolumeX,
+  Bell,
   Search,
   Sun,
   Moon,
@@ -55,7 +58,7 @@ export default function DashboardPage() {
   const { theme, toggleTheme } = useTheme();
   const [selectedWallet, setSelectedWallet] = useState<string | null>(null);
   const [selectedTrade, setSelectedTrade] = useState<ExecutionLog | null>(null);
-  
+
   // View Mode: 'sandbox' | 'live'
   const [viewMode, setViewMode] = useState<'sandbox' | 'live'>('sandbox');
   const [liveDashboard, setLiveDashboard] = useState<LiveTradingDashboard | null>(null);
@@ -72,33 +75,61 @@ export default function DashboardPage() {
   const [logs, setLogs] = useState<ExecutionLog[]>(() => getCachedExecutionLogs(session?.user?.id) || []);
   const [user, setUser] = useState<User | null>(null);
   const [portfolio, setPortfolio] = useState<PortfolioSummary | null>(() => getCachedPortfolioSummary(session?.user?.id) || null);
-  const [wallets, setWallets] = useState<any[]>(() => getCachedWallets() || []);
+  const [wallets, setWallets] = useState<Wallet[]>(() => getCachedWallets() || []);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
 
-  const loadData = async () => {
-    if (typeof document !== 'undefined' && document.hidden) return;
-    try {
-      const [userData, portfolioData, logsData, liveData, walletsData] = await Promise.all([
-        session?.user?.id ? fetchUserSettings(session.user.id) : null,
-        fetchPortfolioSummary(session?.user?.id),
-        fetchExecutionLogs(session?.user?.id, { limit: '500' }),
-        fetchLiveDashboard(session?.user?.id),
-        fetchWallets()
-      ]);
-      if (userData) setUser(userData);
-      if (portfolioData) setPortfolio(portfolioData);
-      if (Array.isArray(logsData)) setLogs(logsData);
-      if (liveData) setLiveDashboard(liveData);
-      if (Array.isArray(walletsData) && walletsData.length > 0) setWallets(walletsData);
-    } catch (err) {
-      console.debug("Dashboard polling note:", err);
-    }
-  };
+  const handleDataRefresh = useCallback(() => {
+    setRefreshTrigger((prev) => prev + 1);
+  }, []);
 
   useEffect(() => {
-    loadData();
-    const interval = setInterval(loadData, 6000);
-    return () => clearInterval(interval);
+    if (session?.user?.accessToken) {
+      setAuthToken(session.user.accessToken);
+    }
   }, [session]);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadData = async () => {
+      if (typeof document !== 'undefined' && document.hidden) return;
+      const token = session?.user?.accessToken || (session as { accessToken?: string })?.accessToken;
+      if (token) {
+        setAuthToken(token);
+      }
+      try {
+        const [userData, portfolioData, logsData, liveData, walletsData] = await Promise.all([
+          session?.user?.id ? fetchUserSettings(session.user.id) : null,
+          fetchPortfolioSummary(session?.user?.id),
+          fetchExecutionLogs(session?.user?.id, { limit: '500' }),
+          fetchLiveDashboard(session?.user?.id),
+          fetchWallets()
+        ]);
+        if (!isMounted) return;
+        if (userData) setUser(userData);
+        if (portfolioData) setPortfolio(portfolioData);
+        if (Array.isArray(logsData)) setLogs(logsData);
+        if (liveData) setLiveDashboard(liveData);
+        if (Array.isArray(walletsData) && walletsData.length > 0) setWallets(walletsData);
+        setLoadError(null);
+        setLastUpdated(new Date());
+      } catch (err) {
+        console.debug("Dashboard polling note:", err);
+        if (isMounted) {
+          setLoadError("Unable to reach backend control plane. Retrying automatically...");
+        }
+      }
+    };
+
+    void loadData();
+    const interval = setInterval(loadData, 6000);
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, [session, refreshTrigger]);
 
   const toggleSound = () => {
     const next = soundFx.toggleSound();
@@ -118,30 +149,55 @@ export default function DashboardPage() {
 
   const cachedSnapshots = getCachedPortfolioSnapshots(session?.user?.id, 'all');
   const lastCachedBal = (cachedSnapshots && cachedSnapshots.length > 0) ? cachedSnapshots[cachedSnapshots.length - 1].balance : null;
-  const lastCachedPnl = (cachedSnapshots && cachedSnapshots.length > 0) ? cachedSnapshots[cachedSnapshots.length - 1].pnl : null;
   const cachedSummary = getCachedPortfolioSummary(session?.user?.id);
 
-  // Sandbox calculations
-  const sandboxBalance = portfolio?.currentBalance ?? user?.currentBalance ?? cachedSummary?.currentBalance ?? lastCachedBal ?? 10000.0;
-  const sandboxPnl = portfolio?.totalPnlUsd ?? cachedSummary?.totalPnlUsd ?? lastCachedPnl ?? 0.0;
-  const sandboxPnlPct = portfolio?.totalPnlPct ?? cachedSummary?.totalPnlPct ?? (sandboxBalance > 10000.0 ? ((sandboxBalance - 10000.0) / 10000.0) * 100.0 : 0.0);
+  if (!portfolio && !user && !cachedSummary && lastCachedBal === null && loadError) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#F8F9FB] dark:bg-[#000000] p-6 text-slate-900 dark:text-white">
+        <div className="max-w-md w-full bg-white dark:bg-[#16171B] p-6 rounded-2xl border border-rose-500/30 flex flex-col items-center gap-4 text-center shadow-xl">
+          <div className="w-10 h-10 rounded-full bg-rose-500/10 text-rose-500 flex items-center justify-center font-bold text-lg">!</div>
+          <h2 className="text-lg font-bold">Portfolio Service Unavailable</h2>
+          <p className="text-sm text-slate-500 dark:text-slate-400">
+            Could not retrieve account balance or financial records. Backend connection failed.
+          </p>
+          <button
+            onClick={() => handleDataRefresh()}
+            className="px-5 py-2.5 rounded-full bg-[#00D09C] text-black font-bold text-xs cursor-pointer hover:opacity-90 transition-opacity"
+          >
+            Retry Connection
+          </button>
+        </div>
+      </div>
+    );
+  }
 
-  // Live Capital calculations
-  const liveBalance = liveDashboard?.usdc_balance ?? 0.0;
-  const liveNetWorth = liveDashboard?.portfolio_net_worth ?? liveBalance;
-  const livePnl = liveDashboard?.live_pnl ?? 0.0;
-  const livePnlPct = liveBalance > 0 ? (livePnl / liveBalance) * 100.0 : 0.0;
+  // Sandbox calculations
+  const activeSummary = portfolio ?? cachedSummary;
+  const summaryValuationIncomplete = activeSummary?.valuationStatus === 'INCOMPLETE';
+  const sandboxBalance = activeSummary
+    ? activeSummary.currentBalance
+    : user?.currentBalance ?? null;
+  const sandboxPnl = activeSummary?.totalPnlUsd ?? null;
+  const sandboxPnlPct = activeSummary?.totalPnlPct ?? null;
+
+  // Live Capital calculations (preserve null/undefined to avoid converting missing state to zero)
+  const liveEvidenceVerified = liveDashboard?.execution_evidence === 'authenticated_verified';
+  const isLiveConfigured = Boolean(liveDashboard?.is_configured);
+  const liveBalance = isLiveConfigured && liveEvidenceVerified ? (liveDashboard?.usdc_balance ?? null) : null;
+  const liveNetWorth = isLiveConfigured && liveEvidenceVerified ? (liveDashboard?.portfolio_net_worth ?? null) : null;
+  const livePnl = isLiveConfigured && liveEvidenceVerified ? (liveDashboard?.live_pnl ?? null) : null;
+  const livePnlPct = (liveBalance !== null && liveBalance > 0 && livePnl !== null) ? (livePnl / liveBalance) * 100.0 : null;
 
   return (
     <div className="min-h-screen flex flex-col bg-[#F8F9FB] dark:bg-[#000000] text-slate-900 dark:text-white selection:bg-[#00D09C] selection:text-black relative overflow-x-hidden font-sans transition-colors duration-150">
-      
+
       {/* Top Bar Navigation */}
       <nav className="flex items-center justify-between py-3 px-3.5 sm:px-6 lg:px-12 border-b border-black/[0.06] dark:border-white/[0.08] bg-white/80 dark:bg-[#000000]/90 backdrop-blur-2xl sticky top-0 z-40">
-        
+
         {/* Left: Baleen Brand Logo & Mode Segmented Toggle */}
         <div className="flex items-center gap-4 sm:gap-6 shrink-0">
           <BrandLogo href="/" />
-          
+
           {/* Top View Toggle: Sandbox vs Live Capital */}
           <div className="flex items-center p-1 rounded-full bg-[#F1F3F5] dark:bg-[#1C1D22] border border-black/[0.06] dark:border-white/5 shadow-2xs">
             <button
@@ -163,13 +219,13 @@ export default function DashboardPage() {
               }`}
             >
               <span className={`w-2 h-2 rounded-full ${liveDashboard?.is_live_active ? 'bg-black animate-pulse' : 'bg-amber-500'}`} />
-              <span>Live Capital (L2 Real Money)</span>
+              <span>Live Trading · Unavailable (Gated)</span>
             </button>
           </div>
         </div>
 
         {/* Center: Search Command Bar */}
-        <div 
+        <div
           onClick={() => setCommandPaletteOpen(true)}
           onKeyDown={(e) => {
             if (e.key === 'Enter' || e.key === ' ') {
@@ -209,8 +265,8 @@ export default function DashboardPage() {
           <button
             onClick={toggleSound}
             className={`w-8 h-8 sm:w-9 sm:h-9 md:w-10 md:h-10 rounded-full border transition-all cursor-pointer flex items-center justify-center shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00D09C] ${
-              soundActive 
-                ? 'bg-[#00D09C]/10 text-[#00D09C] border-[#00D09C]/30' 
+              soundActive
+                ? 'bg-[#00D09C]/10 text-[#00D09C] border-[#00D09C]/30'
                 : 'bg-[#F1F3F5] dark:bg-[#1C1D22] hover:bg-[#E2E6EA] dark:hover:bg-[#2C2D35] border-black/[0.08] dark:border-white/10 text-slate-700 dark:text-[#8E8F99]'
             }`}
             aria-label={soundActive ? 'Mute trade signal sound effects' : 'Enable real-time trade signal sound effects'}
@@ -218,24 +274,31 @@ export default function DashboardPage() {
             {soundActive ? <Volume2 size={14} aria-hidden="true" className="sm:w-[15px] sm:h-[15px]" /> : <VolumeX size={14} aria-hidden="true" className="sm:w-[15px] sm:h-[15px]" />}
           </button>
 
-          <Link 
-            href="/admin" 
+          {session?.user?.isAdmin && <Link
+            href="/admin"
             className="text-[10px] sm:text-xs font-bold text-slate-900 dark:text-white px-2 sm:px-3 py-1 sm:py-1.5 rounded-full bg-[#F1F3F5] dark:bg-[#1C1D22] hover:bg-[#E2E6EA] dark:hover:bg-[#2C2D35] border border-black/[0.08] dark:border-white/10 transition-all shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00D09C]"
             aria-label="Go to Admin Panel"
           >
             Admin
-          </Link>
-          
-          <Link 
-            href="/settings" 
+          </Link>}
+
+          <Link
+            href="/settings"
             className="w-8 h-8 sm:w-9 sm:h-9 md:w-10 md:h-10 rounded-full bg-[#F1F3F5] dark:bg-[#1C1D22] hover:bg-[#E2E6EA] dark:hover:bg-[#2C2D35] border border-black/[0.08] dark:border-white/10 text-slate-700 dark:text-white flex items-center justify-center transition-all shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00D09C]"
             aria-label="Go to User Settings"
           >
             <Settings size={14} aria-hidden="true" className="sm:w-[15px] sm:h-[15px]" />
           </Link>
-          
-          <button 
-            onClick={() => signOut()} 
+
+          <button
+            onClick={async () => {
+              try {
+                await logoutBackend();
+                await signOut({ callbackUrl: '/auth/login' });
+              } catch {
+                window.alert('Sign out could not be completed. Please retry when the connection is restored.');
+              }
+            }}
             className="w-8 h-8 sm:w-9 sm:h-9 md:w-10 md:h-10 rounded-full bg-[#F1F3F5] dark:bg-[#1C1D22] hover:bg-rose-50 dark:hover:bg-rose-950/60 border border-black/[0.08] dark:border-white/10 text-slate-700 dark:text-[#8E8F99] hover:text-[#FF453A] flex items-center justify-center transition-all cursor-pointer shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-500"
             aria-label="Sign out of Baleen"
           >
@@ -246,16 +309,31 @@ export default function DashboardPage() {
 
       {/* Main Container */}
       <main className="flex-1 p-3.5 sm:p-6 lg:p-12 max-w-7xl mx-auto w-full flex flex-col gap-6 sm:gap-8 relative z-10">
-        
+        {loadError && (
+          <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 px-4 py-2.5 text-xs text-amber-800 dark:text-amber-200 flex items-center justify-between">
+            <span>Offline Mode · Displaying cached data {lastUpdated ? `(as of ${lastUpdated.toLocaleTimeString()})` : ''}.</span>
+            <button onClick={() => handleDataRefresh()} className="underline font-bold cursor-pointer hover:opacity-80">Retry</button>
+          </div>
+        )}
+
+        <p className="rounded-2xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-900 dark:text-amber-200">
+          Paper trading · Experimental results. Accounting and market data are under validation. Real-money execution is unavailable.
+        </p>
+        {summaryValuationIncomplete && (
+          <p className="rounded-2xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-xs text-amber-900 dark:text-amber-200">
+            Valuation incomplete: {activeSummary?.unvaluedTradesCount ?? 0} trade(s) lack sufficient evidence. Totals show Unavailable until valuation is complete.
+          </p>
+        )}
+
         {/* VIEW 1: SANDBOX (PAPER TRADING) */}
         {viewMode === 'sandbox' && (
           <>
             {/* Hero Section: Balance & 4-Action Row */}
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-5 sm:gap-6 pt-1 sm:pt-2">
-              <BalanceCounter 
-                balance={sandboxBalance} 
-                pnl={sandboxPnl} 
-                pnlPct={sandboxPnlPct} 
+              <BalanceCounter
+                balance={sandboxBalance}
+                pnl={sandboxPnl}
+                pnlPct={sandboxPnlPct}
                 onMirrorClick={() => setIsMirrorOpen(true)}
                 onRebalanceClick={() => setIsRebalanceOpen(true)}
                 onAnalyticsClick={() => setIsAnalyticsOpen(true)}
@@ -273,21 +351,27 @@ export default function DashboardPage() {
             </div>
 
             {/* Section 1: Line Chart & Analytics Cards */}
-            <PortfolioAnalytics
-              logs={logs}
-              wallets={wallets}
-              userId={session?.user?.id}
-              startingBalance={portfolio?.startingBalance ?? user?.startingBalance ?? 10000.0}
-              currentBalance={sandboxBalance}
-              totalFilledTrades={portfolio?.filledTradesCount ?? logs.length}
-              topAlphaMarkets={portfolio?.topAlphaMarkets}
-              topDrawdownMarkets={portfolio?.topDrawdownMarkets}
-              allTimeWinRate={portfolio?.allTimeWinRate}
-              allTimeWins={portfolio?.allTimeWins}
-              allTimeLosses={portfolio?.allTimeLosses}
-              onSelectTrade={setSelectedTrade}
-              onResetComplete={loadData}
-            />
+            {sandboxBalance === null ? (
+              <div className="revolut-card rounded-[26px] p-6 text-sm text-slate-500 dark:text-[#8E8F99]">
+                Portfolio analytics unavailable until the incomplete valuation has sufficient evidence.
+              </div>
+            ) : (
+              <PortfolioAnalytics
+                logs={logs}
+                wallets={wallets}
+                userId={session?.user?.id}
+                startingBalance={portfolio?.startingBalance ?? user?.startingBalance ?? 10000.0}
+                currentBalance={sandboxBalance}
+                totalFilledTrades={portfolio?.filledTradesCount ?? logs.length}
+                topAlphaMarkets={portfolio?.topAlphaMarkets}
+                topDrawdownMarkets={portfolio?.topDrawdownMarkets}
+                allTimeWinRate={portfolio?.allTimeWinRate}
+                allTimeWins={portfolio?.allTimeWins}
+                allTimeLosses={portfolio?.allTimeLosses}
+                onSelectTrade={setSelectedTrade}
+                onResetComplete={handleDataRefresh}
+              />
+            )}
 
             {/* Section 2: Live Tape & Active Whale Basket */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -300,12 +384,12 @@ export default function DashboardPage() {
             </div>
 
             {/* Section 3: Execution Audit & Transactions Feed */}
-            <TradeLog 
-              userId={session?.user?.id} 
+            <TradeLog
+              userId={session?.user?.id}
               totalHoldingCount={portfolio?.holdingTradesCount}
               totalClosedCount={portfolio?.closedTradesCount}
               totalFillsCount={portfolio?.filledTradesCount}
-              onSelectTrade={setSelectedTrade} 
+              onSelectTrade={setSelectedTrade}
             />
           </>
         )}
@@ -320,10 +404,10 @@ export default function DashboardPage() {
                   <h1 className="text-2xl font-bold tracking-tight text-slate-950 dark:text-white flex items-center gap-2.5">
                     Live Capital Portfolio
                   </h1>
-                  
+
                   {/* Status Badge */}
                   <span className={`px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1.5 ${
-                    liveDashboard?.is_live_active 
+                    liveDashboard?.is_live_active
                       ? 'bg-emerald-50 dark:bg-[#00D09C]/10 text-emerald-600 dark:text-[#00D09C] border border-emerald-200 dark:border-[#00D09C]/30'
                       : liveDashboard?.is_configured
                       ? 'bg-amber-50 dark:bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-500/20'
@@ -332,11 +416,11 @@ export default function DashboardPage() {
                     <span className={`w-2 h-2 rounded-full ${
                       liveDashboard?.is_live_active ? 'bg-[#00D09C] animate-ping' : liveDashboard?.is_configured ? 'bg-amber-500' : 'bg-rose-500'
                     }`} />
-                    <span>{liveDashboard?.status_badge || 'Credentials Required'}</span>
+                    <span>{liveDashboard?.status_badge || 'Live Execution Disabled (Preparation in progress)'}</span>
                   </span>
                 </div>
                 <p className="text-xs text-slate-500 dark:text-[#8E8F99]">
-                  Real-time L2 execution directly against Polymarket CLOB. Pure Proportional Sleeve Sizing active.
+                  Live execution is disabled. Real exchange order routing is inactive pending signing and reconciliation gates.
                 </p>
               </div>
 
@@ -361,15 +445,15 @@ export default function DashboardPage() {
               </div>
             </div>
 
-            {/* Metrics Row: USDC Balance, Portfolio Net Worth, Realized Live PnL */}
+            {/* Metrics Row: Collateral Balance, Portfolio Net Worth, Realized Live PnL */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
               <div className="revolut-card bg-white dark:bg-[#16171B] border border-black/[0.08] dark:border-white/10 p-6 rounded-[24px] shadow-sm">
                 <div className="text-[11px] text-slate-500 dark:text-[#8E8F99] font-medium mb-1.5 flex items-center gap-1.5">
                   <Coins size={13} />
-                  <span>Real USDC L2 Cash Balance</span>
+                  <span>pUSD L2 Cash Balance (Observed / Unreconciled)</span>
                 </div>
                 <div className="text-3xl font-extrabold font-mono text-slate-950 dark:text-white">
-                  ${liveBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  {liveBalance !== null ? `$${liveBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : 'Unavailable'}
                 </div>
                 <div className="text-[10px] text-slate-400 dark:text-[#8E8F99] mt-1 font-mono">
                   Proxy: {liveDashboard?.polymarket_wallet_address ? `${liveDashboard.polymarket_wallet_address.slice(0, 6)}...${liveDashboard.polymarket_wallet_address.slice(-4)}` : 'Not linked'}
@@ -379,26 +463,26 @@ export default function DashboardPage() {
               <div className="revolut-card bg-white dark:bg-[#16171B] border border-black/[0.08] dark:border-white/10 p-6 rounded-[24px] shadow-sm">
                 <div className="text-[11px] text-slate-500 dark:text-[#8E8F99] font-medium mb-1.5 flex items-center gap-1.5">
                   <TrendingUp size={13} />
-                  <span>Portfolio Net Worth (Cash + Open Legs)</span>
+                  <span>Unreconciled Live Equity (Cash + Open Legs)</span>
                 </div>
                 <div className="text-3xl font-extrabold font-mono text-emerald-600 dark:text-[#00D09C]">
-                  ${liveNetWorth.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  {liveNetWorth !== null ? `$${liveNetWorth.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : 'Unavailable'}
                 </div>
                 <div className="text-[10px] text-slate-400 dark:text-[#8E8F99] mt-1">
-                  Open Positions Value: ${((liveDashboard?.open_positions_value) || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  Open Positions Value: {liveDashboard?.open_positions_value !== undefined && liveDashboard?.open_positions_value !== null ? `$${liveDashboard.open_positions_value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : 'Unavailable'}
                 </div>
               </div>
 
               <div className="revolut-card bg-white dark:bg-[#16171B] border border-black/[0.08] dark:border-white/10 p-6 rounded-[24px] shadow-sm">
                 <div className="text-[11px] text-slate-500 dark:text-[#8E8F99] font-medium mb-1.5 flex items-center gap-1.5">
                   <Zap size={13} />
-                  <span>Realized Live PnL</span>
+                  <span>Unreconciled Exchange PnL (Snapshot)</span>
                 </div>
-                <div className={`text-3xl font-extrabold font-mono ${livePnl >= 0 ? 'text-emerald-600 dark:text-[#00D09C]' : 'text-rose-600 dark:text-[#FF453A]'}`}>
-                  {livePnl >= 0 ? '+' : ''}${livePnl.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                <div className={`text-3xl font-extrabold font-mono ${livePnl == null ? 'text-slate-400 dark:text-[#8E8F99]' : livePnl >= 0 ? 'text-emerald-600 dark:text-[#00D09C]' : 'text-rose-600 dark:text-[#FF453A]'}`}>
+                  {livePnl !== null ? `${livePnl >= 0 ? '+' : ''}$${livePnl.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : 'Unavailable'}
                 </div>
                 <div className="text-[10px] text-slate-400 dark:text-[#8E8F99] mt-1 font-mono">
-                  {livePnlPct >= 0 ? '+' : ''}{livePnlPct.toFixed(2)}% on active capital
+                  {livePnlPct !== null ? `${livePnlPct >= 0 ? '+' : ''}${livePnlPct.toFixed(2)}% on active capital` : 'Reconciliation pending'}
                 </div>
               </div>
             </div>
@@ -467,17 +551,17 @@ export default function DashboardPage() {
                 <div>
                   <h2 className="text-sm font-bold text-slate-950 dark:text-white flex items-center gap-2">
                     <ShieldCheck size={15} className="text-[#00D09C]" />
-                    <span>Live CLOB Trade Fills &amp; Settlements ({liveDashboard?.execution_logs?.length || 0})</span>
+                    <span>Live CLOB Trade Fills &amp; Settlements (Pipeline Inactive)</span>
                   </h2>
                   <p className="text-xs text-slate-500 dark:text-[#8E8F99] mt-0.5">
-                    Authentic non-sandbox trade logs executed through Layer 2.
+                    Exchange-confirmed execution logs. Live execution pipeline is currently inactive pending validation gates.
                   </p>
                 </div>
               </div>
 
               {(!liveDashboard?.execution_logs || liveDashboard.execution_logs.length === 0) ? (
                 <div className="py-12 text-center text-slate-400 dark:text-[#8E8F99] text-xs">
-                  No live real-money trades executed yet. Once whale signals trigger, they will be logged here with authentic CLOB settlement hashes.
+                  No live exchange trades executed. Live order routing is currently disabled pending signing and reconciliation gates.
                 </div>
               ) : (
                 <div className="overflow-x-auto">
@@ -514,7 +598,7 @@ export default function DashboardPage() {
                             {l.outcome}
                           </td>
                           <td className="py-3 text-slate-700 dark:text-slate-300">
-                            {l.fillPrice.toFixed(3)}
+                            {l.fillPrice === null ? 'Unavailable' : l.fillPrice.toFixed(3)}
                           </td>
                           <td className="py-3 font-bold text-slate-900 dark:text-white">
                             ${l.size.toFixed(2)}
@@ -545,10 +629,10 @@ export default function DashboardPage() {
       </main>
 
       {/* Quick Command Palette (CMD+K or Navbar click) */}
-      <CommandPalette 
+      <CommandPalette
         isOpen={commandPaletteOpen}
         onClose={() => setCommandPaletteOpen(false)}
-        onSelectWallet={setSelectedWallet} 
+        onSelectWallet={setSelectedWallet}
       />
 
       {/* 1. Mirror Strategy Modal */}
@@ -562,7 +646,7 @@ export default function DashboardPage() {
       <RebalanceModal
         isOpen={isRebalanceOpen}
         onClose={() => setIsRebalanceOpen(false)}
-        onRebalanceExecute={loadData}
+        onRebalanceExecute={handleDataRefresh}
       />
 
       {/* 3. Deep Portfolio Analytics Modal */}
@@ -579,13 +663,13 @@ export default function DashboardPage() {
         onClose={() => setIsResetOpen(false)}
         userId={session?.user?.id}
         currentBalance={sandboxBalance}
-        onResetComplete={loadData}
+        onResetComplete={handleDataRefresh}
       />
 
       {/* Wallet Drawer */}
-      <WalletDrawer 
-        address={selectedWallet} 
-        onClose={() => setSelectedWallet(null)} 
+      <WalletDrawer
+        address={selectedWallet}
+        onClose={() => setSelectedWallet(null)}
       />
 
       {/* Trade / Execution Overview Drawer */}

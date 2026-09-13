@@ -1,0 +1,111 @@
+C:\Users\arthu\repos\Baleen\audit\2026-09-08\independent_checks.py:48: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+  now = datetime.utcnow()
+{
+  "checks": [
+    {
+      "check": "settlement_after_MTM",
+      "observed": {
+        "equity": 10100.0,
+        "hwm": 10100.0
+      },
+      "expected": {
+        "equity": 10100,
+        "hwm": 10100
+      },
+      "passed": true
+    },
+    {
+      "check": "private_executions_require_auth",
+      "observed": {
+        "http_status": 401,
+        "rows": null
+      },
+      "expected": "401 or 403",
+      "passed": true
+    },
+    {
+      "check": "protected_settings_without_bearer",
+      "observed": 401,
+      "expected": 401,
+      "passed": true
+    },
+    {
+      "check": "credential_write_requires_auth",
+      "observed": 401,
+      "expected": "401 or 403",
+      "passed": true
+    },
+    {
+      "check": "zero_balance_not_defaulted",
+      "observed": 0.0,
+      "expected": 0,
+      "passed": true
+    },
+    {
+      "check": "both_outcomes_count_in_wallet_curve",
+      "observed": -50.0,
+      "expected": -50,
+      "passed": true
+    },
+    {
+      "check": "redemption_observation_idempotency",
+      "observed": 50.0,
+      "expected": 50,
+      "passed": true
+    },
+    {
+      "check": "missing_redemption_basis_not_invented",
+      "observed": 0.0,
+      "expected": "unknown/excluded, not fabricated +50",
+      "passed": true
+    },
+    {
+      "check": "rejected_backtest_exit_has_no_fill",
+      "observed": {
+        "cash": 950.0,
+        "open_positions": 1
+      },
+      "expected": {
+        "cash": 950,
+        "open_positions": 1
+      },
+      "passed": true
+    },
+    {
+      "check": "wrong_market_price_rejected",
+      "observed": null,
+      "expected": null,
+      "passed": true
+    },
+    {
+      "check": "summary_matches_settled_account",
+      "observed": 10100.0,
+      "expected": 10100,
+      "passed": true
+    },
+    {
+      "check": "paper_reset_requires_auth",
+      "observed": 401,
+      "expected": "401 or 403",
+      "passed": true
+    },
+    {
+      "check": "paper_capital_conservation",
+      "observed": {
+        "starting_cash": 100,
+        "open_cost": 97.56,
+        "fees": 2.43
+      },
+      "expected": "open_cost + fees <= 100 without borrowing",
+      "passed": true
+    },
+    {
+      "check": "dual_provider_single_economic_event",
+      "observed": 1,
+      "expected": 1,
+      "passed": true
+    }
+  ],
+  "passed": 14,
+  "failed": 0
+}

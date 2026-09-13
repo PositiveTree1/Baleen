@@ -84,8 +84,8 @@ export function LiveTape({ userId, onSelectTrade }: LiveTapeProps) {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="flex items-center gap-2.5">
           <div className="w-2.5 h-2.5 rounded-full bg-[#00D09C] animate-pulse" />
-          <h3 className="text-base font-bold text-slate-950 dark:text-white tracking-tight">Live Execution Tape</h3>
-          <span className="text-xs text-slate-500 dark:text-[#8E8F99] font-mono">Polymarket Fills</span>
+          <h3 className="text-base font-bold text-slate-950 dark:text-white tracking-tight">Paper Execution Tape</h3>
+          <span className="text-xs text-slate-500 dark:text-[#8E8F99] font-mono">Simulated Fills</span>
         </div>
 
         {/* Filter Pills */}
@@ -109,10 +109,10 @@ export function LiveTape({ userId, onSelectTrade }: LiveTapeProps) {
         <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 dark:text-[#8E8F99]" />
         <input
           type="text"
-          placeholder="Filter live order executions..."
+          placeholder="Filter paper executions..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          aria-label="Filter live order executions"
+          aria-label="Filter paper executions"
           spellCheck={false}
           className="w-full pl-9 pr-3 py-2 bg-[#F1F3F5] dark:bg-[#1C1D22] border border-black/[0.04] dark:border-white/5 rounded-full text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-[#8E8F99] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00D09C]"
         />
@@ -140,22 +140,31 @@ export function LiveTape({ userId, onSelectTrade }: LiveTapeProps) {
           </div>
         ) : filteredLogs.length === 0 ? (
           <div className="py-12 text-center text-xs text-slate-400 dark:text-[#8E8F99]">
-            No live trades match filter
+            No paper trades match filter
           </div>
         ) : (
           filteredLogs.map((log) => {
             const isBuy = (log.side || 'BUY').toUpperCase() === 'BUY';
             const notional = log.size ?? 0.0;
-            const fillPrice = log.fillPrice || log.entryPrice || 0.0;
-            const timeStr = log.timestamp ? formatFrenchTimeWithSeconds(new Date(log.timestamp)) : '';
+            const fillPrice = log.fillPrice ?? log.entryPrice;
+            const timeStr = log.timestamp ? formatFrenchTimeWithSeconds(new Date(log.timestamp)) : 'Time unavailable';
             const whaleDisplay = log.whaleName || log.whalePseudonym || (log.walletAddress ? `${log.walletAddress.slice(0, 6)}...${log.walletAddress.slice(-4)}` : 'Whale');
             const outcomeText = log.outcome || 'Yes';
 
             return (
               <div
                 key={log.id}
+                role="button"
+                tabIndex={0}
+                aria-label={`View trade details for ${whaleDisplay} ${isBuy ? 'BUY' : 'SELL'} ${outcomeText}`}
                 onClick={() => onSelectTrade && onSelectTrade(log)}
-                className="py-2 px-2 flex items-center justify-between gap-2.5 rounded-2xl hover:bg-slate-50 dark:hover:bg-[#1C1D22] transition-colors cursor-pointer group min-w-0"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    if (onSelectTrade) onSelectTrade(log);
+                  }
+                }}
+                className="py-2 px-2 flex items-center justify-between gap-2.5 rounded-2xl hover:bg-slate-50 dark:hover:bg-[#1C1D22] transition-colors cursor-pointer group min-w-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00D09C]"
               >
                 <div className="flex items-center gap-2.5 min-w-0 flex-1">
                   {/* Side Indicator Badge & Market Icon */}
@@ -186,7 +195,7 @@ export function LiveTape({ userId, onSelectTrade }: LiveTapeProps) {
                         {outcomeText}
                       </span>
                       <span className="opacity-40">•</span>
-                      <span className="shrink-0 font-medium">${fillPrice.toFixed(3)}</span>
+                      <span className="shrink-0 font-medium">{fillPrice === null ? 'Unavailable' : `$${fillPrice.toFixed(3)}`}</span>
                       <span className="opacity-40">•</span>
                       <span className="truncate max-w-[80px] sm:max-w-[120px]">{whaleDisplay}</span>
                     </div>

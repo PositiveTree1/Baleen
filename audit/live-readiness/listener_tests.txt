@@ -1,0 +1,29 @@
+
+> baleen-listener@0.1.0 test
+> jest --runInBand
+
+PASS tests/v1_v2_processor.test.ts
+PASS tests/envio.test.ts
+PASS tests/queue.test.ts
+  ● Console
+
+    console.error
+      [ERROR] Failed to post signal 0x0000000000000000000000000000000000000000000000000000000000000003:0:0x1111111111111111111111111111111111111111 to backend: HTTP 409
+
+      52 |
+      53 |     if (!response.ok) {
+    > 54 |       console.error(`[ERROR] Failed to post signal ${signalIdentityKey(signal)} to backend: HTTP ${response.status} ${response.statusText}`);
+         |               ^
+      55 |       return false;
+      56 |     }
+      57 |     let body: unknown;
+
+      at postSignalToBackend (src/queue.ts:54:15)
+      at src/queue.ts:79:11
+
+
+Test Suites: 3 passed, 3 total
+Tests:       9 passed, 9 total
+Snapshots:   0 total
+Time:        3.376 s
+Ran all test suites.

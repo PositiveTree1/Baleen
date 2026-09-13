@@ -24,13 +24,13 @@ export function TradeDrawer({ trade, onClose, onSelectWallet }: TradeDrawerProps
   if (!trade) return null;
 
   const isBuy = trade.side === 'BUY';
-  const fillP = trade.fillPrice || trade.entryPrice || 0.0;
-  const curP = trade.currentPrice || fillP;
-  const pnl = trade.pnl ?? (fillP > 0 ? (isBuy ? (trade.size ?? 0) * ((curP - fillP) / fillP) : (trade.size ?? 0) * ((fillP - curP) / fillP)) : 0.0);
-  const pnlPct = trade.pnlPct ?? (fillP > 0 ? (((curP - fillP) / fillP) * 100.0 * (isBuy ? 1 : -1)) : 0.0);
-  const isProfit = pnl >= 0;
+  const fillP = trade.fillPrice ?? trade.entryPrice;
+  const curP = trade.currentPrice ?? null;
+  const pnl = trade.pnl ?? null;
+  const pnlPct = trade.pnlPct ?? null;
+  const isProfit = pnl !== null && pnl >= 0;
   const consensus = trade.consensus;
-  const shares = fillP > 0 ? ((trade.size ?? 0) / fillP) : 0;
+  const shares = fillP !== null && fillP > 0 ? ((trade.size ?? 0) / fillP) : null;
   const outcomeLabel = trade.outcome || 'Yes';
 
   const polyUrl = trade.polymarketUrl || (trade.eventSlug ? `https://polymarket.com/event/${trade.eventSlug}` : (trade.marketConditionId ? `https://polymarket.com/market/${trade.marketConditionId}` : 'https://polymarket.com'));
@@ -134,9 +134,9 @@ export function TradeDrawer({ trade, onClose, onSelectWallet }: TradeDrawerProps
               <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-[#1C1D22] border border-black/[0.06] dark:border-white/5 space-y-1">
                 <span className="text-[10px] uppercase font-bold text-slate-400 dark:text-[#8E8F99]">Entry Fill Price</span>
                 <div className="text-base font-bold font-mono text-slate-900 dark:text-white">
-                  ${fillP.toFixed(3)}
+                  {fillP === null ? 'Unavailable' : `$${fillP.toFixed(3)}`}
                 </div>
-                <span className="text-[10px] text-slate-400 dark:text-[#8E8F99] font-mono">{shares.toFixed(1)} Shares</span>
+                <span className="text-[10px] text-slate-400 dark:text-[#8E8F99] font-mono">{shares === null ? 'Shares unavailable' : `${shares.toFixed(1)} Shares`}</span>
               </div>
 
               <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-[#1C1D22] border border-black/[0.06] dark:border-white/5 space-y-1">
@@ -144,10 +144,10 @@ export function TradeDrawer({ trade, onClose, onSelectWallet }: TradeDrawerProps
                   {trade.status === 'CLOSED' || trade.status === 'RESOLVED' || trade.side === 'SELL' ? 'Exit Settled Price' : 'Live Market Price'}
                 </span>
                 <div className="text-base font-bold font-mono text-slate-900 dark:text-white">
-                  ${curP.toFixed(3)}
+                  {curP === null ? 'Unavailable' : `$${curP.toFixed(3)}`}
                 </div>
                 <span className="text-[10px] text-slate-400 dark:text-[#8E8F99] font-mono">
-                  {trade.status === 'CLOSED' || trade.status === 'RESOLVED' ? 'Settled Valuation' : 'Live CLOB Midpoint'}
+                  {curP === null ? 'Price unavailable' : trade.status === 'CLOSED' || trade.status === 'RESOLVED' ? 'Settled Valuation' : 'Live CLOB Midpoint'}
                 </span>
               </div>
 
@@ -162,9 +162,9 @@ export function TradeDrawer({ trade, onClose, onSelectWallet }: TradeDrawerProps
               <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-[#1C1D22] border border-black/[0.06] dark:border-white/5 space-y-1">
                 <span className="text-[10px] uppercase font-bold text-slate-400 dark:text-[#8E8F99]">Net Realized PnL</span>
                 <div className={`text-base font-bold font-mono ${isProfit ? 'text-emerald-600 dark:text-[#00D09C]' : 'text-rose-600 dark:text-[#FF453A]'}`}>
-                  {isProfit ? '+' : ''}${pnl.toFixed(2)} ({isProfit ? '+' : ''}{pnlPct.toFixed(1)}%)
+                  {pnl === null ? 'Unavailable' : `${isProfit ? '+' : ''}$${pnl.toFixed(2)}${pnlPct === null ? '' : ` (${isProfit ? '+' : ''}${pnlPct.toFixed(1)}%)`}`}
                 </div>
-                <span className="text-[10px] text-slate-400 dark:text-[#8E8F99] font-mono">Fee: -${(trade.feeUsd || 0).toFixed(2)}</span>
+                <span className="text-[10px] text-slate-400 dark:text-[#8E8F99] font-mono">Fee: {trade.feeUsd === null || trade.feeUsd === undefined ? 'Unavailable' : `-$${trade.feeUsd.toFixed(2)}`}</span>
               </div>
             </div>
 

@@ -1,10 +1,11 @@
 'use client';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Search, Command, ArrowRight, Wallet, Activity, ShieldCheck, Sparkles, Volume2, VolumeX, RotateCw, ExternalLink, X } from 'lucide-react';
+import { Search, ArrowRight, Wallet, Activity, ShieldCheck, Sparkles, X } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { soundFx } from '@/lib/sound';
 import { fetchWallets, getCachedWallets } from '@/lib/api-client';
+import type { Wallet as WalletData } from '@/types';
 
 interface CommandPaletteProps {
   isOpen?: boolean;
@@ -15,19 +16,19 @@ interface CommandPaletteProps {
 export function CommandPalette({ isOpen: controlledIsOpen, onClose: controlledOnClose, onSelectWallet }: CommandPaletteProps) {
   const [internalIsOpen, setInternalIsOpen] = useState(false);
   const [query, setQuery] = useState('');
-  const [wallets, setWallets] = useState<any[]>(() => getCachedWallets() || []);
+  const [wallets, setWallets] = useState<WalletData[]>(() => getCachedWallets() || []);
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
 
   const isPaletteOpen = controlledIsOpen !== undefined ? controlledIsOpen : internalIsOpen;
 
-  const handleClose = () => {
+  const handleClose = useCallback(() => {
     if (controlledOnClose) {
       controlledOnClose();
     } else {
       setInternalIsOpen(false);
     }
-  };
+  }, [controlledOnClose]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -45,7 +46,7 @@ export function CommandPalette({ isOpen: controlledIsOpen, onClose: controlledOn
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [controlledIsOpen, controlledOnClose, isPaletteOpen]);
+  }, [controlledIsOpen, controlledOnClose, isPaletteOpen, handleClose]);
 
   useEffect(() => {
     if (isPaletteOpen) {
@@ -115,6 +116,9 @@ export function CommandPalette({ isOpen: controlledIsOpen, onClose: controlledOn
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.96, y: -10 }}
             transition={{ duration: 0.15 }}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Command Palette"
             className="relative w-full max-w-xl bg-white dark:bg-[#16171B] border border-black/10 dark:border-white/10 rounded-[28px] shadow-2xl overflow-hidden z-10 flex flex-col max-h-[70vh]"
           >
             {/* Search Input */}
@@ -124,6 +128,7 @@ export function CommandPalette({ isOpen: controlledIsOpen, onClose: controlledOn
                 ref={inputRef}
                 type="text"
                 placeholder="Search whales, prediction markets, or jump to..."
+                aria-label="Search whales, prediction markets, or jump to"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 className="w-full bg-transparent text-sm text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-[#8E8F99] focus:outline-none"
@@ -131,7 +136,8 @@ export function CommandPalette({ isOpen: controlledIsOpen, onClose: controlledOn
               {query && (
                 <button
                   onClick={() => setQuery('')}
-                  className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-white rounded-md"
+                  aria-label="Clear search query"
+                  className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-white rounded-md cursor-pointer"
                 >
                   <X size={14} />
                 </button>
@@ -147,33 +153,46 @@ export function CommandPalette({ isOpen: controlledIsOpen, onClose: controlledOn
               {filteredWallets.length > 0 && (
                 <div className="space-y-1">
                   <div className="px-3 py-1 text-[10px] font-bold text-slate-400 dark:text-[#8E8F99] uppercase tracking-wider">
-                    Mirrored Whales
+                    Candidate Whales (Paper Basket)
                   </div>
-                  {filteredWallets.slice(0, 5).map((w) => (
-                    <div
-                      key={w.address}
-                      onClick={() => {
-                        if (onSelectWallet) onSelectWallet(w.address);
-                        handleClose();
-                      }}
-                      className="flex items-center justify-between p-3 rounded-2xl hover:bg-slate-50 dark:hover:bg-[#1C1D22] transition-colors cursor-pointer group"
-                    >
-                      <div className="flex items-center gap-3 min-w-0">
-                        <div className="w-8 h-8 rounded-full bg-slate-100 dark:bg-[#2C2D35] flex items-center justify-center font-bold text-xs text-slate-800 dark:text-white shrink-0">
-                          <Wallet size={14} />
+                  {filteredWallets.slice(0, 5).map((w) => {
+                    const whaleLabel = w.name || w.pseudonym || `${w.address.slice(0, 6)}...${w.address.slice(-4)}`;
+                    return (
+                      <div
+                        key={w.address}
+                        role="button"
+                        tabIndex={0}
+                        aria-label={`Select whale ${whaleLabel}`}
+                        onClick={() => {
+                          if (onSelectWallet) onSelectWallet(w.address);
+                          handleClose();
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            if (onSelectWallet) onSelectWallet(w.address);
+                            handleClose();
+                          }
+                        }}
+                        className="flex items-center justify-between p-3 rounded-2xl hover:bg-slate-50 dark:hover:bg-[#1C1D22] transition-colors cursor-pointer group focus:outline-none focus:ring-1 focus:ring-[#00D09C]"
+                      >
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className="w-8 h-8 rounded-full bg-slate-100 dark:bg-[#2C2D35] flex items-center justify-center font-bold text-xs text-slate-800 dark:text-white shrink-0">
+                            <Wallet size={14} />
+                          </div>
+                          <div className="min-w-0">
+                            <span className="text-xs font-bold text-slate-900 dark:text-white truncate block">
+                              {whaleLabel}
+                            </span>
+                            <span className="text-[10px] font-mono text-slate-400 dark:text-[#8E8F99]">
+                              {w.winRate == null ? 'Unavailable' : `${(w.winRate > 1 ? w.winRate : w.winRate * 100).toFixed(0)}%`} Win Rate • {w.pnl == null ? 'Unavailable' : `$${w.pnl.toLocaleString()}`} Source PnL
+                            </span>
+                          </div>
                         </div>
-                        <div className="min-w-0">
-                          <span className="text-xs font-bold text-slate-900 dark:text-white truncate block">
-                            {w.name || w.pseudonym || `${w.address.slice(0, 6)}...${w.address.slice(-4)}`}
-                          </span>
-                          <span className="text-[10px] font-mono text-slate-400 dark:text-[#8E8F99]">
-                            {(w.winRate > 1 ? w.winRate : w.winRate * 100).toFixed(0)}% Win Rate • ${(w.pnl || 0).toLocaleString()} PnL
-                          </span>
-                        </div>
+                        <ArrowRight size={14} className="text-slate-400 group-hover:text-slate-900 dark:group-hover:text-white transition-colors" />
                       </div>
-                      <ArrowRight size={14} className="text-slate-400 group-hover:text-slate-900 dark:group-hover:text-white transition-colors" />
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
 
@@ -187,8 +206,17 @@ export function CommandPalette({ isOpen: controlledIsOpen, onClose: controlledOn
                   return (
                     <div
                       key={cmd.id}
+                      role="button"
+                      tabIndex={0}
+                      aria-label={`Execute action: ${cmd.label}`}
                       onClick={() => executeAction(cmd.action)}
-                      className="flex items-center justify-between p-3 rounded-2xl hover:bg-slate-50 dark:hover:bg-[#1C1D22] transition-colors cursor-pointer group"
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          executeAction(cmd.action);
+                        }
+                      }}
+                      className="flex items-center justify-between p-3 rounded-2xl hover:bg-slate-50 dark:hover:bg-[#1C1D22] transition-colors cursor-pointer group focus:outline-none focus:ring-1 focus:ring-[#00D09C]"
                     >
                       <div className="flex items-center gap-3">
                         <div className="w-8 h-8 rounded-full bg-slate-100 dark:bg-[#2C2D35] flex items-center justify-center text-slate-600 dark:text-white shrink-0">

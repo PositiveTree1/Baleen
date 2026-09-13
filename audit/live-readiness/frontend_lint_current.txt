@@ -1,0 +1,164 @@
+
+> frontend@0.1.0 lint
+> eslint
+
+
+C:\Users\arthu\repos\Baleen\frontend\src\app\admin\page.tsx
+  10:41   warning  'Users' is defined but never used   @typescript-eslint/no-unused-vars
+  10:105  warning  'Filter' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\arthu\repos\Baleen\frontend\src\app\dashboard\page.tsx
+  28:3  warning  'clearAllCache' is defined but never used  @typescript-eslint/no-unused-vars
+  44:3  warning  'AlertCircle' is defined but never used    @typescript-eslint/no-unused-vars
+  48:3  warning  'ArrowUpRight' is defined but never used   @typescript-eslint/no-unused-vars
+
+C:\Users\arthu\repos\Baleen\frontend\src\app\page.tsx
+  7:21  warning  'ArrowRight' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\arthu\repos\Baleen\frontend\src\app\settings\page.tsx
+   32:3   warning  'ExternalLink' is defined but never used                                                                         @typescript-eslint/no-unused-vars
+   33:3   warning  'Zap' is defined but never used                                                                                  @typescript-eslint/no-unused-vars
+   58:10  warning  'liveBalanceUsdc' is assigned a value but never used                                                             @typescript-eslint/no-unused-vars
+   59:10  warning  'lastVerifiedAt' is assigned a value but never used                                                              @typescript-eslint/no-unused-vars
+  112:6   warning  React Hook useEffect has a missing dependency: 'loadUserData'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+C:\Users\arthu\repos\Baleen\frontend\src\components\charts\DailyWinLossBarChart.tsx
+  2:99  warning  'Cell' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\arthu\repos\Baleen\frontend\src\components\dashboard\BaleenCopilot.tsx
+   11:3   warning  'Cpu' is defined but never used          @typescript-eslint/no-unused-vars
+   12:3   warning  'Layers' is defined but never used       @typescript-eslint/no-unused-vars
+   14:3   warning  'TrendingUp' is defined but never used   @typescript-eslint/no-unused-vars
+   15:3   warning  'ShieldCheck' is defined but never used  @typescript-eslint/no-unused-vars
+   16:3   warning  'Wallet' is defined but never used       @typescript-eslint/no-unused-vars
+  127:14  warning  'e' is defined but never used            @typescript-eslint/no-unused-vars
+
+C:\Users\arthu\repos\Baleen\frontend\src\components\dashboard\DeepAnalyticsModal.tsx
+  2:10  warning  'BarChart2' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\arthu\repos\Baleen\frontend\src\components\dashboard\FullHistorySpreadsheetModal.tsx
+   2:29  warning  'useEffect' is defined but never used                   @typescript-eslint/no-unused-vars
+   3:10  warning  'motion' is defined but never used                      @typescript-eslint/no-unused-vars
+   3:18  warning  'AnimatePresence' is defined but never used             @typescript-eslint/no-unused-vars
+   5:10  warning  'fetchExecutionLogs' is defined but never used          @typescript-eslint/no-unused-vars
+  12:3   warning  'ExternalLink' is defined but never used                @typescript-eslint/no-unused-vars
+  14:3   warning  'TrendingUp' is defined but never used                  @typescript-eslint/no-unused-vars
+  15:3   warning  'TrendingDown' is defined but never used                @typescript-eslint/no-unused-vars
+  18:3   warning  'Loader2' is defined but never used                     @typescript-eslint/no-unused-vars
+  20:10  warning  'formatCompactPnL' is defined but never used            @typescript-eslint/no-unused-vars
+  20:28  warning  'formatExactPnL' is defined but never used              @typescript-eslint/no-unused-vars
+  42:10  warning  'isExportingAll' is assigned a value but never used     @typescript-eslint/no-unused-vars
+  42:26  warning  'setIsExportingAll' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\arthu\repos\Baleen\frontend\src\components\dashboard\LiveTape.tsx
+   6:18  warning  'Flame' is defined but never used                                                                                                                                                                                                                                                        @typescript-eslint/no-unused-vars
+   6:50  warning  'Globe' is defined but never used                                                                                                                                                                                                                                                        @typescript-eslint/no-unused-vars
+   6:57  warning  'Zap' is defined but never used                                                                                                                                                                                                                                                          @typescript-eslint/no-unused-vars
+   7:8   warning  'Image' is defined but never used                                                                                                                                                                                                                                                        @typescript-eslint/no-unused-vars
+  45:9   warning  Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` or a custom image loader to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element  @next/next/no-img-element
+
+C:\Users\arthu\repos\Baleen\frontend\src\components\dashboard\MirrorStrategyModal.tsx
+   3:10  warning  'ShieldCheck' is defined but never used     @typescript-eslint/no-unused-vars
+   3:23  warning  'Zap' is defined but never used             @typescript-eslint/no-unused-vars
+   3:28  warning  'Sliders' is defined but never used         @typescript-eslint/no-unused-vars
+   3:51  warning  'UserCheck' is defined but never used       @typescript-eslint/no-unused-vars
+   3:62  warning  'Plus' is defined but never used            @typescript-eslint/no-unused-vars
+   3:68  warning  'ExternalLink' is defined but never used    @typescript-eslint/no-unused-vars
+   3:82  warning  'ArrowRight' is defined but never used      @typescript-eslint/no-unused-vars
+  14:56  warning  'onSelectWallet' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\arthu\repos\Baleen\frontend\src\components\dashboard\PortfolioAnalytics.tsx
+   14:3   warning  'X' is defined but never used                               @typescript-eslint/no-unused-vars
+   15:3   warning  'Loader2' is defined but never used                         @typescript-eslint/no-unused-vars
+   16:3   warning  'BarChart2' is defined but never used                       @typescript-eslint/no-unused-vars
+   21:10  warning  'clearAllCache' is defined but never used                   @typescript-eslint/no-unused-vars
+   68:3   warning  'totalFilledTrades' is assigned a value but never used      @typescript-eslint/no-unused-vars
+  103:10  warning  'selectedCategory' is assigned a value but never used       @typescript-eslint/no-unused-vars
+  103:28  warning  'setSelectedCategory' is assigned a value but never used    @typescript-eslint/no-unused-vars
+  104:10  warning  'showDeepAnalytics' is assigned a value but never used      @typescript-eslint/no-unused-vars
+  104:29  warning  'setShowDeepAnalytics' is assigned a value but never used   @typescript-eslint/no-unused-vars
+  105:10  warning  'showStrategyModal' is assigned a value but never used      @typescript-eslint/no-unused-vars
+  105:29  warning  'setShowStrategyModal' is assigned a value but never used   @typescript-eslint/no-unused-vars
+  106:10  warning  'showSpreadsheet' is assigned a value but never used        @typescript-eslint/no-unused-vars
+  106:27  warning  'setShowSpreadsheet' is assigned a value but never used     @typescript-eslint/no-unused-vars
+  246:56  warning  'totalNotionalInvested' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\arthu\repos\Baleen\frontend\src\components\dashboard\RebalanceModal.tsx
+  3:10  warning  'ArrowLeftRight' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\arthu\repos\Baleen\frontend\src\components\dashboard\TradeDrawer.tsx
+    5:27   warning  'Activity' is defined but never used                                                                                                                                                                                                                                                     @typescript-eslint/no-unused-vars
+    5:67   warning  'Users' is defined but never used                                                                                                                                                                                                                                                        @typescript-eslint/no-unused-vars
+    5:74   warning  'ShieldCheck' is defined but never used                                                                                                                                                                                                                                                  @typescript-eslint/no-unused-vars
+    5:94   warning  'DollarSign' is defined but never used                                                                                                                                                                                                                                                   @typescript-eslint/no-unused-vars
+    5:114  warning  'CheckCircle2' is defined but never used                                                                                                                                                                                                                                                 @typescript-eslint/no-unused-vars
+   32:9    warning  'consensus' is assigned a value but never used                                                                                                                                                                                                                                           @typescript-eslint/no-unused-vars
+  107:19   warning  Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` or a custom image loader to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element  @next/next/no-img-element
+
+C:\Users\arthu\repos\Baleen\frontend\src\components\dashboard\TradeLog.tsx
+   22:3   warning  'totalFillsCount' is defined but never used                                                                                                                                                                                                                                              @typescript-eslint/no-unused-vars
+   65:9   warning  Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` or a custom image loader to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element  @next/next/no-img-element
+  194:23  warning  Expected an assignment or function call and instead saw an expression                                                                                                                                                                                                                    @typescript-eslint/no-unused-expressions
+
+C:\Users\arthu\repos\Baleen\frontend\src\components\dashboard\TradePriceChart.tsx
+  6:10  warning  'TrendingUp' is defined but never used    @typescript-eslint/no-unused-vars
+  6:22  warning  'TrendingDown' is defined but never used  @typescript-eslint/no-unused-vars
+  6:36  warning  'Clock' is defined but never used         @typescript-eslint/no-unused-vars
+  6:53  warning  'ExternalLink' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\arthu\repos\Baleen\frontend\src\components\dashboard\WalletDrawer.tsx
+   29:10  warning  'loading' is assigned a value but never used                                                                                                                                                                                                                                             @typescript-eslint/no-unused-vars
+  149:19  warning  Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` or a custom image loader to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element  @next/next/no-img-element
+
+C:\Users\arthu\repos\Baleen\frontend\src\components\dashboard\WalletLeaderboard.tsx
+  301:21  warning  Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` or a custom image loader to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element  @next/next/no-img-element
+
+C:\Users\arthu\repos\Baleen\frontend\src\components\landing\AdvantageSection.tsx
+  4:8  warning  'Link' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\arthu\repos\Baleen\frontend\src\components\landing\FeaturesGrid.tsx
+  1:10  warning  'Card' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\arthu\repos\Baleen\frontend\src\components\landing\Leaderboard.tsx
+  8:18  warning  'Sparkles' is defined but never used      @typescript-eslint/no-unused-vars
+  8:28  warning  'Filter' is defined but never used        @typescript-eslint/no-unused-vars
+  8:36  warning  'TrendingUp' is defined but never used    @typescript-eslint/no-unused-vars
+  8:69  warning  'ChevronRight' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\arthu\repos\Baleen\frontend\src\components\landing\LiveTicker.tsx
+  5:10  warning  'Activity' is defined but never used     @typescript-eslint/no-unused-vars
+  5:20  warning  'ShieldCheck' is defined but never used  @typescript-eslint/no-unused-vars
+  5:33  warning  'Zap' is defined but never used          @typescript-eslint/no-unused-vars
+  5:38  warning  'TrendingUp' is defined but never used   @typescript-eslint/no-unused-vars
+  5:50  warning  'Sparkles' is defined but never used     @typescript-eslint/no-unused-vars
+
+C:\Users\arthu\repos\Baleen\frontend\src\components\landing\ProfitSimulator.tsx
+  3:10  warning  'motion' is defined but never used       @typescript-eslint/no-unused-vars
+  4:44  warning  'ShieldCheck' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\arthu\repos\Baleen\frontend\src\components\ui\Badge.tsx
+  2:20  warning  'Shield' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\arthu\repos\Baleen\frontend\src\lib\api-client.ts
+  246:12  warning  'error' is defined but never used  @typescript-eslint/no-unused-vars
+  284:12  warning  'error' is defined but never used  @typescript-eslint/no-unused-vars
+  414:12  warning  'error' is defined but never used  @typescript-eslint/no-unused-vars
+  471:12  warning  'error' is defined but never used  @typescript-eslint/no-unused-vars
+  491:12  warning  'error' is defined but never used  @typescript-eslint/no-unused-vars
+  542:12  warning  'error' is defined but never used  @typescript-eslint/no-unused-vars
+  572:12  warning  'error' is defined but never used  @typescript-eslint/no-unused-vars
+  602:12  warning  'error' is defined but never used  @typescript-eslint/no-unused-vars
+  632:12  warning  'error' is defined but never used  @typescript-eslint/no-unused-vars
+  659:12  warning  'error' is defined but never used  @typescript-eslint/no-unused-vars
+  678:12  warning  'error' is defined but never used  @typescript-eslint/no-unused-vars
+  695:12  warning  'error' is defined but never used  @typescript-eslint/no-unused-vars
+  720:12  warning  'error' is defined but never used  @typescript-eslint/no-unused-vars
+  730:12  warning  'error' is defined but never used  @typescript-eslint/no-unused-vars
+  747:12  warning  'error' is defined but never used  @typescript-eslint/no-unused-vars
+  893:12  warning  'error' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\arthu\repos\Baleen\frontend\src\lib\sound.ts
+  87:14  warning  'e' is defined but never used  @typescript-eslint/no-unused-vars
+
+✖ 107 problems (0 errors, 107 warnings)
+

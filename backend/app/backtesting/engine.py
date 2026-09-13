@@ -4,6 +4,7 @@ Coordinates chronological trade streaming, market resolution settlement,
 execution fills, sleeve portfolio tracking, and final performance reporting.
 """
 import logging
+import math
 from typing import List, Optional, Dict, Any
 from app.backtesting.config import BacktestConfig
 from app.backtesting.models import TradeSignal, BacktestResult
@@ -139,6 +140,24 @@ class BacktestEngine:
                             available_cash=self.portfolio.cash,
                             available_sleeve_cash=self.portfolio.get_available_sleeve_cash(clean_w)
                         )
+                        # Do not pass rejected, empty, or non-finite fills into
+                        # portfolio accounting.  The portfolio repeats this
+                        # guard because it is also called directly by callers.
+                        sell_fill_executable = (
+                            fill.status in ("FILLED", "PARTIALLY_FILLED")
+                            and all(math.isfinite(value) for value in (
+                                fill.fill_price,
+                                fill.filled_size_usd,
+                                fill.filled_shares,
+                                fill.fee_usd,
+                            ))
+                            and fill.fill_price > 0
+                            and fill.filled_size_usd > 0
+                            and fill.filled_shares > 0
+                            and fill.fee_usd >= 0
+                        )
+                        if not sell_fill_executable:
+                            continue
                         closed_t = self.portfolio.close_position_on_whale_sell(signal, fill)
                         if closed_t:
                             self.strategy.on_trade_closed(closed_t)

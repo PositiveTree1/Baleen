@@ -6,6 +6,8 @@ A consumer web app that runs a single, curated, auto-updating basket ("index") o
 
 ## Architecture
 
+Current status and handoff: [live-readiness review](LIVE_READINESS_REVIEW.md), [Gemini finishing work](GEMINI_FINISHING_WORK.md), [scoped wallet setup](docs/SCOPED_WALLET_SETUP.md). Earlier reports are retained in [the archive](docs/archive/gemini/README.md). Live copying remains gated pending the work and evidence listed in the review.
+
 ```
 Frontend (Next.js 14)  →  Backend API (FastAPI/Python)  →  PostgreSQL
                                     ↑
@@ -51,6 +53,27 @@ npm run test:all
 npm run test:backend
 npm run test:listener
 npm run test:frontend
+```
+
+### Deploying
+Railway and Vercel are configured to deploy from pushed git commits. From the repo root:
+
+```bash
+# Commit all local changes and push the current branch to origin
+npm run deploy -- "Describe the change"
+
+# Or split the steps
+npm run deploy:commit -- "Describe the change"
+npm run deploy:push
+```
+
+Useful git helpers:
+
+```bash
+npm run git:status
+npm run git:pull
+npm run git:push
+npm run git:log
 ```
 
 ## Project Structure

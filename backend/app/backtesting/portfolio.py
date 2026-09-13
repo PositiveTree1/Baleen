@@ -108,13 +108,28 @@ class SimulatedPortfolio:
 
     def close_position_on_whale_sell(self, signal: TradeSignal, fill: ExecutionFill) -> Optional[ClosedTrade]:
         """Exits position partially or fully when whale sells."""
+        # Only executable, economically valid fills may mutate a position.  In
+        # particular, never interpret a rejected/empty fill as a full exit.
+        if (
+            fill.status not in ("FILLED", "PARTIALLY_FILLED")
+            or not math.isfinite(fill.fill_price)
+            or fill.fill_price <= 0
+            or not math.isfinite(fill.filled_size_usd)
+            or fill.filled_size_usd <= 0
+            or not math.isfinite(fill.filled_shares)
+            or fill.filled_shares <= 0
+            or not math.isfinite(fill.fee_usd)
+            or fill.fee_usd < 0
+        ):
+            return None
+
         clean_whale = signal.whale_address.lower()
         pos_key = f"{signal.market_id}_{signal.nonusdc_side}_{clean_whale}"
         if pos_key not in self.open_positions:
             return None
 
         pos = self.open_positions[pos_key]
-        shares_to_sell = min(pos.shares, fill.filled_shares if fill.filled_shares > 0 else pos.shares)
+        shares_to_sell = min(pos.shares, fill.filled_shares)
         if shares_to_sell <= 0:
             return None
 

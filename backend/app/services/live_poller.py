@@ -5,13 +5,15 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Optional, Dict, Any, List
 import time
+from decimal import Decimal
 import httpx
-from sqlalchemy import select, func
+from sqlalchemy import select, func, update, text
 from sqlalchemy.orm import load_only
 from app.database import SessionLocal
-from app.models import Wallet, ExecutionLog, User, LiveWalletLink
+from app.models import Wallet, ExecutionLog, User, LiveWalletLink, CanonicalSourceEvent, SignalInbox, SandboxRun
 from app.config import settings
 from app.services.polymarket_fees import calculate_polymarket_fee
+from app.services.paper_accounting import paper_totals, reconcile_user, affordable_order
 
 logger = logging.getLogger(__name__)
 
@@ -66,7 +68,8 @@ class LiveTradeMirrorService:
             "title": "Polymarket Prediction",
             "event_slug": "",
             "icon": "",
-            "outcome": "Yes"
+            "outcome": "Yes",
+            "condition_id": cid or ""
         }
 
         if not self.client:
@@ -78,7 +81,7 @@ class LiveTradeMirrorService:
                 params["condition_ids"] = cid
             elif asset:
                 params["clob_token_ids"] = asset
-            
+
             if params:
                 res = await self.client.get(f"{self.gamma_api_url}/markets", params=params)
                 if res.status_code == 200:
@@ -88,13 +91,14 @@ class LiveTradeMirrorService:
                         meta["title"] = m.get("question") or m.get("title") or meta["title"]
                         meta["event_slug"] = m.get("slug") or (m.get("events", [{}])[0].get("slug") if m.get("events") else "")
                         meta["icon"] = m.get("icon") or m.get("image") or ""
-                        
+                        meta["condition_id"] = m.get("conditionId") or m.get("condition_id") or meta["condition_id"]
+
                         import json
                         outcomes = m.get("outcomes") or "[]"
                         outcomes = json.loads(outcomes) if isinstance(outcomes, str) else list(outcomes)
                         tokens = m.get("clobTokenIds") or m.get("clob_token_ids") or "[]"
                         tokens = json.loads(tokens) if isinstance(tokens, str) else list(tokens)
-                        
+
                         if asset and tokens:
                             for idx, tok in enumerate(tokens):
                                 if str(tok) == str(asset) and idx < len(outcomes):
@@ -121,53 +125,158 @@ class LiveTradeMirrorService:
         event_slug: str = "",
         icon: str = "",
         tx_hash: Optional[str] = None,
-        log_index: Optional[int] = None
+        log_index: Optional[int] = None,
+        token_id: Optional[str] = None,
+        maker_address: Optional[str] = None,
+        taker_address: Optional[str] = None,
+        emitting_contract: Optional[str] = None,
+        block_number: Optional[int] = None,
+        block_hash: Optional[str] = None,
+        shares: Optional[float] = None,
+        inbox_id: Optional[str] = None,
     ):
         """Processes a validated whale trade and executes sandbox & user copy orders."""
         addr = wallet_address.lower()
+        effective_token_id = token_id or asset or ""
 
         # If metadata is missing, resolve it from Gamma
-        if not event_slug or not icon or title == "Polymarket Prediction":
-            resolved = await self._resolve_market_metadata(condition_id, asset)
-            if not event_slug:
-                event_slug = resolved.get("event_slug", "")
-            if not icon:
-                icon = resolved.get("icon", "")
-            if title == "Polymarket Prediction":
-                title = resolved.get("title", title)
-            if outcome == "Yes" and resolved.get("outcome") != "Yes":
-                outcome = resolved["outcome"]
+        if not condition_id or not event_slug or not icon or title == "Polymarket Prediction":
+            resolved = await self._resolve_market_metadata(condition_id, effective_token_id)
+            if isinstance(resolved, dict):
+                if not condition_id and resolved.get("condition_id"):
+                    condition_id = resolved["condition_id"]
+                if not event_slug:
+                    event_slug = resolved.get("event_slug", "")
+                if not icon:
+                    icon = resolved.get("icon", "")
+                if title == "Polymarket Prediction":
+                    title = resolved.get("title", title)
+                if outcome == "Yes" and resolved.get("outcome") and resolved.get("outcome") != "Yes":
+                    outcome = resolved["outcome"]
+            elif isinstance(resolved, tuple):
+                if len(resolved) >= 1 and not condition_id and resolved[0]:
+                    condition_id = resolved[0]
+                if len(resolved) >= 2 and title == "Polymarket Prediction" and resolved[1]:
+                    title = resolved[1]
+                if len(resolved) >= 3 and not event_slug and resolved[2]:
+                    event_slug = resolved[2]
+                if len(resolved) >= 4 and not icon and resolved[3]:
+                    icon = resolved[3]
 
-        target_tx_hash = tx_hash or asset or None
+        # If condition_id cannot be resolved, quarantine the trade and abort execution
+        if not condition_id:
+            logger.warning(
+                f"⚠️ Quarantine Guard: Cannot resolve condition_id for asset={effective_token_id} "
+                f"tx={tx_hash}. Quarantining event without execution."
+            )
+            async with SessionLocal() as q_db:
+                if tx_hash:
+                    q_event = CanonicalSourceEvent(
+                        id=uuid.uuid4(),
+                        chain_id=137,
+                        emitting_contract=emitting_contract,
+                        tx_hash=tx_hash,
+                        log_index=log_index,
+                        block_number=block_number,
+                        block_hash=block_hash,
+                        block_time=dt,
+                        source_wallet_address=addr,
+                        maker_address=maker_address.lower() if maker_address else None,
+                        taker_address=taker_address.lower() if taker_address else None,
+                        condition_id=None,
+                        token_id=effective_token_id or None,
+                        outcome=outcome,
+                        side=side.upper(),
+                        price=price,
+                        shares=shares or (cash_usd / price if price > 0 else 0.0),
+                        notional_usd=cash_usd,
+                        status="QUARANTINED",
+                        created_at=datetime.utcnow()
+                    )
+                    q_db.add(q_event)
+                    if inbox_id:
+                        inbox = await q_db.get(SignalInbox, uuid.UUID(inbox_id))
+                        if inbox:
+                            inbox.status = "QUARANTINED"
+                            inbox.error_detail = "Missing or unresolvable condition_id"
+                            inbox.processed_at = datetime.utcnow()
+                    await q_db.commit()
+            return
+
+        target_tx_hash = tx_hash or effective_token_id or None
+        canonical_event = None
 
         async with SessionLocal() as db:
-            # 1. Database Deduplication Guard: prevent duplicate execution under dual ingestion
-            if tx_hash:
-                dedup_stmt = select(ExecutionLog.id).where(
-                    ExecutionLog.user_id.is_(None),
-                    ExecutionLog.onchain_tx_hash == tx_hash
-                )
-                if log_index is not None:
-                    dedup_stmt = dedup_stmt.where(ExecutionLog.onchain_log_index == log_index)
-                else:
-                    dedup_stmt = dedup_stmt.where(ExecutionLog.onchain_log_index.is_(None))
+            if db.bind.dialect.name == 'postgresql':
+                # Serialize read/size/write effects across API/worker replicas.
+                await db.execute(text('SELECT pg_advisory_xact_lock(20260909, 1)'))
+            active_run_id = (await db.execute(
+                select(SandboxRun.id).where(SandboxRun.status == "ACTIVE", SandboxRun.user_id.is_(None)).order_by(SandboxRun.started_at.desc()).limit(1)
+            )).scalar_one_or_none()
 
-                existing_exec = (await db.execute(dedup_stmt.limit(1))).scalars().first()
-                if existing_exec:
-                    logger.info(
-                        f"🔁 Deduplication Guard: Platform execution log already exists for tx {tx_hash} "
-                        f"(log_index={log_index}). Skipping duplicate signal under dual ingestion."
-                    )
-                    from app.services.event_logger import log_event
-                    asyncio.create_task(log_event(
-                        "TRADE_SKIPPED_DUPLICATE",
-                        f"Duplicate signal skipped: {title[:50]}",
-                        detail=f"Platform log already exists for tx {tx_hash} log_index={log_index}.",
-                        severity="info",
-                        related_address=wallet_address,
-                        related_market=title,
-                    ))
+            # 1. Database Deduplication & Canonical Event Resolution Guard
+            if tx_hash:
+                # First, check if a canonical event already exists
+                if log_index is not None:
+                    stmt_c = select(CanonicalSourceEvent).where(
+                        CanonicalSourceEvent.tx_hash == tx_hash,
+                        CanonicalSourceEvent.log_index == log_index,
+                        func.lower(CanonicalSourceEvent.source_wallet_address) == addr
+                    ).limit(1)
+                else:
+                    stmt_c = select(CanonicalSourceEvent).where(
+                        CanonicalSourceEvent.tx_hash == tx_hash,
+                        func.lower(CanonicalSourceEvent.source_wallet_address) == addr,
+                        func.lower(CanonicalSourceEvent.condition_id) == condition_id.lower(),
+                        CanonicalSourceEvent.side == side.upper()
+                    ).limit(2)
+
+                matched_events = (await db.execute(stmt_c)).scalars().all()
+                if log_index is None and len(matched_events) > 1:
+                    logger.warning(f"Multiple fills in tx {tx_hash} for {addr}. Cannot unambiguously link unindexed REST observation.")
                     return
+
+                canonical_event = matched_events[0] if matched_events else None
+
+                # An unindexed observation cannot prove which fill/participant it
+                # represents. Keep it non-executable instead of guessing by tx.
+                if log_index is None:
+                    if canonical_event is None:
+                        db.add(CanonicalSourceEvent(
+                            chain_id=137, tx_hash=tx_hash, log_index=None,
+                            source_wallet_address=addr, condition_id=condition_id,
+                            token_id=effective_token_id or None, outcome=outcome,
+                            side=side.upper(), price=price, shares=shares or cash_usd / price,
+                            notional_usd=cash_usd, status='UNRESOLVED'))
+                        await db.commit()
+                    return
+                if canonical_event and canonical_event.status == 'APPLIED':
+                    return
+
+                if not canonical_event:
+                    canonical_event = CanonicalSourceEvent(
+                        id=uuid.uuid4(),
+                        chain_id=137,
+                        emitting_contract=emitting_contract,
+                        tx_hash=tx_hash,
+                        log_index=log_index,
+                        block_number=block_number,
+                        block_hash=block_hash,
+                        source_wallet_address=addr,
+                        maker_address=maker_address.lower() if maker_address else None,
+                        taker_address=taker_address.lower() if taker_address else None,
+                        condition_id=condition_id,
+                        token_id=effective_token_id or None,
+                        outcome=outcome,
+                        side=side.upper(),
+                        price=price,
+                        shares=shares or (cash_usd / price if price > 0 else 0.0),
+                        notional_usd=cash_usd,
+                        status="CONFIRMED",
+                        created_at=datetime.utcnow()
+                    )
+                    db.add(canonical_event)
+                    await db.flush()
 
             # Fetch settled portfolio value to determine capital tier
             stmt_realized_pnl = select(func.sum(ExecutionLog.realized_pnl_usd)).where(
@@ -211,7 +320,7 @@ class LiveTradeMirrorService:
                     ExecutionLog.status == "FILLED"
                 ).order_by(ExecutionLog.executed_at.asc())
                 target_open_buys = (await db.execute(stmt_open_buys)).scalars().all()
-                
+
                 stmt_any_open = select(ExecutionLog.id).where(
                     ExecutionLog.market_condition_id == condition_id,
                     ExecutionLog.resolution_outcome == outcome,
@@ -296,14 +405,23 @@ class LiveTradeMirrorService:
 
             stmt_users = select(User)
             users = (await db.execute(stmt_users)).scalars().all()
+            from app.services.paper_runs import ensure_user_run
+            user_runs = {u.id: await ensure_user_run(db, u) for u in users}
+            # A reset must not replay source activity from the archived run.
+            users = [u for u in users if user_runs[u.id].source_cutoff_at is None
+                     or dt >= user_runs[u.id].source_cutoff_at]
+
 
             stmt_live = select(LiveWalletLink).where(LiveWalletLink.is_live_active == True)
             live_links = (await db.execute(stmt_live)).scalars().all()
+            # Paper simulation must never manufacture exchange-confirmed fills.
+            # Live orders belong to the separate signed-order/reconciliation path.
+            live_links = []
 
             # Check for sniper conviction weighting (e.g. Mr. Ozi / Gold snipers)
             source_whale = next((w for w in active_wallets if w.address.lower() == wallet_address.lower()), None)
             is_sniper = bool(source_whale and (
-                source_whale.tier == "gold_sniper" or 
+                source_whale.tier == "gold_sniper" or
                 ((source_whale.win_rate_pct or 0) >= 85.0 and (source_whale.avg_trades_per_day or 5.0) <= 5.0)
             ))
             sniper_multiplier = 1.35 if is_sniper else 1.0
@@ -400,7 +518,7 @@ class LiveTradeMirrorService:
             live_p = get_live_price(condition_id, outcome=outcome, asset=asset or tx_hash or "", fallback=price)
             from app.sizing.slippage import check_slippage
             from app.sizing.dynamic_sizer import size_trade
-            
+
             slippage_decision = check_slippage(price, live_p, side=side)
             if slippage_decision != 'EXECUTE_ORDER':
                 logger.info(f"⚠️ Slippage Guard: {side} on '{title[:25]}' entry={price:.3f} -> live={live_p:.3f}. Aborting ({slippage_decision}).")
@@ -560,6 +678,10 @@ class LiveTradeMirrorService:
                     resolution_outcome=outcome,
                     onchain_tx_hash=target_tx_hash,
                     onchain_log_index=log_index,
+                    token_id=effective_token_id or None,
+                    mode="sandbox",
+                    run_id=active_run_id,
+                    source_event_id=canonical_event.id if canonical_event else None,
                     notional_usd=sys_notional,
                     fee_usd=buy_fee,
                     market_category=fee_calc["category"],
@@ -584,6 +706,10 @@ class LiveTradeMirrorService:
                     resolution_outcome=outcome,
                     onchain_tx_hash=pending_sell_match.tx_hash,
                     onchain_log_index=pending_sell_match.log_index,
+                    token_id=effective_token_id or None,
+                    mode="sandbox",
+                    run_id=active_run_id,
+                    source_event_id=canonical_event.id if canonical_event else None,
                     notional_usd=sys_notional,
                     fee_usd=sell_fee,
                     market_category=sell_fee_calc["category"],
@@ -597,7 +723,7 @@ class LiveTradeMirrorService:
                 db.add(sys_sell_log)
 
                 for u in users:
-                    u_bal = float(u.sandbox_balance_usd or 10000.0)
+                    u_bal = float(u.sandbox_balance_usd if u.sandbox_balance_usd is not None else 0.0)
                     u_sizing = calculate_pure_proportional_order_size(
                         user_balance=u_bal,
                         n_active=n_active,
@@ -609,16 +735,17 @@ class LiveTradeMirrorService:
                     if u_sizing.status != "SUCCESS":
                         continue
                     u_notional = u_sizing.value
+                    available = await paper_totals(db, u.id, u.sandbox_starting_balance_usd)
                     u_buy_fee_calc = calculate_polymarket_fee(u_notional, effective_fill_price, title, is_maker=False)
                     u_sell_fee_calc = calculate_polymarket_fee(u_notional, effective_sell_fill_price, title, is_maker=False)
                     u_buy_fee = float(u_buy_fee_calc["fee_usd"] or 0.0)
                     u_sell_fee = float(u_sell_fee_calc["fee_usd"] or 0.0)
+                    if u_notional + u_buy_fee > float(available['cash']) + 1e-9:
+                        continue
                     u_matched_realized_pnl = round(u_notional * price_ratio - (u_buy_fee + u_sell_fee), 2)
 
-                    u_bal = float(u.sandbox_balance_usd or 10000.0)
-                    u.sandbox_balance_usd = round(u_bal + u_matched_realized_pnl, 2)
-                    cur_hwm = float(u.sandbox_high_water_mark_usd or 10000.0)
-                    u.sandbox_high_water_mark_usd = max(cur_hwm, u.sandbox_balance_usd)
+                    u_bal = float(u.sandbox_balance_usd if u.sandbox_balance_usd is not None else 0.0)
+
 
                     u_buy_log = ExecutionLog(
                         user_id=u.id,
@@ -633,6 +760,10 @@ class LiveTradeMirrorService:
                         resolution_outcome=outcome,
                         onchain_tx_hash=target_tx_hash,
                         onchain_log_index=log_index,
+                        token_id=effective_token_id or None,
+                        mode="sandbox",
+                        run_id=u.active_paper_run_id,
+                        source_event_id=canonical_event.id if canonical_event else None,
                         notional_usd=u_notional,
                         fee_usd=u_buy_fee,
                         market_category=u_buy_fee_calc["category"],
@@ -658,6 +789,10 @@ class LiveTradeMirrorService:
                         resolution_outcome=outcome,
                         onchain_tx_hash=pending_sell_match.tx_hash,
                         onchain_log_index=pending_sell_match.log_index,
+                        token_id=effective_token_id or None,
+                        mode="sandbox",
+                        run_id=u.active_paper_run_id,
+                        source_event_id=canonical_event.id if canonical_event else None,
                         notional_usd=u_notional,
                         fee_usd=u_sell_fee,
                         market_category=u_sell_fee_calc["category"],
@@ -703,6 +838,10 @@ class LiveTradeMirrorService:
                         resolution_outcome=outcome,
                         onchain_tx_hash=target_tx_hash,
                         onchain_log_index=log_index,
+                        token_id=effective_token_id or None,
+                        mode="live",
+                        run_id=None,
+                        source_event_id=canonical_event.id if canonical_event else None,
                         notional_usd=l_notional,
                         fee_usd=l_buy_fee,
                         market_category=l_buy_fee_calc["category"],
@@ -728,6 +867,10 @@ class LiveTradeMirrorService:
                         resolution_outcome=outcome,
                         onchain_tx_hash=pending_sell_match.tx_hash,
                         onchain_log_index=pending_sell_match.log_index,
+                        token_id=effective_token_id or None,
+                        mode="live",
+                        run_id=None,
+                        source_event_id=canonical_event.id if canonical_event else None,
                         notional_usd=l_notional,
                         fee_usd=l_sell_fee,
                         market_category=l_sell_fee_calc["category"],
@@ -740,7 +883,18 @@ class LiveTradeMirrorService:
                     )
                     db.add(live_sell_log)
 
+                for account in users:
+                    await reconcile_user(db, account, snapshot=True)
+                if canonical_event:
+                    canonical_event.status = 'APPLIED'
                 await db.commit()
+
+                if inbox_id:
+                    inbox = await db.get(SignalInbox, uuid.UUID(inbox_id))
+                    if inbox:
+                        inbox.status = "PROCESSED"
+                        inbox.processed_at = datetime.utcnow()
+                        await db.commit()
 
                 from app.services.event_logger import log_event
                 asyncio.create_task(log_event(
@@ -761,14 +915,14 @@ class LiveTradeMirrorService:
                 sell_fee_total = float(fee_calc["fee_usd"] or 0.0)
                 sell_fee_rate = sell_fee_total / sys_notional if sys_notional > 0 else 0.0
                 sys_total_realized_pnl = 0.0
-                
+
                 for open_buy in target_open_buys:
                     if remaining_sell_notional <= 0:
                         break
                     buy_notional = float(open_buy.notional_usd or 0.0)
                     orig_buy_price = float(open_buy.user_fill_price or open_buy.whale_entry_price or 0.5)
                     price_ratio = ((effective_fill_price - orig_buy_price) / orig_buy_price) if orig_buy_price > 0 else 0.0
-                    
+
                     if buy_notional <= remaining_sell_notional + 0.01:
                         open_buy.status = "CLOSED"
                         buy_fee = float(open_buy.fee_usd or 0.0)
@@ -783,7 +937,7 @@ class LiveTradeMirrorService:
                         buy_fee_rate = float(open_buy.fee_usd or 0.0) / buy_notional if buy_notional > 0 else 0.0
                         closed_buy_fee = closed_portion * buy_fee_rate
                         allocated_sell_fee = closed_portion * sell_fee_rate
-                        
+
                         orig_buy_fee = float(open_buy.fee_usd or 0.0)
                         open_buy.status = "CLOSED"
                         open_buy.notional_usd = closed_portion
@@ -791,7 +945,7 @@ class LiveTradeMirrorService:
                         leg_pnl = round(closed_portion * price_ratio - (closed_buy_fee + allocated_sell_fee), 2)
                         open_buy.realized_pnl_usd = leg_pnl
                         sys_total_realized_pnl += leg_pnl
-                        
+
                         split_buy = ExecutionLog(
                             user_id=None,
                             source_wallet_address=open_buy.source_wallet_address,
@@ -805,6 +959,10 @@ class LiveTradeMirrorService:
                             resolution_outcome=open_buy.resolution_outcome,
                             onchain_tx_hash=f"{open_buy.onchain_tx_hash}:split" if open_buy.onchain_tx_hash else None,
                             onchain_log_index=open_buy.onchain_log_index,
+                            token_id=open_buy.token_id or effective_token_id or None,
+                            mode="sandbox",
+                            run_id=open_buy.run_id or active_run_id,
+                            source_event_id=open_buy.source_event_id,
                             notional_usd=remaining_portion,
                             fee_usd=round(max(0.0, orig_buy_fee - closed_buy_fee), 4),
                             market_category=open_buy.market_category,
@@ -834,6 +992,10 @@ class LiveTradeMirrorService:
                     resolution_outcome=outcome,
                     onchain_tx_hash=target_tx_hash,
                     onchain_log_index=log_index,
+                    token_id=effective_token_id or None,
+                    mode="sandbox",
+                    run_id=active_run_id,
+                    source_event_id=canonical_event.id if canonical_event else None,
                     notional_usd=sys_notional,
                     fee_usd=fee_calc["fee_usd"],
                     market_category=fee_calc["category"],
@@ -848,7 +1010,7 @@ class LiveTradeMirrorService:
 
             # Copy-trade for individual sandbox users with Pure Proportional Sleeve Sizing
             for u in users:
-                u_bal = float(u.sandbox_balance_usd or 10000.0)
+                u_bal = float(u.sandbox_balance_usd if u.sandbox_balance_usd is not None else 0.0)
                 u_sizing = calculate_pure_proportional_order_size(
                     user_balance=u_bal,
                     n_active=n_active,
@@ -870,7 +1032,12 @@ class LiveTradeMirrorService:
                     market_title=title,
                     is_maker=False
                 )
-                
+
+                if side == "BUY":
+                    available = await paper_totals(db, u.id, u.sandbox_starting_balance_usd)
+                    u_notional, u_fee = affordable_order(u_notional, available['cash'], effective_fill_price, title)
+                    if u_notional < float(getattr(settings, 'POLYMARKET_MIN_ORDER_USD', 1.0)):
+                        continue
                 u_realized_pnl_val = None
                 if side == "SELL":
                     stmt_u_buys = select(ExecutionLog).where(
@@ -891,14 +1058,14 @@ class LiveTradeMirrorService:
                     u_sell_fee_total = float(u_fee["fee_usd"] or 0.0)
                     u_sell_fee_rate = u_sell_fee_total / u_notional if u_notional > 0 else 0.0
                     user_total_realized_pnl = 0.0
-                    
+
                     for u_buy in u_open_buys:
                         if remaining_u_sell_notional <= 0:
                             break
                         u_buy_notional = float(u_buy.notional_usd or 0.0)
                         u_orig_price = float(u_buy.user_fill_price or 0.5)
                         u_ratio = ((effective_fill_price - u_orig_price) / u_orig_price) if u_orig_price > 0 else 0.0
-                        
+
                         if u_buy_notional <= remaining_u_sell_notional + 0.01:
                             u_buy.status = "CLOSED"
                             u_buy_fee = float(u_buy.fee_usd or 0.0)
@@ -913,7 +1080,7 @@ class LiveTradeMirrorService:
                             u_buy_fee_rate = float(u_buy.fee_usd or 0.0) / u_buy_notional if u_buy_notional > 0 else 0.0
                             closed_u_buy_fee = closed_part * u_buy_fee_rate
                             u_allocated_sell_fee = closed_part * u_sell_fee_rate
-                            
+
                             orig_u_fee = float(u_buy.fee_usd or 0.0)
                             u_buy.status = "CLOSED"
                             u_buy.notional_usd = closed_part
@@ -921,7 +1088,7 @@ class LiveTradeMirrorService:
                             leg_pnl = round(closed_part * u_ratio - (closed_u_buy_fee + u_allocated_sell_fee), 2)
                             u_buy.realized_pnl_usd = leg_pnl
                             user_total_realized_pnl += leg_pnl
-                            
+
                             u_split_buy = ExecutionLog(
                                 user_id=u.id,
                                 source_wallet_address=u_buy.source_wallet_address,
@@ -935,6 +1102,10 @@ class LiveTradeMirrorService:
                                 resolution_outcome=u_buy.resolution_outcome,
                                 onchain_tx_hash=f"{u_buy.onchain_tx_hash}:split" if u_buy.onchain_tx_hash else None,
                                 onchain_log_index=u_buy.onchain_log_index,
+                                token_id=u_buy.token_id or effective_token_id or None,
+                                mode="sandbox",
+                                run_id=u.active_paper_run_id,
+                                source_event_id=u_buy.source_event_id,
                                 notional_usd=rem_part,
                                 fee_usd=round(max(0.0, orig_u_fee - closed_u_buy_fee), 4),
                                 market_category=u_buy.market_category,
@@ -950,10 +1121,8 @@ class LiveTradeMirrorService:
                             break
 
                     u_realized_pnl_val = round(user_total_realized_pnl, 2)
-                    u_bal = float(u.sandbox_balance_usd or 10000.0)
-                    u.sandbox_balance_usd = round(u_bal + user_total_realized_pnl, 2)
-                    cur_hwm = float(u.sandbox_high_water_mark_usd or 10000.0)
-                    u.sandbox_high_water_mark_usd = max(cur_hwm, u.sandbox_balance_usd)
+                    u_bal = float(u.sandbox_balance_usd if u.sandbox_balance_usd is not None else 0.0)
+
 
                 user_log = ExecutionLog(
                     user_id=u.id,
@@ -968,6 +1137,10 @@ class LiveTradeMirrorService:
                     resolution_outcome=outcome,
                     onchain_tx_hash=target_tx_hash,
                     onchain_log_index=log_index,
+                    token_id=effective_token_id or None,
+                    mode="sandbox",
+                    run_id=u.active_paper_run_id,
+                    source_event_id=canonical_event.id if canonical_event else None,
                     notional_usd=u_notional,
                     fee_usd=u_fee["fee_usd"],
                     market_category=u_fee["category"],
@@ -1007,7 +1180,7 @@ class LiveTradeMirrorService:
                         market_title=title,
                         is_maker=False
                     )
-                    link.live_balance_usdc = max(0.0, round(l_bal - l_notional, 2))
+                    link.live_balance_usdc = max(0.0, round(l_bal - (l_notional + float(l_fee.get("fee_usd", 0.0))), 2))
                     live_log = ExecutionLog(
                         user_id=link.user_id,
                         source_wallet_address=wallet_address,
@@ -1021,6 +1194,10 @@ class LiveTradeMirrorService:
                         resolution_outcome=outcome,
                         onchain_tx_hash=target_tx_hash,
                         onchain_log_index=log_index,
+                        token_id=effective_token_id or None,
+                        mode="live",
+                        run_id=None,
+                        source_event_id=canonical_event.id if canonical_event else None,
                         notional_usd=l_notional,
                         fee_usd=l_fee["fee_usd"],
                         market_category=l_fee["category"],
@@ -1104,6 +1281,10 @@ class LiveTradeMirrorService:
                                 resolution_outcome=l_buy.resolution_outcome,
                                 onchain_tx_hash=f"{l_buy.onchain_tx_hash}:split" if l_buy.onchain_tx_hash else None,
                                 onchain_log_index=l_buy.onchain_log_index,
+                                token_id=l_buy.token_id or effective_token_id or None,
+                                mode="live",
+                                run_id=None,
+                                source_event_id=l_buy.source_event_id,
                                 notional_usd=rem_part,
                                 fee_usd=round(max(0.0, orig_l_fee - closed_l_buy_fee), 4),
                                 market_category=l_buy.market_category,
@@ -1133,6 +1314,10 @@ class LiveTradeMirrorService:
                         resolution_outcome=outcome,
                         onchain_tx_hash=target_tx_hash,
                         onchain_log_index=log_index,
+                        token_id=effective_token_id or None,
+                        mode="live",
+                        run_id=None,
+                        source_event_id=canonical_event.id if canonical_event else None,
                         notional_usd=l_notional,
                         fee_usd=l_fee["fee_usd"],
                         market_category=l_fee["category"],
@@ -1153,7 +1338,18 @@ class LiveTradeMirrorService:
                     executed_delta=sys_notional if side == "BUY" else -sys_notional
                 )
 
+            for account in users:
+                await reconcile_user(db, account, snapshot=True)
+            if canonical_event:
+                canonical_event.status = 'APPLIED'
             await db.commit()
+
+            if inbox_id:
+                inbox = await db.get(SignalInbox, uuid.UUID(inbox_id))
+                if inbox:
+                    inbox.status = "PROCESSED"
+                    inbox.processed_at = datetime.utcnow()
+                    await db.commit()
 
             whale_name = source_whale.name or source_whale.pseudonym or addr[:10] if source_whale else addr[:10]
             logger.info(f"🎯 COPIED WHALE TRADE: {addr[:10]}... {side} ${cash_usd:,.2f} on '{title[:30]}' @ {effective_fill_price:.3f} (Consensus: {consensus.get('is_consensus')})")
@@ -1179,24 +1375,31 @@ class LiveTradeMirrorService:
         tx_hash: str,
         log_index: int,
         block_number: int,
-        timestamp_ms: Optional[int] = None
+        timestamp_ms: Optional[int] = None,
+        inbox_id: Optional[str] = None,
+        emitting_contract: Optional[str] = None,
+        block_hash: Optional[str] = None,
     ):
-        """Handler for on-chain Envio HyperSync events."""
-        ts_sec = (timestamp_ms / 1000.0) if timestamp_ms else datetime.utcnow().timestamp()
-        
-        # Real-time guard
-        if ts_sec < self.started_at:
-            return
-
-        trade_key = f"{wallet_address.lower()}:{asset_id}:{tx_hash}:{log_index}"
-        if trade_key in self.seen_trade_keys:
-            return
-        self.seen_trade_keys.add(trade_key)
+        """Handler for on-chain Envio HyperSync events (raw six-decimal shares)."""
+        if timestamp_ms is None or timestamp_ms <= 0:
+            raise ValueError('Source block timestamp is required')
+        ts_sec = timestamp_ms / 1000.0
+        # Replayed exits must not disappear merely because the process restarted.
+        # Run-start eligibility is a separate persisted policy, not started_at.
 
         try:
-            price = float(price_str) if price_str and float(price_str) > 0 else 0.5
-            amount = float(amount_filled) / 1e6 if float(amount_filled) > 1e10 else float(amount_filled)
-            cash_usd = max(amount * price, 20.0)
+            p_val = float(price_str)
+            if not (0.0001 <= p_val <= 0.9999):
+                raise ValueError('Invalid on-chain price')
+            price = p_val
+
+            raw_amt = Decimal(amount_filled)
+            if not raw_amt.is_finite() or raw_amt <= 0:
+                raise ValueError('Invalid on-chain quantity')
+
+            # Polymarket CTF Exchange uses 6 decimal places for conditional tokens
+            shares = float(raw_amt / Decimal(1000000))
+            cash_usd = float(raw_amt / Decimal(1000000) * Decimal(price_str))
             dt = datetime.fromtimestamp(ts_sec, timezone.utc).replace(tzinfo=None)
 
             await self.process_trade_fill(
@@ -1208,11 +1411,18 @@ class LiveTradeMirrorService:
                 cash_usd=cash_usd,
                 dt=dt,
                 asset=asset_id,
+                token_id=asset_id,
                 tx_hash=tx_hash,
-                log_index=log_index
+                log_index=log_index,
+                block_number=block_number,
+                emitting_contract=emitting_contract,
+                block_hash=block_hash,
+                shares=shares,
+                inbox_id=inbox_id
             )
-        except Exception as e:
-            logger.error(f"Error executing on-chain signal: {e}", exc_info=True)
+        except Exception:
+            logger.exception('Error executing on-chain signal')
+            raise
 
     async def _poll_loop(self):
         while self.running:
@@ -1267,7 +1477,7 @@ class LiveTradeMirrorService:
                     (Wallet.avg_trades_per_day.is_(None) | (Wallet.avg_trades_per_day <= 50.0))
                 ).order_by(Wallet.baleen_score.desc()).limit(10)
                 active_wallets = (await db.execute(stmt)).scalars().all()
-                
+
                 # 3. Fetch any open position source wallets (even if flagged/demoted) to follow their SELL signals!
                 stmt_open_sources = select(ExecutionLog.source_wallet_address).where(
                     ExecutionLog.status == "FILLED",
@@ -1278,7 +1488,7 @@ class LiveTradeMirrorService:
 
                 active_addrs = set(w.address.lower() for w in active_wallets)
                 missing_source_addrs = open_source_addrs - active_addrs
-                
+
                 legacy_wallets = []
                 if missing_source_addrs:
                     stmt_legacy = select(Wallet).options(
@@ -1309,7 +1519,8 @@ class LiveTradeMirrorService:
                         f"Copy trading deferred until full selection basket is qualified."
                     )
                     # Only poll legacy wallets holding open positions so exits/sells are never blocked
-                    self._cached_whales = list(legacy_wallets)
+                    self._cached_whales = list(legacy_wallets) + [
+                        w for w in active_wallets if w.address.lower() in open_source_addrs]
                 else:
                     self._cached_whales = list(active_wallets) + list(legacy_wallets)
 
@@ -1334,6 +1545,8 @@ class LiveTradeMirrorService:
 
                 for t in trades:
                     if not isinstance(t, dict):
+                        continue
+                    if str(t.get('proxyWallet') or t.get('user') or '').lower() != addr:
                         continue
                     ts_raw = t.get("timestamp") or t.get("match_time") or t.get("created_at")
                     if not ts_raw:
@@ -1360,7 +1573,7 @@ class LiveTradeMirrorService:
                         continue
 
                     # 2. Strict Price Boundary Guard (0.04 <= price <= 0.96)
-                    if price < 0.04 or price > 0.96:
+                    if side == 'BUY' and (price < 0.04 or price > 0.96):
                         self.seen_trade_keys.add(trade_key)
                         continue
 
@@ -1392,7 +1605,7 @@ class LiveTradeMirrorService:
             except Exception as w_err:
                 logger.error(f"Error polling live trades for {addr}: {w_err}", exc_info=True)
                 continue
-            
+
             await asyncio.sleep(0.05)
 
     async def settle_market_resolution(
@@ -1415,6 +1628,8 @@ class LiveTradeMirrorService:
         norm_winning = winning_outcome.strip().lower()
 
         async with SessionLocal() as db:
+            if db.bind.dialect.name == 'postgresql':
+                await db.execute(text('SELECT pg_advisory_xact_lock(20260909, 1)'))
             stmt = select(ExecutionLog).where(
                 ExecutionLog.market_condition_id == condition_id,
                 ExecutionLog.side == "BUY",
@@ -1464,11 +1679,7 @@ class LiveTradeMirrorService:
             for u in users:
                 u_settled_lots = [l for l in open_lots if l.user_id == u.id]
                 if u_settled_lots:
-                    u_pnl_delta = sum(float(l.realized_pnl_usd or 0.0) for l in u_settled_lots)
-                    cur_u_bal = float(u.sandbox_balance_usd or 10000.0)
-                    u.sandbox_balance_usd = round(cur_u_bal + u_pnl_delta, 2)
-                    cur_u_hwm = float(u.sandbox_high_water_mark_usd or u.sandbox_starting_balance_usd or 10000.0)
-                    u.sandbox_high_water_mark_usd = max(cur_u_hwm, u.sandbox_balance_usd)
+                    await reconcile_user(db, u, snapshot=True)
 
             await db.commit()
 

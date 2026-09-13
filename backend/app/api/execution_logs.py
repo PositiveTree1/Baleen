@@ -1,17 +1,31 @@
-from fastapi import APIRouter, Depends, Query
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
-from typing import Optional, List, Dict
-from datetime import datetime, timedelta
+import uuid
 import re
 import time
 import httpx
+from typing import Optional, List, Dict, Any
+from datetime import datetime, timedelta
+from fastapi import APIRouter, Depends, Query, HTTPException
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select, func
 from app.database import get_db
 from app.models import ExecutionLog, Wallet, User, PortfolioSnapshot
+from app.auth import get_current_user, get_current_user_optional
 from app.services.mark_to_market import get_live_price, get_consensus
 from app.services.polymarket_fees import calculate_polymarket_fee
 
 router = APIRouter(prefix="/api/executions", tags=["execution_logs"])
+
+def _resolve_user_id(user_id: Any, userId: Any = None) -> Optional[str]:
+    """Extracts valid user_id string, ignoring default FastAPI Query/Depends sentinel objects."""
+    if isinstance(user_id, (str, uuid.UUID)):
+        s = str(user_id).strip()
+        if s and not s.startswith("Query(") and not s.startswith("<fastapi."):
+            return s
+    if isinstance(userId, (str, uuid.UUID)):
+        s = str(userId).strip()
+        if s and not s.startswith("Query(") and not s.startswith("<fastapi."):
+            return s
+    return None
 
 def slugify(text: str) -> str:
     """Converts a market question to a clean URL slug."""
@@ -35,12 +49,14 @@ def make_polymarket_url(event_slug: Optional[str], question: Optional[str], cond
 @router.get("")
 async def get_execution_logs(
     user_id: Optional[str] = Query(None, alias="userId"),
+    userId: Optional[str] = Query(None),
     status: Optional[str] = None,
     start_date: Optional[datetime] = None,
     end_date: Optional[datetime] = None,
     timeframe: Optional[str] = None, # 1d, 1w, 1m, ytd, all
     limit: int = Query(1500, le=10000),
     offset: int = 0,
+    current_user: Optional[User] = Depends(get_current_user_optional),
     db: AsyncSession = Depends(get_db)
 ):
     stmt = select(ExecutionLog)
@@ -69,17 +85,22 @@ async def get_execution_logs(
     if end_date:
         stmt = stmt.where(ExecutionLog.executed_at <= end_date)
 
-    # Query execution logs (filtered by user_id if specific rows exist, otherwise canonical platform logs)
-    user_filter = ExecutionLog.user_id.is_(None)
-    if user_id:
+    eff_user_id = _resolve_user_id(user_id, userId)
+    if not isinstance(current_user, User):
+        current_user = None
+
+    if eff_user_id:
+        if current_user is None:
+            raise HTTPException(status_code=401, detail="Authentication required")
         try:
-            import uuid
-            u_uuid = uuid.UUID(user_id)
-            user_cnt = (await db.execute(select(func.count(ExecutionLog.id)).where(ExecutionLog.user_id == u_uuid))).scalar() or 0
-            if user_cnt > 0:
-                user_filter = ExecutionLog.user_id == u_uuid
+            u_uuid = uuid.UUID(eff_user_id)
         except Exception:
-            pass
+            raise HTTPException(status_code=404, detail="User not found")
+        if str(current_user.id) != str(u_uuid) and not (getattr(current_user, "is_admin", False) or getattr(current_user, "role", "") == "admin"):
+            raise HTTPException(status_code=403, detail="Forbidden: access to another account is denied")
+        user_filter = ExecutionLog.user_id == u_uuid
+    else:
+        user_filter = ExecutionLog.user_id.is_(None)
 
     stmt = stmt.where(user_filter)
     system_stmt = stmt.order_by(ExecutionLog.executed_at.desc()).limit(limit).offset(offset)
@@ -108,52 +129,14 @@ async def get_execution_logs(
     for log in raw_logs:
         cid = log.market_condition_id or ""
         outc = log.resolution_outcome or "Yes"
-        fill_p = float(log.user_fill_price or log.whale_entry_price or 0.5)
-        cur_p = get_live_price(cid, outcome=outc, asset=log.onchain_tx_hash or "", fallback=fill_p)
+        from app.services.execution_valuation import execution_valuation
+        valuation = execution_valuation(log)
+        fill_p, cur_p = valuation['fillPrice'], valuation['currentPrice']
+        fee_usd, net_pnl, gross_pnl = valuation['feeUsd'], valuation['pnl'], valuation['grossPnl']
+        pnl_pct = valuation['pnlPct']
         consensus = get_consensus(cid)
-        notional = float(log.notional_usd or 0.0)
-
-        # Dynamic Polymarket fee
-        fee_info = calculate_polymarket_fee(
-            notional_usd=notional,
-            price=fill_p,
-            market_title=log.market_question or ""
-        )
-        fee_usd = float(log.fee_usd) if log.fee_usd is not None and log.fee_usd > 0 else fee_info["fee_usd"]
-        category = log.market_category or fee_info["category"]
-
-        # Gross & Net PnL resolution
-        if log.status != "FILLED" and log.realized_pnl_usd is not None:
-            # Closed/settled positions use their locked realized PnL
-            net_pnl = float(log.realized_pnl_usd)
-            gross_pnl = round(net_pnl + fee_usd, 2)
-            if abs(cur_p - fill_p) < 0.001 and notional > 0 and fill_p > 0:
-                implied_p = fill_p * (1.0 + gross_pnl / notional) if log.side == "BUY" else fill_p * (1.0 - gross_pnl / notional)
-                if 0.001 <= implied_p <= 0.999:
-                    cur_p = round(implied_p, 4)
-        elif log.status == "FILLED":
-            # Active open positions with live market movement
-            if fill_p > 0 and cur_p > 0:
-                if log.side == "BUY":
-                    gross_pnl = notional * ((cur_p - fill_p) / fill_p)
-                else:
-                    gross_pnl = notional * ((fill_p - cur_p) / fill_p)
-                net_pnl = round(gross_pnl - fee_usd, 2)
-            else:
-                gross_pnl = 0.0
-                net_pnl = round(-fee_usd, 2)
-        elif log.realized_pnl_usd is not None:
-            net_pnl = float(log.realized_pnl_usd)
-            gross_pnl = round(net_pnl + fee_usd, 2)
-            if abs(cur_p - fill_p) < 0.001 and notional > 0 and fill_p > 0 and abs(gross_pnl) > 0.01:
-                implied_p = fill_p * (1.0 + gross_pnl / notional) if log.side == "BUY" else fill_p * (1.0 - gross_pnl / notional)
-                if 0.001 <= implied_p <= 0.999:
-                    cur_p = round(implied_p, 4)
-        else:
-            gross_pnl = 0.0
-            net_pnl = round(-fee_usd, 2)
-
-        pnl_pct = round((net_pnl / notional) * 100.0, 2) if notional > 0 else 0.0
+        notional = log.notional_usd
+        category = log.market_category
 
         whale_info = whale_meta_map.get((log.source_wallet_address or "").lower(), {})
         whale_disp_name = whale_info.get("name") or whale_info.get("pseudonym") or (f"{log.source_wallet_address[:6]}...{log.source_wallet_address[-4:]}" if log.source_wallet_address else "Whale")
@@ -181,11 +164,13 @@ async def get_execution_logs(
             "size": notional,
             "status": log.status,
             "pnl": net_pnl,
-            "grossPnl": round(gross_pnl, 2),
+            "grossPnl": gross_pnl,
+            "markStatus": valuation["markStatus"],
+            "markObservedAt": valuation["markObservedAt"],
             "pnlPct": pnl_pct,
             "feeUsd": fee_usd,
             "marketCategory": category,
-            "categoryRate": fee_info["category_rate"],
+            "categoryRate": None,
             "consensus": consensus,
             "polymarketUrl": make_polymarket_url(log.event_slug, log.market_question, cid)
         })
@@ -197,162 +182,95 @@ async def get_portfolio_summary(
     user_id: Optional[str] = Query(None, alias="userId"),
     userId: Optional[str] = Query(None),
     timeframe: Optional[str] = None,
+    current_user: Optional[User] = Depends(get_current_user_optional),
     db: AsyncSession = Depends(get_db)
 ):
-    eff_user_id = user_id or userId
-    user_filter = ExecutionLog.user_id.is_(None)
+    eff_user_id = _resolve_user_id(user_id, userId)
+    if not isinstance(current_user, User):
+        current_user = None
+    target_user = None
     if eff_user_id:
+        if current_user is None:
+            raise HTTPException(status_code=401, detail="Authentication required")
         try:
-            import uuid
             u_uuid = uuid.UUID(eff_user_id)
-            user_cnt = (await db.execute(select(func.count(ExecutionLog.id)).where(ExecutionLog.user_id == u_uuid))).scalar() or 0
-            if user_cnt > 0:
-                user_filter = ExecutionLog.user_id == u_uuid
         except Exception:
-            pass
+            raise HTTPException(status_code=404, detail="User not found")
+        if str(current_user.id) != str(u_uuid) and not (getattr(current_user, "is_admin", False) or getattr(current_user, "role", "") == "admin"):
+            raise HTTPException(status_code=403, detail="Forbidden: access to another account is denied")
+        target_user = await db.get(User, u_uuid)
+        user_filter = ExecutionLog.user_id == u_uuid
+    else:
+        user_filter = ExecutionLog.user_id.is_(None)
 
-    stmt = select(ExecutionLog).where(
-        ExecutionLog.status.in_(["FILLED", "CLOSED", "RESOLVED"]),
-        user_filter
-    )
-
+    from app.models import SandboxRun
+    from app.services.execution_valuation import execution_valuation, finite
+    if eff_user_id and target_user is None:
+        raise HTTPException(status_code=404, detail="User not found")
+    logs = (await db.execute(select(ExecutionLog).where(user_filter,
+        ExecutionLog.is_sandbox.is_(True), ExecutionLog.status.in_(["FILLED", "CLOSED", "RESOLVED"])))) .scalars().all()
+    if target_user:
+        starting_balance = finite(target_user.sandbox_starting_balance_usd)
+    else:
+        run = (await db.execute(select(SandboxRun).where(SandboxRun.user_id.is_(None),
+            SandboxRun.status == 'ACTIVE').order_by(SandboxRun.started_at.desc()).limit(1))).scalar_one_or_none()
+        starting_balance = finite(run.initial_balance_usd) if run else None
+    # BUY lots own position P&L. SELL rows record exit cash/fees, not another return.
+    positions = [r for r in logs if r.side == 'BUY']
+    values = {r.id: execution_valuation(r) for r in positions}
+    unvalued = sum(values[r.id]['pnl'] is None for r in positions)
+    known_pnl = sum(values[r.id]['pnl'] for r in positions if values[r.id]['pnl'] is not None)
+    total_pnl = None if unvalued else round(known_pnl, 2)
+    current_balance = round(starting_balance + total_pnl, 2) if starting_balance is not None and total_pnl is not None else None
     now = datetime.utcnow()
-    if timeframe:
-        tf = timeframe.lower()
-        if tf == "1h":
-            stmt = stmt.where(ExecutionLog.executed_at >= now - timedelta(hours=1))
-        elif tf == "6h":
-            stmt = stmt.where(ExecutionLog.executed_at >= now - timedelta(hours=6))
-        elif tf == "1d":
-            stmt = stmt.where(ExecutionLog.executed_at >= now - timedelta(days=1))
-        elif tf == "1w":
-            stmt = stmt.where(ExecutionLog.executed_at >= now - timedelta(days=7))
-        elif tf == "1m":
-            stmt = stmt.where(ExecutionLog.executed_at >= now - timedelta(days=30))
-        elif tf == "ytd":
-            stmt = stmt.where(ExecutionLog.executed_at >= datetime(now.year, 1, 1))
-
-    logs = (await db.execute(stmt.order_by(ExecutionLog.executed_at.desc()))).scalars().all()
-    
-    # 1. Fetch latest committed snapshot from database — this is the SINGLE SOURCE OF TRUTH
-    # The MTM background loop maintains this with cache warmth checks, so it's always reliable
-    latest_snap = (await db.execute(
-        select(PortfolioSnapshot)
-        .where(PortfolioSnapshot.user_id.is_(None))
-        .order_by(PortfolioSnapshot.timestamp.desc())
-        .limit(1)
-    )).scalar_one_or_none()
-
-    authoritative_db_balance = float(latest_snap.balance) if latest_snap and latest_snap.balance else 10000.0
-    authoritative_db_pnl = float(latest_snap.total_pnl) if latest_snap and latest_snap.total_pnl is not None else 0.0
-
-    # Paired round-trip deduplication:
-    # BUY holds the trade position and realized PnL; SELL is the exit leg.
-    # Exclude SELL logs that have a matching BUY log to prevent double-counting.
-    buy_keys = {
-        ((l.source_wallet_address or "").lower(), l.market_condition_id)
-        for l in logs
-        if l.side != "SELL" and l.source_wallet_address and l.market_condition_id
-    }
-
-    starting_balance = 10000.0
-    total_notional = 0.0
-    total_fees = 0.0
-    
-    for log in logs:
-        addr = (log.source_wallet_address or "").lower()
-        if log.side == "SELL" and (addr, log.market_condition_id) in buy_keys:
-            continue
-        total_notional += float(log.notional_usd or 0.0)
-        total_fees += float(log.fee_usd or 0.0)
-
-    # Always use the database snapshot as the authoritative balance
-    total_pnl = authoritative_db_pnl
-    current_balance = authoritative_db_balance
-
-    # Market Attribution aggregation across database records
+    windows = {'1h': timedelta(hours=1), '6h': timedelta(hours=6), '1d': timedelta(days=1),
+               '1w': timedelta(days=7), '1m': timedelta(days=30)}
+    tf = (timeframe or 'all').lower()
+    since = now - windows[tf] if tf in windows else datetime(now.year, 1, 1) if tf == 'ytd' else None
+    selected = [r for r in positions if since is None or (r.executed_at and r.executed_at >= since)]
+    fee_rows = [r for r in logs if since is None or (r.executed_at and r.executed_at >= since)]
+    fees = [finite(r.fee_usd) for r in fee_rows]
+    notionals = [finite(r.notional_usd) for r in selected]
     market_map = {}
-    wins_count = 0
-    losses_count = 0
-    for log in logs:
-        addr = (log.source_wallet_address or "").lower()
-        if log.side == "SELL" and (addr, log.market_condition_id) in buy_keys:
-            continue
-        if log.side == "SELL" and log.realized_pnl_usd is None:
-            continue
-            
-        key = log.market_question or log.market_condition_id or str(log.id)
-        notional_val = float(log.notional_usd or 0.0)
-        fill_p = float(log.user_fill_price or log.whale_entry_price or 0.5)
-        
-        pnl_val = log.realized_pnl_usd
-        if pnl_val is None:
-            cid = log.market_condition_id or ""
-            outc = log.resolution_outcome or "Yes"
-            cur_p = get_live_price(cid, outcome=outc, asset=log.onchain_tx_hash or "", fallback=fill_p)
-            if fill_p > 0 and abs(cur_p - fill_p) > 0.001:
-                fee = float(log.fee_usd or 0.0)
-                gross = notional_val * ((cur_p - fill_p) / fill_p) if log.side == "BUY" else notional_val * ((fill_p - cur_p) / fill_p)
-                pnl_val = round(gross - fee, 2)
-            else:
-                pnl_val = 0.0
+    wins = losses = 0
+    for row in selected:
+        value = values[row.id]
+        # Classify completed outcomes only; floating marks are not a win rate.
+        if row.status in ('CLOSED', 'RESOLVED') and value['pnl'] is not None:
+            wins += value['pnl'] > 0
+            losses += value['pnl'] < 0
+        key = (row.market_condition_id, row.resolution_outcome)
+        market = market_map.setdefault(key, {'key': ':'.join(str(v or '') for v in key),
+            'question': row.market_question, 'conditionId': row.market_condition_id,
+            'outcome': row.resolution_outcome, 'totalPnl': 0.0, 'totalNotional': 0.0,
+            'fillsCount': 0, 'avgFillPrice': None, 'unvaluedTradesCount': 0})
+        market['fillsCount'] += 1
+        if value['pnl'] is None:
+            market['unvaluedTradesCount'] += 1
         else:
-            pnl_val = float(pnl_val)
-        
-        if pnl_val > 0:
-            wins_count += 1
-        elif pnl_val < 0:
-            losses_count += 1
-            
-        if key not in market_map:
-            market_map[key] = {
-                "key": key,
-                "question": log.market_question or "Prediction Market",
-                "conditionId": log.market_condition_id or "",
-                "outcome": log.resolution_outcome or "Yes",
-                "totalPnl": 0.0,
-                "totalNotional": 0.0,
-                "fillsCount": 0,
-                "avgFillPrice": fill_p,
-                "whaleName": (log.source_wallet_address[:6] + "..." + log.source_wallet_address[-4:]) if log.source_wallet_address else "Whale"
-            }
-        m = market_map[key]
-        m["totalPnl"] = round(m["totalPnl"] + pnl_val, 2)
-        m["totalNotional"] = round(m["totalNotional"] + notional_val, 2)
-        m["fillsCount"] += 1
-
-    all_markets = list(market_map.values())
-    top_alpha = sorted([m for m in all_markets if m["totalPnl"] > 0], key=lambda x: x["totalPnl"], reverse=True)[:5]
-    top_drawdown = sorted([m for m in all_markets if m["totalPnl"] < 0], key=lambda x: x["totalPnl"])[:5]
-    total_evaluated = wins_count + losses_count
-    all_time_win_rate = round((wins_count / total_evaluated * 100), 1) if total_evaluated > 0 else 0.0
-            
-    current_balance = round(starting_balance + total_pnl, 2)
-    pnl_pct = round((total_pnl / starting_balance) * 100.0, 2) if starting_balance > 0 else 0.0
-    
-    holding_count = sum(1 for l in logs if l.side == "BUY" and l.status == "FILLED")
-    closed_count = sum(
-        1 for l in logs
-        if (l.status in ("CLOSED", "RESOLVED") or l.side == "SELL")
-        and not (l.side == "SELL" and ((l.source_wallet_address or "").lower(), l.market_condition_id) in buy_keys)
-    )
-    total_fills = holding_count + closed_count
-    
+            market['totalPnl'] += value['pnl']
+        notional = finite(row.notional_usd)
+        market['totalNotional'] = (market['totalNotional'] + notional
+            if market['totalNotional'] is not None and notional is not None else None)
+    complete_markets = [m for m in market_map.values() if not m['unvaluedTradesCount']]
+    known_fees = sum(f for f in fees if f is not None)
+    holding = sum(r.status == 'FILLED' for r in selected)
     return {
-        "startingBalance": starting_balance,
-        "currentBalance": current_balance,
-        "totalPnlUsd": round(total_pnl, 2),
-        "totalPnlPct": pnl_pct,
-        "totalFeesPaidUsd": round(total_fees, 2),
-        "filledTradesCount": total_fills,
-        "holdingTradesCount": holding_count,
-        "closedTradesCount": closed_count,
-        "totalNotionalInvested": round(total_notional, 2),
-        "topAlphaMarkets": top_alpha,
-        "topDrawdownMarkets": top_drawdown,
-        "allTimeWinRate": all_time_win_rate,
-        "allTimeWins": wins_count,
-        "allTimeLosses": losses_count
+        'startingBalance': starting_balance, 'currentBalance': current_balance,
+        'totalPnlUsd': total_pnl,
+        'totalPnlPct': round(total_pnl / starting_balance * 100, 2) if total_pnl is not None and starting_balance else None,
+        'valuationStatus': 'INCOMPLETE' if unvalued or starting_balance is None else 'COMPLETE',
+        'unvaluedTradesCount': unvalued, 'knownPnlUsd': round(known_pnl, 2),
+        'totalFeesPaidUsd': round(known_fees, 2) if all(f is not None for f in fees) else None,
+        'knownFeesPaidUsd': round(known_fees, 2),
+        'filledTradesCount': len(selected), 'holdingTradesCount': holding,
+        'closedTradesCount': len(selected) - holding,
+        'totalNotionalInvested': round(sum(notionals), 2) if all(n is not None for n in notionals) else None,
+        'topAlphaMarkets': sorted([m for m in complete_markets if m['totalPnl'] > 0], key=lambda m: m['totalPnl'], reverse=True)[:5],
+        'topDrawdownMarkets': sorted([m for m in complete_markets if m['totalPnl'] < 0], key=lambda m: m['totalPnl'])[:5],
+        'allTimeWinRate': round(wins / (wins + losses) * 100, 1) if wins + losses else None,
+        'allTimeWins': wins, 'allTimeLosses': losses,
+        'statisticsTimeframe': tf,
     }
 
 @router.get("/snapshots")
@@ -361,6 +279,7 @@ async def get_portfolio_snapshots(
     userId: Optional[str] = Query(None),
     timeframe: Optional[str] = None,
     limit: int = 5000,
+    current_user: Optional[User] = Depends(get_current_user_optional),
     db: AsyncSession = Depends(get_db)
 ):
     from uuid import UUID
@@ -386,46 +305,25 @@ async def get_portfolio_snapshots(
     if start_window:
         stmt = stmt.where(PortfolioSnapshot.timestamp >= start_window)
 
-    # Query snapshots in ascending chronological order
-    user_filter = PortfolioSnapshot.user_id.is_(None)
-    eff_user_id = user_id or userId
+    eff_user_id = _resolve_user_id(user_id, userId)
+    if not isinstance(current_user, User):
+        current_user = None
+
     if eff_user_id:
+        if current_user is None:
+            raise HTTPException(status_code=401, detail="Authentication required")
         try:
-            import uuid
             u_uuid = uuid.UUID(eff_user_id)
-            snap_cnt = (await db.execute(select(func.count(PortfolioSnapshot.id)).where(PortfolioSnapshot.user_id == u_uuid))).scalar() or 0
-            if snap_cnt > 0:
-                user_filter = PortfolioSnapshot.user_id == u_uuid
         except Exception:
-            pass
+            raise HTTPException(status_code=404, detail="User not found")
+        if str(current_user.id) != str(u_uuid) and not (getattr(current_user, "is_admin", False) or getattr(current_user, "role", "") == "admin"):
+            raise HTTPException(status_code=403, detail="Forbidden: access to another account is denied")
+        user_filter = PortfolioSnapshot.user_id == u_uuid
+    else:
+        user_filter = PortfolioSnapshot.user_id.is_(None)
 
     stmt = stmt.where(user_filter).order_by(PortfolioSnapshot.timestamp.asc())
     rows = list((await db.execute(stmt)).scalars().all())
-
-    # If timeframe window has snapshots, ensure start boundary is cleanly anchored
-    if start_window and rows:
-        earliest_row = rows[0]
-        if earliest_row.timestamp and earliest_row.timestamp > start_window + timedelta(minutes=2):
-            prev_stmt = select(PortfolioSnapshot).where(
-                user_filter,
-                PortfolioSnapshot.timestamp < start_window
-            ).order_by(PortfolioSnapshot.timestamp.desc()).limit(1)
-            prev_row = (await db.execute(prev_stmt)).scalar_one_or_none()
-            anchor_bal = float(prev_row.balance) if prev_row and prev_row.balance else float(earliest_row.balance)
-            anchor_pnl = float(prev_row.total_pnl) if prev_row and prev_row.total_pnl is not None else float(earliest_row.total_pnl)
-            
-            anchor_snap = PortfolioSnapshot(
-                user_id=earliest_row.user_id,
-                timestamp=start_window,
-                balance=anchor_bal,
-                total_pnl=anchor_pnl,
-                active_trades_count=earliest_row.active_trades_count
-            )
-            rows.insert(0, anchor_snap)
-
-    if not rows:
-        fallback_stmt = select(PortfolioSnapshot).where(user_filter).order_by(PortfolioSnapshot.timestamp.desc()).limit(2)
-        rows = list(reversed((await db.execute(fallback_stmt)).scalars().all()))
 
     # Fixed time-interval bucketing so past historical points NEVER shift or jitter
     if len(rows) > 60:
@@ -470,13 +368,7 @@ async def get_portfolio_snapshots(
 
     result = []
     for i, r in enumerate(rows):
-        is_latest = (i == len(rows) - 1)
-        ts = r.timestamp
-        if ts and not is_latest and tf in ("all", "1m", "ytd"):
-            # Cleanly floor historical hours to :00
-            ts_clean = ts.replace(minute=0, second=0, microsecond=0)
-        else:
-            ts_clean = ts
+        ts_clean = r.timestamp
 
         result.append({
             "id": str(r.id),
@@ -488,144 +380,57 @@ async def get_portfolio_snapshots(
             "activeTrades": r.active_trades_count
         })
 
-    # Prepend Genesis $10,000.00 baseline for ALL timeframe
-    if tf == "all" and result:
-        first_date = result[0]["date"]
-        first_time = result[0]["time"]
-        if abs(result[0]["balance"] - 10000.0) > 0.01:
-            try:
-                first_ts = datetime.fromisoformat(result[0]["timestamp"].replace("Z", ""))
-                gen_ts = first_ts - timedelta(minutes=1)
-                gen_ts_str = gen_ts.isoformat() + "Z"
-                gen_time_str = gen_ts.strftime("%H:%M")
-                gen_date_str = gen_ts.strftime("%d %b")
-            except Exception:
-                gen_ts_str = result[0].get("timestamp")
-                gen_time_str = first_time
-                gen_date_str = first_date
-
-            genesis_point = {
-                "id": "genesis-baseline",
-                "timestamp": gen_ts_str,
-                "time": gen_time_str,
-                "date": gen_date_str,
-                "balance": 10000.0,
-                "pnl": 0.0,
-                "activeTrades": 0
-            }
-            result.insert(0, genesis_point)
-
     return result
 
 @router.post("/reset-sandbox")
 async def reset_sandbox(
     user_id: Optional[str] = Query(None, alias="userId"),
+    current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
     """
-    Resets sandbox balance to pristine $10,000.00 and clears historical simulation logs and notifications.
+    Resets paper trading sandbox balance to $10,000.00 for the authenticated user.
+    Strictly isolated: does NOT delete live records, other users' state, or global ingestion cursors.
     """
-    from app.models import ExecutionLog, PortfolioSnapshot, User, SystemEvent
-    from app.services.event_logger import clear_recent_events_from_memory, log_event
     from sqlalchemy import delete
-    import time
-    
-    # Delete historical snapshots, execution logs & system events
-    await db.execute(delete(PortfolioSnapshot))
-    await db.execute(delete(ExecutionLog))
-    await db.execute(delete(SystemEvent))
-    clear_recent_events_from_memory()
-    
-    # Reset all users to $10,000
-    stmt_users = select(User)
-    users = (await db.execute(stmt_users)).scalars().all()
-    now_dt = datetime.utcnow()
-    for u in users:
-        u.sandbox_balance_usd = 10000.0
-        u.sandbox_starting_balance_usd = 10000.0
-        u.sandbox_high_water_mark_usd = 10000.0
-        
-        db.add(PortfolioSnapshot(
-            user_id=u.id,
-            timestamp=now_dt,
-            balance=10000.0,
-            total_pnl=0.0,
-            active_trades_count=0
-        ))
-        
-    db.add(PortfolioSnapshot(
-        user_id=None,
-        timestamp=now_dt,
-        balance=10000.0,
-        total_pnl=0.0,
-        active_trades_count=0
-    ))
-    
-    # Archive previous active sandbox run and start new run instance
-    try:
-        from app.models import SandboxRun
-        stmt_prev = select(SandboxRun).where(SandboxRun.status == "ACTIVE")
-        prev_runs = (await db.execute(stmt_prev)).scalars().all()
-        for pr in prev_runs:
-            pr.status = "RESET"
-            pr.ended_at = now_dt
-            pr.final_balance_usd = 10000.0
+    import uuid
 
-        # Create new active run
-        new_run = SandboxRun(
-            started_at=now_dt,
-            initial_balance_usd=10000.0,
-            status="ACTIVE"
-        )
-        db.add(new_run)
-    except Exception as run_err:
-        logger.warning(f"Note on SandboxRun tracking in reset: {run_err}")
+    if not isinstance(current_user, User):
+        raise HTTPException(status_code=401, detail="Authentication required to reset sandbox")
 
-    # Reset live poller started_at to now
-    try:
-        from app.services.live_poller import live_trade_mirror
-        live_trade_mirror.started_at = time.time()
-        live_trade_mirror.seen_trade_keys.clear()
-    except Exception:
-        pass
+    target_user = current_user
+    eff_user_id = _resolve_user_id(user_id)
+    if eff_user_id:
+        try:
+            target_uid = uuid.UUID(eff_user_id)
+        except Exception:
+            raise HTTPException(status_code=404, detail="User not found")
+        target_user = await db.get(User, target_uid)
+        if not target_user:
+            raise HTTPException(status_code=404, detail="User not found")
+        is_admin = getattr(current_user, "is_admin", False) or getattr(current_user, "role", "") == "admin"
+        if str(current_user.id) != str(target_user.id) and not is_admin:
+            raise HTTPException(status_code=403, detail="Forbidden: cannot reset another user's sandbox")
 
-    # Clear price caches
-    try:
-        from app.services.mark_to_market import _live_price_cache, _consensus_cache
-        _live_price_cache.clear()
-        _consensus_cache.clear()
-    except Exception:
-        pass
+    from app.services.paper_runs import archive_and_start
+    run = await archive_and_start(db, target_user, 10000)
 
     await db.commit()
-
-    # Re-evaluate and record initial reevaluation for the new run
-    try:
-        from app.scoring.basket import refresh_basket
-        await refresh_basket(db, trigger_type="SANDBOX_RESET")
-    except Exception as reeval_err:
-        logger.warning(f"Note on initial re-evaluation during reset: {reeval_err}")
-
-    # Log initial reset event
-    try:
-        await log_event(
-            "SANDBOX_RESET",
-            "Sandbox reset to $10,000.00",
-            detail="All paper trading balances, past execution logs, and notification history have been reset.",
-            severity="info"
-        )
-    except Exception:
-        pass
-
-    await db.commit()
-    return {"status": "success", "message": "Sandbox balance reset to $10,000.00 successfully"}
+    await db.refresh(target_user)
+    return {
+        "status": "success",
+        "message": "Previous paper run archived; new $10,000.00 paper run started",
+        "runId": str(run.id),
+        "userId": str(target_user.id)
+    }
 
 @router.get("/{trade_id}/chart")
 async def get_trade_price_chart(
     trade_id: str,
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
+    current_user: Optional[User] = Depends(get_current_user_optional),
 ):
-    from app.discovery.polymarket_client import PolymarketClient, _to_decimal_token
+    from app.discovery.polymarket_client import PolymarketClient
     from uuid import UUID
 
     try:
@@ -633,13 +438,20 @@ async def get_trade_price_chart(
         stmt = select(ExecutionLog).where(ExecutionLog.id == trade_uuid)
     except Exception:
         stmt = select(ExecutionLog).where(ExecutionLog.market_condition_id == trade_id)
+        stmt = stmt.where(ExecutionLog.user_id == current_user.id if current_user else ExecutionLog.user_id.is_(None))
         
     log = (await db.execute(stmt)).scalars().first()
     if not log:
-        return {"error": "Trade not found", "history": []}
+        raise HTTPException(status_code=404, detail="Trade not found")
+
+    if log.user_id is not None:
+        if current_user is None:
+            raise HTTPException(status_code=401, detail="Authentication required")
+        if str(log.user_id) != str(current_user.id) and not (getattr(current_user, "is_admin", False) or getattr(current_user, "role", "") == "admin"):
+            raise HTTPException(status_code=403, detail="Access to another account's trade is forbidden")
 
     pm_client = PolymarketClient()
-    asset_id = _to_decimal_token(log.onchain_tx_hash or "")
+    asset_id = log.token_id or ""
 
     # Resolve token ID via Gamma if not already stored
     if not asset_id and log.market_condition_id:
@@ -651,8 +463,11 @@ async def get_trade_price_chart(
         except Exception:
             pass
 
-    fill_p = float(log.user_fill_price or log.whale_entry_price or 0.5)
-    cur_p = get_live_price(log.market_condition_id or "", outcome=log.resolution_outcome or "Yes", asset=asset_id, fallback=fill_p)
+    from app.services.execution_valuation import finite
+    from app.services.mark_to_market import get_observed_price
+    fill_p = finite(log.user_fill_price)
+    observed = get_observed_price(log.market_condition_id or '', log.resolution_outcome or '', asset_id)
+    cur_p = observed['price'] if observed else None
     
     raw_points_map: dict[float, float] = {}
 
@@ -669,14 +484,14 @@ async def get_trade_price_chart(
                     rows = data.get("history") or data.get("data") or data.get("prices") or []
                     for pt in rows:
                         t_val = pt.get("t") or pt.get("timestamp") or pt.get("ts") or pt.get("time")
-                        p_val = pt.get("p") or pt.get("price") or pt.get("value")
+                        p_val = next((pt[k] for k in ("p", "price", "value") if pt.get(k) is not None), None)
                         if t_val is not None and p_val is not None:
                             try:
                                 ts = float(t_val)
                                 if ts > 1e11:
                                     ts /= 1000.0
                                 p_float = float(p_val)
-                                if 0.001 <= p_float <= 1.0:
+                                if 0.0 <= p_float <= 1.0:
                                     raw_points_map[ts] = p_float
                             except Exception:
                                 pass
@@ -685,29 +500,13 @@ async def get_trade_price_chart(
 
     await pm_client.close()
 
-    # 2. Append execution fill point and latest live point
-    now_ts = time.time()
-    if log.executed_at:
-        exec_ts = log.executed_at.timestamp()
-        raw_points_map[exec_ts] = fill_p
-    else:
-        exec_ts = now_ts - 3600
-        raw_points_map[exec_ts] = fill_p
-    
-    raw_points_map[now_ts] = cur_p
+    # Market history contains provider observations only. A simulated fill is
+    # separate execution evidence, not a historical venue-price observation.
+    if observed:
+        raw_points_map[observed['observed_at']] = observed['price']
 
-    # 3. If history points are sparse (e.g. newly created condition), interpolate a smooth trajectory
+    # Sparse history remains sparse; fabricated prices misrepresent observed risk.
     sorted_ts = sorted(raw_points_map.keys())
-    if len(sorted_ts) < 5:
-        base_t = exec_ts - 7200
-        step_t = 7200 / 6
-        for i in range(6):
-            pt_t = base_t + (i * step_t)
-            # Smooth progression towards fill_p
-            ratio = i / 6.0
-            pt_p = round(fill_p * 0.98 + (fill_p * 0.04 * ratio), 4)
-            raw_points_map[pt_t] = pt_p
-        sorted_ts = sorted(raw_points_map.keys())
 
     history_points = []
     for ts in sorted_ts:
@@ -726,7 +525,9 @@ async def get_trade_price_chart(
         "outcome": log.resolution_outcome or "Yes",
         "fillPrice": fill_p,
         "currentPrice": cur_p,
-        "minPrice": min(prices) if prices else fill_p,
-        "maxPrice": max(prices) if prices else cur_p,
+        "minPrice": min(prices) if prices else None,
+        "maxPrice": max(prices) if prices else None,
+        "markStatus": 'observed' if observed else 'unavailable',
+        "historyStatus": 'observed' if prices else 'unavailable',
         "history": history_points
     }

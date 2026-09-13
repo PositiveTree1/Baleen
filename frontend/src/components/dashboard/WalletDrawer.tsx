@@ -31,20 +31,32 @@ export function WalletDrawer({ address, onClose }: WalletDrawerProps) {
   const [activeChartTab, setActiveChartTab] = useState<'winloss' | 'pnl' | 'score'>('winloss');
   const [timeframe, setTimeframe] = useState<'1W' | '1M' | 'YTD' | 'ALL'>('ALL');
 
-  useEffect(() => {
+  const [prevAddress, setPrevAddress] = useState(address);
+  if (prevAddress !== address) {
+    setPrevAddress(address);
     if (!address) {
       setWallet(null);
-      return;
     }
-    setLoading(true);
+  }
+
+  useEffect(() => {
+    if (!address) return;
+    let active = true;
     fetchWallet(address)
       .then((data) => {
-        setWallet(data);
-        setLoading(false);
+        if (active) {
+          setWallet(data);
+          setLoading(false);
+        }
       })
       .catch(() => {
-        setLoading(false);
+        if (active) {
+          setLoading(false);
+        }
       });
+    return () => {
+      active = false;
+    };
   }, [address]);
 
   const handleCopy = () => {
@@ -66,11 +78,18 @@ export function WalletDrawer({ address, onClose }: WalletDrawerProps) {
   const filteredDailyPnLHistory = useMemo(() => {
     const raw = wallet?.dailyPnLHistory || [];
     if (timeframe === 'ALL' || raw.length === 0) return raw;
-    const now = Date.now();
+    const latestDate = raw.reduce((max, pt) => {
+      const t = pt.date ? new Date(pt.date).getTime() : 0;
+      return t > max ? t : max;
+    }, 0);
+    const now = latestDate > 0 ? latestDate : 0;
     let cutoff = 0;
     if (timeframe === '1W') cutoff = now - 7 * 24 * 60 * 60 * 1000;
     else if (timeframe === '1M') cutoff = now - 30 * 24 * 60 * 60 * 1000;
-    else if (timeframe === 'YTD') cutoff = new Date(new Date().getFullYear(), 0, 1).getTime();
+    else if (timeframe === 'YTD') {
+      const yr = latestDate > 0 ? new Date(latestDate).getFullYear() : 2026;
+      cutoff = new Date(yr, 0, 1).getTime();
+    }
 
     const filtered = raw.filter(pt => {
       try {
@@ -80,7 +99,7 @@ export function WalletDrawer({ address, onClose }: WalletDrawerProps) {
         return true;
       }
     });
-    return filtered;
+    return filtered.length > 0 ? filtered : raw;
   }, [wallet?.dailyPnLHistory, timeframe]);
 
   const cleanSummary = (() => {
@@ -91,10 +110,13 @@ export function WalletDrawer({ address, onClose }: WalletDrawerProps) {
       if (parts.length > 1) {
         s = parts[1].split(/(?:TAG|Tag):/i)[0].trim();
       } else {
-        s = `Tactical prediction trader with ${formatPct(wallet.winRate || 0)} accuracy and ${formatExactPnL(wallet.pnl || 0)} net profit.`;
+        s = wallet.winRate != null && wallet.pnl != null
+          ? `Tactical prediction trader with ${formatPct(wallet.winRate)} accuracy and ${formatExactPnL(wallet.pnl)} net profit.`
+          : '';
       }
     }
-    return s.replace(/\*\*/g, '').replace(/<[^>]*>/g, '').trim();
+    const cleaned = s.replace(/\*\*/g, '').replace(/<[^>]*>/g, '').trim();
+    return cleaned || null;
   })();
 
   return (
@@ -132,7 +154,7 @@ export function WalletDrawer({ address, onClose }: WalletDrawerProps) {
                   <div>
                     <div className="flex items-center gap-2">
                       <h2 className="text-base font-bold text-slate-950 dark:text-white tracking-tight">
-                        {wallet?.name || wallet?.pseudonym || 'Whale Audit Profile'}
+                        {wallet?.name || wallet?.pseudonym || 'Observed Whale Profile'}
                       </h2>
                       {isGold && <Badge tier="gold_sniper" />}
                     </div>
@@ -147,6 +169,7 @@ export function WalletDrawer({ address, onClose }: WalletDrawerProps) {
                     href={`https://polymarket.com/profile/${address}`}
                     target="_blank"
                     rel="noreferrer"
+                    aria-label="Open profile on Polymarket"
                     className="p-2 text-slate-400 dark:text-[#8E8F99] hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-[#1C1D22] rounded-xl transition-colors cursor-pointer"
                     title="Open on Polymarket"
                   >
@@ -154,6 +177,7 @@ export function WalletDrawer({ address, onClose }: WalletDrawerProps) {
                   </a>
                   <button
                     onClick={onClose}
+                    aria-label="Close wallet drawer"
                     className="p-2 text-slate-400 dark:text-[#8E8F99] hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-[#1C1D22] rounded-xl transition-colors cursor-pointer"
                   >
                     <X size={18} />
@@ -170,6 +194,7 @@ export function WalletDrawer({ address, onClose }: WalletDrawerProps) {
                       <span className="text-xs font-mono text-slate-800 dark:text-white font-semibold">{address}</span>
                       <button
                         onClick={handleCopy}
+                        aria-label="Copy address"
                         className="text-slate-400 dark:text-[#8E8F99] hover:text-slate-900 dark:hover:text-white transition-colors cursor-pointer"
                         title="Copy Address"
                       >
@@ -215,7 +240,7 @@ export function WalletDrawer({ address, onClose }: WalletDrawerProps) {
                     <div className="p-4 bg-slate-50 dark:bg-[#1C1D22] border border-black/[0.04] dark:border-white/5 rounded-2xl">
                       <span className="text-[10px] uppercase font-bold text-slate-400 dark:text-[#8E8F99]">Baleen Score</span>
                       <div className="text-xl font-bold font-mono text-slate-950 dark:text-white mt-0.5">
-                        {wallet.score !== undefined && wallet.score !== null ? wallet.score.toFixed(1) : '—'}
+                        {wallet.score == null ? 'Unavailable' : wallet.score.toFixed(1)}
                       </div>
                       <span className="text-[10px] text-slate-400 dark:text-[#8E8F99]">Out of 100</span>
                     </div>
@@ -223,28 +248,29 @@ export function WalletDrawer({ address, onClose }: WalletDrawerProps) {
                     <div className="p-4 bg-slate-50 dark:bg-[#1C1D22] border border-black/[0.04] dark:border-white/5 rounded-2xl">
                       <span className="text-[10px] uppercase font-bold text-slate-400 dark:text-[#8E8F99]">Win Rate</span>
                       <div className="text-xl font-bold font-mono text-emerald-600 dark:text-[#00D09C] mt-0.5">
-                        {wallet.winRate !== undefined && wallet.winRate !== null ? formatPct(wallet.winRate) : '—'}
+                        {wallet.winRate == null ? 'Unavailable' : formatPct(wallet.winRate)}
                       </div>
                       <span className="text-[10px] text-slate-400 dark:text-[#8E8F99]">Resolved Outcomes</span>
                     </div>
 
                     <div className="p-4 bg-slate-50 dark:bg-[#1C1D22] border border-black/[0.04] dark:border-white/5 rounded-2xl">
-                      <span className="text-[10px] uppercase font-bold text-slate-400 dark:text-[#8E8F99]">Total PnL</span>
-                      <div className={`text-xl font-bold font-mono mt-0.5 ${(wallet.pnl || 0) >= 0 ? 'text-emerald-600 dark:text-[#00D09C]' : 'text-rose-600 dark:text-[#FF453A]'}`}>
-                        {formatCompactPnL(wallet.pnl || 0)}
+                      <span className="text-[10px] uppercase font-bold text-slate-400 dark:text-[#8E8F99]">Source Wallet PnL</span>
+                      <div className={`text-xl font-bold font-mono mt-0.5 ${wallet.pnl == null ? 'text-slate-400 dark:text-[#8E8F99]' : wallet.pnl >= 0 ? 'text-emerald-600 dark:text-[#00D09C]' : 'text-rose-600 dark:text-[#FF453A]'}`}>
+                        {wallet.pnl == null ? 'Unavailable' : formatCompactPnL(wallet.pnl)}
                       </div>
-                      <span className="text-[10px] text-slate-400 dark:text-[#8E8F99]">All-Time Net</span>
+                      <span className="text-[10px] text-slate-400 dark:text-[#8E8F99]">Source Historical Net</span>
                     </div>
 
                     <div className="p-4 bg-slate-50 dark:bg-[#1C1D22] border border-black/[0.04] dark:border-white/5 rounded-2xl">
-                      <span className="text-[10px] uppercase font-bold text-slate-400 dark:text-[#8E8F99]">Avg Hold Time</span>
+                      <span className="text-[10px] uppercase font-bold text-slate-400 dark:text-[#8E8F99]">Median Inter-trade Gap</span>
                       <div className="text-xl font-bold font-mono text-slate-950 dark:text-white mt-0.5">
                         {(() => {
-                          const hrs = wallet.avgHoldHours ?? (24.0 / Math.max(wallet.tradesPerDay || 1, 1));
+                          const hrs = wallet.medianInterTradeGapHours;
+                          if (hrs == null) return 'Unavailable';
                           return hrs >= 24 ? `${(hrs / 24).toFixed(1)}d` : `${hrs.toFixed(1)}h`;
                         })()}
                       </div>
-                      <span className="text-[10px] text-slate-400 dark:text-[#8E8F99]">Position Duration</span>
+                      <span className="text-[10px] text-slate-400 dark:text-[#8E8F99]">Between observed trades, not position duration</span>
                     </div>
                   </div>
 

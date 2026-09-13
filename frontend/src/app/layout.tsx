@@ -22,8 +22,8 @@ const spaceGrotesk = Space_Grotesk({ subsets: ['latin'], variable: '--font-space
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter' })
 
 export const metadata: Metadata = {
-  title: 'Baleen — Mirror the Top 1% Polymarket Traders',
-  description: 'An automated Polymarket whale-index copy-trading engine. Turn $20 into an automated prediction market portfolio by mirroring hyper-consistent, verified whales.',
+  title: 'Baleen — Polymarket Paper Copy Trading',
+  description: 'Research Polymarket traders and explore simulated copying in a paper portfolio. Experimental results; real-money execution is unavailable.',
 }
 
 export default function RootLayout({

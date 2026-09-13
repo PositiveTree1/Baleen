@@ -101,6 +101,10 @@ async def test_bug2_copied_wallets_includes_unrealized_mtm_pnl():
         
         # Set MTM price to 0.75 (+50% gross = +$500 gross - $5 fee = +$495 net)
         _last_known_pnl[str(log1.id)] = 495.00
+        # A cached P&L without an observed price/time is not a current mark.
+        from app.services.mark_to_market import _live_price_cache
+        import time
+        _live_price_cache['0xcond_r4_1:yes'] = {'price': .75, 'ts': time.time()}
 
         # Whale 2: Closed trade with +$200 realized gain
         log2 = ExecutionLog(
@@ -340,18 +344,19 @@ async def test_param_alias_userId_and_user_id():
             db.add(User(id=uuid.UUID(test_uid), email=unique_email))
             await db.commit()
 
+        test_user = User(id=uuid.UUID(test_uid), email=unique_email)
         async with SessionLocal() as db:
-            # Both parameter styles should return without errors
-            stats1 = await get_copied_wallet_stats(user_id=test_uid, db=db)
-            stats2 = await get_copied_wallet_stats(userId=test_uid, db=db)
+            # Both parameter styles should return without errors for authenticated user
+            stats1 = await get_copied_wallet_stats(user_id=test_uid, current_user=test_user, db=db)
+            stats2 = await get_copied_wallet_stats(userId=test_uid, current_user=test_user, db=db)
             assert stats1 == stats2
 
-            snaps1 = await get_portfolio_snapshots(user_id=test_uid, timeframe="all", db=db)
-            snaps2 = await get_portfolio_snapshots(userId=test_uid, timeframe="all", db=db)
+            snaps1 = await get_portfolio_snapshots(user_id=test_uid, timeframe="all", current_user=test_user, db=db)
+            snaps2 = await get_portfolio_snapshots(userId=test_uid, timeframe="all", current_user=test_user, db=db)
             assert len(snaps1) == len(snaps2)
 
-            summary1 = await get_portfolio_summary(user_id=test_uid, timeframe="all", db=db)
-            summary2 = await get_portfolio_summary(userId=test_uid, timeframe="all", db=db)
+            summary1 = await get_portfolio_summary(user_id=test_uid, timeframe="all", current_user=test_user, db=db)
+            summary2 = await get_portfolio_summary(userId=test_uid, timeframe="all", current_user=test_user, db=db)
             assert summary1["currentBalance"] == summary2["currentBalance"]
     finally:
         async with SessionLocal() as db:
@@ -480,4 +485,3 @@ async def test_mark_to_market_deduplicates_closed_trades_pnl():
     assert _closed_trades_cache["platform_realized_pnl"] == 75.00
     # platform_closed_count MUST be 1, NOT 2!
     assert _closed_trades_cache["platform_closed_count"] == 1
-

@@ -51,13 +51,13 @@ export function Leaderboard() {
     .filter((w) => {
       if (search && !w.address.toLowerCase().includes(search.toLowerCase())) return false;
       if (filterTier === 'gold') return w.tier === 'gold_sniper';
-      if (filterTier === 'high_wr') return (w.winRate || 0) >= (w.winRate && w.winRate > 1 ? 80 : 0.8);
-      if (filterTier === 'high_pnl') return (w.pnl || 0) >= 100000;
+      if (filterTier === 'high_wr') return w.winRate != null && w.winRate >= (w.winRate > 1 ? 80 : 0.8);
+      if (filterTier === 'high_pnl') return w.pnl != null && w.pnl >= 100000;
       return true;
     })
     .sort((a, b) => {
-      const valA = (a[sortField] ?? 0) as number;
-      const valB = (b[sortField] ?? 0) as number;
+      const valA = (a[sortField] ?? -Infinity) as number;
+      const valB = (b[sortField] ?? -Infinity) as number;
       return sortAsc ? valA - valB : valB - valA;
     });
 
@@ -66,15 +66,15 @@ export function Leaderboard() {
       <div className="max-w-6xl mx-auto">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 mb-10">
           <div>
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold text-emerald-800 bg-emerald-50 border border-emerald-200 shadow-sm mb-3">
-              <Trophy size={14} className="text-emerald-600" />
-              <span>Verified Polymarket On-Chain Ledger</span>
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold text-slate-800 bg-slate-100 border border-slate-200 shadow-sm mb-3">
+              <Trophy size={14} className="text-slate-600" />
+              <span>Observed Polymarket Wallets (Candidate Basket)</span>
             </div>
             <h2 className="text-3xl md:text-5xl font-extrabold text-slate-950 tracking-tight mb-2">
               Alpha Discovery Basket
             </h2>
             <p className="text-slate-600 text-sm max-w-xl">
-              Live quantitative leaderboard of audited whales. Click any address to inspect complete P&amp;L history, AI behavioral style tag, and win rate confidence bounds.
+              Quantitative leaderboard of observed candidate whales. Click any address to inspect historical on-chain metrics, algorithmic scoring, and trading activity.
             </p>
           </div>
 
@@ -85,6 +85,7 @@ export function Leaderboard() {
               <input
                 type="text"
                 placeholder="Search 0x address..."
+                aria-label="Search 0x address"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 className="w-full pl-9 pr-3.5 py-2 text-xs font-mono bg-white border border-black/[0.08] rounded-2xl focus:outline-none focus:border-slate-400 shadow-sm"
@@ -95,15 +96,15 @@ export function Leaderboard() {
 
         {/* Filter Tabs */}
         <div className="flex flex-wrap items-center gap-2 mb-6">
-          {[
+          {([
             { id: 'all', label: 'All Whales' },
             { id: 'gold', label: '⭐ Gold Snipers (85%+ WR)' },
             { id: 'high_wr', label: '🎯 High Win Rate' },
             { id: 'high_pnl', label: '💰 $100k+ Net Profit' },
-          ].map((tab) => (
+          ] as const).map((tab) => (
             <button
               key={tab.id}
-              onClick={() => setFilterTier(tab.id as any)}
+              onClick={() => setFilterTier(tab.id)}
               className={`text-xs px-4 py-2 rounded-xl font-semibold transition-all cursor-pointer border ${
                 filterTier === tab.id
                   ? 'bg-slate-900 text-white border-slate-900 shadow-sm'
@@ -205,16 +206,16 @@ export function Leaderboard() {
                           </div>
                         </td>
                         <td className="p-4 text-right font-mono font-bold text-blue-600">
-                          {(wallet.score || 0).toFixed(0)}
+                          {wallet.score == null ? 'Unavailable' : wallet.score.toFixed(0)}
                         </td>
                         <td className="p-4 text-right font-mono font-semibold text-slate-900">
-                          {formatWinRate(wallet.winRate || 0)}
+                          {wallet.winRate == null ? 'Unavailable' : formatWinRate(wallet.winRate)}
                         </td>
-                        <td className={`p-4 text-right font-mono font-extrabold ${(wallet.pnl || 0) >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
-                          {(wallet.pnl || 0) >= 0 ? '+' : '-'}${Math.abs(wallet.pnl || 0).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                        <td className={`p-4 text-right font-mono font-extrabold ${wallet.pnl == null ? 'text-slate-400' : wallet.pnl >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                          {wallet.pnl == null ? 'Unavailable' : `${wallet.pnl >= 0 ? '+' : '-'}$${Math.abs(wallet.pnl).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`}
                         </td>
                         <td className="p-4 sm:px-6 text-right font-mono font-medium text-slate-600">
-                          {(wallet.tradesPerDay || 0).toFixed(1)}/d
+                          {wallet.tradesPerDay == null ? 'Unavailable' : `${wallet.tradesPerDay.toFixed(1)}/d`}
                         </td>
                       </tr>
                     );

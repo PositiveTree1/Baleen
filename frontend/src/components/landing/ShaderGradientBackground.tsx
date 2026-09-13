@@ -1,7 +1,40 @@
 'use client';
+import type { ComponentType } from 'react';
 import { ShaderGradientCanvas, ShaderGradient } from 'shadergradient';
 
-const ShaderGradientComponent = ShaderGradient as any;
+interface ShaderGradientProps {
+  control?: string;
+  animate?: string;
+  type?: string;
+  color1?: string;
+  color2?: string;
+  color3?: string;
+  brightness?: number;
+  cAzimuthAngle?: number;
+  cDistance?: number;
+  cPolarAngle?: number;
+  cameraZoom?: number;
+  envPreset?: string;
+  grain?: string;
+  lightType?: string;
+  positionX?: number;
+  positionY?: number;
+  positionZ?: number;
+  reflection?: number;
+  rotationX?: number;
+  rotationY?: number;
+  rotationZ?: number;
+  shader?: string;
+  uAmplitude?: number;
+  uDensity?: number;
+  uFrequency?: number;
+  uSpeed?: number;
+  uStrength?: number;
+  uTime?: number;
+  wireframe?: boolean;
+}
+
+const ShaderGradientComponent = ShaderGradient as unknown as ComponentType<ShaderGradientProps>;
 
 export function ShaderGradientBackground() {
   return (

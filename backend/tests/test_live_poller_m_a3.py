@@ -11,7 +11,7 @@ import pytest
 from datetime import datetime, timezone, timedelta
 from sqlalchemy import select, delete, func
 from app.database import SessionLocal, init_db
-from app.models import Wallet, User, ExecutionLog, PortfolioSnapshot
+from app.models import Wallet, User, ExecutionLog, PortfolioSnapshot, ExposureLedger, CanonicalSourceEvent
 from app.services.live_poller import LiveTradeMirrorService, PendingOutOfOrderSell
 
 
@@ -20,9 +20,11 @@ async def setup_test_db():
     """Initializes clean database state before each test."""
     await init_db()
     async with SessionLocal() as db:
-        # Clear execution logs and wallets created in tests
+        # Clear execution logs, ledger and wallets created in tests
         await db.execute(delete(ExecutionLog))
+        await db.execute(delete(CanonicalSourceEvent))
         await db.execute(delete(PortfolioSnapshot))
+        await db.execute(delete(ExposureLedger))
         await db.execute(delete(Wallet).where(Wallet.address.like("0xtest_whale_%")))
         await db.execute(delete(User).where(User.email.like("%@testm_a3.com")))
         
@@ -56,6 +58,7 @@ async def setup_test_db():
     async with SessionLocal() as db:
         await db.execute(delete(ExecutionLog))
         await db.execute(delete(PortfolioSnapshot))
+        await db.execute(delete(ExposureLedger))
         await db.execute(delete(Wallet).where(Wallet.address.like("0xtest_whale_%")))
         await db.execute(delete(User).where(User.email.like("%@testm_a3.com")))
         await db.commit()

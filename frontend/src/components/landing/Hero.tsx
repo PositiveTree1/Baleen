@@ -32,7 +32,7 @@ export function Hero() {
             transition={{ duration: 0.5 }}
             className="text-5xl sm:text-6xl lg:text-7xl font-outfit font-extrabold tracking-[-0.04em] text-slate-950 dark:text-white leading-[1.02] text-balance"
           >
-            Mirror the top 1% <br />
+            Explore copy trading <br />
             <span className="text-slate-500 dark:text-[#8E8F99]">
               on Polymarket.
             </span>
@@ -45,7 +45,7 @@ export function Hero() {
             transition={{ duration: 0.5, delay: 0.08 }}
             className="text-base sm:text-lg text-slate-600 dark:text-[#8E8F99] leading-relaxed font-normal max-w-lg"
           >
-            Baleen is an institutional copy-trading engine for Polymarket. Discover verified prediction snipers, size positions dynamically, and mirror smart money fills with sub-second latency.
+            Research Polymarket traders and explore automated copying in a paper portfolio. Simulated results are experimental; real-money execution is unavailable.
           </motion.p>
 
           {/* Action CTAs */}
@@ -67,7 +67,7 @@ export function Hero() {
             <Link href="/dashboard">
               <button 
                 className="flex items-center gap-2 px-6 py-4 rounded-full bg-white dark:bg-[#16171B] hover:bg-slate-100 dark:hover:bg-[#24262E] border border-black/[0.08] dark:border-white/10 text-slate-900 dark:text-white text-sm font-bold transition-all shadow-2xs active:scale-[0.98] cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00D09C] focus-visible:ring-offset-2 focus-visible:ring-offset-[#F8F9FB] dark:focus-visible:ring-offset-black"
-                aria-label="View live trading dashboard"
+                aria-label="View paper trading dashboard"
               >
                 <span>View Dashboard</span>
                 <ChevronRight size={14} aria-hidden="true" className="text-slate-400 dark:text-[#8E8F99]" />
@@ -87,8 +87,8 @@ export function Hero() {
                 <ShieldCheck size={16} aria-hidden="true" />
               </div>
               <div>
-                <h4 className="text-xs font-bold text-slate-950 dark:text-white">Audited Snipers</h4>
-                <p className="text-[11px] text-slate-500 dark:text-[#8E8F99] mt-0.5 tabular-nums">&gt;70% Wilson win rate</p>
+                <h4 className="text-xs font-bold text-slate-950 dark:text-white">Wallet Research</h4>
+                <p className="text-[11px] text-slate-500 dark:text-[#8E8F99] mt-0.5 tabular-nums">Inspect source activity</p>
               </div>
             </div>
 
@@ -97,8 +97,8 @@ export function Hero() {
                 <Zap size={16} aria-hidden="true" />
               </div>
               <div>
-                <h4 className="text-xs font-bold text-slate-950 dark:text-white">CLOB Sub-second</h4>
-                <p className="text-[11px] text-slate-500 dark:text-[#8E8F99] mt-0.5 tabular-nums">&lt;1.5¢ slippage limit</p>
+                <h4 className="text-xs font-bold text-slate-950 dark:text-white">Paper Trading</h4>
+                <p className="text-[11px] text-slate-500 dark:text-[#8E8F99] mt-0.5 tabular-nums">Simulated execution</p>
               </div>
             </div>
 
@@ -107,8 +107,8 @@ export function Hero() {
                 <TrendingUp size={16} aria-hidden="true" />
               </div>
               <div>
-                <h4 className="text-xs font-bold text-slate-950 dark:text-white">Consensus Sizing</h4>
-                <p className="text-[11px] text-slate-500 dark:text-[#8E8F99] mt-0.5 tabular-nums">Dynamic 1.5x alpha</p>
+                <h4 className="text-xs font-bold text-slate-950 dark:text-white">Portfolio Review</h4>
+                <p className="text-[11px] text-slate-500 dark:text-[#8E8F99] mt-0.5 tabular-nums">Inspect fills and costs</p>
               </div>
             </div>
           </motion.div>

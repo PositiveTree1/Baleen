@@ -1,0 +1,23 @@
+INFO:app.database:✅ Database initialized successfully — connected to Supabase PostgreSQL (postgresql+asyncpg), schema v13.
+INFO:app.main:Background scheduler and poller are disabled for this API process.
+INFO:httpx:HTTP Request: GET http://test/ready "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: POST http://test/api/auth/signup "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: POST http://test/api/auth/login "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: POST http://test/api/auth/signup "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: POST http://test/api/auth/login "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: GET http://test/api/me "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: GET http://test/api/users/4cc695be-7560-4721-8001-cc3e3c869296 "HTTP/1.1 401 Unauthorized"
+INFO:httpx:HTTP Request: GET http://test/api/users/4ff72638-909f-460e-8763-5959f2626b5b "HTTP/1.1 403 Forbidden"
+INFO:httpx:HTTP Request: GET http://test/api/admin/status "HTTP/1.1 403 Forbidden"
+INFO:httpx:HTTP Request: PATCH http://test/api/users/4cc695be-7560-4721-8001-cc3e3c869296 "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: GET http://test/api/users/4cc695be-7560-4721-8001-cc3e3c869296 "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: GET http://test/api/me "HTTP/1.1 401 Unauthorized"
+INFO:httpx:HTTP Request: POST http://test/api/executions/reset-sandbox?userId=4cc695be-7560-4721-8001-cc3e3c869296 "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: GET http://test/api/users/4ff72638-909f-460e-8763-5959f2626b5b "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: POST http://test/api/auth/logout "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: GET http://test/api/me "HTTP/1.1 401 Unauthorized"
+INFO:httpx:HTTP Request: GET http://test/api/me "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: POST http://test/api/auth/guest "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: GET http://test/api/me "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: POST http://test/api/auth/login "HTTP/1.1 422 Unprocessable Entity"
+{"ready": {"status": "ready", "service": "Baleen Backend", "database": "PostgreSQL", "schema_version": 13, "listener": "UNKNOWN", "timestamp": "2026-09-12T14:46:51.382447"}, "passed": ["signup", "login", "settings_save", "anonymous_rejection", "cross_account_rejection", "admin_rejection", "expired_token", "own_reset_isolation", "persistent_logout", "guest", "payload_bound"]}

@@ -15,11 +15,12 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
 
 # Copy requirements and install
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+COPY requirements-pinned.txt .
+RUN pip install --no-cache-dir --require-hashes -r requirements-pinned.txt
 
 # Copy all backend code
 COPY . .
+RUN python -c "import app.main"
 
 # Expose port
 EXPOSE 8000

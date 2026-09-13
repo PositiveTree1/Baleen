@@ -9,28 +9,28 @@ export function AdvantageSection() {
       num: '01',
       title: 'Discover',
       tag: 'On-Chain Scoring',
-      desc: 'Find verified, hyper-consistent prediction traders with audited Wilson score confidence bounds and clean PnL histories.',
+      desc: 'Explore observed wallet activity, historical results and scoring inputs. Data coverage and qualification remain under validation.',
       icon: Search,
     },
     {
       num: '02',
       title: 'Configure',
       tag: 'Risk Management',
-      desc: 'Set your portfolio risk regime, sizing multipliers (1.0x - 2.0x), and category tolerances with quantitative precision.',
+      desc: 'Choose a paper portfolio risk profile and inspect how the simulation sizes positions.',
       icon: Sliders,
     },
     {
       num: '03',
       title: 'Copy',
       tag: 'HyperSync Engine',
-      desc: 'Let Baleen automatically mirror smart money fills on Polymarket CLOB with sub-second execution speed.',
+      desc: 'Review simulated copies of observed trades, including fill prices, fees and rejected decisions.',
       icon: Zap,
     },
     {
       num: '04',
-      title: 'Compound',
+      title: 'Review',
       tag: 'MTM Rebalancing',
-      desc: 'Track live portfolio performance in real-time, inspect daily win/loss attribution, and compound returns on autopilot.',
+      desc: 'Inspect paper gains, losses and open positions. Experimental results do not establish achievable live returns.',
       icon: TrendingUp,
     },
   ];
@@ -45,11 +45,11 @@ export function AdvantageSection() {
             How It Works
           </span>
           <h2 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-slate-950 dark:text-white tracking-tight leading-[1.12] text-balance">
-            Trade with the best, <br />
-            automatically.
+            Explore the process, <br />
+            from source to copy.
           </h2>
           <p className="text-base sm:text-lg text-slate-600 dark:text-[#8E8F99] leading-relaxed font-normal">
-            Baleen gives you access to the smartest traders on Polymarket with full transparency and control. You decide who to follow, how much to allocate, and when to adjust.
+            Follow the path from observed wallet activity to simulated portfolio results, and review the assumptions behind each step.
           </p>
         </div>
 

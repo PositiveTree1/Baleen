@@ -8,8 +8,8 @@ export function ProfitSimulator() {
   const [initialCapital, setInitialCapital] = useState(20);
   const [timeHorizonMonths, setTimeHorizonMonths] = useState(6);
 
-  // Realistic high-performance alpha model based on Baleen Gold Sniper Basket (~18% monthly net alpha with liquidity bounds)
-  const monthlyRate = 0.18;
+  // This is a neutral illustrative model. No validated live return rate is available.
+  const monthlyRate = 0;
   const projectedBalance = initialCapital * Math.pow(1 + monthlyRate, timeHorizonMonths);
   const projectedProfit = projectedBalance - initialCapital;
 
@@ -25,7 +25,7 @@ export function ProfitSimulator() {
             See What Small Capital Can Do
           </h2>
           <p className="text-slate-600 text-base leading-relaxed">
-            Start with as little as <strong>$20</strong>. By mirroring verified Gold-Tier Polymarket whales on auto-pilot, high-frequency alpha compounding turns micro-allocations into serious capital.
+            Explore a hypothetical paper portfolio starting with as little as <strong>$20</strong>. The projection is illustrative and does not represent verified performance or expected returns.
           </p>
         </div>
 
@@ -60,21 +60,21 @@ export function ProfitSimulator() {
                 </div>
               </div>
 
-              {/* Verified Strategy Performance Card (No confusing tiers, just Average Returns) */}
+              {/* Strategy Performance Card */}
               <div className="p-5 rounded-2xl bg-slate-50 border border-black/[0.06] space-y-3">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <Sparkles size={16} className="text-amber-500" />
                     <span className="text-xs font-bold text-slate-900 uppercase tracking-wider">
-                      Strategy Profile: Average Whale Basket Returns
+                      Strategy Profile: Observed Whale Basket Performance
                     </span>
                   </div>
                   <span className="text-[10px] font-mono font-bold text-emerald-800 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200">
-                    88.4% Win Rate
+                    No validated rate
                   </span>
                 </div>
                 <p className="text-xs text-slate-600 leading-relaxed font-medium">
-                  Positions are dynamically sized across the top 17 audited Polymarket whales. Automated profit recycling reinvests gains into fresh high-conviction contract fills.
+                  Positions are dynamically sized across observed candidate Polymarket whales in paper simulation. Illustrative projection only; past source wallet performance does not guarantee future results.
                 </p>
               </div>
 
@@ -106,11 +106,11 @@ export function ProfitSimulator() {
               </div>
             </div>
 
-            {/* Guarantees */}
+            {/* Non-custodial Info */}
             <div className="pt-6 mt-6 border-t border-black/[0.06] grid grid-cols-2 gap-4 text-xs text-slate-600">
               <div className="flex items-center gap-2">
                 <CheckCircle2 size={16} className="text-emerald-600 shrink-0" />
-                <span>Non-custodial execution</span>
+                <span>Simulated paper portfolio</span>
               </div>
               <div className="flex items-center gap-2">
                 <CheckCircle2 size={16} className="text-emerald-600 shrink-0" />
@@ -128,11 +128,11 @@ export function ProfitSimulator() {
             <div className="relative z-10">
               <div className="flex justify-between items-center mb-6">
                 <span className="text-xs font-mono font-bold uppercase tracking-wider text-slate-400">
-                  Projected Value
+                  Hypothetical Projection (Illustrative Only)
                 </span>
                 <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-mono font-bold text-emerald-400 bg-emerald-950/60 border border-emerald-800/80">
                   <TrendingUp size={12} />
-                  Compounded Growth
+                  Simulated Model
                 </span>
               </div>
 
@@ -142,31 +142,27 @@ export function ProfitSimulator() {
                   ${Math.round(projectedBalance).toLocaleString()}
                 </div>
                 <div className="text-sm font-mono text-emerald-400 font-bold">
-                  {initialCapital <= 25 && timeHorizonMonths >= 6 ? (
-                    <span>🔥 Turn $20 into close to $10,000+</span>
-                  ) : (
-                    <span>+${Math.round(projectedProfit).toLocaleString()} Projected Net Gain</span>
-                  )}
+                  <span>+${Math.round(projectedProfit).toLocaleString()} Illustrative Projected Gain</span>
                 </div>
               </div>
 
               {/* Metric Breakdown Grid */}
               <div className="grid grid-cols-2 gap-3 mb-8">
                 <div className="p-4 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-md">
-                  <div className="text-[10px] text-slate-400 uppercase font-bold tracking-wider mb-1">Basket Win Rate</div>
-                  <div className="text-xl font-bold font-mono text-white">88.4%</div>
+                  <div className="text-[10px] text-slate-400 uppercase font-bold tracking-wider mb-1">Source Basket Win Rate</div>
+                  <div className="text-xl font-bold font-mono text-slate-300">Unavailable</div>
                 </div>
                 <div className="p-4 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-md">
-                  <div className="text-[10px] text-slate-400 uppercase font-bold tracking-wider mb-1">Tracked Whales</div>
-                  <div className="text-xl font-bold font-mono text-slate-300">17 Active</div>
+                  <div className="text-[10px] text-slate-400 uppercase font-bold tracking-wider mb-1">Candidate Whales</div>
+                  <div className="text-xl font-bold font-mono text-slate-300">Observed data</div>
                 </div>
                 <div className="p-4 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-md">
                   <div className="text-[10px] text-slate-400 uppercase font-bold tracking-wider mb-1">Avg Profit Factor</div>
-                  <div className="text-xl font-bold font-mono text-emerald-400">4.2x</div>
+                  <div className="text-xl font-bold font-mono text-slate-300">Unavailable</div>
                 </div>
                 <div className="p-4 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-md">
-                  <div className="text-[10px] text-slate-400 uppercase font-bold tracking-wider mb-1">Execution Speed</div>
-                  <div className="text-xl font-bold font-mono text-indigo-400">&lt; 38ms</div>
+                  <div className="text-[10px] text-slate-400 uppercase font-bold tracking-wider mb-1">Execution Mode</div>
+                  <div className="text-xl font-bold font-mono text-indigo-400">Paper Sandbox</div>
                 </div>
               </div>
             </div>
@@ -174,12 +170,12 @@ export function ProfitSimulator() {
             <div className="relative z-10 pt-4 border-t border-white/10">
               <Link href="/auth/signup" className="w-full block">
                 <button className="w-full py-4 px-6 rounded-2xl bg-white hover:bg-slate-100 text-slate-950 font-bold text-sm transition-all shadow-lg hover:shadow-white/10 flex items-center justify-center gap-2 cursor-pointer group active:scale-[0.98]">
-                  <span>Start With $10,000 Paper Funds</span>
+                  <span>Open Paper Trading Sandbox</span>
                   <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" />
                 </button>
               </Link>
               <p className="text-[11px] text-slate-500 text-center mt-3 font-medium">
-                Try the full engine completely risk-free in sandbox mode.
+                Explore simulated copy-trading in sandbox mode. Not financial advice.
               </p>
             </div>
           </div>

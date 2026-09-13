@@ -39,7 +39,7 @@ async def test_signals_and_trade_endpoints():
             "walletAddress": "0x1234567890abcdef1234567890abcdef12345678",
             "side": "BUY",
             "assetId": "9123847291823749812739812",
-            "amountFilled": "100000000",
+            "amountFilled": "100000000", "amountUnit": "raw_6",
             "price": "0.485",
             "transactionHash": "0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890",
             "logIndex": 1,

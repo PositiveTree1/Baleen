@@ -1,7 +1,7 @@
 'use client';
 import { useMemo, useState, useEffect, useCallback } from 'react';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
-import { ExecutionLog, Wallet } from '@/types';
+import { ExecutionLog, Wallet, MarketAttributionItem } from '@/types';
 import { 
   TrendingUp, 
   TrendingDown, 
@@ -18,18 +18,39 @@ import {
   CandlestickChart
 } from 'lucide-react';
 import { formatFrenchTime, formatFrenchDate } from '@/lib/formatters';
-import { resetSandboxLedger, clearAllCache, fetchPortfolioSnapshots, fetchWallets, getCachedWallets } from '@/lib/api-client';
+import { clearAllCache, fetchPortfolioSnapshots, fetchWallets, getCachedWallets } from '@/lib/api-client';
+import { Modal } from '../ui/Modal';
+import { ResetSandboxModal } from './ResetSandboxModal';
+
+export interface OhlcCandle {
+  time: string;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  isBullish: boolean;
+  pnl: number;
+}
+
+export interface TimelineSnapshotPoint {
+  displayTime: string;
+  time: string;
+  date: string;
+  balance: number;
+  pnl: number;
+  rawTimestamp: number;
+}
 
 interface PortfolioAnalyticsProps {
   logs: ExecutionLog[];
-  snapshots?: any[];
+  snapshots?: TimelineSnapshotPoint[];
   wallets?: Wallet[];
   userId?: string;
   startingBalance?: number;
   currentBalance?: number;
   totalFilledTrades?: number;
-  topAlphaMarkets?: any[];
-  topDrawdownMarkets?: any[];
+  topAlphaMarkets?: MarketAttributionItem[];
+  topDrawdownMarkets?: MarketAttributionItem[];
   allTimeWinRate?: number;
   allTimeWins?: number;
   allTimeLosses?: number;
@@ -65,15 +86,15 @@ export function PortfolioAnalytics({
 
   const top10Addresses = useMemo(() => {
     const sorted = [...effectiveWallets]
-      .filter((w) => (!w.status || w.status === 'active') && w.tier !== 'dormant' && !w.dormant && !w.isHft && (!w.tradesPerDay || w.tradesPerDay <= 50))
-      .sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
+      .filter((w) => (!w.status || w.status === 'active') && w.tier !== 'dormant' && !w.dormant && !w.isHft && w.tradesPerDay != null && w.tradesPerDay <= 50)
+      .sort((a, b) => (b.score ?? -Infinity) - (a.score ?? -Infinity));
     return new Set(sorted.slice(0, 10).map((w) => (w.address || '').toLowerCase()));
   }, [effectiveWallets]);
 
   const top10Roster = useMemo(() => {
     return [...effectiveWallets]
-      .filter((w) => (!w.status || w.status === 'active') && w.tier !== 'dormant' && !w.dormant && !w.isHft && (!w.tradesPerDay || w.tradesPerDay <= 50))
-      .sort((a, b) => (b.score ?? 0) - (a.score ?? 0))
+      .filter((w) => (!w.status || w.status === 'active') && w.tier !== 'dormant' && !w.dormant && !w.isHft && w.tradesPerDay != null && w.tradesPerDay <= 50)
+      .sort((a, b) => (b.score ?? -Infinity) - (a.score ?? -Infinity))
       .slice(0, 10);
   }, [effectiveWallets]);
 
@@ -84,14 +105,16 @@ export function PortfolioAnalytics({
   const [showStrategyModal, setShowStrategyModal] = useState(false);
   const [showSpreadsheet, setShowSpreadsheet] = useState(false);
   const [showResetModal, setShowResetModal] = useState(false);
-  const [isResetting, setIsResetting] = useState(false);
   const [showRawDataModal, setShowRawDataModal] = useState(false);
   const [copied, setCopied] = useState(false);
 
   // 1. Timeframe Filter on Execution Logs
   const targetLogs = useMemo(() => {
     if (timeframe === 'ALL') return logs;
-    const now = Date.now();
+    const latestTimestamp = logs.reduce((max, l) => {
+      const t = l.timestamp ? new Date(l.timestamp).getTime() : 0;
+      return t > max ? t : max;
+    }, 0);
     const map: Record<string, number> = {
       '1H': 60 * 60 * 1000,
       '6H': 6 * 60 * 60 * 1000,
@@ -100,10 +123,10 @@ export function PortfolioAnalytics({
       '1M': 30 * 24 * 60 * 60 * 1000,
     };
     const span = map[timeframe] || 0;
-    if (!span) return logs;
+    if (!span || latestTimestamp === 0) return logs;
     return logs.filter((l) => {
       const t = new Date(l.timestamp).getTime();
-      return now - t <= span;
+      return latestTimestamp - t <= span;
     });
   }, [logs, timeframe]);
 
@@ -117,50 +140,47 @@ export function PortfolioAnalytics({
     fillsCount: number;
     avgFillPrice: number;
     whaleName: string;
-    sampleTrade: ExecutionLog;
+    sampleTrade?: ExecutionLog;
   }
 
   // 2. Aggregate Market Attribution (Top Alpha & Top Drawdown)
   const { topAlpha, topDrawdown } = useMemo(() => {
     // When viewing all-time, prefer the full database attribution computed by the backend summary
     if (timeframe === 'ALL' && topAlphaMarkets && topAlphaMarkets.length > 0) {
-      const alpha = topAlphaMarkets.map((m: any) => ({
-        key: m.key || m.conditionId || m.question,
+      const alpha = topAlphaMarkets.filter(m => m.totalPnl !== undefined && m.totalPnl !== null).map((m: MarketAttributionItem) => ({
+        key: m.key || m.conditionId || m.question || 'unknown',
         question: m.question || 'Prediction Market',
         conditionId: m.conditionId || '',
         outcome: m.outcome || 'Yes',
-        totalPnl: m.totalPnl ?? 0.0,
+        totalPnl: m.totalPnl as number,
         totalNotional: m.totalNotional ?? 0.0,
         fillsCount: m.fillsCount ?? 0,
         avgFillPrice: m.avgFillPrice ?? 0.0,
         whaleName: m.whaleName || 'Whale',
-        sampleTrade: m.sampleTrade || logs.find(l => (l.marketQuestion === m.question || l.marketConditionId === m.conditionId)) || logs[0]
+        sampleTrade: (m as { sampleTrade?: ExecutionLog }).sampleTrade || logs.find(l => (l.marketQuestion === m.question || l.marketConditionId === m.conditionId))
       })).slice(0, 4);
 
-      const drawdown = (topDrawdownMarkets || []).map((m: any) => ({
-        key: m.key || m.conditionId || m.question,
+      const drawdown = (topDrawdownMarkets || []).filter(m => m.totalPnl !== undefined && m.totalPnl !== null).map((m: MarketAttributionItem) => ({
+        key: m.key || m.conditionId || m.question || 'unknown',
         question: m.question || 'Prediction Market',
         conditionId: m.conditionId || '',
         outcome: m.outcome || 'Yes',
-        totalPnl: m.totalPnl ?? 0.0,
+        totalPnl: m.totalPnl as number,
         totalNotional: m.totalNotional ?? 0.0,
         fillsCount: m.fillsCount ?? 0,
         avgFillPrice: m.avgFillPrice ?? 0.0,
         whaleName: m.whaleName || 'Whale',
-        sampleTrade: m.sampleTrade || logs.find(l => (l.marketQuestion === m.question || l.marketConditionId === m.conditionId)) || logs[0]
+        sampleTrade: (m as { sampleTrade?: ExecutionLog }).sampleTrade || logs.find(l => (l.marketQuestion === m.question || l.marketConditionId === m.conditionId))
       })).slice(0, 4);
 
       return { topAlpha: alpha, topDrawdown: drawdown };
     }
 
+    // Otherwise compute from filtered timeframe logs
     const marketMap = new Map<string, MarketSummary>();
-    targetLogs.forEach((l) => {
-      const key = l.marketQuestion || l.marketConditionId || l.id;
-      const notional = l.size ?? 0.0;
-      const pnl = l.pnl ?? 0.0;
-      const fillP = l.fillPrice || l.entryPrice || 0.0;
-      const whaleName = l.whaleName || l.whalePseudonym || (l.walletAddress ? `${l.walletAddress.slice(0, 6)}...${l.walletAddress.slice(-4)}` : 'Whale');
 
+    targetLogs.filter((l) => l.pnl !== null && l.pnl !== undefined && l.fillPrice !== null && l.fillPrice !== undefined).forEach((l) => {
+      const key = l.marketConditionId || l.marketQuestion || 'unknown';
       if (!marketMap.has(key)) {
         marketMap.set(key, {
           key,
@@ -170,12 +190,15 @@ export function PortfolioAnalytics({
           totalPnl: 0,
           totalNotional: 0,
           fillsCount: 0,
-          avgFillPrice: fillP,
-          whaleName,
-          sampleTrade: l
+          avgFillPrice: l.fillPrice as number,
+          whaleName: l.whaleName || l.whalePseudonym || 'Whale',
+          sampleTrade: l,
         });
       }
+
       const item = marketMap.get(key)!;
+      const pnl = l.pnl as number;
+      const notional = l.size ? l.size * (l.fillPrice as number) : 0.0;
       item.totalPnl += pnl;
       item.totalNotional += notional;
       item.fillsCount += 1;
@@ -187,32 +210,32 @@ export function PortfolioAnalytics({
     let drawdown = all.filter((m) => m.totalPnl < 0).sort((a, b) => a.totalPnl - b.totalPnl).slice(0, 4);
 
     if (alpha.length === 0 && topAlphaMarkets && topAlphaMarkets.length > 0) {
-      alpha = topAlphaMarkets.map((m: any) => ({
-        key: m.key || m.conditionId || m.question,
+      alpha = topAlphaMarkets.filter(m => m.totalPnl !== undefined && m.totalPnl !== null).map((m: MarketAttributionItem) => ({
+        key: m.key || m.conditionId || m.question || 'unknown',
         question: m.question || 'Prediction Market',
         conditionId: m.conditionId || '',
         outcome: m.outcome || 'Yes',
-        totalPnl: m.totalPnl ?? 0.0,
+        totalPnl: m.totalPnl as number,
         totalNotional: m.totalNotional ?? 0.0,
         fillsCount: m.fillsCount ?? 0,
         avgFillPrice: m.avgFillPrice ?? 0.0,
         whaleName: m.whaleName || 'Whale',
-        sampleTrade: m.sampleTrade || logs.find(l => (l.marketQuestion === m.question || l.marketConditionId === m.conditionId)) || logs[0]
+        sampleTrade: (m as { sampleTrade?: ExecutionLog }).sampleTrade || logs.find(l => (l.marketQuestion === m.question || l.marketConditionId === m.conditionId))
       })).slice(0, 4);
     }
 
     if (drawdown.length === 0 && topDrawdownMarkets && topDrawdownMarkets.length > 0) {
-      drawdown = topDrawdownMarkets.map((m: any) => ({
-        key: m.key || m.conditionId || m.question,
+      drawdown = topDrawdownMarkets.filter(m => m.totalPnl !== undefined && m.totalPnl !== null).map((m: MarketAttributionItem) => ({
+        key: m.key || m.conditionId || m.question || 'unknown',
         question: m.question || 'Prediction Market',
         conditionId: m.conditionId || '',
         outcome: m.outcome || 'Yes',
-        totalPnl: m.totalPnl ?? 0.0,
+        totalPnl: m.totalPnl as number,
         totalNotional: m.totalNotional ?? 0.0,
         fillsCount: m.fillsCount ?? 0,
         avgFillPrice: m.avgFillPrice ?? 0.0,
         whaleName: m.whaleName || 'Whale',
-        sampleTrade: m.sampleTrade || logs.find(l => (l.marketQuestion === m.question || l.marketConditionId === m.conditionId)) || logs[0]
+        sampleTrade: (m as { sampleTrade?: ExecutionLog }).sampleTrade || logs.find(l => (l.marketQuestion === m.question || l.marketConditionId === m.conditionId))
       })).slice(0, 4);
     }
 
@@ -242,10 +265,10 @@ export function PortfolioAnalytics({
     let totalNotional = 0;
     let totalFees = 0;
 
-    targetLogs.forEach((l) => {
-      const pnl = l.pnl ?? 0.0;
+    targetLogs.filter((l) => l.pnl !== null && l.pnl !== undefined).forEach((l) => {
+      const pnl = l.pnl as number;
       const notional = l.size ?? 0.0;
-      const fee = l.feeUsd || 0.0;
+      const fee = l.feeUsd ?? 0.0;
       totalNotional += notional;
       totalFees += fee;
       if (pnl > 0) wins += 1;
@@ -448,73 +471,49 @@ export function PortfolioAnalytics({
   }, [activeHoldingLogs, currentBalance, top10Addresses, top10Roster]);
 
   // 5. Portfolio Snapshots Timeline
-  const [serverSnapshots, setServerSnapshots] = useState<any[]>(snapshots);
+  const [serverSnapshots, setServerSnapshots] = useState<TimelineSnapshotPoint[]>(snapshots);
   const [chartLoading, setChartLoading] = useState(false);
-  const [hoveredCandle, setHoveredCandle] = useState<any>(null);
-
-  const loadSnapshots = useCallback(async (tf: string) => {
-    setChartLoading(true);
-    try {
-      const data = await fetchPortfolioSnapshots(userId, tf);
-      const isMultiDay = tf === 'ALL' || tf === '1M' || tf === 'YTD' || tf === '1W';
-
-      if (Array.isArray(data) && data.length > 0) {
-        const timeline = data.map((s: any) => {
-          const ts = s.timestamp ? new Date(s.timestamp) : new Date();
-          const timeStr = formatFrenchTime(ts);
-          const dateStr = formatFrenchDate(ts);
-          return {
-            displayTime: isMultiDay && dateStr ? `${dateStr} ${timeStr}` : timeStr,
-            time: timeStr,
-            date: dateStr,
-            balance: Math.round((s.balance ?? 10000) * 100) / 100,
-            pnl: Math.round((s.pnl ?? 0) * 100) / 100,
-            rawTimestamp: ts.getTime(),
-          };
-        });
-
-        const lastSnapshotBal = timeline.length > 0 ? timeline[timeline.length - 1].balance : 10000.0;
-        const isDefaultFallback = (currentBalance === 10000.0 && Math.abs(lastSnapshotBal - 10000.0) > 50.0);
-        const resolvedCurrentBalance = isDefaultFallback ? lastSnapshotBal : currentBalance;
-
-        if (resolvedCurrentBalance > 0) {
-          const now = new Date();
-          const nowTimeStr = formatFrenchTime(now);
-          const nowDateStr = formatFrenchDate(now);
-          const livePoint = {
-            displayTime: isMultiDay && nowDateStr ? `${nowDateStr} ${nowTimeStr}` : nowTimeStr,
-            time: nowTimeStr,
-            date: nowDateStr,
-            balance: Math.round(resolvedCurrentBalance * 100) / 100,
-            pnl: Math.round((resolvedCurrentBalance - startingBalance) * 100) / 100,
-            rawTimestamp: now.getTime(),
-          };
-
-          if (timeline.length === 0) {
-            timeline.push(livePoint);
-          } else {
-            const lastPoint = timeline[timeline.length - 1];
-            if ((now.getTime() - lastPoint.rawTimestamp) > 300000) {
-              timeline.push(livePoint);
-            } else {
-              lastPoint.balance = Math.round(resolvedCurrentBalance * 100) / 100;
-              lastPoint.pnl = Math.round((resolvedCurrentBalance - startingBalance) * 100) / 100;
-            }
-          }
-        }
-
-        setServerSnapshots(timeline);
-      }
-    } catch (e) {
-      console.debug("Snapshot fetch note:", e);
-    } finally {
-      setChartLoading(false);
-    }
-  }, [userId, currentBalance, startingBalance]);
+  const [hoveredCandle, setHoveredCandle] = useState<OhlcCandle | null>(null);
+  const [snapshotRefreshKey, setSnapshotRefreshKey] = useState(0);
 
   useEffect(() => {
-    loadSnapshots(timeframe);
-  }, [timeframe, loadSnapshots]);
+    let isMounted = true;
+    const fetchTimeline = async () => {
+      try {
+        const data = await fetchPortfolioSnapshots(userId, timeframe);
+        if (!isMounted) return;
+        const isMultiDay = timeframe === 'ALL' || timeframe === '1M' || timeframe === 'YTD' || timeframe === '1W';
+
+        if (Array.isArray(data) && data.length > 0) {
+          const timeline: TimelineSnapshotPoint[] = data.flatMap((s) => {
+            if (!s.timestamp || !Number.isFinite(s.balance) || !Number.isFinite(s.pnl)) return [];
+            const ts = new Date(s.timestamp);
+            if (!Number.isFinite(ts.getTime())) return [];
+            const timeStr = formatFrenchTime(ts);
+            const dateStr = formatFrenchDate(ts);
+            return [{
+              displayTime: isMultiDay && dateStr ? `${dateStr} ${timeStr}` : timeStr,
+              time: timeStr,
+              date: dateStr,
+              balance: Math.round(s.balance * 100) / 100,
+              pnl: Math.round(s.pnl * 100) / 100,
+              rawTimestamp: ts.getTime(),
+            }];
+          });
+          setServerSnapshots(timeline);
+        }
+      } catch (e) {
+        console.debug("Snapshot fetch note:", e);
+      } finally {
+        if (isMounted) setChartLoading(false);
+      }
+    };
+
+    void fetchTimeline();
+    return () => {
+      isMounted = false;
+    };
+  }, [userId, timeframe, currentBalance, startingBalance, snapshotRefreshKey]);
 
   const pnlTimeline = useMemo(() => {
     if (serverSnapshots && serverSnapshots.length > 0) return serverSnapshots;
@@ -527,20 +526,12 @@ export function PortfolioAnalytics({
     
     const numBuckets = Math.min(30, Math.max(6, Math.floor(pnlTimeline.length / 4)));
     const bucketSize = Math.max(1, Math.floor(pnlTimeline.length / numBuckets));
-    const candles: {
-      time: string;
-      open: number;
-      high: number;
-      low: number;
-      close: number;
-      isBullish: boolean;
-      pnl: number;
-    }[] = [];
+    const candles: OhlcCandle[] = [];
 
     for (let i = 0; i < pnlTimeline.length; i += bucketSize) {
       const chunk = pnlTimeline.slice(i, i + bucketSize);
       if (chunk.length === 0) continue;
-      const prices = chunk.map((s: any) => s.balance);
+      const prices = chunk.map((s: TimelineSnapshotPoint) => s.balance);
       const open = chunk[0].balance;
       const close = chunk[chunk.length - 1].balance;
       const high = Math.max(...prices);
@@ -554,69 +545,29 @@ export function PortfolioAnalytics({
         low,
         close,
         isBullish,
-        pnl: close - open,
+        pnl: Math.round((close - startingBalance) * 100) / 100
       });
     }
+
     return candles;
-  }, [pnlTimeline]);
+  }, [pnlTimeline, startingBalance]);
 
-  const periodPnL = useMemo(() => {
-    if (pnlTimeline.length < 2) return currentBalance - startingBalance;
-    const first = pnlTimeline[0].balance;
-    const last = pnlTimeline[pnlTimeline.length - 1].balance;
-    return last - first;
-  }, [pnlTimeline, currentBalance, startingBalance]);
-
-  const periodPnLPct = useMemo(() => {
-    if (pnlTimeline.length < 2) return startingBalance > 0 ? ((currentBalance - startingBalance) / startingBalance) * 100 : 0.0;
-    const first = pnlTimeline[0].balance;
-    const pnl = periodPnL;
-    return first > 0 ? (pnl / first) * 100 : 0.0;
-  }, [pnlTimeline, periodPnL, currentBalance, startingBalance]);
-
-  const handleResetExecute = async () => {
-    setIsResetting(true);
-    try {
-      await resetSandboxLedger(userId);
-      clearAllCache();
-      setShowResetModal(false);
-      if (onResetComplete) onResetComplete();
-      loadSnapshots(timeframe);
-    } catch (e) {
-      console.error("Reset failed:", e);
-    } finally {
-      setIsResetting(false);
-    }
-  };
+  // Derive Period Statistics
+  const firstBal = pnlTimeline.length > 0 ? pnlTimeline[0].balance : startingBalance;
+  const lastBal = pnlTimeline.length > 0 ? pnlTimeline[pnlTimeline.length - 1].balance : currentBalance;
+  const periodPnL = lastBal - firstBal;
+  const periodPnLPct = firstBal > 0 ? (periodPnL / firstBal) * 100 : 0;
 
   const isPositive = periodPnL >= 0;
+  const omittedMarketEvidenceCount = targetLogs.filter((l) => l.pnl === null || l.pnl === undefined || l.fillPrice === null || l.fillPrice === undefined).length;
 
-  const handleOpenMarketTrade = (m: any) => {
+  const handleOpenMarketTrade = useCallback((m: MarketSummary) => {
     if (!onSelectTrade) return;
     const match = logs.find((l) => (m.conditionId && l.marketConditionId === m.conditionId) || (m.question && l.marketQuestion === m.question));
     if (match) {
       onSelectTrade(match);
-    } else {
-      const avgP = m.avgFillPrice || 0.5;
-      onSelectTrade({
-        id: m.conditionId || m.key || `mkt-${Date.now()}`,
-        timestamp: new Date().toISOString(),
-        walletAddress: m.walletAddress || '0x0000000000000000000000000000000000000000',
-        marketQuestion: m.question || 'Prediction Market Contract',
-        marketConditionId: m.conditionId || '',
-        outcome: m.outcome || 'Yes',
-        side: (m.totalPnl ?? 0) >= 0 ? 'BUY' : 'SELL',
-        entryPrice: avgP,
-        fillPrice: avgP,
-        currentPrice: avgP,
-        size: m.totalNotional || 10.0,
-        pnl: m.totalPnl ?? 0.0,
-        pnlPct: (m.totalNotional && m.totalNotional > 0) ? ((m.totalPnl ?? 0) / m.totalNotional) * 100 : 0.0,
-        whaleName: m.whaleName || 'Whale',
-        status: 'RESOLVED',
-      });
     }
-  };
+  }, [logs, onSelectTrade]);
 
   return (
     <div className="flex flex-col gap-6 w-full">
@@ -804,7 +755,7 @@ export function PortfolioAnalytics({
         {/* Revolut Informational Caption */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-3 border-t border-black/[0.04] dark:border-white/5 text-[11px] text-slate-500 dark:text-[#8E8F99]">
           <p>
-            Mark-to-market valuations reflect real-time Polymarket CLOB midpoint orderbook prices and execution fills.
+            Experimental paper valuations use available price observations and simulated fills. Price freshness and accounting remain under validation.
           </p>
           <div className="flex items-center gap-2">
             <button
@@ -812,7 +763,7 @@ export function PortfolioAnalytics({
               className="text-xs text-slate-500 dark:text-[#8E8F99] hover:text-slate-950 dark:hover:text-white transition-colors cursor-pointer flex items-center gap-1 font-semibold"
             >
               <RefreshCw size={12} />
-              Reset Ledger
+              Start New Paper Run
             </button>
             <button
               onClick={() => setShowRawDataModal(true)}
@@ -967,9 +918,9 @@ export function PortfolioAnalytics({
         {/* Card 3: Taker Fee & Cashflow Efficiency */}
         <div className="revolut-card p-5 space-y-4 rounded-[26px]">
           <div className="space-y-1">
-            <span className="text-xs font-semibold text-slate-500 dark:text-[#8E8F99]">Quadratic Fee Rate</span>
+            <span className="text-xs font-semibold text-slate-500 dark:text-[#8E8F99]">Recorded Fees / Notional</span>
             <div className="text-2xl font-bold text-slate-950 dark:text-white font-outfit">
-              {feeRatePct.toFixed(2)}% <span className="text-xs text-emerald-600 dark:text-[#00D09C] font-semibold">● On track</span>
+              {feeRatePct.toFixed(2)}% <span className="text-xs text-slate-500 dark:text-[#8E8F99] font-semibold">Paper estimate</span>
             </div>
           </div>
 
@@ -983,8 +934,8 @@ export function PortfolioAnalytics({
           </div>
 
           <div className="flex justify-between text-[11px] text-slate-500 dark:text-[#8E8F99]">
-            <span>Dynamic Polymarket Taker Gate</span>
-            <span className="text-slate-950 dark:text-white font-mono font-bold">EV &gt; 2.5× Fee</span>
+            <span>Fee model</span>
+            <span className="text-slate-950 dark:text-white font-mono font-bold">Under validation</span>
           </div>
         </div>
 
@@ -994,6 +945,11 @@ export function PortfolioAnalytics({
       {/* 3. REVOLUT ALPHA & DRAWDOWN ATTRIBUTION LIST (CLICKABLE) */}
       {/* ========================================================= */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+        {omittedMarketEvidenceCount > 0 && (
+          <div className="md:col-span-2 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-800 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-200">
+            Market attribution shows known records only; {omittedMarketEvidenceCount} trade{omittedMarketEvidenceCount === 1 ? '' : 's'} omitted because price or PnL evidence is unavailable.
+          </div>
+        )}
         
         {/* Top Alpha Generators */}
         <div className="revolut-card p-5 sm:p-6 space-y-4 rounded-[26px]">
@@ -1094,62 +1050,44 @@ export function PortfolioAnalytics({
       {/* ========================================================= */}
       {/* RESET SANDBOX MODAL */}
       {/* ========================================================= */}
-      {showResetModal && (
-        <div className="fixed inset-0 bg-black/60 dark:bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
-          <div className="revolut-card bg-white dark:bg-[#16171B] border border-black/10 dark:border-white/10 p-6 rounded-[28px] max-w-sm w-full space-y-4 shadow-2xl">
-            <h3 className="text-base font-bold text-slate-950 dark:text-white">Reset Sandbox to $10,000?</h3>
-            <p className="text-xs text-slate-500 dark:text-[#8E8F99]">
-              This will clear historical simulation trade logs and reset your balance back to pristine $10,000.00 baseline.
-            </p>
-            <div className="flex gap-3 pt-2">
-              <button
-                onClick={() => setShowResetModal(false)}
-                className="flex-1 py-3 rounded-full bg-slate-100 dark:bg-[#1C1D22] hover:bg-slate-200 dark:hover:bg-[#24262E] text-slate-800 dark:text-white text-xs font-semibold border border-black/5 dark:border-white/5 transition-all cursor-pointer"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleResetExecute}
-                disabled={isResetting}
-                className="flex-1 py-3 rounded-full bg-slate-950 dark:bg-white hover:bg-slate-800 dark:hover:bg-slate-200 text-white dark:text-black text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5"
-              >
-                {isResetting && <Loader2 size={13} className="animate-spin" />}
-                Confirm Reset
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ResetSandboxModal
+        isOpen={showResetModal}
+        onClose={() => setShowResetModal(false)}
+        userId={userId}
+        currentBalance={currentBalance}
+        onResetComplete={() => {
+          if (onResetComplete) onResetComplete();
+          setChartLoading(true);
+          setSnapshotRefreshKey((prev) => prev + 1);
+        }}
+      />
 
       {/* ========================================================= */}
       {/* RAW DATA CODE MODAL */}
       {/* ========================================================= */}
-      {showRawDataModal && (
-        <div className="fixed inset-0 bg-black/60 dark:bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
-          <div className="revolut-card bg-white dark:bg-[#16171B] border border-black/10 dark:border-white/10 p-6 rounded-[28px] max-w-xl w-full space-y-4 shadow-2xl">
-            <div className="flex items-center justify-between border-b border-black/10 dark:border-white/10 pb-3">
-              <h3 className="text-sm font-bold text-slate-950 dark:text-white">Raw Snapshot Data Payload</h3>
-              <button onClick={() => setShowRawDataModal(false)} className="p-1 rounded-full text-slate-400 dark:text-[#8E8F99] hover:text-slate-800 dark:hover:text-white">
-                <X size={16} />
-              </button>
-            </div>
-            <pre className="bg-slate-950 p-4 rounded-2xl text-[11px] font-mono text-[#00D09C] overflow-x-auto max-h-80 border border-white/5">
-              {JSON.stringify(pnlTimeline, null, 2)}
-            </pre>
-            <button
-              onClick={() => {
-                navigator.clipboard.writeText(JSON.stringify(pnlTimeline, null, 2));
-                setCopied(true);
-                setTimeout(() => setCopied(false), 2000);
-              }}
-              className="w-full py-3 rounded-full bg-slate-100 dark:bg-[#1C1D22] hover:bg-slate-200 dark:hover:bg-[#24262E] text-slate-800 dark:text-white text-xs font-bold border border-black/5 dark:border-white/5 transition-all flex items-center justify-center gap-1.5"
-            >
-              {copied ? <Check size={14} className="text-[#00D09C]" /> : <Copy size={14} />}
-              {copied ? 'Copied to Clipboard' : 'Copy JSON'}
-            </button>
-          </div>
+      <Modal
+        isOpen={showRawDataModal}
+        onClose={() => setShowRawDataModal(false)}
+        title="Raw Snapshot Data Payload"
+        maxWidth="max-w-xl"
+      >
+        <div className="space-y-4">
+          <pre className="bg-slate-950 p-4 rounded-2xl text-[11px] font-mono text-[#00D09C] overflow-x-auto max-h-80 border border-white/5">
+            {JSON.stringify(pnlTimeline, null, 2)}
+          </pre>
+          <button
+            onClick={() => {
+              navigator.clipboard.writeText(JSON.stringify(pnlTimeline, null, 2));
+              setCopied(true);
+              setTimeout(() => setCopied(false), 2000);
+            }}
+            className="w-full py-3 rounded-full bg-slate-100 dark:bg-[#1C1D22] hover:bg-slate-200 dark:hover:bg-[#24262E] text-slate-800 dark:text-white text-xs font-bold border border-black/5 dark:border-white/5 transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+          >
+            {copied ? <Check size={14} className="text-[#00D09C]" /> : <Copy size={14} />}
+            {copied ? 'Copied to Clipboard' : 'Copy JSON'}
+          </button>
         </div>
-      )}
+      </Modal>
     </div>
   );
 }

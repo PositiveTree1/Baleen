@@ -447,11 +447,26 @@ def calculate_authentic_wallet_stats(
 
     # B. Process Redemptions from activity
     if activity:
+        seen_redemptions: Set[str] = set()
         for act in activity:
             if not isinstance(act, dict):
                 continue
             act_type = str(act.get("type") or "").upper()
             if act_type in ["REDEMPTION", "REDEEM"]:
+                # Providers may expose the same redemption in multiple pages.
+                # Prefer stable chain/API evidence; the full-record fallback
+                # avoids a broad timestamp-window heuristic when no ID exists.
+                stable_id = act.get("transactionHash") or act.get("txHash") or act.get("id")
+                if stable_id:
+                    redemption_key = f"id:{stable_id}"
+                else:
+                    redemption_key = "record:" + json.dumps(
+                        {k: v for k, v in act.items() if k not in {"retrievedAt", "updatedAt"}},
+                        sort_keys=True, default=str
+                    )
+                if redemption_key in seen_redemptions:
+                    continue
+                seen_redemptions.add(redemption_key)
                 ts_val = float(act.get("timestamp") or act.get("time") or 0.0)
                 if ts_val <= 0.0:
                     continue
@@ -472,7 +487,10 @@ def calculate_authentic_wallet_stats(
                 elif asset in pos_by_condition and float(pos_by_condition[asset].get("avgPrice") or 0.0) > 0:
                     avg_p = float(pos_by_condition[asset]["avgPrice"])
                 else:
-                    avg_p = 0.50
+                    # A redemption payout without an observed entry basis is
+                    # real cash movement but not measurable realized PnL.
+                    # Do not invent a 50-cent basis and inflate eligibility.
+                    continue
 
                 cost_basis = size * avg_p
                 pnl = size - cost_basis
@@ -494,7 +512,9 @@ def calculate_authentic_wallet_stats(
             continue
         asset = str(pos.get("asset") or pos.get("conditionId") or "")
         cid = str(pos.get("conditionId") or "")
-        if asset in accounted_assets or (cid and cid in accounted_assets):
+        # Assets are distinct outcome tokens even when they share a condition.
+        # Only use the condition fallback when the closed record has no asset.
+        if (asset and asset in accounted_assets) or (not asset and cid and cid in accounted_assets):
             continue
 
         c_pnl = float(pos.get("realizedPnl") or pos.get("cashPnl") or 0.0)
@@ -943,6 +963,27 @@ async def evaluate_pending_wallets(db: AsyncSession, client: Optional[Polymarket
                         pass
 
                 results = await asyncio.gather(*tasks, return_exceptions=True)
+                coverage_errors = [result for result in results if isinstance(result, Exception)]
+                if coverage_errors:
+                    # Empty fallbacks are unsafe here: a partial provider page
+                    # must never look like a clean zero-history wallet.
+                    open_stmt = select(ExecutionLog.id).where(
+                        ExecutionLog.source_wallet_address.ilike(addr),
+                        ExecutionLog.side == "BUY",
+                        ExecutionLog.status == "FILLED",
+                    ).limit(1)
+                    has_open_position = (await db.execute(open_stmt)).scalar_one_or_none() is not None
+                    wallet.status = "tracked" if has_open_position else "rejected"
+                    wallet.tier = wallet.tier if has_open_position else "rejected"
+                    wallet.rejection_reason = (
+                        "Insufficient provider coverage; candidate remains unvalidated"
+                        + (f": {coverage_errors[0]}" if coverage_errors else "")
+                    )
+                    discovery_state["rejected"] += 1
+                    await db.commit()
+                    processed_count += 1
+                    continue
+
                 raw_positions = results[0] if not isinstance(results[0], Exception) else []
                 raw_activity = results[1] if not isinstance(results[1], Exception) else []
                 raw_profile = results[2] if not isinstance(results[2], Exception) else {}
@@ -1184,11 +1225,11 @@ async def scan_for_wallets(db: AsyncSession, full_refresh: bool = False):
     
     try:
         if full_refresh:
-            discovery_state["step_description"] = "Hard wiping previous wallets for fresh discovery from Polymarket..."
-            await db.execute(delete(WalletSnapshot))
-            await db.execute(delete(Wallet))
-            await db.commit()
-            logger.info("All existing wallets completely deleted for fresh discovery scan.")
+            # A refresh is a rescore pass. Preserve wallet identities, score
+            # history, and any positions keyed to those identities while new
+            # provider evidence is collected below.
+            discovery_state["step_description"] = "Refreshing candidate evidence without deleting tracked wallets..."
+            logger.info("Starting nondestructive wallet refresh; existing wallets and snapshots are retained.")
 
         discovery_state["progress_pct"] = 15
         discovery_state["step_description"] = "Stage 1: Multi-Period Leaderboard & Trade Scraping..."
@@ -1202,9 +1243,7 @@ async def scan_for_wallets(db: AsyncSession, full_refresh: bool = False):
             if s_clean not in candidates:
                 candidates[s_clean] = {
                     "address": s_clean,
-                    "source": "curated_seed",
-                    "profit": 100000.0,
-                    "volume": 500000.0
+                    "source": "curated_seed"
                 }
 
         total_candidates = len(candidates)

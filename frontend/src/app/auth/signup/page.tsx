@@ -27,7 +27,11 @@ export default function SignupPage() {
     setError('');
 
     try {
-      await signUp(form.email, form.password, parseFloat(form.balance));
+      const account = await signUp(form.email, form.password, parseFloat(form.balance));
+      if (!account) {
+        setError('Could not create this account. Check your details, or sign in if you already have an account.');
+        return;
+      }
       
       const res = await signIn('credentials', {
         email: form.email,
@@ -39,17 +43,12 @@ export default function SignupPage() {
         router.push('/dashboard');
         router.refresh();
       } else {
-        router.push('/dashboard');
-        router.refresh();
+        setError('Your account was created, but sign in failed. Please use the sign-in page.');
       }
     } catch {
-      await signIn('credentials', {
-        email: form.email,
-        password: form.password,
-        redirect: false,
-      });
-      router.push('/dashboard');
-      router.refresh();
+      setError('Could not complete signup. Please check your connection and try again.');
+    } finally {
+      setLoading(false);
     }
   };
 
