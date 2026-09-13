@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useSession } from 'next-auth/react';
 import { BalanceCounter } from '@/components/dashboard/BalanceCounter';
 import { LiveTape } from '@/components/dashboard/LiveTape';
@@ -59,6 +59,15 @@ export default function DashboardPage() {
   const [selectedWallet, setSelectedWallet] = useState<string | null>(null);
   const [selectedTrade, setSelectedTrade] = useState<ExecutionLog | null>(null);
 
+  const [user, setUser] = useState<User | null>(null);
+
+  // User ID persistence: never drop to undefined during NextAuth background revalidation
+  const lastUserIdRef = useRef<string | undefined>(session?.user?.id);
+  if (session?.user?.id && session.user.id !== lastUserIdRef.current) {
+    lastUserIdRef.current = session.user.id;
+  }
+  const effectiveUserId = session?.user?.id || user?.id || lastUserIdRef.current;
+
   // View Mode: 'sandbox' | 'live'
   const [viewMode, setViewMode] = useState<'sandbox' | 'live'>('sandbox');
   const [liveDashboard, setLiveDashboard] = useState<LiveTradingDashboard | null>(null);
@@ -73,7 +82,6 @@ export default function DashboardPage() {
   const [activityOpen, setActivityOpen] = useState(false);
   const [soundActive, setSoundActive] = useState(false);
   const [logs, setLogs] = useState<ExecutionLog[]>(() => getCachedExecutionLogs(session?.user?.id) || []);
-  const [user, setUser] = useState<User | null>(null);
   const [portfolio, setPortfolio] = useState<PortfolioSummary | null>(() => getCachedPortfolioSummary(session?.user?.id) || null);
   const [wallets, setWallets] = useState<Wallet[]>(() => getCachedWallets() || []);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
@@ -99,12 +107,13 @@ export default function DashboardPage() {
       if (token) {
         setAuthToken(token);
       }
+      const targetUserId = effectiveUserId;
       try {
         const [userData, portfolioData, logsData, liveData, walletsData] = await Promise.all([
-          session?.user?.id ? fetchUserSettings(session.user.id) : null,
-          fetchPortfolioSummary(session?.user?.id),
-          fetchExecutionLogs(session?.user?.id, { limit: '500' }),
-          fetchLiveDashboard(session?.user?.id),
+          targetUserId ? fetchUserSettings(targetUserId) : null,
+          targetUserId ? fetchPortfolioSummary(targetUserId) : null,
+          targetUserId ? fetchExecutionLogs(targetUserId, { limit: '500' }) : [],
+          targetUserId ? fetchLiveDashboard(targetUserId) : null,
           fetchWallets()
         ]);
         if (!isMounted) return;
@@ -174,11 +183,15 @@ export default function DashboardPage() {
   // Sandbox calculations
   const activeSummary = portfolio ?? cachedSummary;
   const summaryValuationIncomplete = activeSummary?.valuationStatus === 'INCOMPLETE';
-  const sandboxBalance = activeSummary
+  const sandboxBalance = (activeSummary?.currentBalance !== null && activeSummary?.currentBalance !== undefined)
     ? activeSummary.currentBalance
-    : user?.currentBalance ?? null;
-  const sandboxPnl = activeSummary?.totalPnlUsd ?? null;
-  const sandboxPnlPct = activeSummary?.totalPnlPct ?? null;
+    : (user?.currentBalance !== null && user?.currentBalance !== undefined)
+      ? user.currentBalance
+      : (activeSummary?.startingBalance ?? user?.startingBalance ?? 10000.0);
+  const sandboxPnl = (activeSummary?.totalPnlUsd !== null && activeSummary?.totalPnlUsd !== undefined)
+    ? activeSummary.totalPnlUsd
+    : (activeSummary?.knownPnlUsd ?? 0.0);
+  const sandboxPnlPct = activeSummary?.totalPnlPct ?? (sandboxBalance && (activeSummary?.startingBalance ?? user?.startingBalance ?? 10000.0) ? ((sandboxBalance - (activeSummary?.startingBalance ?? user?.startingBalance ?? 10000.0)) / (activeSummary?.startingBalance ?? user?.startingBalance ?? 10000.0)) * 100.0 : 0.0);
 
   // Live Capital calculations (preserve null/undefined to avoid converting missing state to zero)
   const liveEvidenceVerified = liveDashboard?.execution_evidence === 'authenticated_verified';
@@ -351,35 +364,29 @@ export default function DashboardPage() {
             </div>
 
             {/* Section 1: Line Chart & Analytics Cards */}
-            {sandboxBalance === null ? (
-              <div className="revolut-card rounded-[26px] p-6 text-sm text-slate-500 dark:text-[#8E8F99]">
-                Portfolio analytics unavailable until the incomplete valuation has sufficient evidence.
-              </div>
-            ) : (
-              <PortfolioAnalytics
-                logs={logs}
-                wallets={wallets}
-                userId={session?.user?.id}
-                startingBalance={portfolio?.startingBalance ?? user?.startingBalance ?? 10000.0}
-                currentBalance={sandboxBalance}
-                totalFilledTrades={portfolio?.filledTradesCount ?? logs.length}
-                topAlphaMarkets={portfolio?.topAlphaMarkets}
-                topDrawdownMarkets={portfolio?.topDrawdownMarkets}
-                allTimeWinRate={portfolio?.allTimeWinRate}
-                allTimeWins={portfolio?.allTimeWins}
-                allTimeLosses={portfolio?.allTimeLosses}
-                onSelectTrade={setSelectedTrade}
-                onResetComplete={handleDataRefresh}
-              />
-            )}
+            <PortfolioAnalytics
+              logs={logs}
+              wallets={wallets}
+              userId={effectiveUserId}
+              startingBalance={portfolio?.startingBalance ?? user?.startingBalance ?? 10000.0}
+              currentBalance={sandboxBalance}
+              totalFilledTrades={portfolio?.filledTradesCount ?? logs.length}
+              topAlphaMarkets={portfolio?.topAlphaMarkets}
+              topDrawdownMarkets={portfolio?.topDrawdownMarkets}
+              allTimeWinRate={portfolio?.allTimeWinRate}
+              allTimeWins={portfolio?.allTimeWins}
+              allTimeLosses={portfolio?.allTimeLosses}
+              onSelectTrade={setSelectedTrade}
+              onResetComplete={handleDataRefresh}
+            />
 
             {/* Section 2: Live Tape & Active Whale Basket */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               <div className="lg:col-span-2">
-                <LiveTape userId={session?.user?.id} onSelectTrade={setSelectedTrade} />
+                <LiveTape userId={effectiveUserId} onSelectTrade={setSelectedTrade} />
               </div>
               <div className="lg:col-span-1">
-                <WalletLeaderboard userId={session?.user?.id} onSelectWallet={setSelectedWallet} />
+                <WalletLeaderboard userId={effectiveUserId} onSelectWallet={setSelectedWallet} />
               </div>
             </div>
 

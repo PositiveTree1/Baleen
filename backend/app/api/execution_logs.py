@@ -221,7 +221,8 @@ async def get_portfolio_summary(
     unvalued = sum(values[r.id]['pnl'] is None for r in positions)
     known_pnl = sum(values[r.id]['pnl'] for r in positions if values[r.id]['pnl'] is not None)
     total_pnl = None if unvalued else round(known_pnl, 2)
-    current_balance = round(starting_balance + total_pnl, 2) if starting_balance is not None and total_pnl is not None else None
+    effective_pnl = total_pnl if total_pnl is not None else round(known_pnl, 2)
+    current_balance = round(starting_balance + effective_pnl, 2) if starting_balance is not None else None
     now = datetime.utcnow()
     windows = {'1h': timedelta(hours=1), '6h': timedelta(hours=6), '1d': timedelta(days=1),
                '1w': timedelta(days=7), '1m': timedelta(days=30)}
