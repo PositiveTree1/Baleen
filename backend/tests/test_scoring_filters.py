@@ -342,6 +342,12 @@ async def test_scanner_evaluate_pending_wallets_computes_baleen_score():
         }
         for i in range(160)
     ])
+    from app.discovery.pnl_history import normalize_pnl_series
+    mock_client.fetch_wallet_pnl = AsyncMock(return_value=normalize_pnl_series([
+        {'t': now_ts - (90-i)*86400, 'p': 1000 + i*100} for i in range(91)]))
+    mock_client.fetch_wallet_closed_positions = AsyncMock(return_value=[
+        {'asset': str(i), 'conditionId': str(i), 'realizedPnl': 100, 'avgPrice': .5}
+        for i in range(40)])
     mock_client.close = AsyncMock()
 
     try:

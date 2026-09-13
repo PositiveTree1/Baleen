@@ -4,27 +4,21 @@ from typing import List, Any, Optional, Dict
 logger = logging.getLogger(__name__)
 
 def get_target_wallet_count(capital_usd: float) -> int:
-    """
-    Computes the optimal number of wallets to copy based on total available capital.
-    
-    Tiers:
-      - Under $250: Follow 1 Top Wallet (100% sleeve = $100-$250)
-      - $250 to $1,000: Follow 2 Top Wallets ($125-$500 sleeve)
-      - $1,000 to $3,000: Follow 4 Top Wallets ($250-$750 sleeve)
-      - $3,000 to $5,000: Follow 6 Wallets ($500-$833 sleeve)
-      - $5,000+: Follow 10 Wallets ($500-$1,000+ sleeve)
-    """
-    c = max(0.0, float(capital_usd or 0.0))
-    if c < 250.0:
+    """Roster upper limit; never fill it by relaxing qualification/diversity."""
+    import math
+    c = float(capital_usd or 0)
+    if not math.isfinite(c) or c <= 0:
+        return 0
+    if c < 250:
         return 1
-    elif c < 1000.0:
+    if c < 1000:
         return 2
-    elif c < 3000.0:
+    if c < 3000:
+        return 3
+    if c < 10000:
         return 4
-    elif c < 5000.0:
-        return 6
-    else:
-        return 10
+    return 5
+
 
 def calculate_min_capital_required(
     whale_net_worth: float,

@@ -13,10 +13,13 @@ async def run_rescoring():
     logger.info("Starting scoring worker...")
     try:
         async with SessionLocal() as db:
-            # 1. Update wallet stats from Polymarket API (Mocked step here as per instruction to not use mock data, but we don't have the API logic to compute all stats)
-            # In a full implementation we would fetch trades and recalculate stats.
-            
-            # 2. Rescore and refresh basket
+            # Refresh evidence before selecting a roster; cached scores are not a rescore.
+            from app.discovery.scanner import evaluate_pending_wallets
+            wallets = (await db.execute(select(Wallet).where(Wallet.status.in_(['active', 'tracked', 'pending'])))).scalars().all()
+            for wallet in wallets:
+                wallet.status = 'pending'
+            await db.commit()
+            await evaluate_pending_wallets(db)
             await refresh_basket(db)
             
             # 3. Create snapshots

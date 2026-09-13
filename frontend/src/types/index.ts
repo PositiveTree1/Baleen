@@ -30,7 +30,7 @@ export interface DailyPnLPoint {
   wonUsd?: number;
   lostUsd?: number;
   netPnL?: number;
-  dailyPnL: number;
+  dailyPnL?: number;
   cumulativePnL: number;
   tradesCount: number;
 }
@@ -40,6 +40,7 @@ export interface WalletDetail extends Wallet {
   maxDrawdown: number | null;
   scoreHistory: { date: string; score: number }[];
   dailyPnLHistory?: DailyPnLPoint[];
+  cumulativePnLHistory?: DailyPnLPoint[];
   recentTrades: ExecutionLog[];
 }
 

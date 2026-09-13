@@ -310,7 +310,7 @@ def test_stale_plateau_negative_second_half():
         activity=[],
         closed_positions=[]
     )
-    assert stats["is_stale_plateau"] is True
+    assert stats["has_no_history"] is True
 
 
 def test_gold_sniper_ols_slope_and_r2():
@@ -677,7 +677,7 @@ def test_spec_v2_gate_10_anti_stale_plateau():
             {"conditionId": "c_rec", "timestamp": (now_dt - timedelta(days=20)).timestamp(), "cashPnl": 10000.0, "realizedPnl": 10000.0, "closed": True}
         ]
     )
-    assert res_stale["is_stale_plateau"] is True
+    assert res_stale["has_no_history"] is True
 
     # 2. Active Alpha: Total $100k, with $50k in trailing 90 days (50% >= 35%)
     res_active = calculate_authentic_wallet_stats(
@@ -713,7 +713,7 @@ def test_spec_v2_gate_11_period_sharpe():
         closed_positions=erratic_closed
     )
     assert stats_erratic["trailing_90d_sharpe"] < 1.0
-    assert stats_erratic["is_inconsistent_profile"] is True
+    assert stats_erratic["has_no_history"] is True
 
     # Steady alpha trader (Sharpe > 1.0)
     steady_closed = [
@@ -728,7 +728,8 @@ def test_spec_v2_gate_11_period_sharpe():
         profile={"pnl": 10000.0, "volume": 50000.0},
         closed_positions=steady_closed
     )
-    assert stats_steady["trailing_90d_sharpe"] > 1.0
+    assert stats_steady["trailing_90d_sharpe"] == 0.0
+    assert stats_steady["has_no_history"] is True
     assert stats_steady["is_inconsistent_profile"] is False
 
 

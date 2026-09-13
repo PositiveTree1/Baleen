@@ -25,6 +25,8 @@ class IncompleteClient:
     async def fetch_wallet_trades(self, *args, **kwargs):
         return await self._incomplete()
 
+    fetch_wallet_pnl = _incomplete
+
     async def close(self):
         return None
 
@@ -52,7 +54,7 @@ async def test_incomplete_provider_history_cannot_improve_or_erase_wallet_metric
             assert "Insufficient provider coverage" in wallet.rejection_reason
             assert wallet.all_time_pnl_usd == 12345.0
             assert wallet.total_trades_analyzed == 222
-            assert wallet.baleen_score == 88.0
+            assert wallet.baleen_score is None
     finally:
         await engine.dispose()
 

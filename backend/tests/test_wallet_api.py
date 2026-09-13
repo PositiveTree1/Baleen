@@ -5,7 +5,10 @@ from app.database import SessionLocal, init_db
 from app.models import Wallet, WalletSnapshot
 
 @pytest.mark.asyncio
-async def test_get_wallet_detail_and_snapshots():
+async def test_get_wallet_detail_and_snapshots(monkeypatch):
+    from unittest.mock import AsyncMock
+    from app.discovery.polymarket_client import PolymarketClient
+    monkeypatch.setattr(PolymarketClient, "fetch_wallet_pnl", AsyncMock(return_value=[]))
     await init_db()
     import uuid
     test_addr = f"0x{uuid.uuid4().hex}"
@@ -42,7 +45,8 @@ async def test_get_wallet_detail_and_snapshots():
             assert data["wallet"]["address"] == test_addr
             assert data["wallet"]["tier"] == "gold_sniper"
             assert len(data["score_history"]) >= 1
-            assert len(data["daily_pnl_history"]) == 3
+            assert data["daily_pnl_history"] == []
+            assert data["pnl_status"] == "unavailable"
             assert data["wallet"]["ai_summary"] is not None
     finally:
         async with SessionLocal() as db:

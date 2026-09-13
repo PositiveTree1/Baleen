@@ -120,65 +120,54 @@ def calculate_authentic_wallet_stats(
     activity: List[Dict], 
     profile: Optional[Dict] = None, 
     trades: Optional[List[Dict]] = None,
-    closed_positions: Optional[List[Dict]] = None
+    closed_positions: Optional[List[Dict]] = None,
+    pnl_history: Optional[List[Dict]] = None
 ) -> Dict:
     """
     Titan Quantitative Scoring Engine:
     Calculates authentic PnL, win rate, Wilson lower bound, profit factor, and daily history
     directly from Polymarket's official positions, activity closures, closed-positions, and profile endpoints.
     """
-    # 1. Total All-time Realized PnL & Volume
-    all_time_pnl = 0.0
-    total_volume = 0.0
-    if profile and isinstance(profile, dict):
-        all_time_pnl = float(profile.get("pnl") or profile.get("profit") or profile.get("profile_profit") or 0.0)
-        total_volume = float(profile.get("volume") or profile.get("vol") or 0.0)
-    
-    if all_time_pnl == 0.0 and closed_positions:
-        all_time_pnl = sum(float(p.get("realizedPnl") or p.get("cashPnl") or 0.0) for p in closed_positions)
-    elif all_time_pnl == 0.0 and positions:
-        all_time_pnl = sum(float(p.get("cashPnl") or 0.0) for p in positions)
-    
-    if total_volume == 0.0:
-        total_volume = sum(float(t.get("usdcSize") or t.get("size") or 0.0) for t in (trades or []))
+    profile = profile or {}
+    official_pnl = next((profile[k] for k in ("pnl", "profit", "profile_profit") if profile.get(k) is not None), None)
+    all_time_pnl = float(official_pnl) if official_pnl is not None else 0.0
+    total_volume = float(profile.get("volume") or profile.get("vol") or 0)
 
-    # 2. Closed/Settled Positions (Merge explicit closed_positions endpoint data with any closed marks)
-    raw_closed = list(closed_positions or [])
-    for p in (positions or []):
-        if isinstance(p, dict) and (
-            p.get("closed") 
-            or p.get("redeemable") 
-            or float(p.get("curPrice") or 0.5) in (0.0, 1.0) 
-            or float(p.get("size") or 0.0) == 0.0 
-            or float(p.get("realizedPnl") or 0.0) != 0.0
-        ):
-            p_aid = str(p.get("asset") or "")
-            p_cid = str(p.get("conditionId") or "")
-            if not any(str(c.get("asset") or "") == p_aid and str(c.get("conditionId") or "") == p_cid for c in raw_closed):
-                raw_closed.append(p)
-
-    if not raw_closed:
-        raw_closed = [p for p in (positions or []) if isinstance(p, dict)]
-
-    wins = sum(1 for p in raw_closed if float(p.get("realizedPnl") or p.get("cashPnl") or 0.0) > 0)
-    losses = sum(1 for p in raw_closed if float(p.get("realizedPnl") or p.get("cashPnl") or 0.0) < 0)
+    # Completed outcomes only; partial sales and floating marks are not wins.
+    raw_closed = []
+    seen_closed = set()
+    for p in closed_positions or []:
+        key = (p.get("conditionId"), p.get("asset"))
+        if key in seen_closed:
+            continue
+        seen_closed.add(key)
+        row = dict(p)
+        row["cashPnl"] = float(p.get("realizedPnl") if p.get("realizedPnl") is not None else p.get("cashPnl", 0))
+        raw_closed.append(row)
+    # Settled but unredeemed losses must not disappear from the outcome sample.
+    settled_data_complete = True
+    for p in positions or []:
+        key = (p.get("conditionId"), p.get("asset"))
+        if not p.get("redeemable") or key in seen_closed:
+            continue
+        if p.get("currentValue") is not None and p.get("initialValue") is not None:
+            remaining_pnl = float(p["currentValue"]) - float(p["initialValue"])
+        elif p.get("avgPrice") is not None and p.get("curPrice") is not None and p.get("size") is not None:
+            remaining_pnl = float(p["size"]) * (float(p["curPrice"]) - float(p["avgPrice"]))
+        else:
+            settled_data_complete = False
+            continue
+        value = float(p.get("realizedPnl") or 0) + remaining_pnl
+        raw_closed.append({**p, "cashPnl": value, "realizedPnl": value})
+        seen_closed.add(key)
+    if any(not math.isfinite(p['cashPnl']) for p in raw_closed):
+        raise ValueError("Non-finite outcome PnL")
+    wins = sum(p["cashPnl"] > 0 for p in raw_closed)
+    losses = sum(p["cashPnl"] < 0 for p in raw_closed)
     total_resolved = wins + losses
-
-    # Win Rate Sanity Guardrail:
-    # If a wallet has >= 15 wins and 0 losses, but official profile PnL is less than 70% of gross wins,
-    # it indicates that losses exist in un-paginated history. Do not report a false 100% win rate.
-    if total_resolved >= 15 and losses == 0 and all_time_pnl > 0:
-        gross_wins = sum(float(p.get("realizedPnl") or p.get("cashPnl") or 0.0) for p in raw_closed if float(p.get("realizedPnl") or p.get("cashPnl") or 0.0) > 0)
-        if all_time_pnl < gross_wins * 0.70:
-            implied_losses_usd = gross_wins - all_time_pnl
-            avg_win = gross_wins / wins if wins > 0 else 100.0
-            est_losses = max(1, int(round(implied_losses_usd / avg_win)))
-            losses += est_losses
-            total_resolved = wins + losses
-            logger.warning(
-                f"⚠️ Win Rate Anomaly Guard: Wallet {address[:10]} had 0 losses in sample, but all_time_pnl (${all_time_pnl:,.2f}) < gross wins (${gross_wins:,.2f}). "
-                f"Calibrated with {est_losses} implied losses."
-            )
+    gross_wins = sum(max(0, p["cashPnl"]) for p in raw_closed)
+    gross_losses = sum(abs(min(0, p["cashPnl"])) for p in raw_closed)
+    profit_factor = gross_wins / gross_losses if gross_losses else None
 
     if total_resolved > 0:
         win_rate = round((wins / total_resolved) * 100.0, 1)
@@ -273,11 +262,7 @@ def calculate_authentic_wallet_stats(
     if all_ts:
         min_ts = min(all_ts)
         max_ts = max(all_ts)
-        # If running under automated test suite with synthetic historical fixtures (>180d old)
-        if os.environ.get("TESTING") == "1" and (now_sec - max_ts) > 180.0 * 86400.0:
-            ref_now = max_ts + 86400.0
-        else:
-            ref_now = now_sec
+        ref_now = now_sec
         active_days = max(1.0, (max_ts - min_ts) / 86400.0)
         days_since_last_trade = max(0.0, (ref_now - max_ts) / 86400.0)
         is_inactive_7d = bool(days_since_last_trade > 7.0)
@@ -330,7 +315,7 @@ def calculate_authentic_wallet_stats(
     trade_sizes = []
     for t in combined_trades:
         if isinstance(t, dict):
-            s_val = float(t.get("usdcSize") or t.get("size") or 0.0)
+            s_val = float(t["usdcSize"]) if t.get("usdcSize") is not None else float(t.get("size") or 0) * float(t.get("price") or 0)
             if s_val > 0:
                 trade_sizes.append(s_val)
 
@@ -362,235 +347,13 @@ def calculate_authentic_wallet_stats(
     wash_ratio = round(wash_pair_count / max(1, len(combined_trades)), 3)
     is_wash_trading = bool(wash_ratio > 0.10 and wash_pair_count >= 2)
 
-    # 8. Authentic Daily PnL history from chronological trades & redemptions
-    today_utc = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-    daily_map: Dict[str, Dict[str, float]] = {}
-    holdings: Dict[str, Dict[str, float]] = {} # asset -> {'shares': float, 'cost': float, 'avg_price': float}
-    accounted_assets: Set[str] = set()
-
-    # Index timestamps for condition IDs and assets to resolve un-dated position closures accurately
-    condition_timestamps: Dict[str, List[float]] = {}
-    asset_timestamps: Dict[str, List[float]] = {}
-    for item in list(trades or []) + list(activity or []):
-        if isinstance(item, dict):
-            cid = str(item.get("conditionId") or "")
-            aid = str(item.get("asset") or "")
-            raw_t = item.get("timestamp") or item.get("time") or item.get("createdAt") or item.get("updatedAt")
-            if raw_t:
-                try:
-                    t_val = float(raw_t)
-                    t_sec = t_val / 1000.0 if t_val > 1e11 else t_val
-                    if t_sec > 1e8:
-                        if cid:
-                            condition_timestamps.setdefault(cid, []).append(t_sec)
-                        if aid:
-                            asset_timestamps.setdefault(aid, []).append(t_sec)
-                except Exception:
-                    pass
-
-    # Map positions by asset and conditionId for avgPrice lookups when older trade logs were truncated
-    pos_by_asset: Dict[str, Dict] = {}
-    pos_by_condition: Dict[str, Dict] = {}
-    for p in list(positions or []):
-        if isinstance(p, dict):
-            a_key = str(p.get("asset") or "")
-            c_key = str(p.get("conditionId") or "")
-            if a_key and a_key not in pos_by_asset:
-                pos_by_asset[a_key] = p
-            if c_key and c_key not in pos_by_condition:
-                pos_by_condition[c_key] = p
-
-    # A. Chronological trade matching (Fills & Sells)
-    sorted_trades = sorted(combined_trades, key=lambda x: float(x.get("timestamp") or x.get("time") or 0.0) if isinstance(x, dict) else 0.0)
-    for t in sorted_trades:
-        if not isinstance(t, dict):
-            continue
-        ts_val = float(t.get("timestamp") or t.get("time") or t.get("match_time") or 0.0)
-        if ts_val <= 0.0:
-            continue
-        ts_sec = ts_val / 1000.0 if ts_val > 1e11 else ts_val
-        try:
-            dt_str = datetime.fromtimestamp(ts_sec, timezone.utc).strftime("%Y-%m-%d")
-        except Exception:
-            continue
-
-        asset = str(t.get("asset") or t.get("conditionId") or "")
-        side = str(t.get("side") or "").upper()
-        size = float(t.get("size") or 0.0)
-        price = float(t.get("price") or 0.0)
-
-        if asset not in holdings:
-            holdings[asset] = {"shares": 0.0, "cost": 0.0, "avg_price": 0.0}
-
-        h = holdings[asset]
-        if side == "BUY":
-            h["shares"] += size
-            h["cost"] += size * price
-            h["avg_price"] = h["cost"] / h["shares"] if h["shares"] > 0 else price
-        elif side == "SELL" and h["shares"] > 0:
-            sold_shares = min(size, h["shares"])
-            cost_basis = sold_shares * h["avg_price"]
-            proceeds = sold_shares * price
-            pnl = proceeds - cost_basis
-            h["shares"] -= sold_shares
-            h["cost"] -= cost_basis
-            accounted_assets.add(asset)
-
-            if dt_str not in daily_map:
-                daily_map[dt_str] = {"won": 0.0, "lost": 0.0, "net": 0.0, "count": 0.0}
-            daily_map[dt_str]["count"] += 1.0
-            if pnl >= 0:
-                daily_map[dt_str]["won"] += pnl
-            else:
-                daily_map[dt_str]["lost"] += abs(pnl)
-            daily_map[dt_str]["net"] += pnl
-
-    # B. Process Redemptions from activity
-    if activity:
-        seen_redemptions: Set[str] = set()
-        for act in activity:
-            if not isinstance(act, dict):
-                continue
-            act_type = str(act.get("type") or "").upper()
-            if act_type in ["REDEMPTION", "REDEEM"]:
-                # Providers may expose the same redemption in multiple pages.
-                # Prefer stable chain/API evidence; the full-record fallback
-                # avoids a broad timestamp-window heuristic when no ID exists.
-                stable_id = act.get("transactionHash") or act.get("txHash") or act.get("id")
-                if stable_id:
-                    redemption_key = f"id:{stable_id}"
-                else:
-                    redemption_key = "record:" + json.dumps(
-                        {k: v for k, v in act.items() if k not in {"retrievedAt", "updatedAt"}},
-                        sort_keys=True, default=str
-                    )
-                if redemption_key in seen_redemptions:
-                    continue
-                seen_redemptions.add(redemption_key)
-                ts_val = float(act.get("timestamp") or act.get("time") or 0.0)
-                if ts_val <= 0.0:
-                    continue
-                ts_sec = ts_val / 1000.0 if ts_val > 1e11 else ts_val
-                try:
-                    dt_str = datetime.fromtimestamp(ts_sec, timezone.utc).strftime("%Y-%m-%d")
-                except Exception:
-                    continue
-
-                asset = str(act.get("asset") or act.get("conditionId") or "")
-                size = float(act.get("size") or act.get("usdcSize") or 0.0)
-                
-                # Retrieve true cost basis: from matched holdings or official position avgPrice
-                if asset in holdings and holdings[asset]["shares"] > 0:
-                    avg_p = holdings[asset]["avg_price"]
-                elif asset in pos_by_asset and float(pos_by_asset[asset].get("avgPrice") or 0.0) > 0:
-                    avg_p = float(pos_by_asset[asset]["avgPrice"])
-                elif asset in pos_by_condition and float(pos_by_condition[asset].get("avgPrice") or 0.0) > 0:
-                    avg_p = float(pos_by_condition[asset]["avgPrice"])
-                else:
-                    # A redemption payout without an observed entry basis is
-                    # real cash movement but not measurable realized PnL.
-                    # Do not invent a 50-cent basis and inflate eligibility.
-                    continue
-
-                cost_basis = size * avg_p
-                pnl = size - cost_basis
-                accounted_assets.add(asset)
-
-                if dt_str not in daily_map:
-                    daily_map[dt_str] = {"won": 0.0, "lost": 0.0, "net": 0.0, "count": 0.0}
-                daily_map[dt_str]["count"] += 1.0
-                if pnl >= 0:
-                    daily_map[dt_str]["won"] += pnl
-                else:
-                    daily_map[dt_str]["lost"] += abs(pnl)
-                daily_map[dt_str]["net"] += pnl
-
-    # C. Process verified settled closed positions if not already captured in trades/activity
-    # Uses authentic resolution dates from closed-positions timestamp, resolvedAt, endDate, or condition trade dates
-    for pos in (closed_positions or []):
-        if not isinstance(pos, dict):
-            continue
-        asset = str(pos.get("asset") or pos.get("conditionId") or "")
-        cid = str(pos.get("conditionId") or "")
-        # Assets are distinct outcome tokens even when they share a condition.
-        # Only use the condition fallback when the closed record has no asset.
-        if (asset and asset in accounted_assets) or (not asset and cid and cid in accounted_assets):
-            continue
-
-        c_pnl = float(pos.get("realizedPnl") or pos.get("cashPnl") or 0.0)
-        is_settled = bool(
-            pos.get("closed") 
-            or pos.get("redeemable") 
-            or float(pos.get("curPrice") or 0.5) in (0.0, 1.0) 
-            or float(pos.get("size") or 0.0) == 0.0
-            or pos.get("timestamp")
-        )
-        if is_settled and c_pnl != 0.0:
-            cid_latest_ts = max(condition_timestamps[cid]) if cid in condition_timestamps else None
-            aid_latest_ts = max(asset_timestamps[asset]) if asset in asset_timestamps else None
-
-            # Priority order for authentic settlement date:
-            # 1. Exact resolution timestamp from official closed-positions endpoint
-            # 2. resolvedAt / endDate / updatedAt
-            # 3. Latest trade/redemption timestamp on this condition or asset
-            # 4. createdAt / today_utc fallback
-            ts_raw = (
-                pos.get("timestamp")
-                or pos.get("resolvedAt")
-                or pos.get("endDate")
-                or pos.get("updatedAt")
-                or cid_latest_ts
-                or aid_latest_ts
-                or pos.get("createdAt")
-                or today_utc
-            )
-            dt_str = parse_date_to_utc_str(ts_raw, today_utc)
-            if dt_str > today_utc:
-                dt_str = parse_date_to_utc_str(cid_latest_ts or aid_latest_ts or today_utc, today_utc)
-
-            accounted_assets.add(asset)
-            if cid:
-                accounted_assets.add(cid)
-
-            if dt_str not in daily_map:
-                daily_map[dt_str] = {"won": 0.0, "lost": 0.0, "net": 0.0, "count": 0.0}
-            daily_map[dt_str]["count"] += 1.0
-            if c_pnl >= 0:
-                daily_map[dt_str]["won"] += c_pnl
-            else:
-                daily_map[dt_str]["lost"] += abs(c_pnl)
-            daily_map[dt_str]["net"] += c_pnl
-
-    daily_pnl_history = []
-    running_cum = 0.0
-    for d_str in sorted(daily_map.keys()):
-        d_info = daily_map[d_str]
-        running_cum += d_info["net"]
-        daily_pnl_history.append({
-            "date": d_str,
-            "won_usd": round(d_info["won"], 2),
-            "lost_usd": round(-abs(d_info["lost"]), 2),
-            "net_pnl": round(d_info["net"], 2),
-            "daily_pnl": round(d_info["net"], 2),
-            "cumulative_pnl": round(running_cum, 2),
-            "trades_count": int(d_info["count"])
-        })
-
-    # Curve Calibration Guard:
-    # If cumulative PnL from the sampled history diverges wildly from authoritative profile PnL:
-    if all_time_pnl > 0 and running_cum > all_time_pnl * 1.5 and len(daily_pnl_history) > 1:
-        calib_scale = all_time_pnl / running_cum
-        running_calib = 0.0
-        for h in daily_pnl_history:
-            h["won_usd"] = round(h["won_usd"] * calib_scale, 2)
-            h["lost_usd"] = round(h["lost_usd"] * calib_scale, 2)
-            h["daily_pnl"] = round(h["daily_pnl"] * calib_scale, 2)
-            h["net_pnl"] = h["daily_pnl"]
-            running_calib += h["daily_pnl"]
-            h["cumulative_pnl"] = round(running_calib, 2)
-        running_cum = running_calib
-
-    final_cum_pnl = daily_pnl_history[-1]["cumulative_pnl"] if daily_pnl_history else all_time_pnl
+    # Profile observations are the only permitted chart/consistency source.
+    from app.discovery.pnl_history import verified_history
+    daily_pnl_history = list(pnl_history or [])
+    history_verified = verified_history(daily_pnl_history)
+    if not history_verified:
+        daily_pnl_history = []
+    final_cum_pnl = daily_pnl_history[-1]["cumulative_pnl"] if daily_pnl_history else 0.0
 
     # Calculate active unrealized paper loss/gain on open positions
     open_positions = [
@@ -599,9 +362,14 @@ def calculate_authentic_wallet_stats(
         and float(p.get("size") or 0.0) > 0 
         and not p.get("closed") 
         and not p.get("redeemable") 
-        and 0.01 < float(p.get("curPrice") or 0.5) < 0.99
+
     ]
-    unrealized_open_pnl = sum(float(p.get("cashPnl") or 0.0) for p in open_positions)
+    unrealized_open_pnl = sum(
+        float(p.get("currentValue", float(p.get("size") or 0) * float(p.get("curPrice") or 0)))
+        - float(p.get("size") or 0) * float(p["avgPrice"])
+        if p.get("avgPrice") is not None and (p.get("currentValue") is not None or p.get("curPrice") is not None)
+        else float(p.get("cashPnl") or 0)
+        for p in open_positions)
 
     # Recency EMA over realized PnL series (30-day half-life decay)
     recency_ema = 0.0
@@ -615,7 +383,7 @@ def calculate_authentic_wallet_stats(
     running_equity = 0.0
     max_dd_dollars = 0.0
     for h in daily_pnl_history:
-        running_equity += h.get("daily_pnl", 0.0)
+        running_equity = h["cumulative_pnl"]
         if running_equity > peak_equity:
             peak_equity = running_equity
         drawdown_curr = peak_equity - running_equity
@@ -745,7 +513,7 @@ def calculate_authentic_wallet_stats(
 
     # 11. Consistency Curve Algorithm (Lucky vs Sniper Curve)
     cum_series = [float(h["cumulative_pnl"]) for h in daily_pnl_history]
-    daily_pnls = [float(h["daily_pnl"]) for h in daily_pnl_history]
+    daily_pnls = [float(h["daily_pnl"]) for h in daily_pnl_history if h.get("daily_pnl") is not None]
     T = len(cum_series)
 
     beta = 0.0
@@ -770,7 +538,7 @@ def calculate_authentic_wallet_stats(
         dates = [h.get("date") for h in daily_pnl_history if h.get("date")]
         latest_d_str = max(dates) if dates else datetime.utcnow().strftime("%Y-%m-%d")
         try:
-            latest_dt = datetime.fromisoformat(latest_d_str)
+            latest_dt = datetime.utcnow()
         except Exception:
             latest_dt = datetime.utcnow()
         cutoff_str = (latest_dt - timedelta(days=90)).strftime("%Y-%m-%d")
@@ -792,14 +560,14 @@ def calculate_authentic_wallet_stats(
 
     # Gate 11: Consistency Gate on Period Returns (Spec v2: Trailing-90-day Sharpe > 1.0 on period returns)
     trailing_90d_sharpe = 0.0
-    period_series = trailing_90d_daily_pnls if len(trailing_90d_daily_pnls) >= 3 else daily_pnls
+    period_series = trailing_90d_daily_pnls
     if len(period_series) >= 3:
         m_period = sum(period_series) / len(period_series)
         v_period = sum((p - m_period) ** 2 for p in period_series) / len(period_series)
         s_period = math.sqrt(v_period)
         trailing_90d_sharpe = round(m_period / (s_period + 1e-6), 3) if s_period > 0 else (2.0 if m_period > 0 else 0.0)
     else:
-        trailing_90d_sharpe = 1.5 if all_time_pnl > 0 else 0.0
+        trailing_90d_sharpe = 0.0
 
     is_period_inconsistent = bool(len(period_series) >= 5 and trailing_90d_sharpe <= 1.0)
 
@@ -813,7 +581,7 @@ def calculate_authentic_wallet_stats(
             is_roller_coaster = True
 
     # Step-jump artifacts and one-hit-wonder profiles
-    pos_daily = [h["daily_pnl"] for h in daily_pnl_history if h.get("daily_pnl", 0) > 0]
+    pos_daily = [h["daily_pnl"] for h in daily_pnl_history if (h.get("daily_pnl") or 0) > 0]
     total_pos_pnl = sum(pos_daily)
     max_single_day_pnl = max(pos_daily, default=0.0)
     top_2_days_pnl = sum(sorted(pos_daily, reverse=True)[:2]) if len(pos_daily) >= 2 else max_single_day_pnl
@@ -868,6 +636,15 @@ def calculate_authentic_wallet_stats(
         "cumulative_pnl": round(final_cum_pnl, 2),
         "unrealized_open_pnl": round(unrealized_open_pnl, 2),
         "win_rate_pct": win_rate,
+        "resolved_positions_count": total_resolved,
+        "profit_factor": profit_factor,
+        "gross_wins": gross_wins,
+        "gross_losses": gross_losses,
+        "expectancy_usd": (gross_wins - gross_losses) / max(1, total_resolved),
+        "history_verified": history_verified,
+        "profile_verified": official_pnl is not None,
+        "settled_data_complete": settled_data_complete,
+        "has_no_history": not history_verified,
         "wilson_lower_bound": wilson_lb,
         "trades_count": total_trade_count,
         "active_days": round(active_days, 1),
@@ -893,8 +670,8 @@ def calculate_authentic_wallet_stats(
         "primary_category": primary_category,
         "category_count": category_count,
         "daily_pnl_history": daily_pnl_history,
-        "first_trade_at": None,
-        "last_trade_at": datetime.utcnow(),
+        "first_trade_at": datetime.fromtimestamp(min_ts, timezone.utc).replace(tzinfo=None) if all_ts else None,
+        "last_trade_at": datetime.fromtimestamp(max_ts, timezone.utc).replace(tzinfo=None) if all_ts else None,
         "is_conflicting_positions": is_conflicting_positions,
         "conflicting_ratio": conflicting_ratio,
         "conflicting_markets_count": conflicting_markets_count,
@@ -962,6 +739,7 @@ async def evaluate_pending_wallets(db: AsyncSession, client: Optional[Polymarket
                     except Exception:
                         pass
 
+                tasks.append(client.fetch_wallet_pnl(addr))
                 results = await asyncio.gather(*tasks, return_exceptions=True)
                 coverage_errors = [result for result in results if isinstance(result, Exception)]
                 if coverage_errors:
@@ -979,6 +757,8 @@ async def evaluate_pending_wallets(db: AsyncSession, client: Optional[Polymarket
                         "Insufficient provider coverage; candidate remains unvalidated"
                         + (f": {coverage_errors[0]}" if coverage_errors else "")
                     )
+                    wallet.cached_daily_pnl = None
+                    wallet.baleen_score = None
                     discovery_state["rejected"] += 1
                     await db.commit()
                     processed_count += 1
@@ -996,144 +776,32 @@ async def evaluate_pending_wallets(db: AsyncSession, client: Optional[Polymarket
                     activity=raw_activity,
                     profile=raw_profile,
                     trades=raw_trades,
-                    closed_positions=raw_closed
+                    closed_positions=raw_closed,
+                    pnl_history=results[-1]
                 )
                 
+                if stats['daily_pnl_history']:
+                    stats['daily_pnl_history'][0]['assessment'] = {k: v for k, v in stats.items()
+                        if k not in {'daily_pnl_history', 'first_trade_at', 'last_trade_at'}}
                 baleen_score = compute_baleen_score(stats)
                 
                 # Score wallet
                 scoring = score_wallet(stats)
                 is_valid = scoring.status == "active"
                 reason = scoring.rejection_reason
-                has_history = bool(stats.get('daily_pnl_history') and len(stats.get('daily_pnl_history')) > 0)
-
-                final_cum = stats.get('cumulative_pnl', stats['all_time_pnl_usd'])
-                unrealized_open = stats.get('unrealized_open_pnl', 0.0)
-
-                pnl_usd_val = float(stats.get('all_time_pnl_usd') or 0.0)
-                t_count_val = int(stats.get('trades_count') or 0)
-                max_dd_val = float(stats.get('max_drawdown_pct') or 0.0)
-
-                is_asymmetric_alpha = bool(
-                    float(stats.get('odds_weighted_edge') or 0.0) >= 0.08
-                    and float(stats.get('profit_factor') or 0.0) >= 1.75
-                    and pnl_usd_val >= 75000.0
-                )
-
-                if not has_history or t_count_val < 5:
+                if not is_valid:
                     wallet.status = 'rejected'
                     wallet.tier = 'rejected'
-                    wallet.rejection_reason = "No verifiable on-chain trade history from Polymarket API"
-                    discovery_state["rejected"] += 1
-                elif t_count_val < 100 and pnl_usd_val < 500000.0:
-                    wallet.status = 'rejected'
-                    wallet.tier = 'rejected'
-                    wallet.rejection_reason = "Insufficient lifetime trades (Must have >= 100 lifetime trades)"
-                    discovery_state["rejected"] += 1
-                elif stats.get('is_inactive_7d'):
-                    wallet.status = 'rejected'
-                    wallet.tier = 'rejected'
-                    wallet.rejection_reason = "Inactive wallet (No trades in past 7 days)"
-                    discovery_state["rejected"] += 1
-                elif pnl_usd_val < 50000.0 or pnl_usd_val > 22000000.0:
-                    wallet.status = 'rejected'
-                    wallet.tier = 'rejected'
-                    wallet.rejection_reason = f'All-time Polymarket realized PnL (${pnl_usd_val:,.0f}) is outside verified whale threshold ($50k - $22M)'
-                    discovery_state["rejected"] += 1
-                elif final_cum <= 0.0:
-                    wallet.status = 'rejected'
-                    wallet.tier = 'rejected'
-                    wallet.rejection_reason = f'Cumulative reconstructed trade ledger is non-positive (${final_cum:,.2f} <= $0)'
-                    discovery_state["rejected"] += 1
-                elif unrealized_open < -25000.0 or (pnl_usd_val > 0 and abs(min(0.0, unrealized_open)) > 0.35 * pnl_usd_val):
-                    wallet.status = 'rejected'
-                    wallet.tier = 'rejected'
-                    wallet.rejection_reason = f'Massive paper drawdown on open positions (${unrealized_open:,.2f}) exceeds risk safety threshold'
-                    discovery_state["rejected"] += 1
-                elif max_dd_val > 25.0:
-                    wallet.status = 'rejected'
-                    wallet.tier = 'rejected'
-                    wallet.rejection_reason = f'Historical drawdown too high ({max_dd_val:.1f}% > 25% max limit)'
-                    discovery_state["rejected"] += 1
-                elif stats['outlier_concentration_pct'] > 0.25:
-                    wallet.status = 'rejected'
-                    wallet.tier = 'rejected'
-                    wallet.rejection_reason = f'Market concentration too high ({stats["outlier_concentration_pct"]*100:.1f}% > 25% max single trade PnL)'
-                    discovery_state["rejected"] += 1
-                elif stats['win_rate_pct'] < 58.0 and not is_asymmetric_alpha:
-                    wallet.status = 'rejected'
-                    wallet.tier = 'rejected'
-                    wallet.rejection_reason = f'Win rate ({stats["win_rate_pct"]}%) is below 58% threshold'
-                    discovery_state["rejected"] += 1
-                elif t_count_val >= 100 and float(stats.get('wilson_lower_bound') or 0.0) < 50.0 and not is_asymmetric_alpha:
-                    wallet.status = 'rejected'
-                    wallet.tier = 'rejected'
-                    wallet.rejection_reason = f'Wilson lower bound ({stats.get("wilson_lower_bound", 0.0)}%) is below 50% threshold'
-                    discovery_state["rejected"] += 1
-                elif stats['is_hft']:
-                    wallet.status = 'rejected'
-                    wallet.tier = 'rejected'
-                    wallet.rejection_reason = f'High-Frequency Bot detected ({stats.get("avg_trades_per_day", 0):.0f} trades/day > 50/day max)'
-                    discovery_state["rejected"] += 1
-                elif stats.get('is_conflicting_positions'):
-                    wallet.status = 'rejected'
-                    wallet.tier = 'rejected'
-                    wallet.rejection_reason = f'Conflicting positions detected ({stats.get("conflicting_ratio", 0)*100:.1f}% conflicting markets traded)'
-                    discovery_state["rejected"] += 1
-                elif stats.get('is_stale_plateau'):
-                    wallet.status = 'rejected'
-                    wallet.tier = 'rejected'
-                    wallet.rejection_reason = 'Stale plateau profit curve (trailing 90-day PnL < 35% of total PnL)'
-                    discovery_state["rejected"] += 1
-                elif stats.get('is_roller_coaster'):
-                    wallet.status = 'rejected'
-                    wallet.tier = 'rejected'
-                    wallet.rejection_reason = 'Roller-coaster gambler curve (peak-to-trough drawdown > 25% or erratic variance)'
-                    discovery_state["rejected"] += 1
-                elif stats.get('is_inconsistent_profile'):
-                    wallet.status = 'rejected'
-                    wallet.tier = 'rejected'
-                    wallet.rejection_reason = f'Inconsistent / deceptive profit profile (period Sharpe {stats.get("trailing_90d_sharpe", 0.0):.2f} or single-day step concentration {stats.get("max_single_day_pnl_ratio", 0)*100:.1f}%)'
-                    discovery_state["rejected"] += 1
-                elif stats.get('is_crypto_only'):
-                    wallet.status = 'rejected'
-                    wallet.tier = 'rejected'
-                    wallet.rejection_reason = f'Crypto-only mono-trader ({stats.get("crypto_pct", 0):.0f}% crypto markets)'
-                    discovery_state["rejected"] += 1
-                elif stats.get('is_excessive_hold'):
-                    wallet.status = 'rejected'
-                    wallet.tier = 'rejected'
-                    wallet.rejection_reason = f'Excessive holding duration ({stats.get("avg_hold_days", 0):.1f} days > 14-day max capital lockup)'
-                    discovery_state["rejected"] += 1
-                elif stats.get('is_boundary_arb'):
-                    wallet.status = 'rejected'
-                    wallet.tier = 'rejected'
-                    wallet.rejection_reason = f'Boundary arbitrage detected ({stats.get("boundary_ratio", 0)*100:.1f}% boundary trades in near-certainty bands)'
-                    discovery_state["rejected"] += 1
-                elif stats['is_dormant']:
-                    wallet.status = 'rejected'
-                    wallet.tier = 'dormant'
-                    wallet.rejection_reason = 'Dormant wallet (Inactive > 21 days)'
-                    discovery_state["rejected"] += 1
-                elif not is_valid:
-                    wallet.status = 'rejected'
-                    wallet.tier = 'rejected'
-                    wallet.rejection_reason = reason or "Failed Titan risk scoring validation"
+                    wallet.rejection_reason = reason
                     discovery_state["rejected"] += 1
                 else:
-                    # ONLY wallets that pass all 12 quantitative filters become active
                     wallet.status = 'active'
-                    max_dd = float(stats.get('max_drawdown_pct') or 100.0)
-                    t_d = int(stats.get('t_days') or 0)
-                    b = float(stats.get('beta') or 0.0)
-                    r = float(stats.get('r_squared') or 0.0)
-                    if scoring.tier == 'gold_sniper' and baleen_score >= 70.0 and max_dd <= 15.0:
-                        wallet.tier = 'gold_sniper'
-                        discovery_state["gold_snipers"] += 1
-                    else:
-                        wallet.tier = 'standard'
+                    wallet.tier = scoring.tier
+                    wallet.rejection_reason = None
                     discovery_state["active_whales_in_basket"] += 1
-                    
+                    if scoring.tier == 'gold_sniper':
+                        discovery_state["gold_snipers"] += 1
+
                 # Auto-generate AI summary
                 try:
                     ai_summary, ai_style_tag = await generate_summary(stats)
@@ -1153,11 +821,12 @@ async def evaluate_pending_wallets(db: AsyncSession, client: Optional[Polymarket
                 wallet.baleen_score = baleen_score
                 wallet.dormant = stats.get('is_dormant', False)
                 wallet.is_hft = stats.get('is_hft', False)
-                wallet.trades_per_hour = stats.get('trades_per_hour', 1.0)
+                wallet.trades_per_hour = stats["trades_per_day"] / 24.0
                 wallet.wilson_lb = stats.get('wilson_lower_bound', 65.0)
-                wallet.alpha_per_trade = stats.get('alpha_per_trade', 25.0)
-                wallet.profit_factor = stats.get('profit_factor', 1.5)
+                wallet.alpha_per_trade = stats.get("expectancy_usd")
+                wallet.profit_factor = stats.get('profit_factor')
                 wallet.first_trade_at = stats.get('first_trade_at')
+                wallet.last_trade_at = stats.get('last_trade_at')
                 wallet.cached_daily_pnl = json.dumps(stats.get('daily_pnl_history', [])) if stats.get('daily_pnl_history') else None
                 wallet.last_scored_at = datetime.utcnow()
                 if raw_profile and isinstance(raw_profile, dict):

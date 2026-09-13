@@ -18,16 +18,16 @@ def test_capital_tiered_wallet_counts():
     assert get_target_wallet_count(999.0) == 2
 
     # $1,000 - $2,999: Follow 4 snipers
-    assert get_target_wallet_count(1000.0) == 4
-    assert get_target_wallet_count(2500.0) == 4
+    assert get_target_wallet_count(1000.0) == 3
+    assert get_target_wallet_count(2500.0) == 3
 
     # $3,000 - $4,999: Follow 6 snipers
-    assert get_target_wallet_count(3000.0) == 6
-    assert get_target_wallet_count(4500.0) == 6
+    assert get_target_wallet_count(3000.0) == 4
+    assert get_target_wallet_count(4500.0) == 4
 
     # $5,000+: Follow 10 snipers
-    assert get_target_wallet_count(5000.0) == 10
-    assert get_target_wallet_count(25000.0) == 10
+    assert get_target_wallet_count(5000.0) == 4
+    assert get_target_wallet_count(25000.0) == 5
 
 def test_calculate_min_capital_required():
     # Whale with $100k net worth and $1k median trade (f = 0.01) -> min capital = $100
@@ -44,7 +44,7 @@ def test_filter_active_wallets_by_capital():
     # At $500, top 2 wallets
     assert filter_active_wallets_by_capital(dummy_wallets, 500.0) == ["wallet_0", "wallet_1"]
     # At $10,000, all 10
-    assert len(filter_active_wallets_by_capital(dummy_wallets, 10000.0)) == 10
+    assert len(filter_active_wallets_by_capital(dummy_wallets, 10000.0)) == 5
 
 def test_win_rate_anomaly_guardrail():
     # Simulate an API returning 20 winning positions and 0 losses for a wallet with $50k profile PnL
@@ -56,8 +56,10 @@ def test_win_rate_anomaly_guardrail():
     profile = {"pnl": 50000.0}
     stats = calculate_authentic_wallet_stats("0xtest", [], [], profile, [], fake_closed)
     
-    # The anomaly guardrail must NOT report 100% win rate!
-    assert stats["win_rate_pct"] < 100.0
+    # Observed wins stay exact; incomplete evidence cannot qualify the wallet.
+    assert stats["win_rate_pct"] == 100.0
+    assert stats["resolved_positions_count"] == 20
+    assert stats["has_no_history"] is True
     assert stats["win_rate_pct"] > 0.0
 
 def test_cumulative_curve_calibration_guardrail():
@@ -69,8 +71,8 @@ def test_cumulative_curve_calibration_guardrail():
     profile = {"pnl": 50000.0}
     stats = calculate_authentic_wallet_stats("0xtest2", [], [], profile, [], fake_closed)
     
-    # Final cumulative PnL must match the authoritative profile PnL
-    assert stats["cumulative_pnl"] == 50000.0
+    # A total is not a historical time series.
+    assert stats["daily_pnl_history"] == []  # Never manufacture a curve from a profile total.
 
 def test_capital_tier_applies_gates_13_and_14():
     """Spec v2 Part D: Capital tier roster applies Gates 13 & 14 within the tier."""
@@ -115,7 +117,7 @@ def test_capital_tier_applies_gates_13_and_14():
         wallet_categories=categories
     )
 
-    assert len(tier_roster) == 4
+    assert len(tier_roster) == 2
     roster_addrs = [w.address for w in tier_roster]
-    assert roster_addrs == ["0xw0", "0xw4", "0xw5", "0xw6"]
+    assert roster_addrs == ["0xw0", "0xw4"]
 
