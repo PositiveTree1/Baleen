@@ -51,14 +51,14 @@ function normalizeToUTCDate(date: Date | string | number | null | undefined): Da
 }
 
 /**
- * Formats timestamps in French timezone (Europe/Paris / CET/CEST)
+ * Formats timestamps in the user's browser/PC local timezone and locale.
+ * Function names retained for full backwards compatibility across existing imports.
  */
 export function formatFrenchTime(date: Date | string | number | null | undefined): string {
   if (!date) return '--:--';
   const d = normalizeToUTCDate(date);
   if (isNaN(d.getTime())) return '--:--';
-  return d.toLocaleTimeString('fr-FR', {
-    timeZone: 'Europe/Paris',
+  return d.toLocaleTimeString(undefined, {
     hour: '2-digit',
     minute: '2-digit',
     hour12: false
@@ -69,8 +69,7 @@ export function formatFrenchTimeWithSeconds(date: Date | string | number | null 
   if (!date) return '--:--:--';
   const d = normalizeToUTCDate(date);
   if (isNaN(d.getTime())) return '--:--:--';
-  return d.toLocaleTimeString('fr-FR', {
-    timeZone: 'Europe/Paris',
+  return d.toLocaleTimeString(undefined, {
     hour: '2-digit',
     minute: '2-digit',
     second: '2-digit',
@@ -82,8 +81,7 @@ export function formatFrenchDateTime(date: Date | string | number | null | undef
   if (!date) return '--';
   const d = normalizeToUTCDate(date);
   if (isNaN(d.getTime())) return '--';
-  return d.toLocaleString('fr-FR', {
-    timeZone: 'Europe/Paris',
+  return d.toLocaleString(undefined, {
     day: '2-digit',
     month: '2-digit',
     year: 'numeric',
@@ -98,9 +96,14 @@ export function formatFrenchDate(date: Date | string | number | null | undefined
   if (!date) return '--';
   const d = normalizeToUTCDate(date);
   if (isNaN(d.getTime())) return '--';
-  return d.toLocaleDateString('fr-FR', {
-    timeZone: 'Europe/Paris',
+  return d.toLocaleDateString(undefined, {
     day: 'numeric',
     month: 'short'
   });
 }
+
+// Aliases for modern local time representation
+export const formatLocalTime = formatFrenchTime;
+export const formatLocalTimeWithSeconds = formatFrenchTimeWithSeconds;
+export const formatLocalDateTime = formatFrenchDateTime;
+export const formatLocalDate = formatFrenchDate;

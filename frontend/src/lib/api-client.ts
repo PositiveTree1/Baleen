@@ -761,7 +761,7 @@ export async function fetchPlatformStats(): Promise<PlatformStats | null> {
   }
 }
 
-export async function guestLogin(): Promise<{ email: string; password: string; access_token?: string } | null> {
+export async function guestLogin(): Promise<{ email: string; password: string; access_token?: string; id?: string } | null> {
   try {
     const res = await fetch(`${API_BASE_URL}/api/auth/guest`, {
       method: 'POST',

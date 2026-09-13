@@ -15,13 +15,11 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       credentials: {
         email: { label: 'Email', type: 'email' },
         password: { label: 'Password', type: 'password' },
+        isGuest: { label: 'Is Guest', type: 'text' },
+        guestToken: { label: 'Guest Token', type: 'text' },
+        guestId: { label: 'Guest ID', type: 'text' },
       },
       async authorize(credentials) {
-        if (!credentials?.email || !credentials?.password) return null;
-
-        const email = String(credentials.email).toLowerCase().trim();
-        const password = String(credentials.password);
-
         let backendUrl = (
           process.env.BACKEND_URL || 
           process.env.NEXT_PUBLIC_BACKEND_URL || 
@@ -33,9 +31,55 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           backendUrl = `https://${backendUrl}`;
         }
 
+        // Fast-path: Pre-provisioned guest credentials from client
+        if (credentials?.isGuest === 'true' && credentials?.guestToken && credentials?.guestId) {
+          return {
+            id: String(credentials.guestId),
+            email: String(credentials.email || `guest_${String(credentials.guestId).slice(0, 8)}@baleen.local`),
+            name: 'Guest Trader',
+            isAdmin: false,
+            accessToken: String(credentials.guestToken),
+          };
+        }
+
+        // Direct server-side guest session provisioning
+        if (credentials?.isGuest === 'true' || credentials?.email === 'guest') {
+          try {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 15000);
+
+            const res = await fetch(`${backendUrl}/api/auth/guest`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              signal: controller.signal,
+            });
+            clearTimeout(timeoutId);
+
+            if (res.ok) {
+              const guest = await res.json();
+              return {
+                id: guest.id,
+                email: guest.email,
+                name: 'Guest Trader',
+                isAdmin: false,
+                accessToken: guest.access_token,
+              };
+            }
+          } catch (e) {
+            console.error("NextAuth guest authorization error:", e);
+          }
+          return null;
+        }
+
+        // Standard email/password authentication
+        if (!credentials?.email || !credentials?.password) return null;
+
+        const email = String(credentials.email).toLowerCase().trim();
+        const password = String(credentials.password);
+
         try {
           const controller = new AbortController();
-          const timeoutId = setTimeout(() => controller.abort(), 5000);
+          const timeoutId = setTimeout(() => controller.abort(), 15000);
 
           const res = await fetch(
             `${backendUrl}/api/auth/login`,

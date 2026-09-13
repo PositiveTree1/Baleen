@@ -4,9 +4,9 @@ import { signIn } from 'next-auth/react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { BrandLogo } from '@/components/ui/BrandLogo';
 import { useTheme } from '@/context/ThemeContext';
-import { Sun, Moon, Sparkles } from 'lucide-react';
+import { Sun, Moon, Sparkles, Loader2 } from 'lucide-react';
 import Link from 'next/link';
-import { guestLogin } from '@/lib/api-client';
+import { guestLogin, setAuthToken } from '@/lib/api-client';
 
 function LoginForm() {
   const router = useRouter();
@@ -16,10 +16,12 @@ function LoginForm() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const [guestLoading, setGuestLoading] = useState(false);
+  const [guestStatus, setGuestStatus] = useState<'idle' | 'provisioning' | 'launching'>('idle');
 
   const displayedError = error || (searchParams.get('reason') === 'session-expired'
     ? 'Your session expired. Please sign in again to view your portfolio.' : '');
+
+  const isGuestBusy = guestStatus !== 'idle';
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -47,30 +49,56 @@ function LoginForm() {
   };
 
   const handleGuestLogin = async () => {
-    setGuestLoading(true);
+    setGuestStatus('provisioning');
     setError('');
 
     try {
+      // 1. Fast path: Client retrieves isolated credentials directly from backend
       const guestCreds = await guestLogin();
       if (guestCreds && guestCreds.email && guestCreds.password) {
+        if (guestCreds.access_token) {
+          setAuthToken(guestCreds.access_token);
+        }
+        setGuestStatus('launching');
+
+        // Authorize with NextAuth using pre-provisioned guest credentials
         const res = await signIn('credentials', {
           email: guestCreds.email,
           password: guestCreds.password,
+          guestToken: guestCreds.access_token || '',
+          guestId: guestCreds.id || '',
+          isGuest: 'true',
           redirect: false,
         });
+
         if (res?.error) {
-          setError('Failed to sign in to isolated guest session');
+          setError('Failed to establish guest session. Please retry.');
+          setGuestStatus('idle');
         } else {
           router.push('/dashboard');
           router.refresh();
         }
-      } else {
-        setError('Failed to provision isolated guest session. Please check backend connectivity.');
+        return;
       }
-    } catch {
+
+      // 2. Direct server-side fallback
+      setGuestStatus('launching');
+      const fallbackRes = await signIn('credentials', {
+        isGuest: 'true',
+        redirect: false,
+      });
+
+      if (fallbackRes?.error) {
+        setError('Failed to provision isolated guest session. Please check backend connectivity.');
+        setGuestStatus('idle');
+      } else {
+        router.push('/dashboard');
+        router.refresh();
+      }
+    } catch (err) {
+      console.error("Guest login exception:", err);
       setError('An error occurred provisioning guest session');
-    } finally {
-      setGuestLoading(false);
+      setGuestStatus('idle');
     }
   };
 
@@ -86,6 +114,26 @@ function LoginForm() {
           {theme === 'light' ? <Moon size={16} aria-hidden="true" /> : <Sun size={16} aria-hidden="true" className="text-amber-400" />}
         </button>
       </div>
+
+      {/* Responsive Guest Session Transition Overlay */}
+      {isGuestBusy && (
+        <div className="fixed inset-0 z-50 bg-[#F8F9FB]/95 dark:bg-[#000000]/95 backdrop-blur-sm flex flex-col items-center justify-center p-6 transition-all duration-300">
+          <div className="flex flex-col items-center max-w-sm text-center space-y-4">
+            <div className="relative flex items-center justify-center">
+              <div className="w-12 h-12 rounded-full border-2 border-[#00D09C] border-t-transparent animate-spin" />
+              <Sparkles size={16} className="text-amber-400 absolute" />
+            </div>
+            <div className="space-y-1.5">
+              <h2 className="text-base font-bold text-slate-950 dark:text-white tracking-tight">
+                {guestStatus === 'provisioning' ? 'Provisioning Isolated Sandbox…' : 'Entering Dashboard…'}
+              </h2>
+              <p className="text-xs text-slate-500 dark:text-[#8E8F99]">
+                Allocating $10,000 pUSD paper trading capital & connecting live whale streams.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="w-full max-w-md p-8 sm:p-9 rounded-[28px] bg-white dark:bg-[#16171B] border border-black/[0.08] dark:border-white/10 shadow-xl space-y-6">
         <div className="text-center flex flex-col items-center">
@@ -135,7 +183,7 @@ function LoginForm() {
           <button 
             type="submit" 
             className="w-full py-3.5 mt-2 rounded-full bg-slate-950 dark:bg-white text-white dark:text-black text-xs font-bold hover:bg-slate-800 dark:hover:bg-slate-200 transition-all shadow-md cursor-pointer disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00D09C] active:scale-[0.98]"
-            disabled={loading || guestLoading}
+            disabled={loading || isGuestBusy}
           >
             {loading ? 'Authenticating…' : 'Sign In'}
           </button>
@@ -149,12 +197,16 @@ function LoginForm() {
 
         <button 
           type="button"
-          className="w-full py-3.5 rounded-full bg-[#F1F3F5] dark:bg-[#1C1D22] hover:bg-[#E2E6EA] dark:hover:bg-[#2C2D35] border border-black/[0.08] dark:border-white/10 text-slate-900 dark:text-white text-xs font-bold transition-all shadow-xs cursor-pointer flex items-center justify-center gap-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00D09C] active:scale-[0.98]"
+          className="w-full py-3.5 rounded-full bg-[#F1F3F5] dark:bg-[#1C1D22] hover:bg-[#E2E6EA] dark:hover:bg-[#2C2D35] border border-black/[0.08] dark:border-white/10 text-slate-900 dark:text-white text-xs font-bold transition-all shadow-xs cursor-pointer flex items-center justify-center gap-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00D09C] active:scale-[0.98] disabled:opacity-50"
           onClick={handleGuestLogin}
-          disabled={loading || guestLoading}
+          disabled={loading || isGuestBusy}
         >
-          <Sparkles size={14} className="text-amber-500" aria-hidden="true" />
-          <span>{guestLoading ? 'Opening Dashboard…' : 'Explore as Guest (Instant Demo)'}</span>
+          {isGuestBusy ? (
+            <Loader2 size={14} className="animate-spin text-[#00D09C]" aria-hidden="true" />
+          ) : (
+            <Sparkles size={14} className="text-amber-500" aria-hidden="true" />
+          )}
+          <span>{isGuestBusy ? 'Opening Dashboard…' : 'Explore as Guest (Instant Demo)'}</span>
         </button>
 
         <p className="text-center text-xs text-slate-500 dark:text-[#8E8F99] pt-2">
