@@ -67,10 +67,13 @@ async def list_wallets(
     elif tier:
         stmt = stmt.where(Wallet.status == "active", Wallet.tier == tier, Wallet.dormant == False)
     else:
-        # Default roster: show active wallets; if active wallets < limit, include pending candidates
-        stmt = stmt.where(Wallet.status.in_(["active", "pending"]))
+        # Default roster: show active and tracked wallets that have been scored and have authentic PnL
+        stmt = stmt.where(
+            Wallet.status.in_(["active", "tracked"]),
+            Wallet.all_time_pnl_usd.is_not(None)
+        )
         
-    stmt = stmt.order_by(Wallet.baleen_score.desc().nullslast()).limit(limit).offset(offset)
+    stmt = stmt.order_by(Wallet.baleen_score.desc().nullslast(), Wallet.all_time_pnl_usd.desc().nullslast()).limit(limit).offset(offset)
     result = await db.execute(stmt)
     return [wallet_to_response(w) for w in result.scalars().all()]
 
@@ -488,7 +491,21 @@ async def get_wallet(address: str, db: AsyncSession = Depends(get_db)):
                 if real_hist:
                     daily_pnl_history = real_hist
                     wallet.cached_daily_pnl = json.dumps(real_hist)
-                    await db.commit()
+
+                if stats:
+                    if stats.get('all_time_pnl_usd') is not None and (wallet.all_time_pnl_usd is None or wallet.all_time_pnl_usd == 0):
+                        wallet.all_time_pnl_usd = round(float(stats['all_time_pnl_usd']), 2)
+                    if stats.get('win_rate_pct') is not None and wallet.win_rate_pct is None:
+                        wallet.win_rate_pct = round(float(stats['win_rate_pct']), 1)
+                    if stats.get('total_trades_analyzed') is not None and not wallet.total_trades_analyzed:
+                        wallet.total_trades_analyzed = int(stats['total_trades_analyzed'])
+                    if stats.get('max_drawdown_pct') is not None and wallet.max_drawdown_pct is None:
+                        wallet.max_drawdown_pct = round(float(stats['max_drawdown_pct']), 1)
+                    if stats.get('baleen_score') is not None and wallet.baleen_score is None:
+                        wallet.baleen_score = round(float(stats['baleen_score']), 1)
+
+                await db.commit()
+                await db.refresh(wallet)
         except Exception as e:
             logger.debug(f"Error computing deep live on-chain history for {clean_addr}: {e}")
         finally:

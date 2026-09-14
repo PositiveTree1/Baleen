@@ -310,7 +310,7 @@ export default function DashboardPage() {
             {session?.user?.isAdmin && (
               <Link
                 href="/admin"
-                className="text-[10px] sm:text-xs font-bold text-white px-2 sm:px-3 py-1 sm:py-1.5 rounded-full glass-button border border-white/10 transition-all shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0284C7]"
+                className="text-[10px] sm:text-xs font-bold text-slate-700 hover:text-sky-600 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-full bg-[#f0f7fd] hover:bg-[#e2f0fb] border border-[#d4e5f5] hover:border-[#b9d8f3] transition-all shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0284C7]"
                 aria-label="Go to Admin Panel"
               >
                 Admin
@@ -319,7 +319,7 @@ export default function DashboardPage() {
 
             <Link
               href="/settings"
-              className="w-8 h-8 sm:w-9 sm:h-9 md:w-10 md:h-10 rounded-full glass-button border border-white/10 text-white flex items-center justify-center transition-all shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0284C7]"
+              className="w-8 h-8 sm:w-9 sm:h-9 md:w-10 md:h-10 rounded-full bg-[#f0f7fd] hover:bg-[#e2f0fb] border border-[#d4e5f5] hover:border-[#b9d8f3] text-slate-700 hover:text-sky-600 flex items-center justify-center transition-all shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0284C7]"
               aria-label="Go to User Settings"
             >
               <Settings size={14} aria-hidden="true" className="sm:w-[15px] sm:h-[15px]" />
@@ -337,7 +337,7 @@ export default function DashboardPage() {
                   window.alert('Sign out could not be completed. Please retry when the connection is restored.');
                 }
               }}
-              className="w-8 h-8 sm:w-9 sm:h-9 md:w-10 md:h-10 rounded-full glass-button hover:bg-rose-950/60 border border-white/10 text-slate-300 hover:text-rose-400 flex items-center justify-center transition-all cursor-pointer shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-500"
+              className="w-8 h-8 sm:w-9 sm:h-9 md:w-10 md:h-10 rounded-full bg-[#f0f7fd] hover:bg-rose-50 border border-[#d4e5f5] hover:border-rose-300 text-slate-500 hover:text-rose-600 flex items-center justify-center transition-all cursor-pointer shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-500"
               aria-label="Sign out of Baleen"
             >
               <LogOut size={14} aria-hidden="true" className="sm:w-[15px] sm:h-[15px]" />

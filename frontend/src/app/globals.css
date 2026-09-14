@@ -104,14 +104,63 @@ button, a { -webkit-tap-highlight-color: transparent; }
 /* Shared light application surfaces */
 .glass-card, .ice-card, .liquid-glass-card, .apple-glass, .apple-glass-card, .matte-metallic-card { position: relative; color: var(--navy-950); background: rgba(255,255,255,.9) !important; border: 1px solid rgba(207,225,239,.9) !important; box-shadow: 0 14px 40px rgba(31,72,108,.08) !important; backdrop-filter: blur(20px) saturate(130%); border-radius: 24px; }
 .glass-dock, .liquid-dock, .baleen-nav { color: var(--navy-950); background: rgba(255,255,255,.88) !important; border: 1px solid rgba(207,225,239,.92) !important; box-shadow: 0 12px 36px rgba(31,72,108,.1) !important; backdrop-filter: blur(22px) saturate(130%); border-radius: 22px; }
-.glass-button, .liquid-pill-btn { color: white !important; background: var(--navy-950) !important; border: 1px solid var(--navy-950) !important; box-shadow: 0 8px 20px rgba(7,24,47,.16) !important; }
-.glass-button svg, .liquid-pill-btn svg, .liquid-orb-btn svg { color: white !important; stroke: currentColor !important; }
-.glass-button:hover, .liquid-pill-btn:hover { background: #12365f !important; transform: translateY(-1px); }
+.glass-button, .liquid-pill-btn {
+  color: var(--navy-950) !important;
+  background: #f0f7fd !important;
+  border: 1px solid #d4e5f5 !important;
+  box-shadow: 0 1px 3px rgba(31,72,108,0.06) !important;
+  transition: all 0.2s ease !important;
+}
+.glass-button:hover, .liquid-pill-btn:hover {
+  background: #e2f0fb !important;
+  border-color: #b9d8f3 !important;
+  color: var(--blue-600) !important;
+  transform: translateY(-1px);
+}
+.glass-button svg, .liquid-pill-btn svg {
+  color: inherit !important;
+  stroke: currentColor !important;
+}
+.button-primary, .button-primary.glass-button, .button-primary.text-white, button.button-primary {
+  color: white !important;
+  background: var(--navy-950) !important;
+  border: 1px solid var(--navy-950) !important;
+  box-shadow: 0 8px 20px rgba(7,24,47,.16) !important;
+}
+.button-primary:hover, .button-primary.glass-button:hover {
+  background: #0e2b50 !important;
+  color: white !important;
+}
+.button-primary svg {
+  color: white !important;
+}
 .ctrl-btn { color: var(--navy-700) !important; background: #eef6fc !important; border: 1px solid #d8e8f4 !important; box-shadow: none !important; }
 .ctrl-btn:hover { background: #e3f1fb !important; color: var(--blue-600) !important; }
 .ice-surface, .skeuo-inset { background: #eff7fc !important; border-color: #dae8f2 !important; }
 .obsidian-card { background: linear-gradient(145deg,#07182f,#10375e) !important; color: white; }
-.liquid-orb-btn { background: var(--navy-950) !important; color: white !important; }
+.liquid-orb-btn {
+  background: #f0f7fd !important;
+  border: 1px solid #d4e5f5 !important;
+  color: var(--navy-700) !important;
+  box-shadow: 0 1px 3px rgba(31,72,108,0.06) !important;
+  border-radius: 9999px !important;
+  transition: all 0.2s ease !important;
+}
+.liquid-orb-btn:hover {
+  background: #e2f0fb !important;
+  border-color: #b9d8f3 !important;
+  color: var(--blue-600) !important;
+  transform: translateY(-1px);
+}
+.liquid-orb-btn.active, .liquid-orb-btn[data-active="true"] {
+  background: #dbeeff !important;
+  border-color: #7fcaff !important;
+  color: var(--blue-600) !important;
+}
+.liquid-orb-btn svg {
+  color: inherit !important;
+  stroke: currentColor !important;
+}
 .min-h-screen.bg-\[\#020b18\] { background: transparent !important; }
 .text-white { color: var(--navy-950); }
 .glass-button.text-white, .liquid-pill-btn.text-white, .obsidian-card .text-white, .closing-card .text-white { color: white !important; }

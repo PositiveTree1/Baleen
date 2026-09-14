@@ -90,9 +90,9 @@ export function BalanceCounter({
             transition={{ type: 'spring', stiffness: 400, damping: 25 }}
             onClick={onMirrorClick}
             aria-label="Mirror top Polymarket whales"
-            className="w-12 h-12 sm:w-14 sm:h-14 rounded-full glass-button flex items-center justify-center cursor-pointer shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0284C7] focus-visible:ring-offset-2"
+            className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-white/90 hover:bg-white text-sky-600 border border-sky-200/80 shadow-[0_2px_8px_rgba(15,80,140,0.08)] hover:border-sky-400 hover:shadow-[0_4px_14px_rgba(15,80,140,0.12)] flex items-center justify-center cursor-pointer transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2"
           >
-            <Plus size={20} className="text-white" aria-hidden="true" />
+            <Plus size={20} className="text-sky-600" aria-hidden="true" />
           </motion.button>
           <span className="text-xs font-bold text-slate-700">Mirror</span>
         </div>
@@ -105,9 +105,9 @@ export function BalanceCounter({
             transition={{ type: 'spring', stiffness: 400, damping: 25 }}
             onClick={onRebalanceClick}
             aria-label="Rebalance basket allocation"
-            className="w-12 h-12 sm:w-14 sm:h-14 rounded-full glass-button flex items-center justify-center cursor-pointer shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0284C7] focus-visible:ring-offset-2"
+            className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-white/90 hover:bg-white text-sky-600 border border-sky-200/80 shadow-[0_2px_8px_rgba(15,80,140,0.08)] hover:border-sky-400 hover:shadow-[0_4px_14px_rgba(15,80,140,0.12)] flex items-center justify-center cursor-pointer transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2"
           >
-            <ArrowLeftRight size={18} className="text-white" aria-hidden="true" />
+            <ArrowLeftRight size={18} className="text-sky-600" aria-hidden="true" />
           </motion.button>
           <span className="text-xs font-bold text-slate-700">Rebalance</span>
         </div>
@@ -120,9 +120,9 @@ export function BalanceCounter({
             transition={{ type: 'spring', stiffness: 400, damping: 25 }}
             onClick={onAnalyticsClick}
             aria-label="View portfolio analytics"
-            className="w-12 h-12 sm:w-14 sm:h-14 rounded-full glass-button flex items-center justify-center cursor-pointer shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0284C7] focus-visible:ring-offset-2"
+            className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-white/90 hover:bg-white text-sky-600 border border-sky-200/80 shadow-[0_2px_8px_rgba(15,80,140,0.08)] hover:border-sky-400 hover:shadow-[0_4px_14px_rgba(15,80,140,0.12)] flex items-center justify-center cursor-pointer transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2"
           >
-            <BarChart2 size={18} className="text-white" aria-hidden="true" />
+            <BarChart2 size={18} className="text-sky-600" aria-hidden="true" />
           </motion.button>
           <span className="text-xs font-bold text-slate-700">Analytics</span>
         </div>
@@ -136,9 +136,9 @@ export function BalanceCounter({
               transition={{ type: 'spring', stiffness: 400, damping: 25 }}
               onClick={onResetClick}
               aria-label="Reset sandbox balance"
-              className="w-12 h-12 sm:w-14 sm:h-14 rounded-full glass-button hover:bg-rose-950/40 hover:border-rose-400/50 flex items-center justify-center cursor-pointer shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-500 focus-visible:ring-offset-2"
+              className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-white/90 hover:bg-rose-50 text-slate-500 hover:text-rose-600 border border-sky-200/80 hover:border-rose-300 shadow-[0_2px_8px_rgba(15,80,140,0.08)] hover:shadow-[0_4px_14px_rgba(244,63,94,0.12)] flex items-center justify-center cursor-pointer transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-500 focus-visible:ring-offset-2"
             >
-              <RotateCcw size={17} className="text-slate-300 hover:text-rose-400" aria-hidden="true" />
+              <RotateCcw size={17} className="text-slate-500 hover:text-rose-500 transition-colors" aria-hidden="true" />
             </motion.button>
             <span className="text-xs font-bold text-slate-700">Reset</span>
           </div>

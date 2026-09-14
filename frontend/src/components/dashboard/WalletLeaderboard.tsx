@@ -203,9 +203,9 @@ export function WalletLeaderboard({ userId, onSelectWallet, targetSleeveCount = 
           onClick={handleReevaluate}
           disabled={evaluating}
           aria-label={evaluating ? "Evaluating whales..." : "Scan whales"}
-          className="glass-button flex items-center gap-1.5 px-3 py-1.5 rounded-full text-white text-xs font-semibold transition-all cursor-pointer disabled:opacity-50"
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#f0f7fd] hover:bg-[#e2f0fb] border border-[#d4e5f5] text-slate-700 hover:text-sky-600 text-xs font-semibold transition-all cursor-pointer disabled:opacity-50"
         >
-          <RotateCw size={12} className={evaluating ? "animate-spin text-[#00D09C]" : ""} />
+          <RotateCw size={12} className={evaluating ? "animate-spin text-sky-500" : ""} />
           <span>{evaluating ? "Evaluating..." : "Scan Whales"}</span>
         </button>
       </div>
@@ -220,25 +220,25 @@ export function WalletLeaderboard({ userId, onSelectWallet, targetSleeveCount = 
             aria-label="Search address or pseudonym"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-9 pr-3 py-2 bg-white/[0.06] border border-white/15 rounded-full text-xs text-white placeholder-slate-400 focus:outline-none focus:border-sky-400/40 backdrop-blur-md"
+            className="w-full pl-9 pr-3 py-2 bg-slate-50/80 border border-slate-200 rounded-full text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-sky-400"
           />
         </div>
-        <div className="flex rounded-full bg-white/[0.06] p-1 border border-white/10 text-[11px] font-bold justify-between sm:justify-start shrink-0 backdrop-blur-md">
+        <div className="flex rounded-full bg-slate-100/90 p-1 border border-slate-200/80 text-[11px] font-bold justify-between sm:justify-start shrink-0">
           <button
             onClick={() => setTab('copied')}
-            className={`flex-1 sm:flex-initial px-3 py-1.5 rounded-full transition-all text-center ${tab === 'copied' ? 'glass-button text-white shadow-xs' : 'text-slate-400 hover:text-white'}`}
+            className={`flex-1 sm:flex-initial px-3 py-1.5 rounded-full transition-all text-center ${tab === 'copied' ? 'bg-white text-slate-900 shadow-xs border border-sky-100 font-bold' : 'text-slate-500 hover:text-slate-800'}`}
           >
             Copied
           </button>
           <button
             onClick={() => setTab('topActive')}
-            className={`flex-1 sm:flex-initial px-3 py-1.5 rounded-full transition-all text-center ${tab === 'topActive' ? 'glass-button text-white shadow-xs' : 'text-slate-400 hover:text-white'}`}
+            className={`flex-1 sm:flex-initial px-3 py-1.5 rounded-full transition-all text-center ${tab === 'topActive' ? 'bg-white text-slate-900 shadow-xs border border-sky-100 font-bold' : 'text-slate-500 hover:text-slate-800'}`}
           >
             Top {targetSleeveCount} Active
           </button>
           <button
             onClick={() => setTab('all')}
-            className={`flex-1 sm:flex-initial px-3 py-1.5 rounded-full transition-all text-center ${tab === 'all' ? 'glass-button text-white shadow-xs' : 'text-slate-400 hover:text-white'}`}
+            className={`flex-1 sm:flex-initial px-3 py-1.5 rounded-full transition-all text-center ${tab === 'all' ? 'bg-white text-slate-900 shadow-xs border border-sky-100 font-bold' : 'text-slate-500 hover:text-slate-800'}`}
           >
             All Tracked
           </button>
