@@ -67,12 +67,6 @@ export function WalletDrawer({ address, onClose }: WalletDrawerProps) {
   useEffect(() => {
     if (!address) return;
     let active = true;
-    const optimistic = getOptimisticWallet(address);
-    if (optimistic?.dailyPnLHistory && optimistic.dailyPnLHistory.length > 0) {
-      setLoading(false);
-    } else {
-      setLoading(true);
-    }
 
     fetchWallet(address)
       .then((data) => {
@@ -182,7 +176,7 @@ export function WalletDrawer({ address, onClose }: WalletDrawerProps) {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={onClose}
-            className="fixed inset-0 bg-black/60 dark:bg-black/80 backdrop-blur-sm z-40"
+            className="fixed inset-0 glass-modal-backdrop z-40"
           />
 
           {/* Drawer Container */}
@@ -191,8 +185,8 @@ export function WalletDrawer({ address, onClose }: WalletDrawerProps) {
             animate={{ x: 0 }}
             exit={{ x: '100%' }}
             transition={{ type: 'spring', damping: 30, stiffness: 300 }}
-            className={`fixed inset-y-0 right-0 z-50 w-full max-w-full sm:max-w-xl bg-white dark:bg-[#16171B] border-l shadow-2xl overflow-y-auto ${
-              isGold ? 'border-amber-400/50 dark:border-amber-400/30' : 'border-black/[0.08] dark:border-white/10'
+            className={`fixed inset-y-0 right-0 z-50 w-full max-w-full sm:max-w-xl glass-panel border-l shadow-2xl overflow-y-auto ${
+              isGold ? 'border-amber-400/50 dark:border-amber-400/30' : 'border-sky-100/80 dark:border-white/10'
             }`}
           >
             <div className="p-4 sm:p-8">
@@ -248,13 +242,13 @@ export function WalletDrawer({ address, onClose }: WalletDrawerProps) {
               {wallet ? (
                 <div className="space-y-6">
                   {/* Address Badge & Style */}
-                  <div className="flex items-center justify-between p-3.5 bg-slate-50 dark:bg-[#1C1D22] border border-black/[0.06] dark:border-white/5 rounded-2xl">
+                  <div className="flex items-center justify-between p-3.5 glass-card rounded-2xl border border-sky-100/80 dark:border-white/10">
                     <div className="flex items-center gap-2">
-                      <span className="text-xs font-mono text-slate-800 dark:text-white font-semibold">{address}</span>
+                      <span className="text-xs font-mono text-[#0F172A] dark:text-white font-semibold">{address}</span>
                       <button
                         onClick={handleCopy}
                         aria-label="Copy address"
-                        className="text-slate-400 dark:text-[#8E8F99] hover:text-slate-900 dark:hover:text-white transition-colors cursor-pointer"
+                        className="text-slate-400 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors cursor-pointer"
                         title="Copy Address"
                       >
                         {copied ? <Check size={13} className="text-[#00D09C]" /> : <Copy size={13} />}
@@ -262,29 +256,29 @@ export function WalletDrawer({ address, onClose }: WalletDrawerProps) {
                     </div>
 
                     {wallet.aiStyleTag && (
-                      <span className="text-[11px] font-bold text-slate-800 dark:text-white bg-white dark:bg-[#2C2D35] px-2.5 py-0.5 rounded-full border border-black/[0.08] dark:border-white/5 shadow-2xs">
+                      <span className="text-[11px] font-bold text-[#0F172A] dark:text-white bg-sky-50 dark:bg-white/10 px-2.5 py-0.5 rounded-full border border-sky-200/60 dark:border-white/10 shadow-2xs">
                         {wallet.aiStyleTag}
                       </span>
                     )}
                   </div>
 
                   {/* AI Quantitative Executive Summary */}
-                  <div className="p-5 rounded-3xl relative overflow-hidden bg-slate-50 dark:bg-[#1C1D22] border border-black/[0.06] dark:border-white/5 shadow-sm">
+                  <div className="p-5 rounded-3xl relative overflow-hidden glass-card border border-sky-100/80 dark:border-white/10 shadow-sm">
                     <div className="space-y-2.5">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
-                          <div className={`p-1 rounded-lg ${isGold ? 'bg-amber-100 dark:bg-amber-400/10 text-amber-800 dark:text-amber-400' : 'bg-indigo-100 dark:bg-indigo-500/10 text-indigo-800 dark:text-indigo-400'}`}>
+                          <div className={`p-1 rounded-lg ${isGold ? 'bg-amber-100 dark:bg-amber-400/10 text-amber-800 dark:text-amber-400' : 'bg-sky-100 dark:bg-sky-500/10 text-sky-800 dark:text-sky-400'}`}>
                             <Sparkles size={13} />
                           </div>
-                          <h4 className="text-xs font-bold uppercase tracking-wider text-slate-900 dark:text-white">
+                          <h4 className="text-xs font-bold uppercase tracking-wider text-[#0F172A] dark:text-white">
                             Quantitative Strategy Synopsis
                           </h4>
                         </div>
-                        <span className="text-[10px] font-mono font-semibold text-indigo-700 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-500/10 px-2.5 py-0.5 rounded-full border border-indigo-200/80 dark:border-indigo-500/20">
+                        <span className="text-[10px] font-mono font-semibold text-[#0284C7] dark:text-[#38BDF8] bg-sky-50 dark:bg-sky-500/10 px-2.5 py-0.5 rounded-full border border-sky-200/80 dark:border-sky-500/20">
                           Llama 3.1 70B
                         </span>
                       </div>
-                      <p className="text-sm text-slate-900 dark:text-white leading-relaxed font-medium min-h-[48px]">
+                      <p className="text-sm text-[#0F172A] dark:text-white leading-relaxed font-medium min-h-[48px]">
                         <TypewriterText 
                           text={cleanSummary || 'Automated quantitative analysis computed via Groq Llama-3.1 engine based on on-chain trading behavior.'}
                           speed={8}
@@ -296,63 +290,63 @@ export function WalletDrawer({ address, onClose }: WalletDrawerProps) {
 
                   {/* Key Metrics Grid */}
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                    <div className="p-4 bg-slate-50 dark:bg-[#1C1D22] border border-black/[0.04] dark:border-white/5 rounded-2xl">
-                      <span className="text-[10px] uppercase font-bold text-slate-400 dark:text-[#8E8F99]">Baleen Score</span>
-                      <div className="text-xl font-bold font-mono text-slate-950 dark:text-white mt-0.5">
+                    <div className="p-4 glass-card border border-sky-100/60 dark:border-white/5 rounded-2xl">
+                      <span className="text-[10px] uppercase font-bold text-slate-400 dark:text-slate-400">Baleen Score</span>
+                      <div className="text-xl font-bold font-mono text-[#0F172A] dark:text-white mt-0.5">
                         {wallet.score == null ? 'Unavailable' : wallet.score.toFixed(1)}
                       </div>
-                      <span className="text-[10px] text-slate-400 dark:text-[#8E8F99]">Out of 100</span>
+                      <span className="text-[10px] text-slate-400 dark:text-slate-400">Out of 100</span>
                     </div>
 
-                    <div className="p-4 bg-slate-50 dark:bg-[#1C1D22] border border-black/[0.04] dark:border-white/5 rounded-2xl">
-                      <span className="text-[10px] uppercase font-bold text-slate-400 dark:text-[#8E8F99]">Win Rate</span>
+                    <div className="p-4 glass-card border border-sky-100/60 dark:border-white/5 rounded-2xl">
+                      <span className="text-[10px] uppercase font-bold text-slate-400 dark:text-slate-400">Win Rate</span>
                       <div className="text-xl font-bold font-mono text-emerald-600 dark:text-[#00D09C] mt-0.5">
                         {wallet.winRate == null ? 'Unavailable' : formatPct(wallet.winRate)}
                       </div>
-                      <span className="text-[10px] text-slate-400 dark:text-[#8E8F99]">Resolved Outcomes</span>
+                      <span className="text-[10px] text-slate-400 dark:text-slate-400">Resolved Outcomes</span>
                     </div>
 
-                    <div className="p-4 bg-slate-50 dark:bg-[#1C1D22] border border-black/[0.04] dark:border-white/5 rounded-2xl">
-                      <span className="text-[10px] uppercase font-bold text-slate-400 dark:text-[#8E8F99]">Source Wallet PnL</span>
-                      <div className={`text-xl font-bold font-mono mt-0.5 ${wallet.pnl == null ? 'text-slate-400 dark:text-[#8E8F99]' : wallet.pnl >= 0 ? 'text-emerald-600 dark:text-[#00D09C]' : 'text-rose-600 dark:text-[#FF453A]'}`}>
+                    <div className="p-4 glass-card border border-sky-100/60 dark:border-white/5 rounded-2xl">
+                      <span className="text-[10px] uppercase font-bold text-slate-400 dark:text-slate-400">Source Wallet PnL</span>
+                      <div className={`text-xl font-bold font-mono mt-0.5 ${wallet.pnl == null ? 'text-slate-400 dark:text-slate-400' : wallet.pnl >= 0 ? 'text-emerald-600 dark:text-[#00D09C]' : 'text-rose-600 dark:text-[#FF453A]'}`}>
                         {wallet.pnl == null ? 'Unavailable' : formatCompactPnL(wallet.pnl)}
                       </div>
-                      <span className="text-[10px] text-slate-400 dark:text-[#8E8F99]">Source Historical Net</span>
+                      <span className="text-[10px] text-slate-400 dark:text-slate-400">Source Historical Net</span>
                     </div>
 
-                    <div className="p-4 bg-slate-50 dark:bg-[#1C1D22] border border-black/[0.04] dark:border-white/5 rounded-2xl">
-                      <span className="text-[10px] uppercase font-bold text-slate-400 dark:text-[#8E8F99]">Median Inter-trade Gap</span>
-                      <div className="text-xl font-bold font-mono text-slate-950 dark:text-white mt-0.5">
+                    <div className="p-4 glass-card border border-sky-100/60 dark:border-white/5 rounded-2xl">
+                      <span className="text-[10px] uppercase font-bold text-slate-400 dark:text-slate-400">Median Gap</span>
+                      <div className="text-xl font-bold font-mono text-[#0F172A] dark:text-white mt-0.5">
                         {(() => {
                           const hrs = wallet.medianInterTradeGapHours;
                           if (hrs == null) return 'Unavailable';
                           return hrs >= 24 ? `${(hrs / 24).toFixed(1)}d` : `${hrs.toFixed(1)}h`;
                         })()}
                       </div>
-                      <span className="text-[10px] text-slate-400 dark:text-[#8E8F99]">Between observed trades, not position duration</span>
+                      <span className="text-[10px] text-slate-400 dark:text-slate-400">Inter-trade gap</span>
                     </div>
                   </div>
 
                   {/* Chart Container Card */}
-                  <div className="p-5 bg-slate-50 dark:bg-[#1C1D22] border border-black/[0.06] dark:border-white/5 rounded-3xl space-y-4">
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-black/[0.04] dark:border-white/5 pb-3">
+                  <div className="p-5 glass-card border border-sky-100/80 dark:border-white/10 rounded-3xl space-y-4">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-sky-100/60 dark:border-white/5 pb-3">
                       {/* Sub-tabs */}
-                      <div className="flex rounded-full bg-slate-200 dark:bg-[#2C2D35] p-0.5 text-xs font-bold">
+                      <div className="flex rounded-full bg-[#E0F2FE]/60 dark:bg-white/5 p-1 border border-sky-200/50 dark:border-white/10 text-xs font-bold">
                         <button
                           onClick={() => setActiveChartTab('winloss')}
-                          className={`px-3 py-1 rounded-full transition-all ${activeChartTab === 'winloss' ? 'bg-white dark:bg-[#16171B] text-slate-950 dark:text-white shadow-2xs' : 'text-slate-500 dark:text-[#8E8F99]'}`}
+                          className={`px-3 py-1 rounded-full transition-all cursor-pointer ${activeChartTab === 'winloss' ? 'glass-button bg-white text-[#0F172A] shadow-xs' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'}`}
                         >
                           Daily Wins / Losses
                         </button>
                         <button
                           onClick={() => setActiveChartTab('pnl')}
-                          className={`px-3 py-1 rounded-full transition-all ${activeChartTab === 'pnl' ? 'bg-white dark:bg-[#16171B] text-slate-950 dark:text-white shadow-2xs' : 'text-slate-500 dark:text-[#8E8F99]'}`}
+                          className={`px-3 py-1 rounded-full transition-all cursor-pointer ${activeChartTab === 'pnl' ? 'glass-button bg-white text-[#0F172A] shadow-xs' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'}`}
                         >
                           Cumulative PnL
                         </button>
                         <button
                           onClick={() => setActiveChartTab('score')}
-                          className={`px-3 py-1 rounded-full transition-all ${activeChartTab === 'score' ? 'bg-white dark:bg-[#16171B] text-slate-950 dark:text-white shadow-2xs' : 'text-slate-500 dark:text-[#8E8F99]'}`}
+                          className={`px-3 py-1 rounded-full transition-all cursor-pointer ${activeChartTab === 'score' ? 'glass-button bg-white text-[#0F172A] shadow-xs' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'}`}
                         >
                           Score History
                         </button>

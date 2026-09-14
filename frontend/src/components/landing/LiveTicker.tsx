@@ -54,36 +54,36 @@ export function LiveTicker() {
   const marqueeList = [...activeTrades, ...activeTrades, ...activeTrades];
 
   return (
-    <div className="relative z-20 w-full border-y border-white/10 bg-[#0B0C10] backdrop-blur-3xl overflow-hidden shadow-2xl">
+    <div className="relative z-20 w-full border-y border-sky-100 bg-white/75 backdrop-blur-3xl overflow-hidden shadow-xs">
       {/* Top Status Strip */}
-      <div className="mx-auto flex max-w-[1380px] flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-4 border-b border-white/[0.06] px-4 py-2 text-xs text-zinc-400 sm:px-8 font-mono">
+      <div className="mx-auto flex max-w-[1380px] flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-4 border-b border-sky-100/70 px-4 py-2 text-xs text-slate-500 sm:px-8 font-mono">
         <div className="flex items-center gap-4 sm:gap-6">
           <div className="flex items-center gap-2">
             <span className="relative flex size-2">
-              <span className="absolute inline-flex size-full animate-ping rounded-full bg-[#00D09C] opacity-75" />
-              <span className="relative inline-flex size-2 rounded-full bg-[#00D09C]" />
+              <span className="absolute inline-flex size-full animate-ping rounded-full bg-emerald-500 opacity-75" />
+              <span className="relative inline-flex size-2 rounded-full bg-emerald-500" />
             </span>
-            <span className="text-[10px] sm:text-[11px] font-bold tracking-wider text-white uppercase">
+            <span className="text-[10px] sm:text-[11px] font-bold tracking-wider text-slate-900 uppercase">
               Polymarket Stream · Polygon CTF
             </span>
           </div>
 
           <div className="hidden items-center gap-2 md:flex">
-            <span className="text-zinc-500 text-[11px]">Baskets:</span>
-            <span className="text-[11px] font-bold text-white bg-white/[0.06] border border-white/10 px-2 py-0.5 rounded-full">
+            <span className="text-slate-400 text-[11px]">Baskets:</span>
+            <span className="text-[11px] font-bold text-sky-800 bg-sky-50 border border-sky-200/60 px-2 py-0.5 rounded-full">
               {stats?.activeBasketWhales ?? 5} Active Sleeves
             </span>
           </div>
         </div>
 
         <div className="flex items-center gap-2 sm:gap-3 text-[10px] sm:text-[11px]">
-          <span className="inline-flex items-center gap-1.5 text-zinc-400">
-            <Zap size={11} className="text-white shrink-0" />
-            <span>Envio Hypersync: <strong className="font-bold text-[#00D09C]">~84ms</strong></span>
+          <span className="inline-flex items-center gap-1.5 text-slate-500">
+            <Zap size={11} className="text-sky-600 shrink-0" />
+            <span>Envio Hypersync: <strong className="font-bold text-emerald-600">~84ms</strong></span>
           </span>
-          <span className="text-white/20">|</span>
-          <span className="text-zinc-400">
-            Sleeves: <strong className="font-bold text-white">$2k Cap</strong>
+          <span className="text-slate-300">|</span>
+          <span className="text-slate-500">
+            Sleeves: <strong className="font-bold text-slate-800">$2k Cap</strong>
           </span>
         </div>
       </div>
@@ -91,8 +91,8 @@ export function LiveTicker() {
       {/* Scrolling Marquee */}
       <div className="relative flex min-h-[46px] items-center overflow-hidden whitespace-nowrap py-2.5">
         {/* Ambient Gradient Fades */}
-        <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-16 bg-gradient-to-r from-[#0B0C10] to-transparent" />
-        <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-16 bg-gradient-to-l from-[#0B0C10] to-transparent" />
+        <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-16 bg-gradient-to-r from-white/90 to-transparent" />
+        <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-16 bg-gradient-to-l from-white/90 to-transparent" />
 
         <motion.div
           animate={{ x: ['0%', '-33.333%'] }}
@@ -106,24 +106,24 @@ export function LiveTicker() {
           {marqueeList.map((item: TickerItem, idx) => (
             <div
               key={`${item.id || idx}-${idx}`}
-              className="inline-flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-1.5 text-xs font-mono backdrop-blur-xl shadow-xs"
+              className="inline-flex items-center gap-3 rounded-2xl border border-sky-100 bg-white/80 px-4 py-1.5 text-xs font-mono backdrop-blur-xl shadow-xs"
             >
-              <span className="text-zinc-500 font-bold">
+              <span className="text-slate-400 font-bold">
                 {(item.walletAddress || item.source_wallet_address || '0x49e1').slice(0, 6)}...
               </span>
-              <span className="max-w-[240px] truncate font-sans font-medium text-zinc-200">
+              <span className="max-w-[240px] truncate font-sans font-medium text-slate-800">
                 {item.marketQuestion || item.market_question || 'Prediction Market Contract'}
               </span>
               <span
                 className={`rounded-full px-2 py-0.5 text-[10px] font-bold border font-mono ${
                   item.side === 'BUY'
-                    ? 'border-[#00D09C]/30 bg-[#00D09C]/10 text-[#00D09C]'
-                    : 'border-[#FF453A]/30 bg-[#FF453A]/10 text-[#FF453A]'
+                    ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                    : 'border-rose-200 bg-rose-50 text-rose-700'
                 }`}
               >
                 {item.side}
               </span>
-              <span className="font-bold text-white">
+              <span className="font-bold text-slate-900">
                 {(() => {
                   const price = item.userFillPrice ?? item.fillPrice ?? item.whale_entry_price;
                   return price === null || price === undefined ? '$0.50' : `$${price.toFixed(2)}`;

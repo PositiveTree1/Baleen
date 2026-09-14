@@ -1,0 +1,1480 @@
+{
+  "timestamp": "2026-09-14T12:34:09Z",
+  "summary": {
+    "total": 96,
+    "passed": 88,
+    "failed": 8
+  },
+  "viewport_results": [
+    {
+      "viewport": {
+        "name": "Mobile Small (iPhone 14/15/16 Pro)",
+        "width": 390,
+        "height": 844,
+        "is_mobile": true
+      },
+      "pages": [
+        {
+          "route": "Landing Page",
+          "path": "/",
+          "checks": {
+            "horizontal_overflow": {
+              "pass": true,
+              "scrollX": 0,
+              "html_scroll_w": 390,
+              "html_client_w": 390,
+              "body_scroll_w": 390,
+              "body_client_w": 390,
+              "offenders": []
+            },
+            "dock_integrity": {
+              "pass": false,
+              "dock_info": {
+                "topDock": {
+                  "exists": true,
+                  "left": 12,
+                  "right": 378,
+                  "top": 12,
+                  "bottom": 68,
+                  "width": 366,
+                  "height": 56,
+                  "centerDiff": 0,
+                  "withinBounds": true
+                },
+                "mobileDock": {
+                  "exists": false
+                }
+              },
+              "overlaps": [
+                {
+                  "el1": "Console",
+                  "el2": "Fluid",
+                  "overlapArea": 31
+                }
+              ]
+            },
+            "table_scroll": {
+              "pass": true,
+              "tables": []
+            }
+          }
+        },
+        {
+          "route": "Dashboard Page",
+          "path": "/dashboard",
+          "checks": {
+            "horizontal_overflow": {
+              "pass": true,
+              "scrollX": 0,
+              "html_scroll_w": 390,
+              "html_client_w": 390,
+              "body_scroll_w": 390,
+              "body_client_w": 390,
+              "offenders": []
+            },
+            "dock_integrity": {
+              "pass": true,
+              "dock_info": {
+                "topDock": {
+                  "exists": false
+                },
+                "mobileDock": {
+                  "exists": false
+                }
+              },
+              "overlaps": []
+            },
+            "table_scroll": {
+              "pass": true,
+              "tables": []
+            }
+          }
+        },
+        {
+          "route": "Settings Page",
+          "path": "/settings",
+          "checks": {
+            "horizontal_overflow": {
+              "pass": true,
+              "scrollX": 0,
+              "html_scroll_w": 390,
+              "html_client_w": 390,
+              "body_scroll_w": 390,
+              "body_client_w": 390,
+              "offenders": []
+            },
+            "dock_integrity": {
+              "pass": true,
+              "dock_info": {
+                "topDock": {
+                  "exists": false
+                },
+                "mobileDock": {
+                  "exists": false
+                }
+              },
+              "overlaps": []
+            },
+            "table_scroll": {
+              "pass": true,
+              "tables": []
+            }
+          }
+        },
+        {
+          "route": "Login Page",
+          "path": "/auth/login",
+          "checks": {
+            "horizontal_overflow": {
+              "pass": true,
+              "scrollX": 0,
+              "html_scroll_w": 390,
+              "html_client_w": 390,
+              "body_scroll_w": 390,
+              "body_client_w": 390,
+              "offenders": []
+            },
+            "dock_integrity": {
+              "pass": true,
+              "dock_info": {
+                "topDock": {
+                  "exists": false
+                },
+                "mobileDock": {
+                  "exists": false
+                }
+              },
+              "overlaps": []
+            },
+            "table_scroll": {
+              "pass": true,
+              "tables": []
+            }
+          }
+        }
+      ]
+    },
+    {
+      "viewport": {
+        "name": "Mobile Medium (iPhone Plus/Max)",
+        "width": 414,
+        "height": 896,
+        "is_mobile": true
+      },
+      "pages": [
+        {
+          "route": "Landing Page",
+          "path": "/",
+          "checks": {
+            "horizontal_overflow": {
+              "pass": true,
+              "scrollX": 0,
+              "html_scroll_w": 414,
+              "html_client_w": 414,
+              "body_scroll_w": 414,
+              "body_client_w": 414,
+              "offenders": []
+            },
+            "dock_integrity": {
+              "pass": false,
+              "dock_info": {
+                "topDock": {
+                  "exists": true,
+                  "left": 12,
+                  "right": 402,
+                  "top": 12,
+                  "bottom": 68,
+                  "width": 390,
+                  "height": 56,
+                  "centerDiff": 0,
+                  "withinBounds": true
+                },
+                "mobileDock": {
+                  "exists": false
+                }
+              },
+              "overlaps": [
+                {
+                  "el1": "Console",
+                  "el2": "Fluid",
+                  "overlapArea": 33
+                }
+              ]
+            },
+            "table_scroll": {
+              "pass": true,
+              "tables": []
+            }
+          }
+        },
+        {
+          "route": "Dashboard Page",
+          "path": "/dashboard",
+          "checks": {
+            "horizontal_overflow": {
+              "pass": true,
+              "scrollX": 0,
+              "html_scroll_w": 414,
+              "html_client_w": 414,
+              "body_scroll_w": 414,
+              "body_client_w": 414,
+              "offenders": []
+            },
+            "dock_integrity": {
+              "pass": true,
+              "dock_info": {
+                "topDock": {
+                  "exists": false
+                },
+                "mobileDock": {
+                  "exists": false
+                }
+              },
+              "overlaps": []
+            },
+            "table_scroll": {
+              "pass": true,
+              "tables": []
+            }
+          }
+        },
+        {
+          "route": "Settings Page",
+          "path": "/settings",
+          "checks": {
+            "horizontal_overflow": {
+              "pass": true,
+              "scrollX": 0,
+              "html_scroll_w": 414,
+              "html_client_w": 414,
+              "body_scroll_w": 414,
+              "body_client_w": 414,
+              "offenders": []
+            },
+            "dock_integrity": {
+              "pass": true,
+              "dock_info": {
+                "topDock": {
+                  "exists": false
+                },
+                "mobileDock": {
+                  "exists": false
+                }
+              },
+              "overlaps": []
+            },
+            "table_scroll": {
+              "pass": true,
+              "tables": []
+            }
+          }
+        },
+        {
+          "route": "Login Page",
+          "path": "/auth/login",
+          "checks": {
+            "horizontal_overflow": {
+              "pass": true,
+              "scrollX": 0,
+              "html_scroll_w": 414,
+              "html_client_w": 414,
+              "body_scroll_w": 414,
+              "body_client_w": 414,
+              "offenders": []
+            },
+            "dock_integrity": {
+              "pass": true,
+              "dock_info": {
+                "topDock": {
+                  "exists": false
+                },
+                "mobileDock": {
+                  "exists": false
+                }
+              },
+              "overlaps": []
+            },
+            "table_scroll": {
+              "pass": true,
+              "tables": []
+            }
+          }
+        }
+      ]
+    },
+    {
+      "viewport": {
+        "name": "Tablet Portrait (iPad)",
+        "width": 768,
+        "height": 1024,
+        "is_mobile": false
+      },
+      "pages": [
+        {
+          "route": "Landing Page",
+          "path": "/",
+          "checks": {
+            "horizontal_overflow": {
+              "pass": true,
+              "scrollX": 0,
+              "html_scroll_w": 768,
+              "html_client_w": 768,
+              "body_scroll_w": 768,
+              "body_client_w": 768,
+              "offenders": []
+            },
+            "dock_integrity": {
+              "pass": false,
+              "dock_info": {
+                "topDock": {
+                  "exists": true,
+                  "left": 24,
+                  "right": 744,
+                  "top": 20,
+                  "bottom": 84,
+                  "width": 720,
+                  "height": 64,
+                  "centerDiff": 0,
+                  "withinBounds": true
+                },
+                "mobileDock": {
+                  "exists": false
+                }
+              },
+              "overlaps": [
+                {
+                  "el1": "Alpha Console",
+                  "el2": "Fluid Meniscus",
+                  "overlapArea": 46
+                }
+              ]
+            },
+            "table_scroll": {
+              "pass": true,
+              "tables": []
+            }
+          }
+        },
+        {
+          "route": "Dashboard Page",
+          "path": "/dashboard",
+          "checks": {
+            "horizontal_overflow": {
+              "pass": true,
+              "scrollX": 0,
+              "html_scroll_w": 768,
+              "html_client_w": 768,
+              "body_scroll_w": 768,
+              "body_client_w": 768,
+              "offenders": []
+            },
+            "dock_integrity": {
+              "pass": true,
+              "dock_info": {
+                "topDock": {
+                  "exists": false
+                },
+                "mobileDock": {
+                  "exists": false
+                }
+              },
+              "overlaps": []
+            },
+            "table_scroll": {
+              "pass": true,
+              "tables": []
+            }
+          }
+        },
+        {
+          "route": "Settings Page",
+          "path": "/settings",
+          "checks": {
+            "horizontal_overflow": {
+              "pass": true,
+              "scrollX": 0,
+              "html_scroll_w": 768,
+              "html_client_w": 768,
+              "body_scroll_w": 768,
+              "body_client_w": 768,
+              "offenders": []
+            },
+            "dock_integrity": {
+              "pass": true,
+              "dock_info": {
+                "topDock": {
+                  "exists": false
+                },
+                "mobileDock": {
+                  "exists": false
+                }
+              },
+              "overlaps": []
+            },
+            "table_scroll": {
+              "pass": true,
+              "tables": []
+            }
+          }
+        },
+        {
+          "route": "Login Page",
+          "path": "/auth/login",
+          "checks": {
+            "horizontal_overflow": {
+              "pass": true,
+              "scrollX": 0,
+              "html_scroll_w": 768,
+              "html_client_w": 768,
+              "body_scroll_w": 768,
+              "body_client_w": 768,
+              "offenders": []
+            },
+            "dock_integrity": {
+              "pass": true,
+              "dock_info": {
+                "topDock": {
+                  "exists": false
+                },
+                "mobileDock": {
+                  "exists": false
+                }
+              },
+              "overlaps": []
+            },
+            "table_scroll": {
+              "pass": true,
+              "tables": []
+            }
+          }
+        }
+      ]
+    },
+    {
+      "viewport": {
+        "name": "Desktop Standard Small",
+        "width": 1280,
+        "height": 800,
+        "is_mobile": false
+      },
+      "pages": [
+        {
+          "route": "Landing Page",
+          "path": "/",
+          "checks": {
+            "horizontal_overflow": {
+              "pass": true,
+              "scrollX": 0,
+              "html_scroll_w": 1280,
+              "html_client_w": 1280,
+              "body_scroll_w": 1280,
+              "body_client_w": 1280,
+              "offenders": []
+            },
+            "dock_integrity": {
+              "pass": false,
+              "dock_info": {
+                "topDock": {
+                  "exists": true,
+                  "left": 24,
+                  "right": 1256,
+                  "top": 20,
+                  "bottom": 84,
+                  "width": 1232,
+                  "height": 64,
+                  "centerDiff": 0,
+                  "withinBounds": true
+                },
+                "mobileDock": {
+                  "exists": false
+                }
+              },
+              "overlaps": [
+                {
+                  "el1": "Alpha Console",
+                  "el2": "Fluid Meniscus",
+                  "overlapArea": 46
+                }
+              ]
+            },
+            "table_scroll": {
+              "pass": true,
+              "tables": []
+            }
+          }
+        },
+        {
+          "route": "Dashboard Page",
+          "path": "/dashboard",
+          "checks": {
+            "horizontal_overflow": {
+              "pass": true,
+              "scrollX": 0,
+              "html_scroll_w": 1280,
+              "html_client_w": 1280,
+              "body_scroll_w": 1280,
+              "body_client_w": 1280,
+              "offenders": []
+            },
+            "dock_integrity": {
+              "pass": true,
+              "dock_info": {
+                "topDock": {
+                  "exists": false
+                },
+                "mobileDock": {
+                  "exists": false
+                }
+              },
+              "overlaps": []
+            },
+            "table_scroll": {
+              "pass": true,
+              "tables": []
+            }
+          }
+        },
+        {
+          "route": "Settings Page",
+          "path": "/settings",
+          "checks": {
+            "horizontal_overflow": {
+              "pass": true,
+              "scrollX": 0,
+              "html_scroll_w": 1280,
+              "html_client_w": 1280,
+              "body_scroll_w": 1280,
+              "body_client_w": 1280,
+              "offenders": []
+            },
+            "dock_integrity": {
+              "pass": true,
+              "dock_info": {
+                "topDock": {
+                  "exists": false
+                },
+                "mobileDock": {
+                  "exists": false
+                }
+              },
+              "overlaps": []
+            },
+            "table_scroll": {
+              "pass": true,
+              "tables": []
+            }
+          }
+        },
+        {
+          "route": "Login Page",
+          "path": "/auth/login",
+          "checks": {
+            "horizontal_overflow": {
+              "pass": true,
+              "scrollX": 0,
+              "html_scroll_w": 1280,
+              "html_client_w": 1280,
+              "body_scroll_w": 1280,
+              "body_client_w": 1280,
+              "offenders": []
+            },
+            "dock_integrity": {
+              "pass": true,
+              "dock_info": {
+                "topDock": {
+                  "exists": false
+                },
+                "mobileDock": {
+                  "exists": false
+                }
+              },
+              "overlaps": []
+            },
+            "table_scroll": {
+              "pass": true,
+              "tables": []
+            }
+          }
+        }
+      ]
+    },
+    {
+      "viewport": {
+        "name": "Desktop Standard Wide",
+        "width": 1440,
+        "height": 900,
+        "is_mobile": false
+      },
+      "pages": [
+        {
+          "route": "Landing Page",
+          "path": "/",
+          "checks": {
+            "horizontal_overflow": {
+              "pass": true,
+              "scrollX": 0,
+              "html_scroll_w": 1440,
+              "html_client_w": 1440,
+              "body_scroll_w": 1440,
+              "body_client_w": 1440,
+              "offenders": []
+            },
+            "dock_integrity": {
+              "pass": false,
+              "dock_info": {
+                "topDock": {
+                  "exists": true,
+                  "left": 100,
+                  "right": 1340,
+                  "top": 20,
+                  "bottom": 84,
+                  "width": 1240,
+                  "height": 64,
+                  "centerDiff": 0,
+                  "withinBounds": true
+                },
+                "mobileDock": {
+                  "exists": false
+                }
+              },
+              "overlaps": [
+                {
+                  "el1": "Alpha Console",
+                  "el2": "Fluid Meniscus",
+                  "overlapArea": 46
+                }
+              ]
+            },
+            "table_scroll": {
+              "pass": true,
+              "tables": []
+            }
+          }
+        },
+        {
+          "route": "Dashboard Page",
+          "path": "/dashboard",
+          "checks": {
+            "horizontal_overflow": {
+              "pass": true,
+              "scrollX": 0,
+              "html_scroll_w": 1440,
+              "html_client_w": 1440,
+              "body_scroll_w": 1440,
+              "body_client_w": 1440,
+              "offenders": []
+            },
+            "dock_integrity": {
+              "pass": true,
+              "dock_info": {
+                "topDock": {
+                  "exists": false
+                },
+                "mobileDock": {
+                  "exists": false
+                }
+              },
+              "overlaps": []
+            },
+            "table_scroll": {
+              "pass": true,
+              "tables": []
+            }
+          }
+        },
+        {
+          "route": "Settings Page",
+          "path": "/settings",
+          "checks": {
+            "horizontal_overflow": {
+              "pass": true,
+              "scrollX": 0,
+              "html_scroll_w": 1440,
+              "html_client_w": 1440,
+              "body_scroll_w": 1440,
+              "body_client_w": 1440,
+              "offenders": []
+            },
+            "dock_integrity": {
+              "pass": true,
+              "dock_info": {
+                "topDock": {
+                  "exists": false
+                },
+                "mobileDock": {
+                  "exists": false
+                }
+              },
+              "overlaps": []
+            },
+            "table_scroll": {
+              "pass": true,
+              "tables": []
+            }
+          }
+        },
+        {
+          "route": "Login Page",
+          "path": "/auth/login",
+          "checks": {
+            "horizontal_overflow": {
+              "pass": true,
+              "scrollX": 0,
+              "html_scroll_w": 1440,
+              "html_client_w": 1440,
+              "body_scroll_w": 1440,
+              "body_client_w": 1440,
+              "offenders": []
+            },
+            "dock_integrity": {
+              "pass": true,
+              "dock_info": {
+                "topDock": {
+                  "exists": false
+                },
+                "mobileDock": {
+                  "exists": false
+                }
+              },
+              "overlaps": []
+            },
+            "table_scroll": {
+              "pass": true,
+              "tables": []
+            }
+          }
+        }
+      ]
+    },
+    {
+      "viewport": {
+        "name": "Ultrawide (1080p FHD)",
+        "width": 1920,
+        "height": 1080,
+        "is_mobile": false
+      },
+      "pages": [
+        {
+          "route": "Landing Page",
+          "path": "/",
+          "checks": {
+            "horizontal_overflow": {
+              "pass": true,
+              "scrollX": 0,
+              "html_scroll_w": 1920,
+              "html_client_w": 1920,
+              "body_scroll_w": 1920,
+              "body_client_w": 1920,
+              "offenders": []
+            },
+            "dock_integrity": {
+              "pass": false,
+              "dock_info": {
+                "topDock": {
+                  "exists": true,
+                  "left": 340,
+                  "right": 1580,
+                  "top": 20,
+                  "bottom": 84,
+                  "width": 1240,
+                  "height": 64,
+                  "centerDiff": 0,
+                  "withinBounds": true
+                },
+                "mobileDock": {
+                  "exists": false
+                }
+              },
+              "overlaps": [
+                {
+                  "el1": "Alpha Console",
+                  "el2": "Fluid Meniscus",
+                  "overlapArea": 46
+                }
+              ]
+            },
+            "table_scroll": {
+              "pass": true,
+              "tables": []
+            }
+          }
+        },
+        {
+          "route": "Dashboard Page",
+          "path": "/dashboard",
+          "checks": {
+            "horizontal_overflow": {
+              "pass": true,
+              "scrollX": 0,
+              "html_scroll_w": 1920,
+              "html_client_w": 1920,
+              "body_scroll_w": 1920,
+              "body_client_w": 1920,
+              "offenders": []
+            },
+            "dock_integrity": {
+              "pass": true,
+              "dock_info": {
+                "topDock": {
+                  "exists": false
+                },
+                "mobileDock": {
+                  "exists": false
+                }
+              },
+              "overlaps": []
+            },
+            "table_scroll": {
+              "pass": true,
+              "tables": []
+            }
+          }
+        },
+        {
+          "route": "Settings Page",
+          "path": "/settings",
+          "checks": {
+            "horizontal_overflow": {
+              "pass": true,
+              "scrollX": 0,
+              "html_scroll_w": 1920,
+              "html_client_w": 1920,
+              "body_scroll_w": 1920,
+              "body_client_w": 1920,
+              "offenders": []
+            },
+            "dock_integrity": {
+              "pass": true,
+              "dock_info": {
+                "topDock": {
+                  "exists": false
+                },
+                "mobileDock": {
+                  "exists": false
+                }
+              },
+              "overlaps": []
+            },
+            "table_scroll": {
+              "pass": true,
+              "tables": []
+            }
+          }
+        },
+        {
+          "route": "Login Page",
+          "path": "/auth/login",
+          "checks": {
+            "horizontal_overflow": {
+              "pass": true,
+              "scrollX": 0,
+              "html_scroll_w": 1920,
+              "html_client_w": 1920,
+              "body_scroll_w": 1920,
+              "body_client_w": 1920,
+              "offenders": []
+            },
+            "dock_integrity": {
+              "pass": true,
+              "dock_info": {
+                "topDock": {
+                  "exists": false
+                },
+                "mobileDock": {
+                  "exists": false
+                }
+              },
+              "overlaps": []
+            },
+            "table_scroll": {
+              "pass": true,
+              "tables": []
+            }
+          }
+        }
+      ]
+    },
+    {
+      "viewport": {
+        "name": "Adversarial SE (iPhone SE / 320px)",
+        "width": 320,
+        "height": 568,
+        "is_mobile": true
+      },
+      "pages": [
+        {
+          "route": "Landing Page",
+          "path": "/",
+          "checks": {
+            "horizontal_overflow": {
+              "pass": true,
+              "scrollX": 0,
+              "html_scroll_w": 320,
+              "html_client_w": 320,
+              "body_scroll_w": 320,
+              "body_client_w": 320,
+              "offenders": []
+            },
+            "dock_integrity": {
+              "pass": false,
+              "dock_info": {
+                "topDock": {
+                  "exists": true,
+                  "left": 12,
+                  "right": 308,
+                  "top": 12,
+                  "bottom": 68,
+                  "width": 296,
+                  "height": 56,
+                  "centerDiff": 0,
+                  "withinBounds": true
+                },
+                "mobileDock": {
+                  "exists": false
+                }
+              },
+              "overlaps": [
+                {
+                  "el1": "Console",
+                  "el2": "Fluid",
+                  "overlapArea": 38
+                },
+                {
+                  "el1": "Console",
+                  "el2": "System",
+                  "overlapArea": 614
+                },
+                {
+                  "el1": "Console",
+                  "el2": "Sleeves",
+                  "overlapArea": 256
+                },
+                {
+                  "el1": "Fluid",
+                  "el2": "Sleeves",
+                  "overlapArea": 546
+                },
+                {
+                  "el1": "Fluid",
+                  "el2": "Metrics",
+                  "overlapArea": 270
+                },
+                {
+                  "el1": "5 Sleeves",
+                  "el2": "Metrics",
+                  "overlapArea": 512
+                },
+                {
+                  "el1": "5 Sleeves",
+                  "el2": "Sandbox",
+                  "overlapArea": 303
+                }
+              ]
+            },
+            "table_scroll": {
+              "pass": true,
+              "tables": []
+            }
+          }
+        },
+        {
+          "route": "Dashboard Page",
+          "path": "/dashboard",
+          "checks": {
+            "horizontal_overflow": {
+              "pass": true,
+              "scrollX": 0,
+              "html_scroll_w": 320,
+              "html_client_w": 320,
+              "body_scroll_w": 320,
+              "body_client_w": 320,
+              "offenders": []
+            },
+            "dock_integrity": {
+              "pass": true,
+              "dock_info": {
+                "topDock": {
+                  "exists": false
+                },
+                "mobileDock": {
+                  "exists": false
+                }
+              },
+              "overlaps": []
+            },
+            "table_scroll": {
+              "pass": true,
+              "tables": []
+            }
+          }
+        },
+        {
+          "route": "Settings Page",
+          "path": "/settings",
+          "checks": {
+            "horizontal_overflow": {
+              "pass": true,
+              "scrollX": 0,
+              "html_scroll_w": 320,
+              "html_client_w": 320,
+              "body_scroll_w": 320,
+              "body_client_w": 320,
+              "offenders": []
+            },
+            "dock_integrity": {
+              "pass": true,
+              "dock_info": {
+                "topDock": {
+                  "exists": false
+                },
+                "mobileDock": {
+                  "exists": false
+                }
+              },
+              "overlaps": []
+            },
+            "table_scroll": {
+              "pass": true,
+              "tables": []
+            }
+          }
+        },
+        {
+          "route": "Login Page",
+          "path": "/auth/login",
+          "checks": {
+            "horizontal_overflow": {
+              "pass": true,
+              "scrollX": 0,
+              "html_scroll_w": 320,
+              "html_client_w": 320,
+              "body_scroll_w": 320,
+              "body_client_w": 320,
+              "offenders": []
+            },
+            "dock_integrity": {
+              "pass": true,
+              "dock_info": {
+                "topDock": {
+                  "exists": false
+                },
+                "mobileDock": {
+                  "exists": false
+                }
+              },
+              "overlaps": []
+            },
+            "table_scroll": {
+              "pass": true,
+              "tables": []
+            }
+          }
+        }
+      ]
+    },
+    {
+      "viewport": {
+        "name": "Adversarial 2K (QHD 2560x1440)",
+        "width": 2560,
+        "height": 1440,
+        "is_mobile": false
+      },
+      "pages": [
+        {
+          "route": "Landing Page",
+          "path": "/",
+          "checks": {
+            "horizontal_overflow": {
+              "pass": true,
+              "scrollX": 0,
+              "html_scroll_w": 2560,
+              "html_client_w": 2560,
+              "body_scroll_w": 2560,
+              "body_client_w": 2560,
+              "offenders": []
+            },
+            "dock_integrity": {
+              "pass": false,
+              "dock_info": {
+                "topDock": {
+                  "exists": true,
+                  "left": 660,
+                  "right": 1900,
+                  "top": 20,
+                  "bottom": 84,
+                  "width": 1240,
+                  "height": 64,
+                  "centerDiff": 0,
+                  "withinBounds": true
+                },
+                "mobileDock": {
+                  "exists": false
+                }
+              },
+              "overlaps": [
+                {
+                  "el1": "Alpha Console",
+                  "el2": "Fluid Meniscus",
+                  "overlapArea": 46
+                }
+              ]
+            },
+            "table_scroll": {
+              "pass": true,
+              "tables": []
+            }
+          }
+        },
+        {
+          "route": "Dashboard Page",
+          "path": "/dashboard",
+          "checks": {
+            "horizontal_overflow": {
+              "pass": true,
+              "scrollX": 0,
+              "html_scroll_w": 2560,
+              "html_client_w": 2560,
+              "body_scroll_w": 2560,
+              "body_client_w": 2560,
+              "offenders": []
+            },
+            "dock_integrity": {
+              "pass": true,
+              "dock_info": {
+                "topDock": {
+                  "exists": false
+                },
+                "mobileDock": {
+                  "exists": false
+                }
+              },
+              "overlaps": []
+            },
+            "table_scroll": {
+              "pass": true,
+              "tables": []
+            }
+          }
+        },
+        {
+          "route": "Settings Page",
+          "path": "/settings",
+          "checks": {
+            "horizontal_overflow": {
+              "pass": true,
+              "scrollX": 0,
+              "html_scroll_w": 2560,
+              "html_client_w": 2560,
+              "body_scroll_w": 2560,
+              "body_client_w": 2560,
+              "offenders": []
+            },
+            "dock_integrity": {
+              "pass": true,
+              "dock_info": {
+                "topDock": {
+                  "exists": false
+                },
+                "mobileDock": {
+                  "exists": false
+                }
+              },
+              "overlaps": []
+            },
+            "table_scroll": {
+              "pass": true,
+              "tables": []
+            }
+          }
+        },
+        {
+          "route": "Login Page",
+          "path": "/auth/login",
+          "checks": {
+            "horizontal_overflow": {
+              "pass": true,
+              "scrollX": 0,
+              "html_scroll_w": 2560,
+              "html_client_w": 2560,
+              "body_scroll_w": 2560,
+              "body_client_w": 2560,
+              "offenders": []
+            },
+            "dock_integrity": {
+              "pass": true,
+              "dock_info": {
+                "topDock": {
+                  "exists": false
+                },
+                "mobileDock": {
+                  "exists": false
+                }
+              },
+              "overlaps": []
+            },
+            "table_scroll": {
+              "pass": true,
+              "tables": []
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "failures": [
+    {
+      "viewport": "Mobile Small (iPhone 14/15/16 Pro)",
+      "route": "Landing Page",
+      "check": "Dock & Nav Integrity",
+      "dock_info": {
+        "topDock": {
+          "exists": true,
+          "left": 12,
+          "right": 378,
+          "top": 12,
+          "bottom": 68,
+          "width": 366,
+          "height": 56,
+          "centerDiff": 0,
+          "withinBounds": true
+        },
+        "mobileDock": {
+          "exists": false
+        }
+      },
+      "overlaps": [
+        {
+          "el1": "Console",
+          "el2": "Fluid",
+          "overlapArea": 31
+        }
+      ]
+    },
+    {
+      "viewport": "Mobile Medium (iPhone Plus/Max)",
+      "route": "Landing Page",
+      "check": "Dock & Nav Integrity",
+      "dock_info": {
+        "topDock": {
+          "exists": true,
+          "left": 12,
+          "right": 402,
+          "top": 12,
+          "bottom": 68,
+          "width": 390,
+          "height": 56,
+          "centerDiff": 0,
+          "withinBounds": true
+        },
+        "mobileDock": {
+          "exists": false
+        }
+      },
+      "overlaps": [
+        {
+          "el1": "Console",
+          "el2": "Fluid",
+          "overlapArea": 33
+        }
+      ]
+    },
+    {
+      "viewport": "Tablet Portrait (iPad)",
+      "route": "Landing Page",
+      "check": "Dock & Nav Integrity",
+      "dock_info": {
+        "topDock": {
+          "exists": true,
+          "left": 24,
+          "right": 744,
+          "top": 20,
+          "bottom": 84,
+          "width": 720,
+          "height": 64,
+          "centerDiff": 0,
+          "withinBounds": true
+        },
+        "mobileDock": {
+          "exists": false
+        }
+      },
+      "overlaps": [
+        {
+          "el1": "Alpha Console",
+          "el2": "Fluid Meniscus",
+          "overlapArea": 46
+        }
+      ]
+    },
+    {
+      "viewport": "Desktop Standard Small",
+      "route": "Landing Page",
+      "check": "Dock & Nav Integrity",
+      "dock_info": {
+        "topDock": {
+          "exists": true,
+          "left": 24,
+          "right": 1256,
+          "top": 20,
+          "bottom": 84,
+          "width": 1232,
+          "height": 64,
+          "centerDiff": 0,
+          "withinBounds": true
+        },
+        "mobileDock": {
+          "exists": false
+        }
+      },
+      "overlaps": [
+        {
+          "el1": "Alpha Console",
+          "el2": "Fluid Meniscus",
+          "overlapArea": 46
+        }
+      ]
+    },
+    {
+      "viewport": "Desktop Standard Wide",
+      "route": "Landing Page",
+      "check": "Dock & Nav Integrity",
+      "dock_info": {
+        "topDock": {
+          "exists": true,
+          "left": 100,
+          "right": 1340,
+          "top": 20,
+          "bottom": 84,
+          "width": 1240,
+          "height": 64,
+          "centerDiff": 0,
+          "withinBounds": true
+        },
+        "mobileDock": {
+          "exists": false
+        }
+      },
+      "overlaps": [
+        {
+          "el1": "Alpha Console",
+          "el2": "Fluid Meniscus",
+          "overlapArea": 46
+        }
+      ]
+    },
+    {
+      "viewport": "Ultrawide (1080p FHD)",
+      "route": "Landing Page",
+      "check": "Dock & Nav Integrity",
+      "dock_info": {
+        "topDock": {
+          "exists": true,
+          "left": 340,
+          "right": 1580,
+          "top": 20,
+          "bottom": 84,
+          "width": 1240,
+          "height": 64,
+          "centerDiff": 0,
+          "withinBounds": true
+        },
+        "mobileDock": {
+          "exists": false
+        }
+      },
+      "overlaps": [
+        {
+          "el1": "Alpha Console",
+          "el2": "Fluid Meniscus",
+          "overlapArea": 46
+        }
+      ]
+    },
+    {
+      "viewport": "Adversarial SE (iPhone SE / 320px)",
+      "route": "Landing Page",
+      "check": "Dock & Nav Integrity",
+      "dock_info": {
+        "topDock": {
+          "exists": true,
+          "left": 12,
+          "right": 308,
+          "top": 12,
+          "bottom": 68,
+          "width": 296,
+          "height": 56,
+          "centerDiff": 0,
+          "withinBounds": true
+        },
+        "mobileDock": {
+          "exists": false
+        }
+      },
+      "overlaps": [
+        {
+          "el1": "Console",
+          "el2": "Fluid",
+          "overlapArea": 38
+        },
+        {
+          "el1": "Console",
+          "el2": "System",
+          "overlapArea": 614
+        },
+        {
+          "el1": "Console",
+          "el2": "Sleeves",
+          "overlapArea": 256
+        },
+        {
+          "el1": "Fluid",
+          "el2": "Sleeves",
+          "overlapArea": 546
+        },
+        {
+          "el1": "Fluid",
+          "el2": "Metrics",
+          "overlapArea": 270
+        },
+        {
+          "el1": "5 Sleeves",
+          "el2": "Metrics",
+          "overlapArea": 512
+        },
+        {
+          "el1": "5 Sleeves",
+          "el2": "Sandbox",
+          "overlapArea": 303
+        }
+      ]
+    },
+    {
+      "viewport": "Adversarial 2K (QHD 2560x1440)",
+      "route": "Landing Page",
+      "check": "Dock & Nav Integrity",
+      "dock_info": {
+        "topDock": {
+          "exists": true,
+          "left": 660,
+          "right": 1900,
+          "top": 20,
+          "bottom": 84,
+          "width": 1240,
+          "height": 64,
+          "centerDiff": 0,
+          "withinBounds": true
+        },
+        "mobileDock": {
+          "exists": false
+        }
+      },
+      "overlaps": [
+        {
+          "el1": "Alpha Console",
+          "el2": "Fluid Meniscus",
+          "overlapArea": 46
+        }
+      ]
+    }
+  ]
+}

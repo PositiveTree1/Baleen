@@ -95,17 +95,17 @@ export function MirrorStrategyModal({ isOpen, onClose, onSelectWallet, targetSle
       <div className="space-y-4 sm:space-y-6">
         {/* Strategy Overview */}
         <div className="grid grid-cols-3 gap-3 text-center">
-          <div className="p-3 rounded-2xl bg-slate-50 dark:bg-[#1C1D22] border border-black/[0.04] dark:border-white/5">
+          <div className="p-3 rounded-2xl glass-card">
             <span className="text-[10px] font-semibold text-slate-500 dark:text-[#8E8F99] uppercase">Index Whales</span>
             <div className="text-lg font-bold text-slate-950 dark:text-white font-mono mt-0.5">
               {activeCount > 0 ? activeCount : effectiveTargetSleeveCount} Active
             </div>
           </div>
-          <div className="p-3 rounded-2xl bg-slate-50 dark:bg-[#1C1D22] border border-black/[0.04] dark:border-white/5">
+          <div className="p-3 rounded-2xl glass-card">
             <span className="text-[10px] font-semibold text-slate-500 dark:text-[#8E8F99] uppercase">Execution Mode</span>
             <div className="text-lg font-bold text-emerald-600 dark:text-[#00D09C] font-mono mt-0.5">Paper Autopilot</div>
           </div>
-          <div className="p-3 rounded-2xl bg-slate-50 dark:bg-[#1C1D22] border border-black/[0.04] dark:border-white/5">
+          <div className="p-3 rounded-2xl glass-card">
             <span className="text-[10px] font-semibold text-slate-500 dark:text-[#8E8F99] uppercase">Slippage Tolerance</span>
             <div className="text-lg font-bold text-slate-950 dark:text-white font-mono mt-0.5">1.5 Cents</div>
           </div>
@@ -119,14 +119,14 @@ export function MirrorStrategyModal({ isOpen, onClose, onSelectWallet, targetSle
             const mult = multipliers[w.address] ?? 1.0;
 
             return (
-              <div key={w.address} className="pt-2.5 flex items-center justify-between p-2 rounded-2xl hover:bg-slate-50 dark:hover:bg-[#1C1D22] transition-colors">
+              <div key={w.address} className="pt-2.5 flex items-center justify-between p-2 rounded-2xl hover:bg-white/60 dark:hover:bg-white/[0.04] transition-colors">
                 <div className="flex items-center gap-3 min-w-0">
                   <button
                     type="button"
                     onClick={() => toggleWhale(w.address)}
                     aria-label={`Toggle paper copy for ${name}`}
                     className={`w-6 h-6 rounded-full flex items-center justify-center transition-all cursor-pointer ${
-                      isEnabled ? 'bg-[#00D09C] text-black' : 'bg-slate-200 dark:bg-[#2C2D35] text-slate-400'
+                      isEnabled ? 'bg-[#00D09C] text-black' : 'bg-slate-200 dark:bg-white/10 text-slate-400'
                     }`}
                   >
                     {isEnabled ? <CheckCircle2 size={14} /> : <div className="w-2 h-2 rounded-full bg-slate-400 dark:bg-slate-600" />}
@@ -149,7 +149,7 @@ export function MirrorStrategyModal({ isOpen, onClose, onSelectWallet, targetSle
                 </div>
 
                 <div className="flex items-center gap-3">
-                  <div className="flex rounded-full bg-slate-200 dark:bg-[#2C2D35] p-0.5 text-[10px] font-bold">
+                  <div className="flex rounded-full bg-white/60 dark:bg-white/10 p-0.5 border border-sky-100/60 dark:border-white/5 text-[10px] font-bold">
                     {[1.0, 1.5, 2.0].map((v) => (
                       <button
                         key={v}
@@ -157,7 +157,7 @@ export function MirrorStrategyModal({ isOpen, onClose, onSelectWallet, targetSle
                         onClick={() => setMultiplier(w.address, v)}
                         aria-label={`Set multiplier ${v}x for ${name}`}
                         className={`px-2 py-0.5 rounded-full transition-all cursor-pointer ${
-                          mult === v ? 'bg-white dark:bg-[#16171B] text-slate-950 dark:text-white shadow-2xs' : 'text-slate-500 dark:text-[#8E8F99]'
+                          mult === v ? 'bg-slate-950 dark:bg-white text-white dark:text-slate-950 shadow-xs' : 'text-slate-600 dark:text-[#8E8F99]'
                         }`}
                       >
                         {v}x
@@ -171,7 +171,7 @@ export function MirrorStrategyModal({ isOpen, onClose, onSelectWallet, targetSle
         </div>
 
         {/* Footer Actions */}
-        <div className="pt-3 border-t border-black/[0.06] dark:border-white/10 flex justify-between items-center">
+        <div className="pt-3 border-t border-sky-100/60 dark:border-white/10 flex justify-between items-center">
           <span className="text-xs text-slate-500 dark:text-[#8E8F99] font-mono">All paper orders simulated via CLOB taker limit</span>
           <button
             type="button"
@@ -182,7 +182,7 @@ export function MirrorStrategyModal({ isOpen, onClose, onSelectWallet, targetSle
               }
               onClose();
             }}
-            className="px-6 py-2.5 rounded-full bg-slate-950 dark:bg-white text-white dark:text-black text-xs font-bold hover:bg-slate-800 dark:hover:bg-slate-200 transition-all cursor-pointer shadow-sm"
+            className="px-6 py-2.5 rounded-xl bg-slate-950 dark:bg-white text-white dark:text-black text-xs font-bold hover:bg-slate-800 dark:hover:bg-slate-200 transition-all cursor-pointer shadow-sm"
           >
             Save Strategy
           </button>

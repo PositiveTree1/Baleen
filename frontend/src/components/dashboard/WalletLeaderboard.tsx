@@ -192,7 +192,7 @@ export function WalletLeaderboard({ userId, onSelectWallet, targetSleeveCount = 
   const displayList: LeaderboardDisplayItem[] = tab === 'copied' ? filteredCopied : filteredWallets;
 
   return (
-    <div className="revolut-card rounded-[26px] p-5 sm:p-6 flex flex-col h-[480px] space-y-4">
+    <div className="glass-card rounded-[28px] p-5 sm:p-6 flex flex-col h-[480px] space-y-4">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -203,7 +203,7 @@ export function WalletLeaderboard({ userId, onSelectWallet, targetSleeveCount = 
           onClick={handleReevaluate}
           disabled={evaluating}
           aria-label={evaluating ? "Evaluating whales..." : "Scan whales"}
-          className="flex items-center gap-1.5 px-3 py-1.5 bg-[#F1F3F5] dark:bg-[#1C1D22] hover:bg-[#E2E6EA] dark:hover:bg-[#2C2D35] text-slate-800 dark:text-white text-xs font-semibold rounded-full border border-black/[0.04] dark:border-white/10 transition-all cursor-pointer disabled:opacity-50"
+          className="glass-button flex items-center gap-1.5 px-3 py-1.5 rounded-full text-slate-800 dark:text-white text-xs font-semibold transition-all cursor-pointer disabled:opacity-50"
         >
           <RotateCw size={12} className={evaluating ? "animate-spin text-[#00D09C]" : ""} />
           <span>{evaluating ? "Evaluating..." : "Scan Whales"}</span>
@@ -220,25 +220,25 @@ export function WalletLeaderboard({ userId, onSelectWallet, targetSleeveCount = 
             aria-label="Search address or pseudonym"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-9 pr-3 py-2 bg-[#F1F3F5] dark:bg-[#1C1D22] border border-black/[0.04] dark:border-white/5 rounded-full text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-[#8E8F99] focus:outline-none focus:border-black/20 dark:focus:border-white/20"
+            className="w-full pl-9 pr-3 py-2 bg-white/60 dark:bg-white/[0.04] border border-sky-100/60 dark:border-white/10 rounded-full text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-[#8E8F99] focus:outline-none focus:border-indigo-500/40"
           />
         </div>
-        <div className="flex rounded-full bg-[#F1F3F5] dark:bg-[#1C1D22] p-0.5 border border-black/[0.04] dark:border-white/5 text-[11px] font-bold justify-between sm:justify-start shrink-0">
+        <div className="flex rounded-full bg-white/60 dark:bg-white/[0.04] p-1 border border-sky-100/60 dark:border-white/5 text-[11px] font-bold justify-between sm:justify-start shrink-0">
           <button
             onClick={() => setTab('copied')}
-            className={`flex-1 sm:flex-initial px-3 py-1.5 rounded-full transition-all text-center ${tab === 'copied' ? 'bg-white dark:bg-[#2C2D35] text-slate-950 dark:text-white shadow-2xs' : 'text-slate-500 dark:text-[#8E8F99]'}`}
+            className={`flex-1 sm:flex-initial px-3 py-1.5 rounded-full transition-all text-center ${tab === 'copied' ? 'bg-slate-950 text-white dark:bg-white dark:text-slate-950 shadow-xs' : 'text-slate-600 dark:text-[#8E8F99] hover:text-slate-950 dark:hover:text-white'}`}
           >
             Copied
           </button>
           <button
             onClick={() => setTab('topActive')}
-            className={`flex-1 sm:flex-initial px-3 py-1.5 rounded-full transition-all text-center ${tab === 'topActive' ? 'bg-white dark:bg-[#2C2D35] text-slate-950 dark:text-white shadow-2xs' : 'text-slate-500 dark:text-[#8E8F99]'}`}
+            className={`flex-1 sm:flex-initial px-3 py-1.5 rounded-full transition-all text-center ${tab === 'topActive' ? 'bg-slate-950 text-white dark:bg-white dark:text-slate-950 shadow-xs' : 'text-slate-600 dark:text-[#8E8F99] hover:text-slate-950 dark:hover:text-white'}`}
           >
             Top {targetSleeveCount} Active
           </button>
           <button
             onClick={() => setTab('all')}
-            className={`flex-1 sm:flex-initial px-3 py-1.5 rounded-full transition-all text-center ${tab === 'all' ? 'bg-white dark:bg-[#2C2D35] text-slate-950 dark:text-white shadow-2xs' : 'text-slate-500 dark:text-[#8E8F99]'}`}
+            className={`flex-1 sm:flex-initial px-3 py-1.5 rounded-full transition-all text-center ${tab === 'all' ? 'bg-slate-950 text-white dark:bg-white dark:text-slate-950 shadow-xs' : 'text-slate-600 dark:text-[#8E8F99] hover:text-slate-950 dark:hover:text-white'}`}
           >
             All Tracked
           </button>
@@ -292,7 +292,7 @@ export function WalletLeaderboard({ userId, onSelectWallet, targetSleeveCount = 
                     onSelectWallet(w.address);
                   }
                 }}
-                className={`pt-2 flex items-center justify-between p-2 rounded-2xl hover:bg-slate-50 dark:hover:bg-[#1C1D22] transition-all cursor-pointer group focus:outline-none focus:ring-1 focus:ring-[#00D09C] ${
+                className={`flex items-center justify-between p-2.5 rounded-2xl hover:bg-white/60 dark:hover:bg-white/[0.04] border border-transparent hover:border-sky-100/60 dark:hover:border-white/5 transition-all cursor-pointer group focus:outline-none focus:ring-1 focus:ring-indigo-500/40 ${
                   !isCopiedTab && !isTopActive ? 'opacity-40 hover:opacity-90 grayscale-[35%]' : 'opacity-100'
                 }`}
               >

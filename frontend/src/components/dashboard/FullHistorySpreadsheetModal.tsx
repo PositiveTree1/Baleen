@@ -221,11 +221,11 @@ export function FullHistorySpreadsheetModal({
       contentClassName="p-0 flex flex-col flex-1 overflow-hidden"
       hideCloseButton
     >
-      <div className="relative w-full max-h-[94vh] bg-white dark:bg-[#16171B] text-slate-900 dark:text-white flex flex-col overflow-hidden">
+      <div className="relative w-full max-h-[94vh] glass-card text-slate-900 dark:text-white flex flex-col overflow-hidden">
           {/* Header */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between p-4 sm:p-6 gap-3 border-b border-black/[0.06] dark:border-white/10 bg-slate-50/80 dark:bg-[#1C1D22]">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between p-4 sm:p-6 gap-3 border-b border-sky-100/60 dark:border-white/10 bg-sky-50/40 dark:bg-white/[0.02]">
             <div className="flex items-center gap-2.5 sm:gap-3">
-              <div className="p-2 sm:p-2.5 rounded-2xl bg-indigo-50 dark:bg-indigo-500/10 text-indigo-700 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-500/20 shadow-2xs shrink-0">
+              <div className="p-2 sm:p-2.5 rounded-2xl bg-indigo-500/10 text-indigo-700 dark:text-indigo-400 border border-indigo-500/20 shadow-2xs shrink-0">
                 <FileSpreadsheet size={18} />
               </div>
               <div>
@@ -250,7 +250,7 @@ export function FullHistorySpreadsheetModal({
               <button
                 onClick={onClose}
                 aria-label="Close modal"
-                className="p-2 text-slate-400 dark:text-[#8E8F99] hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/60 dark:hover:bg-[#2C2D35] rounded-xl transition-colors cursor-pointer"
+                className="p-2 text-slate-400 dark:text-[#8E8F99] hover:text-slate-900 dark:hover:text-white hover:bg-sky-50 dark:hover:bg-white/10 rounded-xl transition-colors cursor-pointer"
               >
                 <X size={18} />
               </button>
@@ -258,26 +258,26 @@ export function FullHistorySpreadsheetModal({
           </div>
 
           {/* Aggregate KPI Summary Banner */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 p-4 px-6 bg-slate-100/50 dark:bg-[#121316] border-b border-black/[0.06] dark:border-white/10 text-xs">
-            <div className="p-2.5 px-3 bg-white dark:bg-[#1C1D22] rounded-xl border border-black/[0.04] dark:border-white/5 shadow-2xs">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 p-4 px-6 bg-sky-50/30 dark:bg-white/[0.02] border-b border-sky-100/60 dark:border-white/10 text-xs">
+            <div className="p-2.5 px-3 glass-card rounded-xl border border-sky-100/60 dark:border-white/5 shadow-2xs">
               <div className="text-[10px] uppercase font-bold text-slate-400 dark:text-[#8E8F99]">Total Volume Traded</div>
               <div className="text-sm font-bold font-mono text-slate-900 dark:text-white mt-0.5">
                 ${stats.totalVol.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </div>
             </div>
-            <div className="p-2.5 px-3 bg-white dark:bg-[#1C1D22] rounded-xl border border-black/[0.04] dark:border-white/5 shadow-2xs">
+            <div className="p-2.5 px-3 glass-card rounded-xl border border-sky-100/60 dark:border-white/5 shadow-2xs">
               <div className="text-[10px] uppercase font-bold text-slate-400 dark:text-[#8E8F99]">Total Polymarket Fees</div>
               <div className="text-sm font-bold font-mono text-slate-600 dark:text-[#8E8F99] mt-0.5">
                 -${stats.totalFees.toFixed(2)}
               </div>
             </div>
-            <div className="p-2.5 px-3 bg-white dark:bg-[#1C1D22] rounded-xl border border-black/[0.04] dark:border-white/5 shadow-2xs">
+            <div className="p-2.5 px-3 glass-card rounded-xl border border-sky-100/60 dark:border-white/5 shadow-2xs">
               <div className="text-[10px] uppercase font-bold text-slate-400 dark:text-[#8E8F99]">Win Rate</div>
               <div className="text-sm font-bold font-mono text-indigo-600 dark:text-indigo-400 mt-0.5">
                 {stats.winRate.toFixed(1)}%
               </div>
             </div>
-            <div className="p-2.5 px-3 bg-white dark:bg-[#1C1D22] rounded-xl border border-black/[0.04] dark:border-white/5 shadow-2xs">
+            <div className="p-2.5 px-3 glass-card rounded-xl border border-sky-100/60 dark:border-white/5 shadow-2xs">
               <div className="text-[10px] uppercase font-bold text-slate-400 dark:text-[#8E8F99]">Simulated Portfolio P&L</div>
               <div className={`text-sm font-bold font-mono mt-0.5 ${stats.totalPnl >= 0 ? 'text-emerald-600 dark:text-[#00D09C]' : 'text-rose-600 dark:text-[#FF453A]'}`}>
                 {stats.totalPnl >= 0 ? '+' : '-'}${Math.abs(stats.totalPnl).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
@@ -286,7 +286,7 @@ export function FullHistorySpreadsheetModal({
           </div>
 
           {/* Search, Filter Tabs & Sort Controls */}
-          <div className="p-3.5 px-6 border-b border-black/[0.06] dark:border-white/10 bg-white dark:bg-[#16171B] flex flex-col sm:flex-row items-center justify-between gap-3">
+          <div className="p-3.5 px-6 border-b border-sky-100/60 dark:border-white/10 bg-white/40 dark:bg-white/[0.01] flex flex-col sm:flex-row items-center justify-between gap-3">
             <div className="relative w-full sm:w-80">
               <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-[#8E8F99]" />
               <input
@@ -295,16 +295,16 @@ export function FullHistorySpreadsheetModal({
                 aria-label="Search market, whale, outcome"
                 value={search}
                 onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-                className="w-full pl-9 pr-3 py-1.5 text-xs bg-slate-50 dark:bg-[#1C1D22] text-slate-900 dark:text-white border border-black/[0.08] dark:border-white/10 rounded-xl focus:outline-none focus:border-slate-400 font-mono"
+                className="w-full pl-9 pr-3 py-1.5 text-xs bg-white/60 dark:bg-white/[0.04] text-slate-900 dark:text-white border border-sky-100/60 dark:border-white/10 rounded-xl focus:outline-none focus:border-indigo-500/60 font-mono"
               />
             </div>
 
             <div className="flex items-center gap-2 w-full sm:w-auto justify-between sm:justify-end">
-              <div className="flex rounded-full bg-slate-100 dark:bg-[#1C1D22] p-0.5 border border-black/[0.06] dark:border-white/5 text-[11px] font-semibold">
+              <div className="flex rounded-full bg-white/60 dark:bg-white/10 p-0.5 border border-sky-100/60 dark:border-white/5 text-[11px] font-semibold">
                 <button
                   onClick={() => { setStatusFilter('ALL'); setPage(1); }}
                   className={`px-3 py-1 rounded-full transition-all cursor-pointer ${
-                    statusFilter === 'ALL' ? 'bg-white dark:bg-[#2C2D35] text-slate-900 dark:text-white shadow-2xs' : 'text-slate-500 dark:text-[#8E8F99]'
+                    statusFilter === 'ALL' ? 'bg-slate-950 text-white dark:bg-white dark:text-slate-950 shadow-xs' : 'text-slate-600 dark:text-[#8E8F99]'
                   }`}
                 >
                   All Trades ({logs.length})
@@ -312,7 +312,7 @@ export function FullHistorySpreadsheetModal({
                 <button
                   onClick={() => { setStatusFilter('HOLDING'); setPage(1); }}
                   className={`px-3 py-1 rounded-full transition-all cursor-pointer ${
-                    statusFilter === 'HOLDING' ? 'bg-white dark:bg-[#2C2D35] text-emerald-600 dark:text-[#00D09C] shadow-2xs' : 'text-slate-500 dark:text-[#8E8F99]'
+                    statusFilter === 'HOLDING' ? 'bg-slate-950 text-white dark:bg-white dark:text-slate-950 shadow-xs' : 'text-slate-600 dark:text-[#8E8F99]'
                   }`}
                 >
                   Currently Holding
@@ -320,7 +320,7 @@ export function FullHistorySpreadsheetModal({
                 <button
                   onClick={() => { setStatusFilter('CLOSED'); setPage(1); }}
                   className={`px-3 py-1 rounded-full transition-all cursor-pointer ${
-                    statusFilter === 'CLOSED' ? 'bg-white dark:bg-[#2C2D35] text-slate-900 dark:text-white shadow-2xs' : 'text-slate-500 dark:text-[#8E8F99]'
+                    statusFilter === 'CLOSED' ? 'bg-slate-950 text-white dark:bg-white dark:text-slate-950 shadow-xs' : 'text-slate-600 dark:text-[#8E8F99]'
                   }`}
                 >
                   Sold / Resolved
@@ -330,9 +330,9 @@ export function FullHistorySpreadsheetModal({
           </div>
 
           {/* Spreadsheet Table Container */}
-          <div className="flex-1 overflow-auto bg-slate-50/30 dark:bg-[#0B0C0E]/50 font-mono text-xs">
-            <table className="w-full text-left border-collapse table-auto">
-              <thead className="sticky top-0 bg-slate-100/95 dark:bg-[#1C1D22]/95 backdrop-blur-md z-10 border-b border-black/[0.08] dark:border-white/10 text-[10px] uppercase font-bold text-slate-600 dark:text-[#8E8F99] select-none">
+          <div className="flex-1 overflow-auto bg-slate-50/30 dark:bg-[#0B0C0E]/50 font-mono text-xs scrollbar-thin">
+            <table className="w-full min-w-[680px] text-left border-collapse table-auto">
+              <thead className="sticky top-0 bg-slate-100/90 dark:bg-slate-900/90 backdrop-blur-md z-10 border-b border-sky-100/60 dark:border-white/10 text-[10px] uppercase font-bold text-slate-600 dark:text-[#8E8F99] select-none">
                 <tr>
                   <th onClick={() => handleSort('timestamp')} className="p-3.5 px-4 cursor-pointer hover:bg-slate-200/60 dark:hover:bg-[#2C2D35] transition-colors">
                     <div className="flex items-center gap-1">
@@ -395,7 +395,7 @@ export function FullHistorySpreadsheetModal({
                     <tr 
                       key={trade.id} 
                       onClick={() => onSelectTrade && onSelectTrade(trade)}
-                      className="hover:bg-slate-100/70 dark:hover:bg-[#1C1D22] transition-colors cursor-pointer"
+                      className="hover:bg-sky-50/50 dark:hover:bg-white/[0.04] transition-colors cursor-pointer"
                     >
                       <td className="p-3.5 px-4 text-[11px] text-slate-500 dark:text-[#8E8F99] whitespace-nowrap">
                         {trade.timestamp ? formatFrenchDateTime(trade.timestamp, true) : 'Live'}
@@ -409,8 +409,8 @@ export function FullHistorySpreadsheetModal({
                       <td className="p-3.5">
                         <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
                           (trade.outcome || 'Yes').toLowerCase() === 'yes'
-                            ? 'bg-emerald-50 dark:bg-[#00D09C]/10 text-emerald-700 dark:text-[#00D09C]'
-                            : 'bg-rose-50 dark:bg-[#FF453A]/10 text-rose-700 dark:text-[#FF453A]'
+                            ? 'bg-emerald-500/10 text-emerald-700 dark:text-[#00D09C] border border-emerald-500/20'
+                            : 'bg-rose-500/10 text-rose-700 dark:text-[#FF453A] border border-rose-500/20'
                         }`}>
                           {trade.outcome || 'Yes'}
                         </span>
@@ -435,7 +435,7 @@ export function FullHistorySpreadsheetModal({
           </div>
 
           {/* Pagination Footer */}
-          <div className="p-4 px-6 border-t border-black/[0.06] dark:border-white/10 bg-slate-50/80 dark:bg-[#1C1D22] flex items-center justify-between text-xs">
+          <div className="p-4 px-6 border-t border-sky-100/60 dark:border-white/10 bg-sky-50/40 dark:bg-white/[0.02] flex items-center justify-between text-xs">
             <span className="text-slate-500 dark:text-[#8E8F99]">
               Showing {Math.min(filteredLogs.length, (page - 1) * PAGE_SIZE + 1)}–{Math.min(filteredLogs.length, page * PAGE_SIZE)} of {filteredLogs.length} entries
             </span>
@@ -443,7 +443,7 @@ export function FullHistorySpreadsheetModal({
               <button
                 onClick={() => setPage(p => Math.max(1, p - 1))}
                 disabled={page === 1}
-                className="p-1.5 rounded-lg border border-black/[0.08] dark:border-white/10 bg-white dark:bg-[#16171B] disabled:opacity-40"
+                className="p-1.5 rounded-lg border border-sky-100/60 dark:border-white/10 bg-white/80 dark:bg-white/10 disabled:opacity-40 cursor-pointer"
               >
                 <ChevronLeft size={14} />
               </button>
@@ -453,7 +453,7 @@ export function FullHistorySpreadsheetModal({
               <button
                 onClick={() => setPage(p => Math.min(totalPages, p + 1))}
                 disabled={page === totalPages}
-                className="p-1.5 rounded-lg border border-black/[0.08] dark:border-white/10 bg-white dark:bg-[#16171B] disabled:opacity-40"
+                className="p-1.5 rounded-lg border border-sky-100/60 dark:border-white/10 bg-white/80 dark:bg-white/10 disabled:opacity-40 cursor-pointer"
               >
                 <ChevronRight size={14} />
               </button>

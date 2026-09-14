@@ -106,7 +106,7 @@ export function CommandPalette({ isOpen: controlledIsOpen, onClose: controlledOn
   return (
     <AnimatePresence>
       {isPaletteOpen && (
-        <div className="fixed inset-0 z-50 flex items-start justify-center pt-24 sm:pt-32 p-4 bg-black/60 dark:bg-black/80 backdrop-blur-md">
+        <div className="fixed inset-0 z-50 flex items-start justify-center pt-24 sm:pt-32 p-4 glass-modal-backdrop">
           {/* Backdrop click to close */}
           <div className="fixed inset-0" onClick={handleClose} />
 
@@ -119,10 +119,10 @@ export function CommandPalette({ isOpen: controlledIsOpen, onClose: controlledOn
             role="dialog"
             aria-modal="true"
             aria-label="Command Palette"
-            className="relative w-full max-w-xl bg-white dark:bg-[#16171B] border border-black/10 dark:border-white/10 rounded-[28px] shadow-2xl overflow-hidden z-10 flex flex-col max-h-[70vh]"
+            className="relative w-full max-w-xl glass-modal rounded-[28px] overflow-hidden z-10 flex flex-col max-h-[70vh]"
           >
             {/* Search Input */}
-            <div className="flex items-center gap-3 px-5 py-4 border-b border-black/[0.06] dark:border-white/10">
+            <div className="flex items-center gap-3 px-5 py-4 border-b border-sky-100/60 dark:border-white/10 bg-white/40 dark:bg-white/[0.02]">
               <Search size={18} className="text-slate-400 dark:text-[#8E8F99] shrink-0" />
               <input
                 ref={inputRef}
@@ -142,7 +142,7 @@ export function CommandPalette({ isOpen: controlledIsOpen, onClose: controlledOn
                   <X size={14} />
                 </button>
               )}
-              <span className="text-[10px] font-mono text-slate-400 dark:text-[#8E8F99] bg-slate-100 dark:bg-[#2C2D35] px-2 py-0.5 rounded-md border border-black/[0.04] dark:border-white/5">
+              <span className="text-[10px] font-mono text-slate-500 dark:text-[#8E8F99] bg-slate-100 dark:bg-white/10 px-2 py-0.5 rounded-md border border-black/[0.04] dark:border-white/5 font-semibold">
                 ESC
               </span>
             </div>
@@ -174,10 +174,10 @@ export function CommandPalette({ isOpen: controlledIsOpen, onClose: controlledOn
                             handleClose();
                           }
                         }}
-                        className="flex items-center justify-between p-3 rounded-2xl hover:bg-slate-50 dark:hover:bg-[#1C1D22] transition-colors cursor-pointer group focus:outline-none focus:ring-1 focus:ring-[#00D09C]"
+                        className="flex items-center justify-between p-3 rounded-2xl hover:bg-white/60 dark:hover:bg-white/[0.04] border border-transparent hover:border-sky-100/60 dark:hover:border-white/5 transition-all cursor-pointer group focus:outline-none focus:ring-1 focus:ring-indigo-500/40"
                       >
                         <div className="flex items-center gap-3 min-w-0">
-                          <div className="w-8 h-8 rounded-full bg-slate-100 dark:bg-[#2C2D35] flex items-center justify-center font-bold text-xs text-slate-800 dark:text-white shrink-0">
+                          <div className="w-8 h-8 rounded-full bg-sky-50 dark:bg-white/10 flex items-center justify-center font-bold text-xs text-slate-800 dark:text-white shrink-0 border border-sky-100/60 dark:border-white/10">
                             <Wallet size={14} />
                           </div>
                           <div className="min-w-0">
@@ -216,10 +216,10 @@ export function CommandPalette({ isOpen: controlledIsOpen, onClose: controlledOn
                           executeAction(cmd.action);
                         }
                       }}
-                      className="flex items-center justify-between p-3 rounded-2xl hover:bg-slate-50 dark:hover:bg-[#1C1D22] transition-colors cursor-pointer group focus:outline-none focus:ring-1 focus:ring-[#00D09C]"
+                      className="flex items-center justify-between p-3 rounded-2xl hover:bg-white/60 dark:hover:bg-white/[0.04] border border-transparent hover:border-sky-100/60 dark:hover:border-white/5 transition-all cursor-pointer group focus:outline-none focus:ring-1 focus:ring-indigo-500/40"
                     >
                       <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-full bg-slate-100 dark:bg-[#2C2D35] flex items-center justify-center text-slate-600 dark:text-white shrink-0">
+                        <div className="w-8 h-8 rounded-full bg-sky-50 dark:bg-white/10 flex items-center justify-center text-slate-600 dark:text-white shrink-0 border border-sky-100/60 dark:border-white/10">
                           <Icon size={15} />
                         </div>
                         <span className="text-xs font-semibold text-slate-800 dark:text-white">

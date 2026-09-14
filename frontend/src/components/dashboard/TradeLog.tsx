@@ -30,13 +30,6 @@ export function TradeLog({
   const [isSpreadsheetOpen, setIsSpreadsheetOpen] = useState(false);
 
   useEffect(() => {
-    if (propLogs) {
-      setInternalLogs(propLogs);
-      setLoading(false);
-    }
-  }, [propLogs]);
-
-  useEffect(() => {
     if (propLogs) return;
     async function load() {
       if (typeof document !== 'undefined' && document.hidden) return;
@@ -53,6 +46,7 @@ export function TradeLog({
   }, [userId, propLogs]);
 
   const logs = propLogs || internalLogs;
+  const isDisplayLoading = propLogs ? false : (loading && internalLogs.length === 0);
 
   const holdingLogs = useMemo(() => {
     return logs.filter(l => l.side === 'BUY' && l.status === 'FILLED' && !l.marketQuestion?.toLowerCase().includes('resolved'));
@@ -118,25 +112,25 @@ export function TradeLog({
 
   return (
     <>
-      <div className="revolut-card rounded-[26px] p-5 sm:p-7 space-y-5">
+      <div className="glass-card rounded-[28px] p-5 sm:p-7 space-y-5">
         {/* Header & Tabs */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-black/[0.04] dark:border-white/5 pb-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-sky-100/80 dark:border-white/10 pb-4">
           <div>
-            <h3 className="text-base font-bold text-slate-950 dark:text-white tracking-tight">
+            <h3 className="text-base font-bold text-[#0F172A] dark:text-white tracking-tight">
               Execution Audit &amp; Transactions Feed
             </h3>
-            <p className="text-xs text-slate-500 dark:text-[#8E8F99]">
+            <p className="text-xs text-slate-500 dark:text-slate-400">
               Paper positions, simulated fills &amp; paper PnL tracking
             </p>
           </div>
 
           <div className="flex items-center gap-2">
-            {/* Revolut Segmented Pill Filter */}
-            <div className="flex rounded-full bg-[#F1F3F5] dark:bg-[#1C1D22] p-0.5 border border-black/[0.04] dark:border-white/5 text-xs font-bold">
+            {/* Arctic Glass Segmented Pill Filter */}
+            <div className="flex rounded-full bg-[#E0F2FE]/60 dark:bg-white/5 p-1 border border-sky-200/50 dark:border-white/10 text-xs font-bold">
               <button
                 onClick={() => setTab('holding')}
                 className={`px-3.5 py-1.5 rounded-full transition-all cursor-pointer ${
-                  tab === 'holding' ? 'bg-white dark:bg-[#2C2D35] text-slate-950 dark:text-white shadow-2xs' : 'text-slate-500 dark:text-[#8E8F99] hover:text-slate-900 dark:hover:text-white'
+                  tab === 'holding' ? 'glass-button bg-white text-[#0F172A] shadow-xs' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                 }`}
               >
                 Holding ({totalHoldingCount ?? holdingLogs.length})
@@ -144,7 +138,7 @@ export function TradeLog({
               <button
                 onClick={() => setTab('closed')}
                 className={`px-3.5 py-1.5 rounded-full transition-all cursor-pointer ${
-                  tab === 'closed' ? 'bg-white dark:bg-[#2C2D35] text-slate-950 dark:text-white shadow-2xs' : 'text-slate-500 dark:text-[#8E8F99] hover:text-slate-900 dark:hover:text-white'
+                  tab === 'closed' ? 'glass-button bg-white text-[#0F172A] shadow-xs' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                 }`}
               >
                 Closed ({totalClosedCount ?? closedLogs.length})
@@ -154,18 +148,18 @@ export function TradeLog({
             <button
               onClick={() => setIsSpreadsheetOpen(true)}
               aria-label="Open full execution history modal"
-              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-[#F1F3F5] dark:bg-[#1C1D22] hover:bg-[#E2E6EA] dark:hover:bg-[#2C2D35] text-slate-800 dark:text-white text-xs font-semibold border border-black/[0.04] dark:border-white/10 transition-all cursor-pointer shadow-2xs"
+              className="glass-button flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-slate-800 dark:text-white text-xs font-semibold border border-sky-200/60 dark:border-white/15 transition-all cursor-pointer shadow-xs active:scale-95"
               title="Open full execution history modal"
             >
-              <FileSpreadsheet size={13} className="text-[#00D09C]" />
+              <FileSpreadsheet size={13} className="text-[#0284C7] dark:text-[#38BDF8]" />
               <span className="hidden sm:inline">Export Audit</span>
             </button>
           </div>
         </div>
 
-        {/* Transactions Feed (Revolut transaction list style) */}
-        <div className="divide-y divide-black/[0.04] dark:divide-white/5 space-y-1">
-          {loading ? (
+        {/* Transactions Feed */}
+        <div className="divide-y divide-sky-100/60 dark:divide-white/5 space-y-1">
+          {isDisplayLoading ? (
             <div className="space-y-3 pt-2">
               {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
                 <div key={i} className="pt-2.5 pb-2.5 px-2 flex items-center justify-between gap-3">
@@ -210,7 +204,7 @@ export function TradeLog({
                   role="button"
                   tabIndex={0}
                   aria-label={`View trade details for ${trade.marketQuestion || 'contract'}`}
-                  className="py-2.5 px-2 rounded-2xl hover:bg-slate-50 dark:hover:bg-[#1C1D22] transition-colors cursor-pointer flex items-center justify-between gap-2.5 group min-w-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00D09C]"
+                  className="py-2.5 px-3 rounded-2xl hover:bg-sky-500/[0.05] dark:hover:bg-white/[0.04] transition-all cursor-pointer flex items-center justify-between gap-2.5 group min-w-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0284C7]"
                 >
                   {/* Left: Outcome / Market Icon & Title */}
                   <div className="flex items-center gap-2.5 min-w-0 flex-1">
@@ -218,25 +212,25 @@ export function TradeLog({
 
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-1.5 min-w-0">
-                        <p className="text-xs font-bold text-slate-900 dark:text-white truncate group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
+                        <p className="text-xs font-bold text-[#0F172A] dark:text-white truncate group-hover:text-[#0284C7] dark:group-hover:text-[#38BDF8] transition-colors">
                           {trade.marketQuestion || 'Prediction Market Contract'}
                         </p>
                         {trade.consensus?.is_consensus && (
-                          <span className="text-[9px] font-bold bg-indigo-50 dark:bg-indigo-500/10 text-indigo-700 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-500/20 px-1.5 py-0.2 rounded-full shrink-0">
+                          <span className="text-[9px] font-bold bg-sky-50 dark:bg-sky-500/10 text-[#0284C7] dark:text-[#38BDF8] border border-sky-200/60 dark:border-sky-500/20 px-1.5 py-0.2 rounded-full shrink-0">
                             Consensus
                           </span>
                         )}
                       </div>
                       
                       {/* Responsive Metadata Subtitle (Never overlaps) */}
-                      <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[10px] sm:text-[11px] text-slate-500 dark:text-[#8E8F99] font-mono mt-0.5 min-w-0">
-                        <span className="truncate max-w-[85px] sm:max-w-[130px] font-medium text-slate-700 dark:text-slate-300">
+                      <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[10px] sm:text-[11px] text-slate-500 dark:text-slate-400 font-mono mt-0.5 min-w-0">
+                        <span className="truncate max-w-[85px] sm:max-w-[130px] font-semibold text-[#1E293B] dark:text-slate-300">
                           {whaleDisplay}
                         </span>
                         <span className="opacity-40">•</span>
                         <span className="shrink-0">Fill {fillPrice === null ? 'Unavailable' : `$${fillPrice.toFixed(3)}`}</span>
                         <span className="opacity-40">•</span>
-                        <span className="shrink-0 font-bold text-slate-900 dark:text-white">
+                        <span className="shrink-0 font-bold text-[#0F172A] dark:text-white">
                           {isClosed ? 'Exit' : 'Mark'} {livePrice === null || livePrice === undefined ? 'Unavailable' : `$${livePrice.toFixed(3)}`}
                         </span>
                       </div>
@@ -245,7 +239,7 @@ export function TradeLog({
 
                   {/* Right: Notional Size & Net PnL */}
                   <div className="text-right shrink-0 pl-1.5">
-                    <div className="text-xs font-bold font-mono text-slate-950 dark:text-white">
+                    <div className="text-xs font-bold font-mono text-[#0F172A] dark:text-white">
                       ${notional.toFixed(2)}
                     </div>
                     <div className={`text-[11px] font-bold font-mono ${pnl === null || pnl === undefined ? 'text-slate-400' : isProfit ? 'text-emerald-600 dark:text-[#00D09C]' : 'text-rose-600 dark:text-[#FF453A]'}`}>

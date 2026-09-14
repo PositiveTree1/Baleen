@@ -72,14 +72,14 @@ export function LiveTape({ userId, onSelectTrade }: LiveTapeProps) {
       );
     }
     return (
-      <div className="w-9 h-9 rounded-full bg-slate-100 dark:bg-[#2C2D35] text-slate-700 dark:text-white border border-black/[0.08] dark:border-white/10 flex items-center justify-center text-xs font-bold font-mono">
+      <div className="w-9 h-9 rounded-full bg-slate-100 dark:bg-white/[0.08] text-slate-700 dark:text-white border border-black/[0.08] dark:border-white/10 flex items-center justify-center text-xs font-bold font-mono">
         {(log.outcome || 'Yes').slice(0, 3)}
       </div>
     );
   };
 
   return (
-    <div className="revolut-card rounded-[26px] p-5 sm:p-6 flex flex-col h-[480px] space-y-4">
+    <div className="glass-card rounded-[28px] p-5 sm:p-6 flex flex-col h-[480px] space-y-4">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="flex items-center gap-2.5">
@@ -89,13 +89,15 @@ export function LiveTape({ userId, onSelectTrade }: LiveTapeProps) {
         </div>
 
         {/* Filter Pills */}
-        <div className="flex rounded-full bg-[#F1F3F5] dark:bg-[#1C1D22] p-0.5 border border-black/[0.04] dark:border-white/5 text-[11px] font-bold">
+        <div className="flex rounded-full bg-white/60 dark:bg-white/[0.04] p-1 border border-sky-100/60 dark:border-white/5 text-[11px] font-bold">
           {(['ALL', 'BUY', 'SELL', 'CONSENSUS'] as const).map((side) => (
             <button
               key={side}
               onClick={() => setSideFilter(side)}
               className={`px-3 py-1 rounded-full transition-all cursor-pointer ${
-                sideFilter === side ? 'bg-white dark:bg-[#2C2D35] text-slate-950 dark:text-white shadow-2xs' : 'text-slate-500 dark:text-[#8E8F99] hover:text-slate-950 dark:hover:text-white'
+                sideFilter === side
+                  ? 'bg-slate-950 text-white dark:bg-white dark:text-slate-950 shadow-xs'
+                  : 'text-slate-600 dark:text-[#8E8F99] hover:text-slate-950 dark:hover:text-white'
               }`}
             >
               {side === 'CONSENSUS' ? '🔥 Consensus' : side}
@@ -114,7 +116,7 @@ export function LiveTape({ userId, onSelectTrade }: LiveTapeProps) {
           onChange={(e) => setSearch(e.target.value)}
           aria-label="Filter paper executions"
           spellCheck={false}
-          className="w-full pl-9 pr-3 py-2 bg-[#F1F3F5] dark:bg-[#1C1D22] border border-black/[0.04] dark:border-white/5 rounded-full text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-[#8E8F99] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00D09C]"
+          className="w-full pl-9 pr-3 py-2 bg-white/60 dark:bg-white/[0.04] border border-sky-100/60 dark:border-white/10 rounded-full text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-[#8E8F99] focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/40"
         />
       </div>
 
@@ -164,13 +166,13 @@ export function LiveTape({ userId, onSelectTrade }: LiveTapeProps) {
                     if (onSelectTrade) onSelectTrade(log);
                   }
                 }}
-                className="py-2 px-2 flex items-center justify-between gap-2.5 rounded-2xl hover:bg-slate-50 dark:hover:bg-[#1C1D22] transition-colors cursor-pointer group min-w-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00D09C]"
+                className="py-2 px-2.5 flex items-center justify-between gap-2.5 rounded-2xl hover:bg-white/60 dark:hover:bg-white/[0.04] border border-transparent hover:border-sky-100/60 dark:hover:border-white/5 transition-all cursor-pointer group min-w-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/40"
               >
                 <div className="flex items-center gap-2.5 min-w-0 flex-1">
                   {/* Side Indicator Badge & Market Icon */}
                   <div className="relative shrink-0">
                     {getMarketIcon(log)}
-                    <div className={`absolute -bottom-1 -right-1 w-4 h-4 rounded-full border border-white dark:border-[#16171B] flex items-center justify-center ${
+                    <div className={`absolute -bottom-1 -right-1 w-4 h-4 rounded-full border border-white dark:border-slate-900 flex items-center justify-center ${
                       isBuy ? 'bg-[#00D09C] text-black' : 'bg-[#FF453A] text-white'
                     }`}>
                       {isBuy ? <ArrowUpRight size={10} strokeWidth={3} /> : <ArrowDownRight size={10} strokeWidth={3} />}
@@ -185,13 +187,13 @@ export function LiveTape({ userId, onSelectTrade }: LiveTapeProps) {
                       {/* Explicit BUY / SELL badge */}
                       <span className={`font-extrabold px-1.5 py-0.2 rounded-md shrink-0 ${
                         isBuy
-                          ? 'bg-emerald-100 dark:bg-[#00D09C]/20 text-emerald-800 dark:text-[#00D09C]'
-                          : 'bg-rose-100 dark:bg-[#FF453A]/20 text-rose-800 dark:text-[#FF453A]'
+                          ? 'bg-emerald-500/10 text-emerald-700 dark:text-[#00D09C] border border-emerald-500/20'
+                          : 'bg-rose-500/10 text-rose-700 dark:text-[#FF453A] border border-rose-500/20'
                       }`}>
                         {isBuy ? 'BUY' : 'SELL'}
                       </span>
                       {/* Outcome Badge */}
-                      <span className="font-bold px-1.5 py-0.2 rounded-md bg-slate-200 dark:bg-[#2C2D35] text-slate-700 dark:text-[#E2E3E8] shrink-0">
+                      <span className="font-bold px-1.5 py-0.2 rounded-md bg-slate-200/60 dark:bg-white/10 text-slate-700 dark:text-[#E2E3E8] shrink-0 border border-black/5 dark:border-white/5">
                         {outcomeText}
                       </span>
                       <span className="opacity-40">•</span>

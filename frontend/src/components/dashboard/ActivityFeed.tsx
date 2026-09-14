@@ -87,7 +87,7 @@ export function ActivityFeed({ isOpen, onClose }: ActivityFeedProps) {
     <>
       {/* Backdrop */}
       <div
-        className="fixed inset-0 bg-black/60 dark:bg-black/80 backdrop-blur-sm z-50 transition-opacity"
+        className="fixed inset-0 glass-modal-backdrop z-50 transition-opacity"
         onClick={onClose}
       />
 
@@ -96,10 +96,10 @@ export function ActivityFeed({ isOpen, onClose }: ActivityFeedProps) {
         role="dialog"
         aria-modal="true"
         aria-label="Activity Feed"
-        className="fixed right-0 top-0 h-full w-full max-w-md bg-white dark:bg-[#16171B] border-l border-black/[0.08] dark:border-white/10 shadow-2xl z-50 flex flex-col animate-in slide-in-from-right duration-200"
+        className="fixed right-0 top-0 h-full w-full max-w-md glass-panel border-l border-sky-100/60 dark:border-white/10 shadow-2xl z-50 flex flex-col animate-in slide-in-from-right duration-200"
       >
         {/* Header */}
-        <div className="flex items-center justify-between p-5 border-b border-black/[0.06] dark:border-white/10 bg-slate-50 dark:bg-[#1C1D22]">
+        <div className="flex items-center justify-between p-5 border-b border-sky-100/60 dark:border-white/10 bg-sky-50/40 dark:bg-white/[0.02]">
           <div className="flex items-center gap-2.5">
             <div className="p-2 rounded-xl bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-500/20">
               <Bell size={16} />
@@ -112,14 +112,14 @@ export function ActivityFeed({ isOpen, onClose }: ActivityFeedProps) {
           <button
             onClick={onClose}
             aria-label="Close activity feed"
-            className="p-2 rounded-xl hover:bg-slate-200/60 dark:hover:bg-[#2C2D35] text-slate-400 dark:text-[#8E8F99] hover:text-slate-900 dark:hover:text-white transition-colors cursor-pointer"
+            className="p-2 rounded-xl hover:bg-sky-50 dark:hover:bg-white/10 text-slate-400 dark:text-[#8E8F99] hover:text-slate-900 dark:hover:text-white transition-colors cursor-pointer"
           >
             <X size={18} />
           </button>
         </div>
 
         {/* Filters */}
-        <div className="flex items-center gap-1.5 px-5 py-3 border-b border-black/[0.04] dark:border-white/5 overflow-x-auto">
+        <div className="flex items-center gap-1.5 px-5 py-3 border-b border-sky-100/60 dark:border-white/5 overflow-x-auto">
           <Filter size={12} className="text-slate-400 dark:text-[#8E8F99] shrink-0" />
           {filters.map((f) => (
             <button
@@ -127,8 +127,8 @@ export function ActivityFeed({ isOpen, onClose }: ActivityFeedProps) {
               onClick={() => setFilter(f.key)}
               className={`px-3 py-1 rounded-full text-[11px] font-semibold transition-all cursor-pointer whitespace-nowrap ${
                 filter === f.key
-                  ? 'bg-slate-900 dark:bg-white text-white dark:text-black shadow-2xs'
-                  : 'text-slate-500 dark:text-[#8E8F99] hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-[#1C1D22]'
+                  ? 'bg-slate-950 dark:bg-white text-white dark:text-slate-950 shadow-xs'
+                  : 'text-slate-600 dark:text-[#8E8F99] hover:text-slate-900 dark:hover:text-white hover:bg-white/40 dark:hover:bg-white/5'
               }`}
             >
               {f.label}
@@ -141,7 +141,7 @@ export function ActivityFeed({ isOpen, onClose }: ActivityFeedProps) {
           {loading ? (
             <div className="space-y-2.5">
               {[1, 2, 3, 4, 5].map((i) => (
-                <div key={i} className="p-3.5 rounded-2xl bg-white dark:bg-[#1C1D22] border border-black/[0.06] dark:border-white/5 space-y-2">
+                <div key={i} className="p-3.5 rounded-2xl glass-card space-y-2">
                   <div className="flex items-center justify-between">
                     <div className="w-36 h-3.5 rounded-md animate-shimmer" />
                     <div className="w-12 h-2.5 rounded-md animate-shimmer" />
@@ -163,7 +163,7 @@ export function ActivityFeed({ isOpen, onClose }: ActivityFeedProps) {
               return (
                 <div
                   key={evt.id}
-                  className="p-3.5 rounded-2xl bg-white dark:bg-[#1C1D22] border border-black/[0.06] dark:border-white/5 shadow-2xs hover:shadow-md transition-shadow"
+                  className="p-3.5 rounded-2xl glass-card shadow-xs hover:shadow-md transition-all"
                 >
                   <div className="flex items-start gap-2.5">
                     <div className={`p-1.5 rounded-lg border shrink-0 mt-0.5 ${style.bg}`}>
@@ -184,7 +184,7 @@ export function ActivityFeed({ isOpen, onClose }: ActivityFeedProps) {
                         </p>
                       )}
                       {evt.relatedAddress && (
-                        <span className="inline-block mt-1.5 text-[10px] font-mono text-slate-500 dark:text-[#8E8F99] bg-slate-50 dark:bg-[#2C2D35] px-1.5 py-0.5 rounded border border-black/[0.04] dark:border-white/5">
+                        <span className="inline-block mt-1.5 text-[10px] font-mono text-slate-500 dark:text-[#8E8F99] bg-slate-50 dark:bg-white/10 px-1.5 py-0.5 rounded border border-black/[0.04] dark:border-white/5">
                           {evt.relatedAddress.slice(0, 6)}...{evt.relatedAddress.slice(-4)}
                         </span>
                       )}

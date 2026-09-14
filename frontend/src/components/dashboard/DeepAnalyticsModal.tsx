@@ -37,7 +37,7 @@ export function DeepAnalyticsModal({ isOpen, onClose, portfolio, logs }: DeepAna
       <div className="space-y-4 sm:space-y-6">
         {/* 6 Key Quantitative Metrics Grid */}
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-          <div className="p-4 rounded-2xl bg-slate-50 dark:bg-[#1C1D22] border border-black/[0.04] dark:border-white/5 space-y-1">
+          <div className="p-4 rounded-2xl glass-card space-y-1">
             <span className="text-[10px] font-semibold text-slate-500 dark:text-[#8E8F99] uppercase">{omittedEvidenceCount > 0 ? 'Known-record PnL' : 'Net Return'}</span>
             <div className={`text-lg font-bold font-mono ${totalPnL === null ? 'text-slate-400' : totalPnL >= 0 ? 'text-emerald-600 dark:text-[#00D09C]' : 'text-rose-600 dark:text-[#FF3B30]'}`}>
               {totalPnL === null ? 'Unavailable' : `${totalPnL >= 0 ? '+' : ''}$${totalPnL.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
@@ -47,7 +47,7 @@ export function DeepAnalyticsModal({ isOpen, onClose, portfolio, logs }: DeepAna
             </span>
           </div>
 
-          <div className="p-4 rounded-2xl bg-slate-50 dark:bg-[#1C1D22] border border-black/[0.04] dark:border-white/5 space-y-1">
+          <div className="p-4 rounded-2xl glass-card space-y-1">
             <span className="text-[10px] font-semibold text-slate-500 dark:text-[#8E8F99] uppercase">Win Rate</span>
             <div className="text-lg font-bold text-slate-950 dark:text-white font-mono">
               {winRate === null ? 'Unavailable' : `${winRate.toFixed(1)}%`}
@@ -57,7 +57,7 @@ export function DeepAnalyticsModal({ isOpen, onClose, portfolio, logs }: DeepAna
             </span>
           </div>
 
-          <div className="p-4 rounded-2xl bg-slate-50 dark:bg-[#1C1D22] border border-black/[0.04] dark:border-white/5 space-y-1">
+          <div className="p-4 rounded-2xl glass-card space-y-1">
             <span className="text-[10px] font-semibold text-slate-500 dark:text-[#8E8F99] uppercase">{omittedEvidenceCount > 0 ? 'Known-record Fees' : 'Total Fees Paid'}</span>
             <div className="text-lg font-bold text-slate-950 dark:text-white font-mono">
               {totalFees === null ? 'Unavailable' : `$${totalFees.toFixed(2)}`}
@@ -67,7 +67,7 @@ export function DeepAnalyticsModal({ isOpen, onClose, portfolio, logs }: DeepAna
             </span>
           </div>
 
-          <div className="p-4 rounded-2xl bg-slate-50 dark:bg-[#1C1D22] border border-black/[0.04] dark:border-white/5 space-y-1">
+          <div className="p-4 rounded-2xl glass-card space-y-1">
             <span className="text-[10px] font-semibold text-slate-500 dark:text-[#8E8F99] uppercase">Capital Deployed</span>
             <div className="text-lg font-bold text-slate-950 dark:text-white font-mono">
               ${notional.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
@@ -77,7 +77,7 @@ export function DeepAnalyticsModal({ isOpen, onClose, portfolio, logs }: DeepAna
             </span>
           </div>
 
-          <div className="p-4 rounded-2xl bg-slate-50 dark:bg-[#1C1D22] border border-black/[0.04] dark:border-white/5 space-y-1">
+          <div className="p-4 rounded-2xl glass-card space-y-1">
             <span className="text-[10px] font-semibold text-slate-500 dark:text-[#8E8F99] uppercase">Execution Model</span>
             <div className="text-lg font-bold text-emerald-600 dark:text-[#00D09C] font-mono">
               Pure Taker
@@ -85,7 +85,7 @@ export function DeepAnalyticsModal({ isOpen, onClose, portfolio, logs }: DeepAna
             <span className="text-[10px] text-slate-400 font-mono">Polymarket Fee Schedule</span>
           </div>
 
-          <div className="p-4 rounded-2xl bg-slate-50 dark:bg-[#1C1D22] border border-black/[0.04] dark:border-white/5 space-y-1">
+          <div className="p-4 rounded-2xl glass-card space-y-1">
             <span className="text-[10px] font-semibold text-slate-500 dark:text-[#8E8F99] uppercase">Consensus Alpha</span>
             <div className="text-lg font-bold text-indigo-600 dark:text-indigo-400 font-mono">
               +1.5x Sizing
@@ -95,7 +95,7 @@ export function DeepAnalyticsModal({ isOpen, onClose, portfolio, logs }: DeepAna
         </div>
 
         {/* Execution Engine Description */}
-        <div className="p-4 rounded-2xl bg-slate-50 dark:bg-[#1C1D22] border border-black/[0.04] dark:border-white/5 space-y-2">
+        <div className="p-4 rounded-2xl glass-card space-y-2">
           <h4 className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
             <ShieldCheck size={14} className="text-[#00D09C]" />
             Anti-Frontrunning &amp; Quadratic Execution Guard
@@ -106,11 +106,11 @@ export function DeepAnalyticsModal({ isOpen, onClose, portfolio, logs }: DeepAna
         </div>
 
         {/* Footer */}
-        <div className="pt-3 border-t border-black/[0.06] dark:border-white/10 flex justify-end">
+        <div className="pt-3 border-t border-sky-100/60 dark:border-white/10 flex justify-end">
           <button
             type="button"
             onClick={onClose}
-            className="px-6 py-2.5 rounded-full bg-slate-950 dark:bg-white text-white dark:text-black text-xs font-bold hover:bg-slate-800 dark:hover:bg-slate-200 transition-all cursor-pointer shadow-sm"
+            className="px-6 py-2.5 rounded-xl bg-slate-950 dark:bg-white text-white dark:text-black text-xs font-bold hover:bg-slate-800 dark:hover:bg-slate-200 transition-all cursor-pointer shadow-sm"
           >
             Close Analytics
           </button>

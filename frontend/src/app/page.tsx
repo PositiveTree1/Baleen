@@ -13,7 +13,7 @@ import { BrandLogo } from '@/components/ui/BrandLogo';
 
 export default function LandingPage() {
   return (
-    <main className="baleen-landing min-h-screen w-full overflow-x-hidden bg-[#060709] text-white selection:bg-[#00D09C] selection:text-black relative">
+    <main className="baleen-landing min-h-screen w-full overflow-x-hidden bg-[#F0F7FF] text-slate-900 selection:bg-sky-500 selection:text-white relative">
       {/* 1. Global SVG Liquid Filters for Metaball Fusion and Caustics */}
       <LiquidGlassFilter />
 
@@ -41,37 +41,37 @@ export default function LandingPage() {
       {/* 9. Mobile iOS 26 Liquid Glass Bottom Navigation Dock */}
       <LiquidGlassMobileDock />
 
-      {/* 10. Pristine Obsidian Studio Footer with Mobile Safe Area Clearance */}
-      <footer className="relative z-10 px-4 pb-36 pt-16 text-white sm:px-6 sm:pb-16 border-t border-white/10 bg-[#060709]/90 backdrop-blur-2xl">
-        <div className="mx-auto max-w-[1240px] overflow-hidden rounded-[2.5rem] border border-white/10 bg-[#0c0e14]/70 p-6 sm:p-12 backdrop-blur-3xl shadow-2xl">
+      {/* 10. Pristine Arctic Glacier Liquid Glass Footer with Mobile Safe Area Clearance */}
+      <footer className="relative z-10 px-4 pb-36 pt-16 text-slate-900 sm:px-6 sm:pb-16 border-t border-sky-100 bg-white/60 backdrop-blur-2xl">
+        <div className="glass-card glass-chromatic-bezel mx-auto max-w-[1240px] overflow-hidden rounded-[2.5rem] border border-white/95 p-6 sm:p-12 shadow-xl">
           <div className="flex flex-col justify-between gap-8 md:flex-row md:items-end">
             <div>
               <BrandLogo size="lg" className="baleen-footer-logo" />
-              <p className="mt-4 max-w-md text-sm leading-relaxed text-zinc-400">
+              <p className="mt-4 max-w-md text-sm leading-relaxed text-slate-600">
                 Autonomous Polymarket whale conviction execution. Continuous Envio Hypersync indexing with dynamically isolated risk sleeves.
               </p>
             </div>
 
-            <div className="flex flex-wrap gap-x-8 gap-y-3 text-xs sm:text-sm font-mono font-semibold text-zinc-400">
-              <Link href="#advantages" className="transition-colors hover:text-white">
+            <div className="flex flex-wrap gap-x-8 gap-y-3 text-xs sm:text-sm font-mono font-semibold text-slate-600">
+              <Link href="#advantages" className="transition-colors hover:text-sky-700">
                 Architecture
               </Link>
-              <Link href="#simulator" className="transition-colors hover:text-white">
+              <Link href="#simulator" className="transition-colors hover:text-sky-700">
                 Sleeve Model
               </Link>
-              <Link href="#infrastructure" className="transition-colors hover:text-white">
+              <Link href="#infrastructure" className="transition-colors hover:text-sky-700">
                 Telemetry
               </Link>
-              <Link href="/dashboard" className="transition-colors hover:text-white">
+              <Link href="/dashboard" className="transition-colors hover:text-sky-700">
                 Sandbox
               </Link>
-              <Link href="/auth/login" className="transition-colors hover:text-white">
+              <Link href="/auth/login" className="transition-colors hover:text-sky-700">
                 Sign In
               </Link>
             </div>
           </div>
 
-          <div className="mt-10 flex flex-col gap-3 border-t border-white/10 pt-6 text-xs text-zinc-500 sm:flex-row sm:items-center sm:justify-between font-mono">
+          <div className="mt-10 flex flex-col gap-3 border-t border-sky-100 pt-6 text-xs text-slate-500 sm:flex-row sm:items-center sm:justify-between font-mono">
             <span>© {new Date().getFullYear()} Baleen Quant. All rights reserved.</span>
             <span>Non-custodial paper trading sandbox. Algorithmic prediction simulation only.</span>
           </div>

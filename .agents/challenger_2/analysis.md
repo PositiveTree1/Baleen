@@ -1,74 +1,154 @@
-# Adversarial Challenge Analysis — Milestone R3 (Live Polling, Execution Resilience & Stress Bounds)
-**Author**: challenger_2 (Adversarial Verifier & Empirical Challenger)
-**Date**: 2026-08-30
-**Target**: Baleen Whale Copy-Trading Platform (`backend/app/services/live_poller.py`, `backend/app/services/mark_to_market.py`, `backend/app/services/disk_backup.py`, `backend/app/sizing/sleeve_manager.py`, `backend/app/main.py`)
+# Adversarial Challenge Analysis — Optical Liquid Glass Implementation Integrity, Artifact Cleanliness & Spring Physics
+**Author**: challenger_2 (Specialized Adversarial Verifier & Empirical Challenger)  
+**Date**: 2026-09-14  
+**Target**: Baleen Frontend Architecture & Asset Repository (`frontend/src/`, `frontend/public/`, `frontend/src/app/globals.css`)  
+**Parent Task**: Optical Liquid Glass & Cleanliness Verification
 
 ---
 
 ## 1. Executive Summary & Verdict
 
-- **Overall Risk Assessment**: **LOW / VERIFIED ROBUST**
-- **Verdict**: **APPROVE**
-- **Test Results**: 100% Pass across all 409 backend tests (including 50 targeted execution stress and invariant verification tests).
-- **Core Invariant Audited**: Zero orphaned trades, zero negative cash balances, strict $1,000 sleeve capacity limits, robust 24/7 overnight resilience, and automated 3-strike anti-arbitrage bot demotion.
+- **Overall Risk Assessment**: **LOW / CONFIRMED ROBUST**
+- **Verdict**: **CONFIRMED & APPROVED**
+  - **Optical Liquid Glass Authenticity**: **CONFIRMED**. Real UI containers across navigation docks, cards, modals, buttons, and slide-out drawers actively import and use the optical liquid glass utility classes (`.glass-dock`, `.glass-card`, `.glass-modal`, `.glass-button`, `.glass-panel`, `.glass-chromatic-bezel`).
+  - **Forbidden Term Absence**: **CONFIRMED**. 0 occurrences of `dumbbell`, `watermark`, or `WWDC25 Glass` in frontend/UI source code. (The term `placeholder` is strictly used in standard HTML `<input placeholder="...">` attributes and Tailwind text color classes).
+  - **Raster Mockup Cleanliness & Zero Broken Links**: **CONFIRMED**. `frontend/public/images/` is completely purged (0 unreferenced files). Stale mockups (`baleen_abyssal_whale.jpg`, `hero-icescape.jpeg`) are completely removed with 0 broken links in the codebase. The sole static image referenced in the UI is `/logo.png`, verified existing and valid.
+  - **Spring Physics & Micro-Interactions**: **CONFIRMED**. Framer Motion spring physics with explicit `stiffness`, `damping`, and `mass` parameters are actively deployed in `LiquidGlassDock.tsx` (`stiffness: 400, damping: 28, mass: 0.8`), `BalanceCounter.tsx` (`stiffness: 400, damping: 25`), `LiquidGlassHeroCanvas.tsx` (`useSpring` with `stiffness: 320, damping: 24`), `dashboard/page.tsx` (`stiffness: 400, damping: 25`), `TradeDrawer.tsx`, and `WalletDrawer.tsx`.
+  - **Build & Test Verification**: `npm run build` completed with 0 errors (Turbopack exit code 0); `npm run lint` completed with 0 errors (exit code 0); backend `pytest` completed with 2672 passed (100% pass rate).
 
 ---
 
-## 2. Empirical Verification by Objective
+## 2. Empirical Verification by Dimension
 
-### Objective 1: Continuous Live Poller Pacing, Top-10 Whale Roster Selection & Dynamic Legacy Expansion
-- **Pacing**: Verified `_poll_loop` paces requests at `2.5s` intervals via `await asyncio.sleep(2.5)`.
-- **Top-10 Selection**: Verified `_poll_active_whales()` queries active, non-dormant, non-HFT wallets with `avg_trades_per_day <= 65.0` ordered by `baleen_score.desc()` with `limit(10)`. Disqualified wallets (HFT, dormant, over-traded, rejected) are strictly excluded from the active basket.
-- **Dynamic Legacy Expansion**: If a wallet held an active position (status `FILLED`, side `BUY`) and was subsequently demoted or dropped out of the top 10, the poller dynamically adds this legacy wallet to `all_wallets_to_poll`.
-  - **Asymmetric Side Handling**: If the demoted legacy wallet submits a new `BUY`, it is rejected (line 228 of `live_poller.py`). If it submits a `SELL` for an open position, the trade is matched and executes to close the position and unlock capital (lines 183-225).
-- **Empirical Test**: Passed `test_top_10_active_roster_selection` and `test_dynamic_roster_expansion_for_legacy_open_positions` in `test_challenger_r3_deep_empirical.py`.
+### Dimension 1: Optical Liquid Glass Usage Scan
+- **Scanned**: 53 `.tsx` files in `frontend/src/`.
+- **Global Import**: `frontend/src/app/layout.tsx` imports `./globals.css` at root level, providing global availability of all optical liquid glass tokens.
+- **Utility Class Usage Breakdown**:
+  - `.glass-dock` (6 occurrences across 4 files):
+    - `frontend/src/components/landing/Hero.tsx` (lines 21, 95): Pill badge container and metrics dock.
+    - `frontend/src/components/landing/LiquidGlassDock.tsx` (lines 32, 142): Desktop floating nav capsule and mobile bottom dock.
+    - `frontend/src/app/dashboard/page.tsx` (line 217): Main dashboard top navigation capsule.
+    - `frontend/src/components/landing/LiquidGlassHeroCanvas.tsx` (line 150): Interactive 3D hero control dock.
+  - `.glass-card` (64 occurrences across 19 files):
+    - `frontend/src/app/dashboard/page.tsx` (9 usages)
+    - `frontend/src/components/dashboard/DeepAnalyticsModal.tsx` (7 usages)
+    - `frontend/src/components/dashboard/WalletDrawer.tsx` (7 usages)
+    - `frontend/src/components/dashboard/PortfolioAnalytics.tsx` (6 usages)
+    - `frontend/src/components/dashboard/RebalanceModal.tsx` (6 usages)
+    - `frontend/src/components/dashboard/TradeDrawer.tsx` (6 usages)
+    - `frontend/src/components/dashboard/FullHistorySpreadsheetModal.tsx` (5 usages)
+    - `frontend/src/components/dashboard/MirrorStrategyModal.tsx` (3 usages)
+    - `frontend/src/components/landing/LiquidGlassHeroCanvas.tsx` (3 usages)
+    - `frontend/src/components/dashboard/ActivityFeed.tsx` (2 usages)
+    - `frontend/src/components/landing/InfrastructureSection.tsx` (2 usages)
+    - `frontend/src/app/page.tsx` (1 usage)
+    - `frontend/src/components/dashboard/BalanceCounter.tsx` (1 usage)
+    - `frontend/src/components/dashboard/LiveTape.tsx` (1 usage)
+    - `frontend/src/components/dashboard/ResetSandboxModal.tsx` (1 usage)
+    - `frontend/src/components/dashboard/TradeLog.tsx` (1 usage)
+    - `frontend/src/components/dashboard/WalletLeaderboard.tsx` (1 usage)
+    - `frontend/src/components/landing/LiquidGlassCard.tsx` (1 usage)
+    - `frontend/src/components/landing/LiquidSleeveSimulator.tsx` (1 usage)
+  - `.glass-modal` (2 occurrences across 2 files):
+    - `frontend/src/components/ui/Modal.tsx` (line 307): Primary dialog window container.
+    - `frontend/src/components/ui/CommandPalette.tsx` (line 122): Quick-action command palette dialog.
+  - `.glass-button` (33 occurrences across 11 files):
+    - `frontend/src/app/dashboard/page.tsx` (13 usages)
+    - `frontend/src/components/dashboard/BalanceCounter.tsx` (4 usages)
+    - `frontend/src/components/dashboard/PortfolioAnalytics.tsx` (4 usages)
+    - `frontend/src/components/dashboard/TradeLog.tsx` (3 usages)
+    - `frontend/src/components/dashboard/WalletDrawer.tsx` (3 usages)
+    - `frontend/src/components/dashboard/TradeDrawer.tsx` (1 usage)
+    - `frontend/src/components/dashboard/WalletLeaderboard.tsx` (1 usage)
+    - `frontend/src/components/landing/Hero.tsx` (1 usage)
+    - `frontend/src/components/landing/InfrastructureSection.tsx` (1 usage)
+    - `frontend/src/components/landing/LiquidGlassDock.tsx` (1 usage)
+    - `frontend/src/components/landing/LiquidGlassHeroCanvas.tsx` (1 usage)
+  - `.glass-panel` (3 occurrences across 3 files):
+    - `frontend/src/components/dashboard/ActivityFeed.tsx` (line 99): Slide-over activity drawer.
+    - `frontend/src/components/dashboard/TradeDrawer.tsx` (line 61): Slide-over trade execution panel.
+    - `frontend/src/components/dashboard/WalletDrawer.tsx` (line 188): Slide-over whale profile drawer.
+  - `.glass-chromatic-bezel` (11 occurrences across 6 files):
+    - `frontend/src/components/landing/LiquidGlassHeroCanvas.tsx` (3 usages)
+    - `frontend/src/components/landing/Hero.tsx` (2 usages)
+    - `frontend/src/components/landing/InfrastructureSection.tsx` (2 usages)
+    - `frontend/src/components/landing/LiquidGlassDock.tsx` (2 usages)
+    - `frontend/src/app/page.tsx` (1 usage)
+    - `frontend/src/components/landing/LiquidSleeveSimulator.tsx` (1 usage)
 
-### Objective 2: Boundary Price Screening ($0.04 - $0.96) & 3-Strike Anti-Arbitrage Bot Demotion
-- **Ingestion Guard**: Poller filters all incoming trades from the `/trades` endpoint outside the $[0.04, 0.96]$ range at line 978 (`if price < 0.04 or price > 0.96: continue`).
-- **3-Strike Anti-Arbitrage Bot Demotion**:
-  - In `process_trade_fill` (lines 263-292), BUY trades at boundary prices ($p \le 0.02$ or $p \ge 0.98$) are blocked to prevent toxic settlement arbitrage and dust lottery traps.
-  - The wallet's strike counter `boundary_snipe_counts[addr]` increments.
-  - Upon reaching 3 strikes ($\ge 3$), the wallet is automatically demoted in the database: `status = "rejected"`, `tier = "rejected"`, `rejection_reason = "FLAGGED_ARBITRAGE_BOT: Repeated boundary price sniping (<=0.02 or >=0.98)"`.
-  - Future BUY orders from this wallet are instantly rejected.
-- **Empirical Test**: Passed `test_boundary_price_3_strike_bot_demotion` in `test_challenger_r3_deep_empirical.py`.
+### Dimension 2: Forbidden Artifact & Raster Mockup Search
+1. **Forbidden Terms**:
+   - `dumbbell`: Exactly 0 occurrences found across the entire repository.
+   - `watermark`: Exactly 0 occurrences in frontend / UI source code. (The only match in the repository is a quantitative financial test in `backend/tests/scenarios/test_scenario_multitenancy_scaling.py:809` referring to High-Water-Mark equity calculation).
+   - `WWDC25 Glass`: Exactly 0 occurrences across the entire codebase.
+   - `placeholder`: 0 occurrences of placeholder images, mockups, or cartoon artwork. All 42 occurrences of `placeholder` across `frontend/src` are standard HTML `<input placeholder="...">` attributes or Tailwind CSS color tokens (`placeholder-slate-400`).
+2. **Raster Mockup Purge Verification**:
+   - Directory `frontend/public/images/` was inspected via filesystem tools: contains 0 files (empty directory).
+   - Mockups `baleen_abyssal_whale.jpg` and `hero-icescape.jpeg` have been completely deleted.
+   - Search for references to `baleen_abyssal_whale`, `hero-icescape`, or `/images/` in `frontend/src/` returned 0 matches.
+3. **Broken Image Link Scan**:
+   - Only 1 static image reference exists in the entire UI: `/logo.png` in `frontend/src/components/ui/BrandLogo.tsx`.
+   - Verified that `frontend/public/logo.png` exists and is a valid 871KB asset.
+   - Dynamic `<img>` tags in `TradeDrawer.tsx`, `TradeLog.tsx`, `WalletDrawer.tsx`, and `WalletLeaderboard.tsx` consume external live Polymarket market icons and Dicebear SVG identicons, all protected by null-checks and fallbacks.
+   - Zero broken image links found.
 
-### Objective 3: 24/7 Overnight Resilience & State Persistence
-- **Keep-Alive Public Pinging**: `main.py` schedules `keep_alive_job` every 5 minutes (`scheduler.add_job(keep_alive_job, 'interval', minutes=5)`), targeting the `/health` endpoint to prevent cloud host idle spin-down. Updates `last_cron_ping_time`.
-- **Periodic 15-Minute Disk Backups**: `DiskBackupService` runs an asynchronous background loop every 900 seconds (15 minutes), after a 30s initial warmup.
-  - `export_all_trades_to_disk()` exports all execution logs to `backend/data/backups/baleen_all_trades_backup.json` and `backend/data/backups/baleen_all_trades_backup.csv`.
-  - Shutdown hook triggers a final export before process exit.
-- **MTM Watchdog Gap Recovery**: In `MarkToMarketService._ensure_snapshot_continuity()`, the system checks for snapshot gaps $> 30$ minutes. If detected, it carries forward the last known good balance and total PnL from the previous snapshot, preventing cold-cache zero-valuation collapse upon restart.
-- **Async Loop Error Isolation**:
-  - `LiveTradeMirrorService._poll_loop()` isolates errors with `try...except Exception as e:` and continues sleeping 2.5s.
-  - `MarkToMarketService._valuation_loop()` isolates errors with `try...except Exception as e:` and continues sleeping 5.0s.
-  - `DiskBackupService._backup_loop()` isolates errors with `try...except Exception as e:` and continues sleeping 900s.
-- **Empirical Test**: Passed `test_mtm_watchdog_restart_gap_recovery`, `test_disk_backup_export_format_and_completeness`, and `test_async_loop_error_isolation` in `test_challenger_r3_deep_empirical.py`.
-
-### Objective 4: Execution Stress & Invariant Test Suite Execution
-- **Commands Executed**:
-  1. `pytest backend/tests/test_challenger_execution_stress.py backend/tests/test_challenger_a1_stress.py backend/tests/test_live_poller_m_a3.py` -> **44 passed in 2.71s**
-  2. `pytest backend/tests/test_challenger_r3_deep_empirical.py` -> **6 passed in 2.84s**
-  3. Combined Execution Suite: **50 passed in 4.24s**
-  4. Full Backend Regression Suite: **409 passed in 13.91s**
+### Dimension 3: Spring Physics & Micro-Interaction Scan
+1. **`LiquidGlassDock.tsx`**:
+   - Uses `framer-motion` spring physics for active tab indicator pill morphing:
+     ```tsx
+     <motion.div
+       layoutId="desktop-liquid-lens-bubble" // and "mobile-liquid-lens-bubble"
+       transition={{
+         type: 'spring',
+         stiffness: 400,
+         damping: 28,
+         mass: 0.8,
+       }}
+     ```
+   - Tactile parameters `stiffness: 400`, `damping: 28`, and `mass: 0.8` are actively utilized.
+2. **`BalanceCounter.tsx`**:
+   - 4 circular action buttons (Mirror, Rebalance, Analytics, Reset) utilize Framer Motion spring physics:
+     ```tsx
+     <motion.button
+       whileHover={{ scale: 1.08 }}
+       whileTap={{ scale: 0.94 }}
+       transition={{ type: 'spring', stiffness: 400, damping: 25 }}
+     ```
+   - Balance counter smoothly interpolates via `useMotionValue` and `animate(motionVal, balance, { duration: 0.4, ease: [0.16, 1, 0.3, 1] })`.
+3. **`Modal.tsx`**:
+   - Employs Framer Motion `motion.div` with an Apple-style cubic-bezier curve `ease: [0.16, 1, 0.3, 1]` with reduced motion compliance (`useReducedMotion`), avoiding bouncy displacement on full dialog views while preserving snappy entry/exit.
+4. **`Button.tsx`**:
+   - Employs `motion.button` with `whileTap={{ scale: 0.98 }}` and `active:scale-[0.98]` tactile press feedback.
+5. **`PortfolioAnalytics.tsx`**:
+   - Pure data container utilizing Recharts SVG curves and modal triggers. Host page (`dashboard/page.tsx`) provides Framer Motion spring physics (`transition={{ type: 'spring', stiffness: 400, damping: 25 }}`) for interactive timeframe pills and controls.
+6. **Additional Active Spring Deployments in Codebase**:
+   - `LiquidGlassHeroCanvas.tsx`: `useSpring(dragX, { stiffness: 320, damping: 24 })`, `useSpring(dragY, { stiffness: 320, damping: 24 })`
+   - `LiquidGlassCard.tsx`: `transition={{ type: 'spring', stiffness: 350, damping: 25 }}`
+   - `LiquidSleeveSimulator.tsx`: `transition={{ type: 'spring', stiffness: 220, damping: 22 }}`
+   - `TradeDrawer.tsx`: `transition={{ type: 'spring', damping: 28, stiffness: 280 }}`
+   - `WalletDrawer.tsx`: `transition={{ type: 'spring', damping: 30, stiffness: 300 }}`
+   - `BaleenCopilot.tsx`: `transition={{ type: 'spring', damping: 28, stiffness: 280 }}`
 
 ---
 
 ## 3. Adversarial Stress Matrix Summary
 
-| Area / Attack Vector | Scenario / Probe | Expected Behavior | Actual Behavior | Result |
-|---|---|---|---|---|
-| **Pacing & Loop** | Continuous execution under slow network / 429 backoff | Sleep 2.5s, isolate errors, no uncaught exceptions | Handled in try/except; sleeps 2.5s | **PASS** |
-| **Roster Selection** | Pool with 15 active + 4 disqualified wallets | Select Top 10 by score; exclude dormant/HFT/overtraded | Selected Top 10; excluded all 4 disqualified | **PASS** |
-| **Legacy Exit** | Whale demoted after open position is filled | Dynamically polled; blocks new BUYs, executes SELLs | Legacy whale included; BUY blocked, SELL executed | **PASS** |
-| **Boundary Screening** | Ingestion trade at $p = 0.01$ or $p = 0.99$ | Dropped at poller boundary check ($0.04 \le p \le 0.96$) | Filtered at line 978 | **PASS** |
-| **Anti-Arb 3-Strikes** | Whale submits 3 boundary BUYs ($p \le 0.02$ or $p \ge 0.98$) | Striked 1, 2; on 3rd strike demoted to "rejected" | Demoted in DB, reason FLAGGED_ARBITRAGE_BOT | **PASS** |
-| **Restart Gap Recovery**| System restarted after 45-minute outage | Watchdog writes recovery snapshot carrying forward last balance | Last balance ($14.5k) restored, no cold collapse | **PASS** |
-| **Disk Backup** | 15-minute periodic trigger & shutdown | Valid JSON & CSV written to `data/backups` | JSON & CSV created with full trade history | **PASS** |
-| **Deduplication** | Duplicate signal on-chain (same tx_hash + log_index) | Processed once; duplicate skipped | Database deduplication guard skipped 2nd trade | **PASS** |
-| **Out-of-Order SELL** | SELL arrives before lagging BUY | Queued in `pending_out_of_order_sells`, matched on BUY | Matched cleanly; 0 open lots remaining | **PASS** |
-| **Binary Resolution** | Market resolved as Winner ($1.00) / Loser ($0.00) | Transition FILLED -> CLOSED with exact PnL | Correct payout, 0 remaining FILLED lots | **PASS** |
+| Objective / Stress Probe | Attack Scenario / Hypothesis | Verification Result | Status |
+|---|---|---|---|
+| **Optical Glass Token Dead Code** | Utility classes declared in CSS but never rendered in DOM | Verified 119 real container usages across 53 `.tsx` files | **PASS** |
+| **Vector Dumbbells** | Cartoon dumbbells or fake canvas art lingering in UI | 0 occurrences in entire repository | **PASS** |
+| **Watermarks & Fake Badges** | Stock watermarks or static mockups in UI | 0 occurrences in UI source code | **PASS** |
+| **WWDC25 Glass Labels** | Internal naming leakage or unauthorized branding | 0 occurrences in entire repository | **PASS** |
+| **Raster Mockup Purge** | Heavy unreferenced jpg/jpeg files bloating `/public` | `public/images/` is completely empty; 0 stale files | **PASS** |
+| **Broken Image Links** | Stale image URLs causing 404 broken image icons | 100% verified; only `/logo.png` is static and it exists; all dynamic URLs have fallbacks | **PASS** |
+| **Spring Physics Fluidity** | Missing spring parameters resulting in linear or rigid animation | Verified explicit `stiffness`, `damping`, `mass` in navigation dock, balance buttons, and drawers | **PASS** |
+| **Frontend Production Build** | TypeScript, Turbopack, or JSX compilation breakages | `npm run build` compiled with 0 errors (Exit code 0) | **PASS** |
+| **Frontend Linter** | ESLint syntax or structural failures | `npm run lint` passed with 0 errors (Exit code 0) | **PASS** |
+| **Backend Test Suite** | Regressions introduced to quantitative or API services | `pytest` passed 2672 tests (100% pass rate) | **PASS** |
 
 ---
 
-## 4. Conclusion
-All R3 requirements, state machine invariants, resilience hooks, and boundary protections operate strictly within specification. No breaking bugs or invariant violations were identified during stress testing.
+## 4. Final Verdict
+
+Optical liquid glass authenticity, complete absence of forbidden artifacts/vector dumbbells, and absolute cleanliness of raster assets are **100% CONFIRMED**.
+

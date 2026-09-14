@@ -1,45 +1,34 @@
-## 2026-08-29T22:35:31Z
-You are Reviewer 1 (Backend & Invariants Reviewer) for the Baleen codebase.
-Working directory for your metadata: c:\Users\arthu\Documents\Baleen-master\.agents\reviewer_1
-Project root: c:\Users\arthu\Documents\Baleen-master
+## 2026-09-14T12:29:58Z
+You are reviewer_1, a specialized reviewer agent.
+Your working directory is: c:\Users\arthu\repos\Baleen\.agents\reviewer_1
+Workspace root: c:\Users\arthu\repos\Baleen
 
-MANDATORY: Read the original user request at:
-c:\Users\arthu\Documents\Baleen-master\.agents\ORIGINAL_REQUEST.md
-Also read PROJECT.md, TEST_INFRA.md, and TEST_READY.md.
-Also read handoffs from M1 Worker (c:\Users\arthu\Documents\Baleen-master\.agents\worker_m1\handoff.md) and E2E Test Writer (c:\Users\arthu\Documents\Baleen-master\.agents\test_writer_e2e\handoff.md).
+MANDATORY FIRST STEP:
+Read the authoritative user request at: c:\Users\arthu\repos\Baleen\.agents\ORIGINAL_REQUEST.md (specifically under header 2026-09-14T11:52:24Z).
 
-Tasks:
-1. Objectively examine correctness, completeness, robustness, and interface conformance of:
-   - `backend/app/discovery/scanner.py`
-   - `backend/app/scoring/engine.py`
-   - `backend/app/scoring/basket.py`
-   - `backend/app/sizing/sleeve_manager.py`
-   - `backend/app/services/polymarket_fees.py`
-   - `backend/app/services/mark_to_market.py`
-   - `backend/tests/test_scoring_filters.py`
-2. Run backend test suite (`backend/.venv/Scripts/python.exe -m pytest`) and scenario matrix (`backend/.venv/Scripts/pytest.exe tests/scenarios/test_massive_220_scenario_matrix.py`).
-3. Verify that 100% of tests pass and all requirements in R1 and R2 are satisfied.
-4. Render an explicit gate verdict: APPROVE or REQUEST_CHANGES.
+Context:
+Read PROJECT.md and the worker handoff reports:
+- c:\Users\arthu\repos\Baleen\.agents\PROJECT.md
+- c:\Users\arthu\repos\Baleen\.agents\worker_m1_m3\handoff.md
+- c:\Users\arthu\repos\Baleen\.agents\worker_m4_m5\handoff.md
 
-Deliverables:
-- Write `handoff.md` in your working directory with your verdict and evidence.
-- Notify the orchestrator via `send_message`.
+Mission & Review Scope (Visual Styling, Apple Liquid Glass Optics, Arctic Palette):
+1. Review `frontend/tailwind.config.ts` and `frontend/src/app/globals.css`:
+   - Verify presence and correctness of Arctic Glacier palette tokens (#FFFFFF, #F0F7FF, #E0F2FE, #BAE6FD, #0284C7, #38BDF8, #0F172A, #1E293B).
+   - Verify authentic Apple Liquid Glass depth classes: `.glass-dock`, `.glass-card`, `.glass-modal`, `.glass-button`, `.glass-panel` with multi-pass blur and saturation boost (`backdrop-filter: blur(24px) saturate(190%)`), specular curved rim highlights, and `.glass-chromatic-bezel`.
+   - Verify that dark obsidian overrides have been removed and brand logos are un-inverted and render crisply against light backgrounds.
+2. Review Landing Page and Telemetry Console:
+   - Check `frontend/src/components/landing/LiquidGlassHeroCanvas.tsx`: confirm 100% absence of vector dumbbell SVG illustration, and verify live, functional "Interactive Polymarket Alpha Glass Telemetry Console".
+   - Check `frontend/src/components/landing/Hero.tsx`, `AdvantageSection.tsx`, `LiquidGlassCard.tsx`, `LiquidSleeveSimulator.tsx`, `LiveTicker.tsx`, `InfrastructureSection.tsx`, `app/page.tsx`: verify Arctic Glacier palette and optical liquid glass styling.
+3. Review Dashboard Visual Styling:
+   - Check `frontend/src/app/dashboard/page.tsx`, `BalanceCounter.tsx`, `PortfolioAnalytics.tsx`, `LiveTape.tsx`, `WalletLeaderboard.tsx`, `TradeLog.tsx`, `Modal.tsx`, `WalletDrawer.tsx`, `TradeDrawer.tsx`: verify conversion from dark theme/revolut-card to Arctic Glacier optical glass with dark slate typography.
+4. Run Verification Commands:
+   - Run `npm run build` in `frontend/` (must exit 0 with 0 errors).
+   - Run `npm run lint` in `frontend/` (must exit 0 with 0 errors).
 
-## 2026-08-30T01:00:33Z
-You are reviewer_1, a high-reliability review agent for the Baleen project.
-Your working directory is: c:\Users\arthu\Documents\Baleen-master\.agents\reviewer_1
-The original request file is: c:\Users\arthu\Documents\Baleen-master\.agents\ORIGINAL_REQUEST.md
-The project specification is: c:\Users\arthu\Documents\Baleen-master\PROJECT.md
-The test infrastructure specification is: c:\Users\arthu\Documents\Baleen-master\TEST_INFRA.md
-The project root is: c:\Users\arthu\Documents\Baleen-master
-
-Task & Objectives:
-Perform an objective and adversarial review of the Backend implementation (Requirements R1 & R3):
-1. Review R1: Polymarket Data API ingestion, authentic trade history parsing, date grouping (YYYY-MM-DD), won_usd vs lost_usd calculation, 9 disqualifying filters, 5-factor scoring, and 5-point hysteresis.
-2. Review R3: live_poller.py, sleeve_manager.py, quadratic fees (polymarket_fees.py), directional slippage (slippage.py), out-of-order SELL matching, MTM snapshot watchdog, and 24/7 resilience.
-3. Run the backend pytest test suite:
-   Command: `& "C:\Users\arthu\Documents\Baleen-master\backend\.venv\Scripts\pytest.exe"`
-   Confirm all tests pass.
-4. Verify interface contracts and state machine invariants.
-5. Write your comprehensive review to c:\Users\arthu\Documents\Baleen-master\.agents\reviewer_1\analysis.md and a structured 5-component handoff report to c:\Users\arthu\Documents\Baleen-master\.agents\reviewer_1\handoff.md with a clear verdict: APPROVE or REQUEST_CHANGES.
-6. Send a message back to the orchestrator with your verdict and summary.
+Deliverable:
+Write a comprehensive review report to:
+`c:\Users\arthu\repos\Baleen\.agents\reviewer_1\handoff.md`
+and update `c:\Users\arthu\repos\Baleen\.agents\reviewer_1\progress.md`.
+Your report MUST conclude with an explicit verdict: `APPROVE` or `REQUEST_CHANGES`.
+Notify me via send_message when done.

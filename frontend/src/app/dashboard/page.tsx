@@ -1,5 +1,6 @@
 'use client';
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
+import { motion } from 'framer-motion';
 import { useSession } from 'next-auth/react';
 import { BalanceCounter } from '@/components/dashboard/BalanceCounter';
 import { LiveTape } from '@/components/dashboard/LiveTape';
@@ -63,11 +64,11 @@ export default function DashboardPage() {
   const [user, setUser] = useState<User | null>(null);
 
   // User ID persistence: never drop to undefined during NextAuth background revalidation
-  const lastUserIdRef = useRef<string | undefined>(session?.user?.id);
-  if (session?.user?.id && session.user.id !== lastUserIdRef.current) {
-    lastUserIdRef.current = session.user.id;
+  const [lastUserId, setLastUserId] = useState<string | undefined>(session?.user?.id);
+  if (session?.user?.id && session.user.id !== lastUserId) {
+    setLastUserId(session.user.id);
   }
-  const effectiveUserId = session?.user?.id || user?.id || lastUserIdRef.current;
+  const effectiveUserId = session?.user?.id || user?.id || lastUserId;
 
   // View Mode: 'sandbox' | 'live'
   const [viewMode, setViewMode] = useState<'sandbox' | 'live'>('sandbox');
@@ -82,8 +83,8 @@ export default function DashboardPage() {
 
   const [activityOpen, setActivityOpen] = useState(false);
   const [soundActive, setSoundActive] = useState(false);
-  const [logs, setLogs] = useState<ExecutionLog[]>(() => getCachedExecutionLogs(effectiveUserId) || []);
-  const [portfolio, setPortfolio] = useState<PortfolioSummary | null>(() => getCachedPortfolioSummary(effectiveUserId) || null);
+  const [logs, setLogs] = useState<ExecutionLog[]>(() => getCachedExecutionLogs(session?.user?.id) || []);
+  const [portfolio, setPortfolio] = useState<PortfolioSummary | null>(() => getCachedPortfolioSummary(session?.user?.id) || null);
   const [wallets, setWallets] = useState<Wallet[]>(() => getCachedWallets() || []);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -151,10 +152,10 @@ export default function DashboardPage() {
 
   if (status === 'loading') {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#F8F9FB] dark:bg-[#000000] text-slate-900 dark:text-white">
-        <div className="flex flex-col items-center gap-3">
-          <div className="w-8 h-8 rounded-full border-2 border-[#00D09C] border-t-transparent animate-spin" />
-          <span className="text-xs font-mono text-[#8E8F99]">Connecting to Baleen Control Plane...</span>
+      <div className="min-h-screen flex items-center justify-center bg-[#F0F7FF] dark:bg-[#0F172A] text-[#0F172A] dark:text-white">
+        <div className="glass-card p-6 flex flex-col items-center gap-3 rounded-2xl">
+          <div className="w-8 h-8 rounded-full border-2 border-[#0284C7] border-t-transparent animate-spin" />
+          <span className="text-xs font-mono text-slate-500 dark:text-slate-400">Connecting to Baleen Control Plane...</span>
         </div>
       </div>
     );
@@ -166,8 +167,8 @@ export default function DashboardPage() {
 
   if (!portfolio && !user && !cachedSummary && lastCachedBal === null && loadError) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#F8F9FB] dark:bg-[#000000] p-6 text-slate-900 dark:text-white">
-        <div className="max-w-md w-full bg-white dark:bg-[#16171B] p-6 rounded-2xl border border-rose-500/30 flex flex-col items-center gap-4 text-center shadow-xl">
+      <div className="min-h-screen flex items-center justify-center bg-[#F0F7FF] dark:bg-[#0F172A] p-6 text-[#0F172A] dark:text-white">
+        <div className="max-w-md w-full glass-card p-6 rounded-2xl border border-rose-500/30 flex flex-col items-center gap-4 text-center shadow-xl">
           <div className="w-10 h-10 rounded-full bg-rose-500/10 text-rose-500 flex items-center justify-center font-bold text-lg">!</div>
           <h2 className="text-lg font-bold">Portfolio Service Unavailable</h2>
           <p className="text-sm text-slate-500 dark:text-slate-400">
@@ -175,7 +176,7 @@ export default function DashboardPage() {
           </p>
           <button
             onClick={() => handleDataRefresh()}
-            className="px-5 py-2.5 rounded-full bg-[#00D09C] text-black font-bold text-xs cursor-pointer hover:opacity-90 transition-opacity"
+            className="glass-button px-5 py-2.5 rounded-full bg-[#0284C7] text-white font-bold text-xs cursor-pointer hover:opacity-90 transition-opacity"
           >
             Retry Connection
           </button>
@@ -209,123 +210,148 @@ export default function DashboardPage() {
   const livePnlPct = (liveBalance !== null && liveBalance > 0 && livePnl !== null) ? (livePnl / liveBalance) * 100.0 : null;
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#F8F9FB] dark:bg-[#000000] text-slate-900 dark:text-white selection:bg-[#00D09C] selection:text-black relative overflow-x-hidden font-sans transition-colors duration-150">
+    <div className="min-h-screen flex flex-col bg-[#F0F7FF] dark:bg-[#0F172A] text-[#0F172A] dark:text-white selection:bg-[#0284C7] selection:text-white relative overflow-x-hidden font-sans transition-colors duration-150 pb-[calc(2rem+env(safe-area-inset-bottom,0px))]">
 
-      {/* Top Bar Navigation */}
-      <nav className="flex items-center justify-between py-3 px-3.5 sm:px-6 lg:px-12 border-b border-black/[0.06] dark:border-white/[0.08] bg-white/80 dark:bg-[#000000]/90 backdrop-blur-2xl sticky top-0 z-40">
+      {/* Floating Optical Glass Header */}
+      <header className="sticky top-0 z-40 w-full px-2 sm:px-6 lg:px-8 pt-2 sm:pt-3 pb-1">
+        <nav className="max-w-7xl mx-auto glass-dock px-3 sm:px-5 py-2 sm:py-2.5 flex items-center justify-between gap-2 sm:gap-4 shadow-lg border border-white/80 dark:border-white/10">
 
-        {/* Left: Baleen Brand Logo & Mode Segmented Toggle */}
-        <div className="flex items-center gap-4 sm:gap-6 shrink-0">
-          <BrandLogo href="/" />
+          {/* Left: Brand Logo & Segmented Mode Toggle */}
+          <div className="flex items-center gap-2 sm:gap-5 shrink-0 min-w-0">
+            <BrandLogo href="/" />
 
-          {/* Top View Toggle: Sandbox vs Live Capital */}
-          <div className="flex items-center p-1 rounded-full bg-[#F1F3F5] dark:bg-[#1C1D22] border border-black/[0.06] dark:border-white/5 shadow-2xs">
-            <button
-              onClick={() => setViewMode('sandbox')}
-              className={`px-3 sm:px-4 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer ${
-                viewMode === 'sandbox'
-                  ? 'bg-white dark:bg-black text-slate-950 dark:text-white shadow-xs'
-                  : 'text-slate-500 dark:text-[#8E8F99] hover:text-slate-900 dark:hover:text-white'
-              }`}
-            >
-              Sandbox (Paper Trading)
-            </button>
-            <button
-              onClick={() => setViewMode('live')}
-              className={`px-3 sm:px-4 py-1.5 rounded-full text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
-                viewMode === 'live'
-                  ? 'bg-[#00D09C] text-black shadow-xs font-extrabold'
-                  : 'text-slate-500 dark:text-[#8E8F99] hover:text-slate-900 dark:hover:text-white'
-              }`}
-            >
-              <span className={`w-2 h-2 rounded-full ${liveDashboard?.is_live_active ? 'bg-black animate-pulse' : 'bg-amber-500'}`} />
-              <span>Live Trading · Unavailable (Gated)</span>
-            </button>
+            {/* Top View Toggle: Sandbox vs Live Capital */}
+            <div className="flex items-center p-0.5 sm:p-1 rounded-full bg-[#E0F2FE]/50 dark:bg-white/5 border border-sky-200/50 dark:border-white/10 shadow-2xs">
+              <button
+                onClick={() => setViewMode('sandbox')}
+                className={`px-2.5 sm:px-3.5 py-1 sm:py-1.5 rounded-full text-[11px] sm:text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+                  viewMode === 'sandbox'
+                    ? 'glass-button bg-white text-[#0F172A] shadow-xs'
+                    : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                }`}
+              >
+                <span>Sandbox</span>
+                <span className="hidden sm:inline"> (Paper)</span>
+              </button>
+              <button
+                onClick={() => setViewMode('live')}
+                className={`px-2.5 sm:px-3.5 py-1 sm:py-1.5 rounded-full text-[11px] sm:text-xs font-bold transition-all flex items-center gap-1 sm:gap-1.5 cursor-pointer whitespace-nowrap ${
+                  viewMode === 'live'
+                    ? 'glass-button bg-gradient-to-r from-sky-500 to-cyan-500 text-white shadow-xs font-extrabold'
+                    : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                }`}
+              >
+                <span className={`w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full shrink-0 ${liveDashboard?.is_live_active ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'}`} />
+                <span>Live</span>
+                <span className="hidden md:inline"> · Gated</span>
+              </button>
+            </div>
           </div>
-        </div>
 
-        {/* Center: Search Command Bar */}
-        <div
-          onClick={() => setCommandPaletteOpen(true)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' || e.key === ' ') {
-              e.preventDefault();
-              setCommandPaletteOpen(true);
-            }
-          }}
-          role="button"
-          tabIndex={0}
-          aria-label="Open command palette search (Command + K)"
-          className="hidden xl:flex items-center gap-2 px-4 py-2 rounded-full bg-[#F1F3F5] dark:bg-[#1C1D22] border border-black/[0.06] dark:border-white/5 text-xs text-[#8E8F99] w-64 hover:border-black/20 dark:hover:border-white/20 transition-all cursor-pointer shadow-2xs focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00D09C]"
-        >
-          <Search size={14} className="text-[#8E8F99]" aria-hidden="true" />
-          <span className="text-slate-600 dark:text-[#8E8F99]">Search markets, whales...</span>
-          <span className="ml-auto text-[10px] font-mono bg-white dark:bg-[#2C2D35] px-1.5 py-0.5 rounded text-slate-700 dark:text-white shadow-2xs">⌘K</span>
-        </div>
-
-        {/* Right: Circular Icon Actions */}
-        <div className="flex items-center gap-1 sm:gap-2 lg:gap-2.5 shrink-0">
-          {/* Light / Dark Mode Toggle */}
+          {/* Center: Search Command Bar */}
           <button
-            onClick={toggleTheme}
-            className="w-8 h-8 sm:w-9 sm:h-9 md:w-10 md:h-10 rounded-full bg-[#F1F3F5] dark:bg-[#1C1D22] hover:bg-[#E2E6EA] dark:hover:bg-[#2C2D35] border border-black/[0.08] dark:border-white/10 text-slate-700 dark:text-white flex items-center justify-center transition-all cursor-pointer shadow-2xs shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00D09C]"
-            aria-label={theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'}
+            type="button"
+            onClick={() => setCommandPaletteOpen(true)}
+            aria-label="Open command palette search (Command + K)"
+            className="hidden xl:flex items-center gap-2.5 px-4 py-2 rounded-full glass-button border border-sky-200/60 dark:border-white/10 text-xs text-slate-600 dark:text-slate-300 w-64 hover:scale-[1.02] active:scale-[0.98] transition-all cursor-pointer shadow-xs focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0284C7]"
           >
-            {theme === 'light' ? <Moon size={14} aria-hidden="true" className="sm:w-[15px] sm:h-[15px]" /> : <Sun size={14} aria-hidden="true" className="text-amber-400 sm:w-[15px] sm:h-[15px]" />}
+            <Search size={14} className="text-[#0284C7] dark:text-[#38BDF8]" aria-hidden="true" />
+            <span className="text-slate-600 dark:text-slate-300 font-medium">Search markets, whales...</span>
+            <span className="ml-auto text-[10px] font-mono bg-white/80 dark:bg-white/10 px-1.5 py-0.5 rounded text-slate-700 dark:text-white shadow-2xs border border-sky-100 dark:border-white/5">⌘K</span>
           </button>
 
-          <button
-            onClick={() => setActivityOpen(true)}
-            className="w-8 h-8 sm:w-9 sm:h-9 md:w-10 md:h-10 rounded-full bg-[#F1F3F5] dark:bg-[#1C1D22] hover:bg-[#E2E6EA] dark:hover:bg-[#2C2D35] border border-black/[0.08] dark:border-white/10 text-slate-700 dark:text-white flex items-center justify-center transition-all cursor-pointer shadow-2xs shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00D09C]"
-            aria-label="Open activity feed and notifications"
-          >
-            <Bell size={14} aria-hidden="true" className="sm:w-[15px] sm:h-[15px]" />
-          </button>
+          {/* Right: Circular Icon Actions with fluid spring physics */}
+          <div className="flex items-center gap-1 sm:gap-1.5 md:gap-2 shrink-0">
+            {/* Search Trigger for smaller screens */}
+            <motion.button
+              whileHover={{ scale: 1.08 }}
+              whileTap={{ scale: 0.94 }}
+              transition={{ type: 'spring', stiffness: 400, damping: 25 }}
+              onClick={() => setCommandPaletteOpen(true)}
+              className="xl:hidden w-8 h-8 sm:w-9 sm:h-9 rounded-full glass-button border border-sky-200/60 dark:border-white/10 text-slate-700 dark:text-white flex items-center justify-center cursor-pointer shadow-2xs shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0284C7]"
+              aria-label="Open search command palette"
+            >
+              <Search size={14} aria-hidden="true" className="text-[#0284C7] dark:text-[#38BDF8]" />
+            </motion.button>
 
-          <button
-            onClick={toggleSound}
-            className={`w-8 h-8 sm:w-9 sm:h-9 md:w-10 md:h-10 rounded-full border transition-all cursor-pointer flex items-center justify-center shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00D09C] ${
-              soundActive
-                ? 'bg-[#00D09C]/10 text-[#00D09C] border-[#00D09C]/30'
-                : 'bg-[#F1F3F5] dark:bg-[#1C1D22] hover:bg-[#E2E6EA] dark:hover:bg-[#2C2D35] border-black/[0.08] dark:border-white/10 text-slate-700 dark:text-[#8E8F99]'
-            }`}
-            aria-label={soundActive ? 'Mute trade signal sound effects' : 'Enable real-time trade signal sound effects'}
-          >
-            {soundActive ? <Volume2 size={14} aria-hidden="true" className="sm:w-[15px] sm:h-[15px]" /> : <VolumeX size={14} aria-hidden="true" className="sm:w-[15px] sm:h-[15px]" />}
-          </button>
+            {/* Light / Dark Mode Toggle */}
+            <motion.button
+              whileHover={{ scale: 1.08 }}
+              whileTap={{ scale: 0.94 }}
+              transition={{ type: 'spring', stiffness: 400, damping: 25 }}
+              onClick={toggleTheme}
+              className="w-8 h-8 sm:w-9 sm:h-9 md:w-10 md:h-10 rounded-full glass-button border border-sky-200/60 dark:border-white/10 text-slate-700 dark:text-white flex items-center justify-center cursor-pointer shadow-2xs shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0284C7]"
+              aria-label={theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'}
+            >
+              {theme === 'light' ? <Moon size={14} aria-hidden="true" className="sm:w-[15px] sm:h-[15px]" /> : <Sun size={14} aria-hidden="true" className="text-amber-400 sm:w-[15px] sm:h-[15px]" />}
+            </motion.button>
 
-          {session?.user?.isAdmin && <Link
-            href="/admin"
-            className="text-[10px] sm:text-xs font-bold text-slate-900 dark:text-white px-2 sm:px-3 py-1 sm:py-1.5 rounded-full bg-[#F1F3F5] dark:bg-[#1C1D22] hover:bg-[#E2E6EA] dark:hover:bg-[#2C2D35] border border-black/[0.08] dark:border-white/10 transition-all shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00D09C]"
-            aria-label="Go to Admin Panel"
-          >
-            Admin
-          </Link>}
+            {/* Activity Feed Button */}
+            <motion.button
+              whileHover={{ scale: 1.08 }}
+              whileTap={{ scale: 0.94 }}
+              transition={{ type: 'spring', stiffness: 400, damping: 25 }}
+              onClick={() => setActivityOpen(true)}
+              className="w-8 h-8 sm:w-9 sm:h-9 md:w-10 md:h-10 rounded-full glass-button border border-sky-200/60 dark:border-white/10 text-slate-700 dark:text-white flex items-center justify-center cursor-pointer shadow-2xs shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0284C7]"
+              aria-label="Open activity feed and notifications"
+            >
+              <Bell size={14} aria-hidden="true" className="sm:w-[15px] sm:h-[15px]" />
+            </motion.button>
 
-          <Link
-            href="/settings"
-            className="w-8 h-8 sm:w-9 sm:h-9 md:w-10 md:h-10 rounded-full bg-[#F1F3F5] dark:bg-[#1C1D22] hover:bg-[#E2E6EA] dark:hover:bg-[#2C2D35] border border-black/[0.08] dark:border-white/10 text-slate-700 dark:text-white flex items-center justify-center transition-all shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00D09C]"
-            aria-label="Go to User Settings"
-          >
-            <Settings size={14} aria-hidden="true" className="sm:w-[15px] sm:h-[15px]" />
-          </Link>
+            {/* Sound FX Toggle */}
+            <motion.button
+              whileHover={{ scale: 1.08 }}
+              whileTap={{ scale: 0.94 }}
+              transition={{ type: 'spring', stiffness: 400, damping: 25 }}
+              onClick={toggleSound}
+              className={`w-8 h-8 sm:w-9 sm:h-9 md:w-10 md:h-10 rounded-full glass-button border transition-all cursor-pointer flex items-center justify-center shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0284C7] ${
+                soundActive
+                  ? 'bg-sky-500/15 text-[#0284C7] dark:text-[#38BDF8] border-sky-400/40 shadow-xs'
+                  : 'border-sky-200/60 dark:border-white/10 text-slate-700 dark:text-slate-400'
+              }`}
+              aria-label={soundActive ? 'Mute trade signal sound effects' : 'Enable real-time trade signal sound effects'}
+            >
+              {soundActive ? <Volume2 size={14} aria-hidden="true" className="sm:w-[15px] sm:h-[15px]" /> : <VolumeX size={14} aria-hidden="true" className="sm:w-[15px] sm:h-[15px]" />}
+            </motion.button>
 
-          <button
-            onClick={async () => {
-              try {
-                await logoutBackend();
-                await signOut({ callbackUrl: '/auth/login' });
-              } catch {
-                window.alert('Sign out could not be completed. Please retry when the connection is restored.');
-              }
-            }}
-            className="w-8 h-8 sm:w-9 sm:h-9 md:w-10 md:h-10 rounded-full bg-[#F1F3F5] dark:bg-[#1C1D22] hover:bg-rose-50 dark:hover:bg-rose-950/60 border border-black/[0.08] dark:border-white/10 text-slate-700 dark:text-[#8E8F99] hover:text-[#FF453A] flex items-center justify-center transition-all cursor-pointer shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-500"
-            aria-label="Sign out of Baleen"
-          >
-            <LogOut size={14} aria-hidden="true" className="sm:w-[15px] sm:h-[15px]" />
-          </button>
-        </div>
-      </nav>
+            {session?.user?.isAdmin && (
+              <Link
+                href="/admin"
+                className="text-[10px] sm:text-xs font-bold text-slate-900 dark:text-white px-2 sm:px-3 py-1 sm:py-1.5 rounded-full glass-button border border-sky-200/60 dark:border-white/10 transition-all shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0284C7]"
+                aria-label="Go to Admin Panel"
+              >
+                Admin
+              </Link>
+            )}
+
+            <Link
+              href="/settings"
+              className="w-8 h-8 sm:w-9 sm:h-9 md:w-10 md:h-10 rounded-full glass-button border border-sky-200/60 dark:border-white/10 text-slate-700 dark:text-white flex items-center justify-center transition-all shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0284C7]"
+              aria-label="Go to User Settings"
+            >
+              <Settings size={14} aria-hidden="true" className="sm:w-[15px] sm:h-[15px]" />
+            </Link>
+
+            <motion.button
+              whileHover={{ scale: 1.08 }}
+              whileTap={{ scale: 0.94 }}
+              transition={{ type: 'spring', stiffness: 400, damping: 25 }}
+              onClick={async () => {
+                try {
+                  await logoutBackend();
+                  await signOut({ callbackUrl: '/auth/login' });
+                } catch {
+                  window.alert('Sign out could not be completed. Please retry when the connection is restored.');
+                }
+              }}
+              className="w-8 h-8 sm:w-9 sm:h-9 md:w-10 md:h-10 rounded-full glass-button hover:bg-rose-50 dark:hover:bg-rose-950/60 border border-sky-200/60 dark:border-white/10 text-slate-700 dark:text-slate-400 hover:text-rose-600 dark:hover:text-[#FF453A] flex items-center justify-center transition-all cursor-pointer shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-500"
+              aria-label="Sign out of Baleen"
+            >
+              <LogOut size={14} aria-hidden="true" className="sm:w-[15px] sm:h-[15px]" />
+            </motion.button>
+          </div>
+        </nav>
+      </header>
 
       {/* Main Container */}
       <main className="flex-1 p-3.5 sm:p-6 lg:p-12 max-w-7xl mx-auto w-full flex flex-col gap-6 sm:gap-8 relative z-10">
@@ -361,9 +387,9 @@ export default function DashboardPage() {
               />
 
               <div className="flex items-center gap-2.5">
-                <div className="revolut-card-sub bg-[#F1F3F5] dark:bg-[#1C1D22] px-3 sm:px-4 py-1.5 sm:py-2 rounded-full flex items-center gap-2 text-[11px] sm:text-xs font-medium text-slate-600 dark:text-[#8E8F99] border border-black/[0.04] dark:border-white/5 shadow-2xs">
+                <div className="glass-card px-3 sm:px-4 py-1.5 sm:py-2 rounded-full flex items-center gap-2 text-[11px] sm:text-xs font-medium text-slate-600 dark:text-slate-300 border border-sky-100/80 dark:border-white/10 shadow-xs">
                   <span>Risk Regime:</span>
-                  <span className="font-bold text-slate-950 dark:text-white font-mono px-2 py-0.5 rounded-full bg-white dark:bg-[#2C2D35] shadow-2xs">
+                  <span className="font-bold text-[#0F172A] dark:text-white font-mono px-2.5 py-0.5 rounded-full bg-white/90 dark:bg-white/10 shadow-2xs border border-sky-200/50 dark:border-white/10">
                     {user?.riskProfile || 'Balanced'}
                   </span>
                 </div>
@@ -413,10 +439,10 @@ export default function DashboardPage() {
         {viewMode === 'live' && (
           <div className="space-y-8">
             {/* Live Capital Top Status Hero Banner */}
-            <div className="revolut-card bg-white dark:bg-[#16171B] border border-black/[0.08] dark:border-white/10 p-6 sm:p-8 rounded-[28px] shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+            <div className="glass-card border border-sky-100/80 dark:border-white/10 p-6 sm:p-8 rounded-[28px] shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
               <div>
                 <div className="flex items-center gap-3 mb-2">
-                  <h1 className="text-2xl font-bold tracking-tight text-slate-950 dark:text-white flex items-center gap-2.5">
+                  <h1 className="text-2xl font-bold tracking-tight text-[#0F172A] dark:text-white flex items-center gap-2.5">
                     Live Capital Portfolio
                   </h1>
 
@@ -434,7 +460,7 @@ export default function DashboardPage() {
                     <span>{liveDashboard?.status_badge || 'Live Execution Disabled (Preparation in progress)'}</span>
                   </span>
                 </div>
-                <p className="text-xs text-slate-500 dark:text-[#8E8F99]">
+                <p className="text-xs text-slate-500 dark:text-slate-400">
                   Live execution is disabled. Real exchange order routing is inactive pending signing and reconciliation gates.
                 </p>
               </div>
@@ -443,7 +469,7 @@ export default function DashboardPage() {
                 {!liveDashboard?.is_configured ? (
                   <Link
                     href="/settings"
-                    className="px-5 py-2.5 rounded-full bg-slate-950 dark:bg-white text-white dark:text-black hover:bg-slate-800 dark:hover:bg-slate-200 text-xs font-bold transition-all shadow-sm flex items-center gap-1.5"
+                    className="glass-button px-5 py-2.5 rounded-full bg-[#0F172A] dark:bg-white text-white dark:text-[#0F172A] hover:opacity-90 text-xs font-bold transition-all shadow-sm flex items-center gap-1.5"
                   >
                     <Settings size={13} />
                     <span>Configure L2 Keys in Settings</span>
@@ -451,7 +477,7 @@ export default function DashboardPage() {
                 ) : (
                   <Link
                     href="/settings"
-                    className="px-4 py-2 rounded-full bg-slate-100 dark:bg-[#1C1D22] hover:bg-slate-200 dark:hover:bg-[#2C2D35] border border-black/[0.08] dark:border-white/10 text-xs font-semibold text-slate-700 dark:text-white transition-all flex items-center gap-1.5"
+                    className="glass-button px-4 py-2 rounded-full text-xs font-semibold text-[#0F172A] dark:text-white transition-all flex items-center gap-1.5"
                   >
                     <span>Manage Keys</span>
                     <ExternalLink size={12} />
@@ -462,94 +488,94 @@ export default function DashboardPage() {
 
             {/* Metrics Row: Collateral Balance, Portfolio Net Worth, Realized Live PnL */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
-              <div className="revolut-card bg-white dark:bg-[#16171B] border border-black/[0.08] dark:border-white/10 p-6 rounded-[24px] shadow-sm">
-                <div className="text-[11px] text-slate-500 dark:text-[#8E8F99] font-medium mb-1.5 flex items-center gap-1.5">
-                  <Coins size={13} />
-                  <span>pUSD L2 Cash Balance (Observed / Unreconciled)</span>
+              <div className="glass-card border border-sky-100/80 dark:border-white/10 p-6 rounded-[26px] shadow-sm">
+                <div className="text-[11px] text-slate-500 dark:text-slate-400 font-medium mb-1.5 flex items-center gap-1.5">
+                  <Coins size={13} className="text-[#0284C7] dark:text-[#38BDF8]" />
+                  <span>pUSD L2 Cash Balance (Observed)</span>
                 </div>
-                <div className="text-3xl font-extrabold font-mono text-slate-950 dark:text-white">
+                <div className="text-3xl font-extrabold font-mono text-[#0F172A] dark:text-white">
                   {liveBalance !== null ? `$${liveBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : 'Unavailable'}
                 </div>
-                <div className="text-[10px] text-slate-400 dark:text-[#8E8F99] mt-1 font-mono">
+                <div className="text-[10px] text-slate-400 dark:text-slate-500 mt-1 font-mono">
                   Proxy: {liveDashboard?.polymarket_wallet_address ? `${liveDashboard.polymarket_wallet_address.slice(0, 6)}...${liveDashboard.polymarket_wallet_address.slice(-4)}` : 'Not linked'}
                 </div>
               </div>
 
-              <div className="revolut-card bg-white dark:bg-[#16171B] border border-black/[0.08] dark:border-white/10 p-6 rounded-[24px] shadow-sm">
-                <div className="text-[11px] text-slate-500 dark:text-[#8E8F99] font-medium mb-1.5 flex items-center gap-1.5">
-                  <TrendingUp size={13} />
-                  <span>Unreconciled Live Equity (Cash + Open Legs)</span>
+              <div className="glass-card border border-sky-100/80 dark:border-white/10 p-6 rounded-[26px] shadow-sm">
+                <div className="text-[11px] text-slate-500 dark:text-slate-400 font-medium mb-1.5 flex items-center gap-1.5">
+                  <TrendingUp size={13} className="text-emerald-500" />
+                  <span>Unreconciled Live Equity</span>
                 </div>
                 <div className="text-3xl font-extrabold font-mono text-emerald-600 dark:text-[#00D09C]">
                   {liveNetWorth !== null ? `$${liveNetWorth.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : 'Unavailable'}
                 </div>
-                <div className="text-[10px] text-slate-400 dark:text-[#8E8F99] mt-1">
-                  Open Positions Value: {liveDashboard?.open_positions_value !== undefined && liveDashboard?.open_positions_value !== null ? `$${liveDashboard.open_positions_value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : 'Unavailable'}
+                <div className="text-[10px] text-slate-400 dark:text-slate-500 mt-1">
+                  Open Positions: {liveDashboard?.open_positions_value !== undefined && liveDashboard?.open_positions_value !== null ? `$${liveDashboard.open_positions_value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : 'Unavailable'}
                 </div>
               </div>
 
-              <div className="revolut-card bg-white dark:bg-[#16171B] border border-black/[0.08] dark:border-white/10 p-6 rounded-[24px] shadow-sm">
-                <div className="text-[11px] text-slate-500 dark:text-[#8E8F99] font-medium mb-1.5 flex items-center gap-1.5">
-                  <Zap size={13} />
-                  <span>Unreconciled Exchange PnL (Snapshot)</span>
+              <div className="glass-card border border-sky-100/80 dark:border-white/10 p-6 rounded-[26px] shadow-sm">
+                <div className="text-[11px] text-slate-500 dark:text-slate-400 font-medium mb-1.5 flex items-center gap-1.5">
+                  <Zap size={13} className="text-amber-500" />
+                  <span>Unreconciled Exchange PnL</span>
                 </div>
-                <div className={`text-3xl font-extrabold font-mono ${livePnl == null ? 'text-slate-400 dark:text-[#8E8F99]' : livePnl >= 0 ? 'text-emerald-600 dark:text-[#00D09C]' : 'text-rose-600 dark:text-[#FF453A]'}`}>
+                <div className={`text-3xl font-extrabold font-mono ${livePnl == null ? 'text-slate-400 dark:text-slate-500' : livePnl >= 0 ? 'text-emerald-600 dark:text-[#00D09C]' : 'text-rose-600 dark:text-[#FF453A]'}`}>
                   {livePnl !== null ? `${livePnl >= 0 ? '+' : ''}$${livePnl.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : 'Unavailable'}
                 </div>
-                <div className="text-[10px] text-slate-400 dark:text-[#8E8F99] mt-1 font-mono">
+                <div className="text-[10px] text-slate-400 dark:text-slate-500 mt-1 font-mono">
                   {livePnlPct !== null ? `${livePnlPct >= 0 ? '+' : ''}${livePnlPct.toFixed(2)}% on active capital` : 'Reconciliation pending'}
                 </div>
               </div>
             </div>
 
             {/* Active Live Positions */}
-            <div className="revolut-card bg-white dark:bg-[#16171B] border border-black/[0.08] dark:border-white/10 p-6 sm:p-8 rounded-[28px] shadow-sm space-y-4">
+            <div className="glass-card border border-sky-100/80 dark:border-white/10 p-6 sm:p-8 rounded-[28px] shadow-sm space-y-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <h2 className="text-sm font-bold text-slate-950 dark:text-white flex items-center gap-2">
-                    <Activity size={15} className="text-[#00D09C]" />
+                  <h2 className="text-sm font-bold text-[#0F172A] dark:text-white flex items-center gap-2">
+                    <Activity size={15} className="text-[#0284C7] dark:text-[#38BDF8]" />
                     <span>Active Live Positions ({liveDashboard?.active_positions?.length || 0})</span>
                   </h2>
-                  <p className="text-xs text-slate-500 dark:text-[#8E8F99] mt-0.5">
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                     Open market legs mirrored on Polymarket CLOB.
                   </p>
                 </div>
               </div>
 
               {(!liveDashboard?.active_positions || liveDashboard.active_positions.length === 0) ? (
-                <div className="py-12 text-center text-slate-400 dark:text-[#8E8F99] text-xs">
+                <div className="py-12 text-center text-slate-400 dark:text-slate-500 text-xs">
                   No active open live positions at this time.
                 </div>
               ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left text-xs">
+                <div className="overflow-x-auto relative rounded-2xl border border-sky-100/60 dark:border-white/5 scrollbar-thin">
+                  <table className="w-full text-left text-xs min-w-[540px]">
                     <thead>
-                      <tr className="border-b border-black/[0.06] dark:border-white/5 text-slate-500 dark:text-[#8E8F99]">
-                        <th className="pb-3 font-semibold">Market / Question</th>
-                        <th className="pb-3 font-semibold">Outcome</th>
-                        <th className="pb-3 font-semibold">Entry Price</th>
-                        <th className="pb-3 font-semibold">Notional</th>
-                        <th className="pb-3 font-semibold">Source Whale</th>
+                      <tr className="border-b border-sky-100/80 dark:border-white/10 text-slate-500 dark:text-slate-400">
+                        <th className="pb-3 pt-2 pl-3 font-semibold">Market / Question</th>
+                        <th className="pb-3 pt-2 font-semibold">Outcome</th>
+                        <th className="pb-3 pt-2 font-semibold">Entry Price</th>
+                        <th className="pb-3 pt-2 font-semibold">Notional</th>
+                        <th className="pb-3 pt-2 pr-3 font-semibold">Source Whale</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-black/[0.04] dark:divide-white/5 font-mono">
+                    <tbody className="divide-y divide-sky-100/50 dark:divide-white/5 font-mono">
                       {liveDashboard.active_positions.map((pos) => (
-                        <tr key={pos.id} className="hover:bg-slate-50 dark:hover:bg-white/[0.02]">
-                          <td className="py-3 pr-4 font-sans font-medium text-slate-900 dark:text-white max-w-xs truncate">
+                        <tr key={pos.id} className="hover:bg-sky-500/[0.04] dark:hover:bg-white/[0.02] transition-colors">
+                          <td className="py-3 pl-3 pr-4 font-sans font-medium text-[#0F172A] dark:text-white max-w-xs truncate">
                             {pos.marketQuestion}
                           </td>
                           <td className="py-3">
-                            <span className="px-2 py-0.5 rounded-full bg-emerald-50 dark:bg-[#00D09C]/10 text-[#00D09C] font-bold text-[11px]">
+                            <span className="px-2 py-0.5 rounded-full bg-emerald-50 dark:bg-[#00D09C]/10 text-emerald-700 dark:text-[#00D09C] font-bold text-[11px] border border-emerald-200/60 dark:border-[#00D09C]/20">
                               {pos.outcome}
                             </span>
                           </td>
                           <td className="py-3 text-slate-700 dark:text-slate-300">
                             {pos.entryPrice.toFixed(3)}
                           </td>
-                          <td className="py-3 font-bold text-slate-900 dark:text-white">
+                          <td className="py-3 font-bold text-[#0F172A] dark:text-white">
                             ${pos.notionalUsd.toFixed(2)}
                           </td>
-                          <td className="py-3 text-slate-500 dark:text-[#8E8F99]">
+                          <td className="py-3 pr-3 text-slate-500 dark:text-slate-400">
                             {pos.sourceWallet.slice(0, 6)}...{pos.sourceWallet.slice(-4)}
                           </td>
                         </tr>
@@ -561,52 +587,52 @@ export default function DashboardPage() {
             </div>
 
             {/* Live Execution Logs Feed */}
-            <div className="revolut-card bg-white dark:bg-[#16171B] border border-black/[0.08] dark:border-white/10 p-6 sm:p-8 rounded-[28px] shadow-sm space-y-4">
+            <div className="glass-card border border-sky-100/80 dark:border-white/10 p-6 sm:p-8 rounded-[28px] shadow-sm space-y-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <h2 className="text-sm font-bold text-slate-950 dark:text-white flex items-center gap-2">
-                    <ShieldCheck size={15} className="text-[#00D09C]" />
+                  <h2 className="text-sm font-bold text-[#0F172A] dark:text-white flex items-center gap-2">
+                    <ShieldCheck size={15} className="text-[#0284C7] dark:text-[#38BDF8]" />
                     <span>Live CLOB Trade Fills &amp; Settlements (Pipeline Inactive)</span>
                   </h2>
-                  <p className="text-xs text-slate-500 dark:text-[#8E8F99] mt-0.5">
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                     Exchange-confirmed execution logs. Live execution pipeline is currently inactive pending validation gates.
                   </p>
                 </div>
               </div>
 
               {(!liveDashboard?.execution_logs || liveDashboard.execution_logs.length === 0) ? (
-                <div className="py-12 text-center text-slate-400 dark:text-[#8E8F99] text-xs">
+                <div className="py-12 text-center text-slate-400 dark:text-slate-500 text-xs">
                   No live exchange trades executed. Live order routing is currently disabled pending signing and reconciliation gates.
                 </div>
               ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left text-xs">
+                <div className="overflow-x-auto relative rounded-2xl border border-sky-100/60 dark:border-white/5 scrollbar-thin">
+                  <table className="w-full text-left text-xs min-w-[640px]">
                     <thead>
-                      <tr className="border-b border-black/[0.06] dark:border-white/5 text-slate-500 dark:text-[#8E8F99]">
-                        <th className="pb-3 font-semibold">Time</th>
-                        <th className="pb-3 font-semibold">Side</th>
-                        <th className="pb-3 font-semibold">Market</th>
-                        <th className="pb-3 font-semibold">Outcome</th>
-                        <th className="pb-3 font-semibold">Fill Price</th>
-                        <th className="pb-3 font-semibold">Notional</th>
-                        <th className="pb-3 font-semibold">Realized PnL</th>
-                        <th className="pb-3 font-semibold">Status</th>
+                      <tr className="border-b border-sky-100/80 dark:border-white/10 text-slate-500 dark:text-slate-400">
+                        <th className="pb-3 pt-2 pl-3 font-semibold">Time</th>
+                        <th className="pb-3 pt-2 font-semibold">Side</th>
+                        <th className="pb-3 pt-2 font-semibold">Market</th>
+                        <th className="pb-3 pt-2 font-semibold">Outcome</th>
+                        <th className="pb-3 pt-2 font-semibold">Fill Price</th>
+                        <th className="pb-3 pt-2 font-semibold">Notional</th>
+                        <th className="pb-3 pt-2 font-semibold">Realized PnL</th>
+                        <th className="pb-3 pt-2 pr-3 font-semibold">Status</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-black/[0.04] dark:divide-white/5 font-mono">
+                    <tbody className="divide-y divide-sky-100/50 dark:divide-white/5 font-mono">
                       {liveDashboard.execution_logs.map((l) => (
-                        <tr key={l.id} className="hover:bg-slate-50 dark:hover:bg-white/[0.02]">
-                          <td className="py-3 text-slate-500 dark:text-[#8E8F99]">
+                        <tr key={l.id} className="hover:bg-sky-500/[0.04] dark:hover:bg-white/[0.02] transition-colors">
+                          <td className="py-3 pl-3 text-slate-500 dark:text-slate-400">
                             {new Date(l.timestamp).toLocaleTimeString()}
                           </td>
                           <td className="py-3">
                             <span className={`px-2 py-0.5 rounded-full font-bold text-[10px] ${
-                              l.side === 'BUY' ? 'bg-emerald-50 dark:bg-[#00D09C]/10 text-[#00D09C]' : 'bg-amber-50 dark:bg-amber-500/10 text-amber-500'
+                              l.side === 'BUY' ? 'bg-emerald-50 dark:bg-[#00D09C]/10 text-emerald-700 dark:text-[#00D09C] border border-emerald-200/60 dark:border-[#00D09C]/20' : 'bg-amber-50 dark:bg-amber-500/10 text-amber-600 border border-amber-200/60'
                             }`}>
                               {l.side}
                             </span>
                           </td>
-                          <td className="py-3 pr-4 font-sans font-medium text-slate-900 dark:text-white max-w-xs truncate">
+                          <td className="py-3 pr-4 font-sans font-medium text-[#0F172A] dark:text-white max-w-xs truncate">
                             {l.marketQuestion}
                           </td>
                           <td className="py-3 text-slate-700 dark:text-slate-300">
@@ -615,20 +641,20 @@ export default function DashboardPage() {
                           <td className="py-3 text-slate-700 dark:text-slate-300">
                             {l.fillPrice === null ? 'Unavailable' : l.fillPrice.toFixed(3)}
                           </td>
-                          <td className="py-3 font-bold text-slate-900 dark:text-white">
+                          <td className="py-3 font-bold text-[#0F172A] dark:text-white">
                             ${l.size.toFixed(2)}
                           </td>
                           <td className="py-3">
                             {l.pnl !== null && l.pnl !== undefined ? (
-                              <span className={`font-bold ${l.pnl >= 0 ? 'text-[#00D09C]' : 'text-[#FF453A]'}`}>
+                              <span className={`font-bold ${l.pnl >= 0 ? 'text-emerald-600 dark:text-[#00D09C]' : 'text-rose-600 dark:text-[#FF453A]'}`}>
                                 {l.pnl >= 0 ? '+' : ''}${l.pnl.toFixed(2)}
                               </span>
                             ) : (
-                              <span className="text-slate-400 dark:text-slate-600">-</span>
+                              <span className="text-slate-400 dark:text-slate-500">-</span>
                             )}
                           </td>
-                          <td className="py-3">
-                            <span className="px-2 py-0.5 rounded-full bg-slate-100 dark:bg-[#1C1D22] text-slate-700 dark:text-slate-300 text-[10px]">
+                          <td className="py-3 pr-3">
+                            <span className="px-2 py-0.5 rounded-full bg-slate-100 dark:bg-white/10 text-slate-700 dark:text-slate-300 text-[10px] border border-sky-100/60 dark:border-white/5">
                               {l.status}
                             </span>
                           </td>

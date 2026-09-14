@@ -28,48 +28,49 @@ export function LiquidGlassCard({ children, className = '', onClick }: LiquidGla
       onClick={onClick}
       whileHover={{ y: -3, scale: 1.01 }}
       transition={{ type: 'spring', stiffness: 350, damping: 25 }}
-      className={`group relative overflow-hidden rounded-[32px] p-7 transition-all ${className}`}
+      className={`glass-card group relative overflow-hidden rounded-[32px] p-7 transition-all ${className}`}
       style={{
         background:
-          'linear-gradient(135deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.02) 50%, rgba(255, 255, 255, 0.06) 100%)',
-        border: '1px solid rgba(255, 255, 255, 0.16)',
-        backdropFilter: 'blur(32px) saturate(190%) contrast(104%)',
+          'linear-gradient(145deg, rgba(255, 255, 255, 0.88) 0%, rgba(240, 247, 255, 0.72) 100%)',
+        border: '1px solid rgba(255, 255, 255, 0.95)',
+        backdropFilter: 'blur(28px) saturate(190%)',
+        WebkitBackdropFilter: 'blur(28px) saturate(190%)',
         boxShadow:
-          'inset 0 1.5px 1px 0 rgba(255, 255, 255, 0.65), inset 0 -1.5px 1.5px 0 rgba(0, 0, 0, 0.4), 0 24px 60px -12px rgba(0, 0, 0, 0.85)',
+          'inset 0 1.5px 1px 0 rgba(255, 255, 255, 1), inset 0 -1px 1.5px 0 rgba(2, 132, 199, 0.12), 0 8px 24px -4px rgba(15, 23, 42, 0.05), 0 16px 40px -8px rgba(2, 132, 199, 0.08)',
       }}
     >
       {/* 1. Top Specular Crescent Highlight Arc */}
-      <div className="absolute top-0 inset-x-6 h-1 rounded-full bg-gradient-to-b from-white/90 via-white/40 to-transparent pointer-events-none opacity-80 group-hover:opacity-100 transition-opacity" />
+      <div className="absolute top-0 inset-x-6 h-1 rounded-full bg-gradient-to-b from-white via-white/80 to-transparent pointer-events-none opacity-90 group-hover:opacity-100 transition-opacity" />
 
       {/* 2. Interactive Specular Light Glint (Follows Cursor) */}
       <div
         className="pointer-events-none absolute -inset-px rounded-[32px] opacity-0 transition-opacity duration-300 group-hover:opacity-100"
         style={{
-          background: `radial-gradient(400px circle at ${mousePos.x}% ${mousePos.y}%, rgba(255, 255, 255, 0.15), transparent 45%)`,
+          background: `radial-gradient(400px circle at ${mousePos.x}% ${mousePos.y}%, rgba(255, 255, 255, 0.45), transparent 50%)`,
         }}
       />
 
       {/* 3. Subtle Chromatic Dispersion Rim (Spectral Rainbow Glint) */}
-      <div className="pointer-events-none absolute inset-0 rounded-[32px] border border-transparent group-hover:border-white/20 transition-colors">
+      <div className="pointer-events-none absolute inset-0 rounded-[32px] border border-transparent group-hover:border-white/40 transition-colors">
         <div
-          className="absolute inset-0 rounded-[32px] opacity-25 group-hover:opacity-60 transition-opacity pointer-events-none"
+          className="absolute inset-0 rounded-[32px] opacity-30 group-hover:opacity-75 transition-opacity pointer-events-none"
           style={{
             background:
-              'linear-gradient(135deg, rgba(255,255,255,0.4) 0%, rgba(56,189,248,0.3) 25%, rgba(192,132,252,0.3) 50%, rgba(52,211,153,0.35) 75%, rgba(255,255,255,0.4) 100%)',
+              'linear-gradient(135deg, rgba(255,255,255,0.95) 0%, rgba(56,189,248,0.45) 20%, rgba(129,140,248,0.35) 45%, rgba(52,211,153,0.40) 70%, rgba(244,114,182,0.35) 88%, rgba(255,255,255,0.90) 100%)',
             mask: 'linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)',
             maskComposite: 'exclude',
             WebkitMask: 'linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)',
             WebkitMaskComposite: 'xor',
-            padding: '1px',
+            padding: '1.2px',
           }}
         />
       </div>
 
       {/* 4. Bottom Refraction Glow */}
-      <div className="absolute bottom-0 inset-x-8 h-px bg-gradient-to-r from-transparent via-[#00D09C]/40 to-transparent pointer-events-none opacity-50 group-hover:opacity-80 transition-opacity" />
+      <div className="absolute bottom-0 inset-x-8 h-px bg-gradient-to-r from-transparent via-[#0EA5E9]/35 to-transparent pointer-events-none opacity-60 group-hover:opacity-90 transition-opacity" />
 
       {/* Content Container */}
-      <div className="relative z-10">{children}</div>
+      <div className="relative z-10 text-slate-900">{children}</div>
     </motion.div>
   );
 }

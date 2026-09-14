@@ -297,14 +297,14 @@ export function Modal({
           <motion.div
             {...backdropMotion}
             onClick={onClose}
-            className="fixed inset-0 bg-black/40 dark:bg-black/80 backdrop-blur-md"
+            className="fixed inset-0 glass-modal-backdrop"
             aria-hidden="true"
           />
 
           {/* Dialog Container */}
           <motion.div
             {...dialogMotion}
-            className={`relative z-10 w-full ${maxWidth} max-h-[calc(100dvh-2rem)] flex flex-col bg-white dark:bg-[#16171B] rounded-[24px] sm:rounded-[28px] border border-black/[0.08] dark:border-white/10 shadow-2xl overflow-hidden focus:outline-none ${className}`}
+            className={`relative z-10 w-full ${maxWidth} max-h-[calc(100dvh-2rem)] flex flex-col glass-modal rounded-[24px] sm:rounded-[28px] overflow-hidden focus:outline-none ${className}`}
             role="dialog"
             aria-modal="true"
             aria-labelledby={title ? titleId : undefined}
@@ -315,7 +315,7 @@ export function Modal({
           >
             {/* Header */}
             {title ? (
-              <div className="flex justify-between items-center px-5 sm:px-6 py-4 border-b border-black/[0.06] dark:border-white/10 bg-[#F8F9FB] dark:bg-[#1C1D22]/60 shrink-0">
+              <div className="flex justify-between items-center px-5 sm:px-6 py-4 border-b border-sky-100/60 dark:border-white/10 bg-sky-50/40 dark:bg-white/[0.02] shrink-0">
                 <div className="pr-4">
                   <h3
                     id={titleId}
@@ -338,7 +338,7 @@ export function Modal({
                     type="button"
                     onClick={onClose}
                     aria-label="Close dialog"
-                    className="w-8 h-8 rounded-full flex items-center justify-center text-slate-500 dark:text-[#8E8F99] hover:text-slate-900 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/10 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00D09C] focus-visible:ring-offset-2 ml-auto shrink-0 cursor-pointer"
+                    className="w-8 h-8 rounded-full flex items-center justify-center text-slate-500 dark:text-[#8E8F99] hover:text-slate-900 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/10 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/40 ml-auto shrink-0 cursor-pointer"
                   >
                     <X size={16} aria-hidden="true" />
                   </button>
@@ -350,7 +350,7 @@ export function Modal({
                 type="button"
                 onClick={onClose}
                 aria-label="Close dialog"
-                className="absolute top-4 right-4 z-20 w-8 h-8 rounded-full flex items-center justify-center text-slate-500 dark:text-[#8E8F99] hover:text-slate-900 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/10 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00D09C] focus-visible:ring-offset-2 cursor-pointer"
+                className="absolute top-4 right-4 z-20 w-8 h-8 rounded-full flex items-center justify-center text-slate-500 dark:text-[#8E8F99] hover:text-slate-900 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/10 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/40 cursor-pointer"
               >
                 <X size={16} aria-hidden="true" />
               </button>

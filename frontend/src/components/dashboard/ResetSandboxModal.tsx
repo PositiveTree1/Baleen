@@ -75,8 +75,8 @@ export function ResetSandboxModal({
     >
       <div className="space-y-5">
         {/* Current Balance Notice */}
-        <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-[#1C1D22] border border-black/[0.06] dark:border-white/10 flex items-center justify-between text-xs font-mono">
-          <span className="text-slate-500 dark:text-zinc-400">Current Balance:</span>
+        <div className="p-3.5 rounded-2xl glass-card flex items-center justify-between text-xs font-mono">
+          <span className="text-slate-500 dark:text-[#8E8F99]">Current Balance:</span>
           <span className="font-bold text-slate-900 dark:text-white">
             {currentBalance == null ? 'Unavailable' : `$${currentBalance.toLocaleString(undefined, { minimumFractionDigits: 2 })}`}
           </span>
@@ -84,7 +84,7 @@ export function ResetSandboxModal({
 
         {/* Quick Presets */}
         <div>
-          <label className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-400 block mb-2">
+          <label className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-[#8E8F99] block mb-2">
             Select Starting Capital
           </label>
           <div className="grid grid-cols-3 gap-2">
@@ -97,8 +97,8 @@ export function ResetSandboxModal({
                   onClick={() => handlePreset(amount)}
                   className={`p-2.5 rounded-xl font-mono text-xs font-bold transition-all border cursor-pointer ${
                     isSelected
-                      ? 'bg-slate-950 dark:bg-white text-white dark:text-slate-950 border-slate-950 dark:border-white shadow-md'
-                      : 'bg-white dark:bg-[#1C1D22] text-slate-700 dark:text-zinc-300 hover:bg-slate-50 dark:hover:bg-[#25262C] border-black/[0.08] dark:border-zinc-700'
+                      ? 'bg-slate-950 dark:bg-white text-white dark:text-slate-950 border-slate-950 dark:border-white shadow-xs'
+                      : 'bg-white/60 dark:bg-white/[0.04] text-slate-700 dark:text-slate-300 hover:bg-white/90 dark:hover:bg-white/10 border-sky-100/60 dark:border-white/10'
                   }`}
                 >
                   ${amount.toLocaleString()}
@@ -110,11 +110,11 @@ export function ResetSandboxModal({
 
         {/* Custom Amount Input */}
         <div>
-          <label htmlFor="custom-sandbox-amount" className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-400 block mb-1.5">
+          <label htmlFor="custom-sandbox-amount" className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-[#8E8F99] block mb-1.5">
             Or Custom USD Amount
           </label>
           <div className="relative">
-            <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 dark:text-zinc-500 font-mono font-bold text-sm">
+            <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500 font-mono font-bold text-sm">
               $
             </span>
             <input
@@ -126,15 +126,15 @@ export function ResetSandboxModal({
               value={customAmount}
               aria-label="Custom USD Amount"
               onChange={(e) => handleCustomChange(e.target.value)}
-              className="w-full pl-8 pr-4 py-2.5 rounded-xl border border-black/[0.1] dark:border-zinc-700 font-mono text-sm font-bold text-slate-900 dark:text-white bg-white dark:bg-[#1C1D22] focus:outline-none focus:border-indigo-500 dark:focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 dark:focus:ring-indigo-900/30 placeholder:text-slate-400 dark:placeholder:text-zinc-500"
+              className="w-full pl-8 pr-4 py-2.5 rounded-xl border border-sky-100/60 dark:border-white/10 font-mono text-sm font-bold text-slate-900 dark:text-white bg-white/60 dark:bg-white/[0.04] focus:outline-none focus:border-indigo-500/60 focus:ring-2 focus:ring-indigo-500/20 placeholder:text-slate-400 dark:placeholder:text-slate-500"
               placeholder="10000"
             />
           </div>
         </div>
 
         {/* Info Callout */}
-        <div className="p-3 rounded-2xl bg-amber-50/70 dark:bg-amber-500/10 border border-amber-200/80 dark:border-amber-500/20 flex items-start gap-2.5 text-xs text-amber-900 dark:text-amber-300">
-          <ShieldAlert size={16} className="text-amber-700 dark:text-amber-400 shrink-0 mt-0.5" />
+        <div className="p-3 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-start gap-2.5 text-xs text-amber-900 dark:text-amber-200">
+          <ShieldAlert size={16} className="text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
           <p className="leading-relaxed text-[11px]">
             This archives the current paper run and starts a new run with the selected capital. Archived fills remain available for audit; no live or global account data is changed.
           </p>

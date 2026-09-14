@@ -62,10 +62,10 @@ export function RebalanceModal({ isOpen, onClose, onRebalanceExecute }: Rebalanc
                 setStrategy('pnl_weighted');
               }
             }}
-            className={`p-4 rounded-2xl border transition-all cursor-pointer focus:outline-none focus:ring-1 focus:ring-indigo-500 ${
+            className={`p-4 rounded-2xl border transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-indigo-500/30 ${
               strategy === 'pnl_weighted'
-                ? 'bg-slate-50 dark:bg-[#1C1D22] border-indigo-500 shadow-sm'
-                : 'border-black/[0.06] dark:border-white/10 hover:border-black/20 dark:hover:border-white/20'
+                ? 'glass-card border-indigo-500/80 dark:border-indigo-400 shadow-sm'
+                : 'glass-card border-sky-100/60 dark:border-white/10 hover:border-sky-300/60 dark:hover:border-white/20'
             }`}
           >
             <div className="flex items-center justify-between">
@@ -91,10 +91,10 @@ export function RebalanceModal({ isOpen, onClose, onRebalanceExecute }: Rebalanc
                 setStrategy('winrate_weighted');
               }
             }}
-            className={`p-4 rounded-2xl border transition-all cursor-pointer focus:outline-none focus:ring-1 focus:ring-indigo-500 ${
+            className={`p-4 rounded-2xl border transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-indigo-500/30 ${
               strategy === 'winrate_weighted'
-                ? 'bg-slate-50 dark:bg-[#1C1D22] border-indigo-500 shadow-sm'
-                : 'border-black/[0.06] dark:border-white/10 hover:border-black/20 dark:hover:border-white/20'
+                ? 'glass-card border-indigo-500/80 dark:border-indigo-400 shadow-sm'
+                : 'glass-card border-sky-100/60 dark:border-white/10 hover:border-sky-300/60 dark:hover:border-white/20'
             }`}
           >
             <div className="flex items-center justify-between">
@@ -120,10 +120,10 @@ export function RebalanceModal({ isOpen, onClose, onRebalanceExecute }: Rebalanc
                 setStrategy('equal');
               }
             }}
-            className={`p-4 rounded-2xl border transition-all cursor-pointer focus:outline-none focus:ring-1 focus:ring-indigo-500 ${
+            className={`p-4 rounded-2xl border transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-indigo-500/30 ${
               strategy === 'equal'
-                ? 'bg-slate-50 dark:bg-[#1C1D22] border-indigo-500 shadow-sm'
-                : 'border-black/[0.06] dark:border-white/10 hover:border-black/20 dark:hover:border-white/20'
+                ? 'glass-card border-indigo-500/80 dark:border-indigo-400 shadow-sm'
+                : 'glass-card border-sky-100/60 dark:border-white/10 hover:border-sky-300/60 dark:hover:border-white/20'
             }`}
           >
             <div className="flex items-center justify-between">
@@ -140,11 +140,11 @@ export function RebalanceModal({ isOpen, onClose, onRebalanceExecute }: Rebalanc
         </div>
 
         {/* Footer Actions */}
-        <div className="pt-3 border-t border-black/[0.06] dark:border-white/10 flex justify-between items-center">
+        <div className="pt-3 border-t border-sky-100/60 dark:border-white/10 flex justify-between items-center">
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2.5 rounded-full text-slate-500 dark:text-[#8E8F99] text-xs font-semibold hover:text-slate-900 dark:hover:text-white transition-colors cursor-pointer"
+            className="px-4 py-2.5 rounded-xl text-slate-500 dark:text-[#8E8F99] text-xs font-semibold hover:text-slate-900 dark:hover:text-white transition-colors cursor-pointer"
           >
             Cancel
           </button>
@@ -152,7 +152,7 @@ export function RebalanceModal({ isOpen, onClose, onRebalanceExecute }: Rebalanc
             type="button"
             onClick={handleExecute}
             disabled={isExecuting || success}
-            className="px-6 py-2.5 rounded-full bg-slate-950 dark:bg-white text-white dark:text-black text-xs font-bold hover:bg-slate-800 dark:hover:bg-slate-200 transition-all cursor-pointer flex items-center gap-1.5 shadow-sm disabled:opacity-50"
+            className="px-6 py-2.5 rounded-xl bg-slate-950 dark:bg-white text-white dark:text-black text-xs font-bold hover:bg-slate-800 dark:hover:bg-slate-200 transition-all cursor-pointer flex items-center gap-1.5 shadow-sm disabled:opacity-50"
           >
             {isExecuting && <RefreshCw size={13} className="animate-spin" />}
             {success ? '✓ Paper Weights Updated!' : 'Update Paper Weights'}

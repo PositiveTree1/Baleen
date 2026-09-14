@@ -30,7 +30,7 @@ export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
   maximumScale: 5,
-  themeColor: '#060709',
+  themeColor: '#F0F7FF',
 }
 
 export default function RootLayout({
@@ -40,7 +40,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className={`${jakarta.variable} ${outfit.variable} ${cinzel.variable} ${inter.variable} ${spaceGrotesk.variable} font-sans antialiased bg-[#F8F9FB] dark:bg-[#000000] text-slate-900 dark:text-white min-h-screen flex flex-col transition-colors duration-150`}>
+      <body className={`${jakarta.variable} ${outfit.variable} ${cinzel.variable} ${inter.variable} ${spaceGrotesk.variable} font-sans antialiased bg-[#F0F7FF] text-slate-900 min-h-screen flex flex-col transition-colors duration-150`}>
         <Providers>{children}</Providers>
       </body>
     </html>

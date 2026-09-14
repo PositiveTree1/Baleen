@@ -11,16 +11,31 @@ const config: Config = {
     extend: {
       colors: {
         baleen: {
-          canvas: '#F8F9FB',
+          canvas: '#F0F7FF',
           surface: '#FFFFFF',
           card: '#FFFFFF',
-          border: 'rgba(0, 0, 0, 0.08)',
+          border: 'rgba(2, 132, 199, 0.12)',
           text: '#0F172A',
-          muted: '#64748B',
-          subtle: '#94A3B8',
+          muted: '#475569',
+          subtle: '#64748B',
           green: '#059669',
           red: '#E11D48',
-          blue: '#2563EB',
+          blue: '#0284C7',
+        },
+        glacier: {
+          white: '#FFFFFF',
+          ice: '#F0F7FF',
+          frost: '#E0F2FE',
+          mist: '#BAE6FD',
+          cyan: '#0EA5E9',
+          deep: '#0284C7',
+          vivid: '#38BDF8',
+          navy: '#0F172A',
+          slate: '#1E293B',
+          muted: '#475569',
+          subtle: '#64748B',
+          win: '#059669',
+          loss: '#E11D48',
         }
       },
       fontFamily: {

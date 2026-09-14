@@ -2,12 +2,60 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { motion, useMotionValue, useSpring } from 'framer-motion';
-import { Sparkles, Sliders, Layers, Shield, Zap } from 'lucide-react';
+import { Activity, Sliders, Layers, Shield, Zap, TrendingUp, CheckCircle, ArrowUpRight } from 'lucide-react';
 
-type MorphMode = 'wwdc-fused' | 'interactive' | 'sleeves';
+type MorphMode = 'telemetry' | 'fluid' | 'sleeves';
+type KellyRegime = 'conservative' | 'balanced' | 'aggressive';
+
+interface MarketData {
+  id: string;
+  name: string;
+  ticker: string;
+  oddsYes: number;
+  whaleEntry: number;
+  whaleAddress: string;
+  conviction: string;
+  volume: string;
+}
+
+const sampleMarkets: MarketData[] = [
+  {
+    id: 'm-1',
+    name: 'Fed 25bps Rate Cut in Next FOMC',
+    ticker: 'FOMC-CUT-25',
+    oddsYes: 0.68,
+    whaleEntry: 0.58,
+    whaleAddress: '0x12a9...3f12',
+    conviction: '94.2% Alpha',
+    volume: '$1.42M',
+  },
+  {
+    id: 'm-2',
+    name: 'Bitcoin Above $100k Before Year-End',
+    ticker: 'BTC-100K-EOY',
+    oddsYes: 0.74,
+    whaleEntry: 0.64,
+    whaleAddress: '0x7bf3...910a',
+    conviction: '91.8% Alpha',
+    volume: '$3.89M',
+  },
+  {
+    id: 'm-3',
+    name: 'Ethereum L2 Total Value Exceeds $50B',
+    ticker: 'ETH-L2-50B',
+    oddsYes: 0.46,
+    whaleEntry: 0.38,
+    whaleAddress: '0x4981...bb4c',
+    conviction: '89.6% Alpha',
+    volume: '$840k',
+  },
+];
 
 export function LiquidGlassHeroCanvas() {
-  const [mode, setMode] = useState<MorphMode>('wwdc-fused');
+  const [mode, setMode] = useState<MorphMode>('telemetry');
+  const [selectedMarket, setSelectedMarket] = useState<MarketData>(sampleMarkets[0]);
+  const [kellyRegime, setKellyRegime] = useState<KellyRegime>('balanced');
+  const [interactiveOdds, setInteractiveOdds] = useState<number>(0.68);
   const [tick, setTick] = useState(0);
   const [mouseTilt, setMouseTilt] = useState({ x: 0, y: 0 });
   const containerRef = useRef<HTMLDivElement>(null);
@@ -15,8 +63,8 @@ export function LiquidGlassHeroCanvas() {
   // Drag physics for interactive fluid mode
   const dragX = useMotionValue(0);
   const dragY = useMotionValue(0);
-  const springX = useSpring(dragX, { stiffness: 300, damping: 24 });
-  const springY = useSpring(dragY, { stiffness: 300, damping: 24 });
+  const springX = useSpring(dragX, { stiffness: 320, damping: 24 });
+  const springY = useSpring(dragY, { stiffness: 320, damping: 24 });
 
   // Floating breathing loop
   useEffect(() => {
@@ -44,12 +92,11 @@ export function LiquidGlassHeroCanvas() {
   };
 
   // Autonomous breathing
-  const floatY = Math.sin(tick * 1.6) * 6;
-  const pulseScale = 1 + Math.sin(tick * 2.2) * 0.015;
+  const floatY = Math.sin(tick * 1.5) * 4;
 
-  // Interactive dynamic coordinates
-  const currentDragX = mode === 'interactive' ? springX.get() : Math.sin(tick * 1.2) * 12;
-  const currentDragY = mode === 'interactive' ? springY.get() : Math.cos(tick * 1.5) * 5;
+  // Interactive dynamic coordinates for fluid mode
+  const currentDragX = mode === 'fluid' ? springX.get() : Math.sin(tick * 1.2) * 12;
+  const currentDragY = mode === 'fluid' ? springY.get() : Math.cos(tick * 1.5) * 5;
 
   const c1x = 195 + currentDragX;
   const c1y = 140 + currentDragY;
@@ -81,46 +128,56 @@ export function LiquidGlassHeroCanvas() {
   const botC2Y = c2y + r2 - 3;
   const botMidY = midY + waistThickness;
 
+  // Dynamic Kelly Fraction sizing math
+  const regimeMultiplier = kellyRegime === 'conservative' ? 0.25 : kellyRegime === 'balanced' ? 0.5 : 1.0;
+  const p = interactiveOdds;
+  const q = 1 - p;
+  const b = (1 / selectedMarket.whaleEntry) - 1;
+  const rawKelly = Math.max(0, (p * b - q) / b);
+  const scaledFraction = Math.min(0.35, rawKelly * regimeMultiplier);
+  const simulatedAllocation = Math.round(2000 * (0.4 + scaledFraction * 1.5));
+  const expectedValuePct = Math.round(((p / selectedMarket.whaleEntry) - 1) * 100);
+
   return (
     <div
       ref={containerRef}
       onMouseMove={handleMouseMove}
       onMouseLeave={handleMouseLeave}
-      className="relative w-full max-w-4xl mx-auto mt-6 sm:mt-10 select-none px-2 sm:px-0 overflow-hidden"
+      className="relative w-full max-w-4xl mx-auto mt-6 sm:mt-10 select-none px-2 sm:px-0"
     >
       {/* Mode Capsule Switcher */}
       <div className="flex items-center justify-center mb-5 sm:mb-6 px-2">
-        <div className="liquid-dock liquid-chromatic-rim p-1 sm:p-1.5 rounded-full grid grid-cols-3 w-full max-w-[340px] sm:max-w-md shadow-2xl backdrop-blur-3xl border border-white/15 bg-black/50">
+        <div className="glass-dock glass-chromatic-bezel p-1 sm:p-1.5 grid grid-cols-3 w-full max-w-[380px] sm:max-w-md shadow-lg border border-white/90">
           <button
             type="button"
             onClick={() => {
-              setMode('wwdc-fused');
+              setMode('telemetry');
               dragX.set(0);
               dragY.set(0);
             }}
-            className={`flex items-center justify-center gap-1.5 py-1.5 sm:py-2 px-2 rounded-full text-[10px] sm:text-xs font-mono font-bold transition-all text-center ${
-              mode === 'wwdc-fused'
-                ? 'bg-white text-black shadow-lg scale-[1.02]'
-                : 'text-zinc-400 hover:text-white'
+            className={`flex items-center justify-center gap-1.5 py-1.5 sm:py-2 px-2.5 rounded-full text-[11px] sm:text-xs font-mono font-bold transition-all text-center ${
+              mode === 'telemetry'
+                ? 'bg-gradient-to-b from-sky-500 to-sky-600 text-white shadow-md shadow-sky-500/25 scale-[1.02]'
+                : 'text-slate-600 hover:text-slate-900'
             }`}
           >
-            <Sparkles size={12} className={mode === 'wwdc-fused' ? 'text-black' : 'text-[#00D09C]'} />
-            <span className="sm:hidden">Dumbbell</span>
-            <span className="hidden sm:inline">WWDC25 Glass</span>
+            <Activity size={13} className={mode === 'telemetry' ? 'text-white' : 'text-sky-600'} />
+            <span className="sm:hidden">Console</span>
+            <span className="hidden sm:inline">Alpha Console</span>
           </button>
 
           <button
             type="button"
-            onClick={() => setMode('interactive')}
-            className={`flex items-center justify-center gap-1.5 py-1.5 sm:py-2 px-2 rounded-full text-[10px] sm:text-xs font-mono font-bold transition-all text-center ${
-              mode === 'interactive'
-                ? 'bg-white text-black shadow-lg scale-[1.02]'
-                : 'text-zinc-400 hover:text-white'
+            onClick={() => setMode('fluid')}
+            className={`flex items-center justify-center gap-1.5 py-1.5 sm:py-2 px-2.5 rounded-full text-[11px] sm:text-xs font-mono font-bold transition-all text-center ${
+              mode === 'fluid'
+                ? 'bg-gradient-to-b from-sky-500 to-sky-600 text-white shadow-md shadow-sky-500/25 scale-[1.02]'
+                : 'text-slate-600 hover:text-slate-900'
             }`}
           >
-            <Sliders size={12} className={mode === 'interactive' ? 'text-black' : 'text-cyan-400'} />
-            <span className="sm:hidden">Fluid Drag</span>
-            <span className="hidden sm:inline">Fluid Drag</span>
+            <Sliders size={13} className={mode === 'fluid' ? 'text-white' : 'text-cyan-600'} />
+            <span className="sm:hidden">Fluid</span>
+            <span className="hidden sm:inline">Fluid Meniscus</span>
           </button>
 
           <button
@@ -130,415 +187,458 @@ export function LiquidGlassHeroCanvas() {
               dragX.set(0);
               dragY.set(0);
             }}
-            className={`flex items-center justify-center gap-1.5 py-1.5 sm:py-2 px-2 rounded-full text-[10px] sm:text-xs font-mono font-bold transition-all text-center ${
+            className={`flex items-center justify-center gap-1.5 py-1.5 sm:py-2 px-2.5 rounded-full text-[11px] sm:text-xs font-mono font-bold transition-all text-center ${
               mode === 'sleeves'
-                ? 'bg-white text-black shadow-lg scale-[1.02]'
-                : 'text-zinc-400 hover:text-white'
+                ? 'bg-gradient-to-b from-sky-500 to-sky-600 text-white shadow-md shadow-sky-500/25 scale-[1.02]'
+                : 'text-slate-600 hover:text-slate-900'
             }`}
           >
-            <Layers size={12} className={mode === 'sleeves' ? 'text-black' : 'text-purple-400'} />
+            <Layers size={13} className={mode === 'sleeves' ? 'text-white' : 'text-indigo-600'} />
             <span className="sm:hidden">5 Sleeves</span>
-            <span className="hidden sm:inline">5 Sleeves</span>
+            <span className="hidden sm:inline">5 Risk Sleeves</span>
           </button>
         </div>
       </div>
 
-      {/* Main Glass Stage */}
-      <div className="relative min-h-[360px] sm:min-h-[440px] w-full rounded-[32px] sm:rounded-[36px] border border-white/15 bg-gradient-to-b from-[#0c0e14]/90 via-[#07080b]/95 to-[#040507] backdrop-blur-3xl overflow-hidden shadow-2xl p-4 sm:p-8 flex flex-col justify-between">
-        {/* Clean Studio Perspective Grid (Matching Reference 4) */}
+      {/* Main Glass Stage Container */}
+      <div className="glass-card glass-chromatic-bezel relative min-h-[420px] sm:min-h-[480px] w-full rounded-[32px] sm:rounded-[36px] overflow-hidden p-4 sm:p-7 flex flex-col justify-between shadow-xl">
+        {/* Subtle Perspective Grid */}
         <div
-          className="absolute inset-0 pointer-events-none opacity-25"
+          className="absolute inset-0 pointer-events-none opacity-30"
           style={{
-            backgroundImage: `linear-gradient(to right, rgba(255, 255, 255, 0.09) 1px, transparent 1px), linear-gradient(to bottom, rgba(255, 255, 255, 0.09) 1px, transparent 1px)`,
-            backgroundSize: '56px 56px',
+            backgroundImage: `linear-gradient(to right, rgba(2, 132, 199, 0.08) 1px, transparent 1px), linear-gradient(to bottom, rgba(2, 132, 199, 0.08) 1px, transparent 1px)`,
+            backgroundSize: '48px 48px',
             transform: `translate3d(${mouseTilt.x * -6}px, ${mouseTilt.y * -6}px, 0)`,
             transition: 'transform 0.4s ease-out',
           }}
         />
 
-        {/* Volumetric Oceanic Illumination */}
+        {/* Ambient Arctic Glacier Glow */}
         <div className="absolute inset-0 pointer-events-none overflow-hidden">
           <div
-            className="absolute top-1/4 left-1/4 w-88 h-88 rounded-full bg-[#00D09C]/15 blur-[110px] transition-transform duration-700 ease-out"
+            className="absolute top-1/4 left-1/4 w-80 h-80 rounded-full bg-sky-200/35 blur-[100px] transition-transform duration-700 ease-out"
             style={{
               transform: `translate3d(${mouseTilt.x * 20}px, ${mouseTilt.y * 15}px, 0)`,
             }}
           />
           <div
-            className="absolute bottom-1/4 right-1/4 w-88 h-88 rounded-full bg-cyan-500/15 blur-[110px] transition-transform duration-700 ease-out"
+            className="absolute bottom-1/4 right-1/4 w-80 h-80 rounded-full bg-cyan-200/30 blur-[100px] transition-transform duration-700 ease-out"
             style={{
               transform: `translate3d(${mouseTilt.x * -20}px, ${mouseTilt.y * -15}px, 0)`,
             }}
           />
         </div>
 
-        {/* Underlying Polymarket Alpha Conviction Track */}
-        <div className="absolute top-1/2 -translate-y-1/2 inset-x-2 sm:inset-x-12 pointer-events-none z-0 overflow-hidden">
-          <div className="h-8 sm:h-12 w-full rounded-full bg-gradient-to-r from-cyan-500/20 via-[#00D09C]/30 to-purple-500/20 blur-[1px] border border-white/10 flex items-center justify-between px-3 sm:px-8 text-[9px] sm:text-xs font-mono text-zinc-300">
-            <span className="flex items-center gap-1.5 shrink-0">
-              <span className="size-1.5 sm:size-2 rounded-full bg-[#00D09C] animate-ping" />
-              <span className="font-bold text-white text-[9px] sm:text-xs">CTF #68,291</span>
-            </span>
-            <span className="text-[#00D09C] font-bold hidden md:inline tracking-wider">91.4% WHALE CONVICTION</span>
-            <span className="shrink-0 text-[9px] sm:text-xs font-semibold text-cyan-300">Sub-120ms Envio</span>
-          </div>
-        </div>
+        {/* MODE 1: INTERACTIVE POLYMARKET ALPHA GLASS TELEMETRY CONSOLE */}
+        {mode === 'telemetry' && (
+          <motion.div
+            style={{ y: floatY }}
+            className="relative z-10 w-full flex flex-col gap-4 my-1"
+          >
+            {/* Top Telemetry Header & Market Switcher */}
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-3 rounded-2xl bg-white/70 backdrop-blur-xl border border-white/90 shadow-sm">
+              <div className="flex items-center gap-2.5 flex-wrap">
+                <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-50 border border-emerald-200/60 text-[10px] sm:text-xs font-mono font-bold text-emerald-700">
+                  <span className="size-2 rounded-full bg-emerald-500 animate-ping" />
+                  <span>LIVE CLOB</span>
+                </span>
 
-        {/* Fluid Glass Center Stage */}
-        <div className="relative z-10 flex-1 flex items-center justify-center my-2 sm:my-3 w-full max-w-full overflow-hidden">
-          {/* MODE 1: PURE VECTOR WWDC25 LIQUID GLASS DUMBBELL (Zero Watermark, 100% Procedural) */}
-          {mode === 'wwdc-fused' && (
-            <motion.div
-              style={{
-                y: floatY,
-                scale: pulseScale,
-                rotateX: mouseTilt.y * -8,
-                rotateY: mouseTilt.x * 8,
-              }}
-              className="relative w-full max-w-[560px] h-[200px] sm:h-[260px] flex items-center justify-center cursor-pointer transition-transform duration-200"
-              onClick={() => setMode('interactive')}
-            >
-              <svg
-                viewBox="0 0 600 280"
-                className="w-full h-full overflow-visible pointer-events-auto filter drop-shadow-[0_24px_45px_rgba(0,0,0,0.85)]"
-              >
-                <defs>
-                  {/* Optical Glass Body Linear Gradient */}
-                  <linearGradient id="wwdc-glass-body" x1="0%" y1="0%" x2="0%" y2="100%">
-                    <stop offset="0%" stopColor="rgba(255, 255, 255, 0.26)" />
-                    <stop offset="35%" stopColor="rgba(255, 255, 255, 0.05)" />
-                    <stop offset="70%" stopColor="rgba(255, 255, 255, 0.02)" />
-                    <stop offset="100%" stopColor="rgba(255, 255, 255, 0.16)" />
-                  </linearGradient>
-
-                  {/* Top Specular Crescent Gradient */}
-                  <linearGradient id="wwdc-top-specular" x1="0%" y1="0%" x2="100%" y2="0%">
-                    <stop offset="0%" stopColor="rgba(255, 255, 255, 0)" />
-                    <stop offset="15%" stopColor="rgba(255, 255, 255, 0.95)" />
-                    <stop offset="42%" stopColor="rgba(255, 255, 255, 0.75)" />
-                    <stop offset="52%" stopColor="rgba(255, 255, 255, 0.3)" />
-                    <stop offset="68%" stopColor="rgba(255, 255, 255, 0.95)" />
-                    <stop offset="90%" stopColor="rgba(255, 255, 255, 0.85)" />
-                    <stop offset="100%" stopColor="rgba(255, 255, 255, 0)" />
-                  </linearGradient>
-
-                  {/* Chromatic Rainbow Edge Refraction (Red to Violet Prismatic Dispersion) */}
-                  <linearGradient id="wwdc-chromatic-edge" x1="0%" y1="0%" x2="100%" y2="0%">
-                    <stop offset="0%" stopColor="rgba(255, 69, 58, 0.85)" />
-                    <stop offset="22%" stopColor="rgba(255, 159, 10, 0.9)" />
-                    <stop offset="45%" stopColor="rgba(48, 209, 88, 0.9)" />
-                    <stop offset="65%" stopColor="rgba(0, 208, 156, 0.95)" />
-                    <stop offset="82%" stopColor="rgba(56, 189, 248, 0.9)" />
-                    <stop offset="100%" stopColor="rgba(192, 132, 252, 0.85)" />
-                  </linearGradient>
-
-                  {/* Radial Inner Volume Glint */}
-                  <radialGradient id="wwdc-inner-glint" cx="30%" cy="30%" r="70%">
-                    <stop offset="0%" stopColor="rgba(255, 255, 255, 0.35)" />
-                    <stop offset="45%" stopColor="rgba(255, 255, 255, 0.04)" />
-                    <stop offset="100%" stopColor="rgba(0, 0, 0, 0.35)" />
-                  </radialGradient>
-                </defs>
-
-                {/* 1. Ambient Glass Drop Shadow */}
-                <path
-                  d="M 195 72 C 235 72, 255 116, 285 116 C 315 116, 330 56, 365 56 L 415 56 A 84 84 0 0 1 415 224 L 365 224 C 330 224, 315 164, 285 164 C 255 164, 235 208, 195 208 A 68 68 0 0 1 195 72 Z"
-                  fill="rgba(0, 0, 0, 0.6)"
-                  transform="translate(0, 16)"
-                  filter="blur(16px)"
-                />
-
-                {/* 2. Glass Body Mesh (Translucent Optical Volume) */}
-                <path
-                  d="M 195 64 C 235 64, 255 108, 285 108 C 315 108, 330 48, 365 48 L 415 48 A 84 84 0 0 1 415 216 L 365 216 C 330 216, 315 156, 285 156 C 255 156, 235 200, 195 200 A 68 68 0 0 1 195 64 Z"
-                  fill="url(#wwdc-glass-body)"
-                  stroke="rgba(255, 255, 255, 0.35)"
-                  strokeWidth="1.5"
-                />
-
-                {/* 3. Inner Refraction Surface Fill */}
-                <path
-                  d="M 195 64 C 235 64, 255 108, 285 108 C 315 108, 330 48, 365 48 L 415 48 A 84 84 0 0 1 415 216 L 365 216 C 330 216, 315 156, 285 156 C 255 156, 235 200, 195 200 A 68 68 0 0 1 195 64 Z"
-                  fill="url(#wwdc-inner-glint)"
-                  opacity="0.85"
-                />
-
-                {/* 4. Left Lobe Bevel Refraction Ring */}
-                <ellipse
-                  cx="195"
-                  cy="132"
-                  rx="54"
-                  ry="54"
-                  fill="none"
-                  stroke="rgba(255, 255, 255, 0.15)"
-                  strokeWidth="1.2"
-                />
-
-                {/* 5. Right Capsule Bevel Refraction Ring */}
-                <rect
-                  x="335"
-                  y="62"
-                  width="135"
-                  height="140"
-                  rx="70"
-                  fill="none"
-                  stroke="rgba(255, 255, 255, 0.15)"
-                  strokeWidth="1.2"
-                />
-
-                {/* 6. Top Specular Crescent Arc Highlight (Crisp White Reflection) */}
-                <path
-                  d="M 142 108 C 160 76, 180 65, 195 65 C 235 65, 255 109, 285 109 C 315 109, 330 49, 365 49 L 415 49 C 465 49, 492 84, 496 126"
-                  fill="none"
-                  stroke="url(#wwdc-top-specular)"
-                  strokeWidth="3"
-                  strokeLinecap="round"
-                />
-
-                {/* 7. Bottom Chromatic Dispersion Rainbow Fringe */}
-                <path
-                  d="M 152 158 C 170 192, 182 201, 195 201 C 235 201, 255 157, 285 157 C 315 157, 330 217, 365 217 L 415 217 C 465 217, 492 180, 496 142"
-                  fill="none"
-                  stroke="url(#wwdc-chromatic-edge)"
-                  strokeWidth="2.5"
-                  strokeLinecap="round"
-                />
-
-                {/* 8. Inner Specular Glints */}
-                <path
-                  d="M 160 98 A 45 45 0 0 1 215 78"
-                  fill="none"
-                  stroke="rgba(255, 255, 255, 0.85)"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                />
-                <path
-                  d="M 360 62 L 420 62 A 55 55 0 0 1 465 102"
-                  fill="none"
-                  stroke="rgba(255, 255, 255, 0.85)"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                />
-              </svg>
-
-              {/* Overlaid Live Quantitative Telemetry Floating Inside Glass */}
-              <div className="absolute inset-0 flex items-center justify-between px-6 sm:px-16 pointer-events-none">
-                {/* Left Lobe Telemetry: Whale Conviction */}
-                <div className="flex flex-col items-center justify-center w-[110px] sm:w-[150px] text-center">
-                  <div className="size-2 sm:size-2.5 rounded-full bg-[#00D09C] shadow-[0_0_12px_#00D09C] animate-pulse" />
-                  <div className="text-[9px] sm:text-xs font-mono font-black text-white mt-1 uppercase tracking-wider drop-shadow-md">
-                    WHALE #0x12a9
-                  </div>
-                  <div className="text-[8px] sm:text-[10px] font-mono font-bold text-[#00D09C] drop-shadow-md mt-0.5">
-                    91.4% Alpha
-                  </div>
-                </div>
-
-                {/* Right Lobe Telemetry: Isolated Risk Sleeve */}
-                <div className="flex flex-col items-end justify-center w-[140px] sm:w-[200px] pr-1 sm:pr-8 text-right font-mono">
-                  <div className="text-[7px] sm:text-[10px] font-bold text-zinc-300 uppercase tracking-widest drop-shadow-md">
-                    ISOLATED SLEEVE
-                  </div>
-                  <div className="text-xs sm:text-xl font-black text-white drop-shadow-md tabular-nums">
-                    $2,000.00
-                  </div>
-                  <div className="text-[7px] sm:text-[10px] font-bold text-cyan-300 mt-0.5 flex items-center gap-1">
-                    <Zap size={9} />
-                    <span>Sub-120ms Envio</span>
-                  </div>
+                <div className="flex items-center gap-1 bg-sky-50/80 p-1 rounded-xl border border-sky-100">
+                  {sampleMarkets.map((m) => (
+                    <button
+                      key={m.id}
+                      type="button"
+                      onClick={() => {
+                        setSelectedMarket(m);
+                        setInteractiveOdds(m.oddsYes);
+                      }}
+                      className={`px-2.5 py-1 rounded-lg text-[10px] sm:text-xs font-mono font-bold transition-all ${
+                        selectedMarket.id === m.id
+                          ? 'bg-white text-sky-900 shadow-xs border border-sky-200/60'
+                          : 'text-slate-600 hover:text-slate-900'
+                      }`}
+                    >
+                      {m.ticker}
+                    </button>
+                  ))}
                 </div>
               </div>
-            </motion.div>
-          )}
 
-          {/* MODE 2: INTERACTIVE FLUID DRAG & MENISCUS SURFACE TENSION */}
-          {mode === 'interactive' && (
-            <div className="relative w-full max-w-[560px] h-[200px] sm:h-[260px] flex items-center justify-between px-2 sm:px-8 overflow-hidden">
-              {/* Dynamic SVG Liquid Meniscus Bridge */}
-              <svg
-                viewBox="0 0 600 280"
-                className="absolute inset-0 w-full h-full pointer-events-none overflow-visible filter drop-shadow-[0_20px_40px_rgba(0,0,0,0.8)]"
-              >
-                <defs>
-                  <linearGradient id="fluid-glass-surface" x1="0%" y1="0%" x2="0%" y2="100%">
-                    <stop offset="0%" stopColor="rgba(255, 255, 255, 0.32)" />
-                    <stop offset="40%" stopColor="rgba(255, 255, 255, 0.08)" />
-                    <stop offset="100%" stopColor="rgba(255, 255, 255, 0.22)" />
-                  </linearGradient>
-
-                  <linearGradient id="fluid-bridge-chromatic" x1="0%" y1="0%" x2="100%" y2="0%">
-                    <stop offset="0%" stopColor="#FF453A" stopOpacity="0.85" />
-                    <stop offset="35%" stopColor="#38BDF8" stopOpacity="0.9" />
-                    <stop offset="70%" stopColor="#00D09C" stopOpacity="0.9" />
-                    <stop offset="100%" stopColor="#C084FC" stopOpacity="0.85" />
-                  </linearGradient>
-                </defs>
-
-                {/* Dynamic Meniscus Waist Bridge */}
-                {isBonded && (
-                  <g>
-                    <path
-                      d={`M ${topC1X} ${topC1Y} Q ${midX} ${topMidY} ${topC2X} ${topC2Y} L ${botC2X} ${botC2Y} Q ${midX} ${botMidY} ${botC1X} ${botC1Y} Z`}
-                      fill="url(#fluid-glass-surface)"
-                      stroke="rgba(255, 255, 255, 0.4)"
-                      strokeWidth="1.2"
-                    />
-                    <path
-                      d={`M ${topC1X} ${topC1Y} Q ${midX} ${topMidY} ${topC2X} ${topC2Y}`}
-                      fill="none"
-                      stroke="rgba(255, 255, 255, 0.95)"
-                      strokeWidth="2.5"
-                      strokeLinecap="round"
-                    />
-                    <path
-                      d={`M ${botC1X} ${botC1Y} Q ${midX} ${botMidY} ${botC2X} ${botC2Y}`}
-                      fill="none"
-                      stroke="url(#fluid-bridge-chromatic)"
-                      strokeWidth="2.5"
-                      strokeLinecap="round"
-                    />
-                  </g>
-                )}
-              </svg>
-
-              {/* Draggable Fluid Glass Droplet 1 */}
-              <motion.div
-                drag
-                dragConstraints={{ left: -50, right: 80, top: -40, bottom: 40 }}
-                dragElastic={0.25}
-                onDrag={(_, info) => {
-                  dragX.set(info.offset.x);
-                  dragY.set(info.offset.y);
-                }}
-                onDragEnd={() => {
-                  dragX.set(0);
-                  dragY.set(0);
-                }}
-                className="relative size-24 sm:size-32 rounded-full cursor-grab active:cursor-grabbing flex flex-col items-center justify-center p-2 sm:p-3 shadow-2xl z-20 shrink-0"
-                style={{
-                  x: springX,
-                  y: springY,
-                  background:
-                    'radial-gradient(120% 120% at 35% 25%, rgba(255,255,255,0.38) 0%, rgba(255,255,255,0.08) 55%, rgba(0,0,0,0.45) 100%)',
-                  border: '1.5px solid rgba(255, 255, 255, 0.45)',
-                  backdropFilter: 'blur(32px) saturate(220%)',
-                  boxShadow:
-                    'inset 0 3px 3px 0 rgba(255,255,255,0.95), inset 0 -3px 3px 0 rgba(0,0,0,0.6), 0 20px 45px -10px rgba(0,0,0,0.85)',
-                }}
-              >
-                <div className="absolute top-2 inset-x-3 h-4 rounded-full bg-gradient-to-b from-white/95 to-transparent pointer-events-none" />
-
-                <span className="size-2 rounded-full bg-[#00D09C] animate-ping" />
-                <span className="font-mono text-[9px] sm:text-xs font-black text-white mt-1 tracking-wider">
-                  DRAG ME
+              <div className="flex items-center gap-3 text-xs font-mono text-slate-500 self-end sm:self-center">
+                <span className="flex items-center gap-1 text-sky-700 font-semibold">
+                  <Zap size={13} className="text-sky-500" />
+                  <span>Envio: <strong>84ms</strong></span>
                 </span>
-                <span className="text-[7px] sm:text-[9px] font-mono text-[#00D09C] font-bold">
-                  {isBonded ? 'BONDED' : 'PINCHED'}
-                </span>
-
-                <div className="absolute bottom-1.5 inset-x-4 h-1 rounded-full bg-gradient-to-r from-red-400/60 via-cyan-400/70 to-purple-400/60 blur-[0.5px] pointer-events-none" />
-              </motion.div>
-
-              {/* Base Liquid Glass Sleeve Capsule 2 */}
-              <div
-                className="relative h-28 sm:h-36 w-44 sm:w-64 rounded-[32px] sm:rounded-[40px] flex items-center justify-between px-4 sm:px-7 shadow-2xl z-10 shrink-0"
-                style={{
-                  background:
-                    'radial-gradient(130% 120% at 50% 20%, rgba(255,255,255,0.32) 0%, rgba(255,255,255,0.06) 60%, rgba(0,0,0,0.45) 100%)',
-                  border: '1.5px solid rgba(255, 255, 255, 0.42)',
-                  backdropFilter: 'blur(32px) saturate(220%)',
-                  boxShadow:
-                    'inset 0 3px 3px 0 rgba(255,255,255,0.9), inset 0 -3px 3px 0 rgba(0,0,0,0.6), 0 24px 55px -10px rgba(0,0,0,0.85)',
-                }}
-              >
-                <div className="absolute top-2 inset-x-4 h-4 rounded-full bg-gradient-to-b from-white/95 to-transparent pointer-events-none" />
-
-                <div className="font-mono">
-                  <div className="text-[8px] sm:text-[10px] font-bold text-zinc-400 uppercase tracking-wider">
-                    ISOLATED SLEEVE
-                  </div>
-                  <div className="text-sm sm:text-xl font-black text-white tabular-nums">$2,000.00</div>
-                  <div className="text-[8px] sm:text-[9px] font-semibold text-[#00D09C]">Guard: Safe</div>
-                </div>
-
-                <div className="flex flex-col items-end gap-1 font-mono">
-                  <span
-                    className={`rounded-full px-2 py-0.5 text-[9px] sm:text-[10px] font-bold border transition-colors ${
-                      isBonded
-                        ? 'border-[#00D09C]/50 bg-[#00D09C]/20 text-[#00D09C]'
-                        : 'border-cyan-400/50 bg-cyan-400/20 text-cyan-300'
-                    }`}
-                  >
-                    {isBonded ? 'Fused' : 'Isolated'}
-                  </span>
-                  <span className="text-[7px] sm:text-[8px] text-zinc-400">91.4% Win</span>
-                </div>
-
-                <div className="absolute bottom-1.5 inset-x-5 h-1 rounded-full bg-gradient-to-r from-cyan-400/60 via-[#00D09C]/70 to-purple-400/60 blur-[0.5px] pointer-events-none" />
+                <span className="text-slate-300">|</span>
+                <span className="text-emerald-700 font-bold">{selectedMarket.conviction}</span>
               </div>
             </div>
-          )}
 
-          {/* MODE 3: 5 ISOLATED RISK SLEEVE DROPLETS */}
-          {mode === 'sleeves' && (
-            <div className="grid grid-cols-5 gap-1.5 sm:gap-4 w-full max-w-2xl px-1">
-              {[
-                { label: 'Sleeve A', whale: '0x12a9', cap: '$2,000', win: '94.2%', color: '#00D09C' },
-                { label: 'Sleeve B', whale: '0x7bf3', cap: '$2,000', win: '89.6%', color: '#38BDF8' },
-                { label: 'Sleeve C', whale: '0x4981', cap: '$2,000', win: '91.8%', color: '#C084FC' },
-                { label: 'Sleeve D', whale: '0xce92', cap: '$2,000', win: '92.4%', color: '#00D09C' },
-                { label: 'Sleeve E', whale: '0x38e1', cap: '$2,000', win: '88.9%', color: '#38BDF8' },
-              ].map((sleeve, idx) => (
-                <motion.div
-                  key={sleeve.label}
-                  initial={{ scale: 0.8, opacity: 0, y: 16 }}
-                  animate={{ scale: 1, opacity: 1, y: 0 }}
-                  transition={{ duration: 0.35, delay: idx * 0.05 }}
-                  className="liquid-glass-lens liquid-chromatic-rim group relative flex flex-col items-center justify-between p-2 sm:p-4 rounded-2xl sm:rounded-3xl cursor-pointer hover:scale-105 transition-all shadow-xl backdrop-blur-2xl"
-                >
-                  <div className="absolute top-1 inset-x-2 h-2 rounded-full bg-gradient-to-b from-white/90 to-transparent pointer-events-none opacity-90" />
-                  <span className="text-[8px] sm:text-[10px] font-mono text-zinc-400 font-bold">{sleeve.label}</span>
-                  <div className="my-1 sm:my-2 size-6 sm:size-10 rounded-full border border-white/20 bg-white/[0.08] flex items-center justify-center font-mono text-[9px] font-black text-white shadow-inner">
-                    <Shield size={12} style={{ color: sleeve.color }} />
+            {/* Middle Main Telemetry Stage: Live Probability Curve & Kelly Cockpit */}
+            <div className="grid gap-4 lg:grid-cols-[1.3fr_0.9fr] items-stretch">
+              {/* Left Column: Live Probability Distribution & Alpha Gap Visualizer */}
+              <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-b from-white/90 to-sky-50/60 border border-white/90 shadow-sm flex flex-col justify-between">
+                <div>
+                  <div className="flex items-center justify-between font-mono text-xs mb-2">
+                    <div className="font-bold text-slate-900 flex items-center gap-1.5">
+                      <TrendingUp size={14} className="text-sky-600" />
+                      <span>{selectedMarket.name}</span>
+                    </div>
+                    <span className="text-slate-500 text-[11px]">Vol: {selectedMarket.volume}</span>
                   </div>
-                  <div className="text-center font-mono">
-                    <div className="text-[9px] sm:text-xs font-black text-white">{sleeve.cap}</div>
-                    <div className="text-[7px] sm:text-[9px] font-bold" style={{ color: sleeve.color }}>
-                      {sleeve.win}
+
+                  {/* Interactive SVG Probability Density Curve */}
+                  <div className="relative h-36 sm:h-44 w-full mt-2 rounded-xl bg-gradient-to-b from-sky-100/40 via-white/50 to-sky-50/40 p-2 border border-sky-100/70 overflow-hidden">
+                    <svg viewBox="0 0 400 140" className="w-full h-full overflow-visible">
+                      <defs>
+                        <linearGradient id="curveGradient" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor="#0284C7" stopOpacity="0.3" />
+                          <stop offset="100%" stopColor="#0284C7" stopOpacity="0.02" />
+                        </linearGradient>
+                        <linearGradient id="alphaZone" x1="0" y1="0" x2="1" y2="0">
+                          <stop offset="0%" stopColor="#059669" stopOpacity="0.35" />
+                          <stop offset="100%" stopColor="#0284C7" stopOpacity="0.25" />
+                        </linearGradient>
+                      </defs>
+
+                      {/* Horizontal Grid lines */}
+                      <line x1="0" y1="30" x2="400" y2="30" stroke="rgba(2, 132, 199, 0.1)" strokeDasharray="3 3" />
+                      <line x1="0" y1="70" x2="400" y2="70" stroke="rgba(2, 132, 199, 0.1)" strokeDasharray="3 3" />
+                      <line x1="0" y1="110" x2="400" y2="110" stroke="rgba(2, 132, 199, 0.1)" strokeDasharray="3 3" />
+
+                      {/* Whale Entry Reference Line */}
+                      {(() => {
+                        const whaleX = selectedMarket.whaleEntry * 360 + 20;
+                        const marketX = interactiveOdds * 360 + 20;
+                        return (
+                          <>
+                            {/* Alpha Gap Shaded Area */}
+                            <rect
+                              x={whaleX}
+                              y="20"
+                              width={Math.max(4, marketX - whaleX)}
+                              height="100"
+                              fill="url(#alphaZone)"
+                              rx="4"
+                            />
+                            {/* Whale Entry Vertical Marker */}
+                            <line x1={whaleX} y1="15" x2={whaleX} y2="125" stroke="#059669" strokeWidth="1.5" strokeDasharray="2 2" />
+                            <circle cx={whaleX} cy="55" r="4" fill="#059669" />
+                            <text x={whaleX} y="12" fill="#059669" fontSize="9" fontWeight="bold" textAnchor="middle" fontFamily="monospace">
+                              Whale ${(selectedMarket.whaleEntry).toFixed(2)}
+                            </text>
+
+                            {/* Current Market Odds Vertical Marker */}
+                            <line x1={marketX} y1="15" x2={marketX} y2="125" stroke="#0284C7" strokeWidth="2" />
+                            <circle cx={marketX} cy="42" r="5" fill="#0284C7" stroke="#ffffff" strokeWidth="2" />
+                            <text x={marketX} y="12" fill="#0284C7" fontSize="9" fontWeight="bold" textAnchor="middle" fontFamily="monospace">
+                              Market ${(interactiveOdds).toFixed(2)}
+                            </text>
+                          </>
+                        );
+                      })()}
+
+                      {/* Smooth Probability Distribution Bell Curve */}
+                      <path
+                        d="M 20 120 C 80 120, 140 100, 200 60 C 260 20, 320 60, 380 120"
+                        fill="url(#curveGradient)"
+                        stroke="#0284C7"
+                        strokeWidth="2.5"
+                      />
+                    </svg>
+
+                    {/* Interactive Slider Overlay to Shift Odds */}
+                    <div className="absolute bottom-1 inset-x-3 flex items-center justify-between text-[9px] font-mono text-slate-500">
+                      <span>Odds: 0.00</span>
+                      <span className="font-bold text-sky-800">
+                        Alpha Spread: +{Math.round((interactiveOdds - selectedMarket.whaleEntry) * 100)}¢ / contract
+                      </span>
+                      <span>1.00</span>
                     </div>
                   </div>
-                  <div className="absolute bottom-1 inset-x-2 h-0.5 rounded-full bg-gradient-to-r from-cyan-400/40 via-purple-400/40 to-amber-400/40 opacity-70 pointer-events-none" />
-                </motion.div>
-              ))}
+                </div>
+
+                {/* Interactive Slider for Odds Testing */}
+                <div className="mt-3 flex items-center gap-3 font-mono text-xs">
+                  <span className="text-slate-500 text-[11px] shrink-0">Simulate Market Odds:</span>
+                  <input
+                    type="range"
+                    min="0.50"
+                    max="0.95"
+                    step="0.01"
+                    value={interactiveOdds}
+                    onChange={(e) => setInteractiveOdds(Number(e.target.value))}
+                    className="w-full h-2 rounded-full appearance-none cursor-pointer bg-sky-200 accent-sky-600"
+                  />
+                  <span className="font-bold text-slate-900 tabular-nums shrink-0">${interactiveOdds.toFixed(2)}</span>
+                </div>
+              </div>
+
+              {/* Right Column: Kelly Fraction Engine & Isolated Sleeve Sizing */}
+              <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-b from-white/90 to-sky-50/60 border border-white/90 shadow-sm flex flex-col justify-between">
+                <div>
+                  <div className="flex items-center justify-between font-mono text-xs">
+                    <span className="font-bold text-slate-900 flex items-center gap-1.5">
+                      <Shield size={14} className="text-emerald-600" />
+                      <span>KELLY SIZING ENGINE</span>
+                    </span>
+                    <span className="px-2 py-0.5 rounded-full bg-sky-100 text-sky-800 font-bold text-[10px]">
+                      Sleeve A
+                    </span>
+                  </div>
+
+                  {/* Kelly Regime Toggle */}
+                  <div className="mt-3 grid grid-cols-3 gap-1 bg-slate-100/80 p-1 rounded-xl border border-slate-200/60 font-mono text-[10px]">
+                    <button
+                      type="button"
+                      onClick={() => setKellyRegime('conservative')}
+                      className={`py-1 rounded-lg font-bold transition-all ${
+                        kellyRegime === 'conservative'
+                          ? 'bg-white text-slate-900 shadow-xs'
+                          : 'text-slate-500 hover:text-slate-800'
+                      }`}
+                    >
+                      0.25x
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setKellyRegime('balanced')}
+                      className={`py-1 rounded-lg font-bold transition-all ${
+                        kellyRegime === 'balanced'
+                          ? 'bg-white text-sky-700 shadow-xs'
+                          : 'text-slate-500 hover:text-slate-800'
+                      }`}
+                    >
+                      0.50x
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setKellyRegime('aggressive')}
+                      className={`py-1 rounded-lg font-bold transition-all ${
+                        kellyRegime === 'aggressive'
+                          ? 'bg-white text-emerald-700 shadow-xs'
+                          : 'text-slate-500 hover:text-slate-800'
+                      }`}
+                    >
+                      1.00x
+                    </button>
+                  </div>
+
+                  {/* Sizing Outputs */}
+                  <div className="mt-4 space-y-2.5 font-mono text-xs">
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-500">Target Size:</span>
+                      <span className="font-black text-slate-900 text-base tabular-nums">
+                        ${simulatedAllocation.toLocaleString()}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-500">Expected Value:</span>
+                      <span className="font-bold text-emerald-600 tabular-nums">
+                        +{expectedValuePct}% EV
+                      </span>
+                    </div>
+
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-500">Max CLOB Slippage:</span>
+                      <span className="font-semibold text-sky-700 tabular-nums">&lt;0.02%</span>
+                    </div>
+
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-500">Sleeve Cap Guard:</span>
+                      <span className="font-semibold text-slate-800 tabular-nums">$2,000.00</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Simulated Order Execution Pill */}
+                <div className="mt-4 pt-3 border-t border-sky-100 flex items-center justify-between text-[11px] font-mono">
+                  <span className="text-slate-500 flex items-center gap-1">
+                    <CheckCircle size={13} className="text-emerald-500" />
+                    <span>$1.00 Floor Clamped</span>
+                  </span>
+                  <span className="text-sky-700 font-bold flex items-center gap-0.5">
+                    <span>Simulated Fill</span>
+                    <ArrowUpRight size={13} />
+                  </span>
+                </div>
+              </div>
             </div>
-          )}
-        </div>
+          </motion.div>
+        )}
+
+        {/* MODE 2: INTERACTIVE FLUID DRAG & MENISCUS OPTICS */}
+        {mode === 'fluid' && (
+          <div className="relative w-full max-w-[560px] mx-auto h-[220px] sm:h-[280px] flex items-center justify-between px-2 sm:px-8 overflow-hidden">
+            {/* Dynamic SVG Liquid Meniscus Bridge */}
+            <svg
+              viewBox="0 0 600 280"
+              className="absolute inset-0 w-full h-full pointer-events-none overflow-visible filter drop-shadow-[0_12px_24px_rgba(2,132,199,0.15)]"
+            >
+              <defs>
+                <linearGradient id="fluid-glass-surface" x1="0%" y1="0%" x2="0%" y2="100%">
+                  <stop offset="0%" stopColor="rgba(255, 255, 255, 0.95)" />
+                  <stop offset="40%" stopColor="rgba(224, 242, 254, 0.70)" />
+                  <stop offset="100%" stopColor="rgba(186, 230, 253, 0.50)" />
+                </linearGradient>
+
+                <linearGradient id="fluid-bridge-chromatic" x1="0%" y1="0%" x2="100%" y2="0%">
+                  <stop offset="0%" stopColor="#38BDF8" stopOpacity="0.85" />
+                  <stop offset="40%" stopColor="#818CF8" stopOpacity="0.85" />
+                  <stop offset="70%" stopColor="#059669" stopOpacity="0.9" />
+                  <stop offset="100%" stopColor="#F472B6" stopOpacity="0.8" />
+                </linearGradient>
+              </defs>
+
+              {/* Dynamic Meniscus Waist Bridge */}
+              {isBonded && (
+                <g>
+                  <path
+                    d={`M ${topC1X} ${topC1Y} Q ${midX} ${topMidY} ${topC2X} ${topC2Y} L ${botC2X} ${botC2Y} Q ${midX} ${botMidY} ${botC1X} ${botC1Y} Z`}
+                    fill="url(#fluid-glass-surface)"
+                    stroke="rgba(255, 255, 255, 0.9)"
+                    strokeWidth="1.5"
+                  />
+                  <path
+                    d={`M ${topC1X} ${topC1Y} Q ${midX} ${topMidY} ${topC2X} ${topC2Y}`}
+                    fill="none"
+                    stroke="rgba(255, 255, 255, 1)"
+                    strokeWidth="2.5"
+                    strokeLinecap="round"
+                  />
+                  <path
+                    d={`M ${botC1X} ${botC1Y} Q ${midX} ${botMidY} ${botC2X} ${botC2Y}`}
+                    fill="none"
+                    stroke="url(#fluid-bridge-chromatic)"
+                    strokeWidth="2.5"
+                    strokeLinecap="round"
+                  />
+                </g>
+              )}
+            </svg>
+
+            {/* Draggable Fluid Glass Droplet */}
+            <motion.div
+              drag
+              dragConstraints={{ left: -40, right: 80, top: -40, bottom: 40 }}
+              dragElastic={0.25}
+              onDrag={(_, info) => {
+                dragX.set(info.offset.x);
+                dragY.set(info.offset.y);
+              }}
+              onDragEnd={() => {
+                dragX.set(0);
+                dragY.set(0);
+              }}
+              className="glass-button relative size-24 sm:size-32 rounded-full cursor-grab active:cursor-grabbing flex flex-col items-center justify-center p-2 sm:p-3 shadow-xl z-20 shrink-0 border border-white"
+              style={{
+                x: springX,
+                y: springY,
+              }}
+            >
+              <div className="absolute top-2 inset-x-3 h-4 rounded-full bg-gradient-to-b from-white to-transparent pointer-events-none" />
+
+              <span className="size-2 rounded-full bg-sky-500 animate-ping" />
+              <span className="font-mono text-[9px] sm:text-xs font-black text-slate-900 mt-1 tracking-wider">
+                DRAG ME
+              </span>
+              <span className="text-[8px] sm:text-[9px] font-mono text-sky-700 font-bold">
+                {isBonded ? 'BONDED' : 'PINCHED'}
+              </span>
+
+              <div className="absolute bottom-1.5 inset-x-4 h-1 rounded-full bg-gradient-to-r from-sky-400 via-indigo-300 to-cyan-400 blur-[0.5px] pointer-events-none" />
+            </motion.div>
+
+            {/* Base Liquid Glass Sleeve Capsule */}
+            <div className="glass-card relative h-28 sm:h-36 w-44 sm:w-64 rounded-[32px] sm:rounded-[40px] flex items-center justify-between px-4 sm:px-7 shadow-lg z-10 shrink-0 border border-white/90">
+              <div className="absolute top-2 inset-x-4 h-4 rounded-full bg-gradient-to-b from-white to-transparent pointer-events-none" />
+
+              <div className="font-mono">
+                <div className="text-[8px] sm:text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                  ISOLATED SLEEVE
+                </div>
+                <div className="text-sm sm:text-xl font-black text-slate-900 tabular-nums">$2,000.00</div>
+                <div className="text-[8px] sm:text-[9px] font-semibold text-emerald-600">Guard: Safe</div>
+              </div>
+
+              <div className="flex flex-col items-end gap-1 font-mono">
+                <span
+                  className={`rounded-full px-2 py-0.5 text-[9px] sm:text-[10px] font-bold border transition-colors ${
+                    isBonded
+                      ? 'border-emerald-300 bg-emerald-50 text-emerald-700'
+                      : 'border-sky-300 bg-sky-50 text-sky-700'
+                  }`}
+                >
+                  {isBonded ? 'Fused' : 'Isolated'}
+                </span>
+                <span className="text-[8px] text-slate-500">91.4% Win</span>
+              </div>
+
+              <div className="absolute bottom-1.5 inset-x-5 h-1 rounded-full bg-gradient-to-r from-cyan-400/60 via-sky-400/70 to-purple-400/60 blur-[0.5px] pointer-events-none" />
+            </div>
+          </div>
+        )}
+
+        {/* MODE 3: 5 ISOLATED RISK SLEEVE DROPLETS */}
+        {mode === 'sleeves' && (
+          <div className="grid grid-cols-5 gap-2 sm:gap-4 w-full max-w-2xl mx-auto px-1 my-auto">
+            {[
+              { label: 'Sleeve A', whale: '0x12a9', cap: '$2,000', win: '94.2%', color: '#059669' },
+              { label: 'Sleeve B', whale: '0x7bf3', cap: '$2,000', win: '89.6%', color: '#0284C7' },
+              { label: 'Sleeve C', whale: '0x4981', cap: '$2,000', win: '91.8%', color: '#7C3AED' },
+              { label: 'Sleeve D', whale: '0xce92', cap: '$2,000', win: '92.4%', color: '#059669' },
+              { label: 'Sleeve E', whale: '0x38e1', cap: '$2,000', win: '88.9%', color: '#0284C7' },
+            ].map((sleeve, idx) => (
+              <motion.div
+                key={sleeve.label}
+                initial={{ scale: 0.8, opacity: 0, y: 16 }}
+                animate={{ scale: 1, opacity: 1, y: 0 }}
+                transition={{ duration: 0.35, delay: idx * 0.05 }}
+                className="glass-card glass-chromatic-bezel group relative flex flex-col items-center justify-between p-2 sm:p-4 rounded-2xl sm:rounded-3xl cursor-pointer hover:scale-105 transition-all shadow-md border border-white/95"
+              >
+                <div className="absolute top-1 inset-x-2 h-2 rounded-full bg-gradient-to-b from-white to-transparent pointer-events-none opacity-90" />
+                <span className="text-[8px] sm:text-[10px] font-mono text-slate-500 font-bold">{sleeve.label}</span>
+                <div className="my-1 sm:my-2 size-7 sm:size-10 rounded-full border border-sky-100 bg-sky-50/80 flex items-center justify-center font-mono text-[9px] font-black shadow-inner">
+                  <Shield size={13} style={{ color: sleeve.color }} />
+                </div>
+                <div className="text-center font-mono">
+                  <div className="text-[9px] sm:text-xs font-black text-slate-900">{sleeve.cap}</div>
+                  <div className="text-[8px] sm:text-[9px] font-bold" style={{ color: sleeve.color }}>
+                    {sleeve.win}
+                  </div>
+                </div>
+                <div className="absolute bottom-1 inset-x-2 h-0.5 rounded-full bg-gradient-to-r from-sky-400/40 via-purple-400/40 to-emerald-400/40 opacity-70 pointer-events-none" />
+              </motion.div>
+            ))}
+          </div>
+        )}
 
         {/* Bottom Status Bar */}
-        <div className="relative z-20 flex flex-wrap items-center justify-between gap-2 pt-3 border-t border-white/10 font-mono text-xs text-zinc-400">
+        <div className="relative z-20 flex flex-wrap items-center justify-between gap-2 pt-3 mt-3 border-t border-sky-100 font-mono text-xs text-slate-600">
           <div className="flex items-center gap-2">
-            <span className="size-2 rounded-full bg-[#00D09C] animate-pulse" />
-            <span className="text-white font-bold text-[9px] sm:text-[11px]">OPTICAL LIQUID GLASS</span>
-            <span className="text-white/20">|</span>
-            <span className="text-[9px] sm:text-[11px] text-zinc-400 truncate max-w-[140px] sm:max-w-none">
-              {mode === 'wwdc-fused'
-                ? 'WWDC25 Concept Procedural Optics'
-                : mode === 'interactive'
-                ? 'Surface Tension Physics'
-                : 'Isolated Boundaries'}
+            <span className="size-2 rounded-full bg-emerald-500 animate-pulse" />
+            <span className="text-slate-900 font-bold text-[9px] sm:text-[11px]">OPTICAL LIQUID GLASS</span>
+            <span className="text-slate-300">|</span>
+            <span className="text-[9px] sm:text-[11px] text-slate-600 truncate max-w-[140px] sm:max-w-none">
+              {mode === 'telemetry'
+                ? 'Polymarket Alpha Glass Telemetry'
+                : mode === 'fluid'
+                ? 'Surface Tension Meniscus Physics'
+                : 'Isolated Mathematical Boundaries'}
             </span>
           </div>
 
           <div className="flex items-center gap-2 sm:gap-3 text-[9px] sm:text-[11px]">
-            <span className="text-zinc-400">
+            <span className="text-slate-500">
               Meniscus:{' '}
-              <strong className="text-white font-bold">
-                {mode === 'wwdc-fused' ? 'Bonded' : isBonded ? 'Bonded' : 'Separated'}
+              <strong className="text-slate-900 font-bold">
+                {mode === 'telemetry' ? 'Active' : isBonded ? 'Bonded' : 'Separated'}
               </strong>
             </span>
-            <span className="text-white/20">·</span>
-            <span className="text-zinc-400">
-              Prism Rim: <strong className="text-[#00D09C] font-bold">Active</strong>
+            <span className="text-slate-300">·</span>
+            <span className="text-slate-500">
+              Prism Rim: <strong className="text-emerald-700 font-bold">Active</strong>
             </span>
           </div>
         </div>

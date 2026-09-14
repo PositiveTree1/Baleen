@@ -662,17 +662,17 @@ export function PortfolioAnalytics({
   return (
     <div className="flex flex-col gap-6 w-full">
       {/* ========================================================= */}
-      {/* 1. REVOLUT LINE / CANDLESTICK CHART CARD */}
+      {/* 1. ARCTIC GLASS LINE / CANDLESTICK CHART CARD */}
       {/* ========================================================= */}
-      <div className="revolut-card p-4 sm:p-8 space-y-4 sm:space-y-6 rounded-[22px] sm:rounded-[26px]">
+      <div className="glass-card p-4 sm:p-8 space-y-4 sm:space-y-6 rounded-[28px] border border-sky-100/80 dark:border-white/10 shadow-sm">
         {/* Asset Header & Price */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="space-y-1">
-            <span className="text-[11px] sm:text-xs font-semibold text-slate-500 dark:text-[#8E8F99] uppercase tracking-wider">
+            <span className="text-[11px] sm:text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
               Polymarket Copy Portfolio · Balance
             </span>
             <div className="flex flex-wrap items-baseline gap-2 sm:gap-3">
-              <span className="text-2xl sm:text-4xl lg:text-5xl font-bold font-outfit text-slate-950 dark:text-white tracking-tight">
+              <span className="text-2xl sm:text-4xl lg:text-5xl font-bold font-outfit text-[#0F172A] dark:text-white tracking-tight">
                 ${currentBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </span>
               <div className={`inline-flex items-center gap-1 text-[11px] sm:text-xs font-mono font-bold ${isPositive ? 'text-emerald-600 dark:text-[#00D09C]' : 'text-rose-600 dark:text-[#FF453A]'}`}>
@@ -684,14 +684,14 @@ export function PortfolioAnalytics({
             </div>
           </div>
 
-          {/* Controls: Chart Type Toggle & Revolut Timeframe Pills */}
+          {/* Controls: Chart Type Toggle & Arctic Timeframe Pills */}
           <div className="flex flex-wrap sm:flex-nowrap items-center justify-between sm:justify-end gap-2 w-full sm:w-auto">
             {/* Area vs Candle Toggle */}
-            <div className="flex items-center bg-[#F1F3F5] dark:bg-[#1C1D22] p-0.5 sm:p-1 rounded-full border border-black/[0.04] dark:border-white/5">
+            <div className="flex items-center bg-[#E0F2FE]/60 dark:bg-white/5 p-1 rounded-full border border-sky-200/50 dark:border-white/10">
               <button
                 onClick={() => setChartType('area')}
-                className={`p-1.5 rounded-full text-xs font-bold transition-all cursor-pointer ${
-                  chartType === 'area' ? 'bg-white dark:bg-[#2C2D35] text-slate-950 dark:text-white shadow-2xs' : 'text-slate-500 dark:text-[#8E8F99] hover:text-slate-900 dark:hover:text-white'
+                className={`p-1.5 rounded-full text-xs font-bold transition-all cursor-pointer active:scale-95 ${
+                  chartType === 'area' ? 'glass-button bg-white text-[#0F172A] shadow-xs' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                 }`}
                 title="Line / Area View"
               >
@@ -699,8 +699,8 @@ export function PortfolioAnalytics({
               </button>
               <button
                 onClick={() => setChartType('candles')}
-                className={`p-1.5 rounded-full text-xs font-bold transition-all cursor-pointer ${
-                  chartType === 'candles' ? 'bg-white dark:bg-[#2C2D35] text-slate-950 dark:text-white shadow-2xs' : 'text-slate-500 dark:text-[#8E8F99] hover:text-slate-900 dark:hover:text-white'
+                className={`p-1.5 rounded-full text-xs font-bold transition-all cursor-pointer active:scale-95 ${
+                  chartType === 'candles' ? 'glass-button bg-white text-[#0F172A] shadow-xs' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                 }`}
                 title="Candlestick (OHLC) Trader View"
               >
@@ -708,16 +708,16 @@ export function PortfolioAnalytics({
               </button>
             </div>
 
-            {/* Revolut Timeframe Pills */}
-            <div className="flex items-center gap-0.5 sm:gap-1 bg-[#F1F3F5] dark:bg-[#1C1D22] p-0.5 sm:p-1 rounded-full border border-black/[0.04] dark:border-white/5 overflow-x-auto max-w-full no-scrollbar">
+            {/* Arctic Timeframe Pills */}
+            <div className="flex items-center gap-0.5 sm:gap-1 bg-[#E0F2FE]/60 dark:bg-white/5 p-1 rounded-full border border-sky-200/50 dark:border-white/10 overflow-x-auto max-w-full no-scrollbar">
               {(['1H', '6H', '1D', '1W', '1M', 'YTD', 'ALL'] as const).map((tf) => {
                 const isActive = timeframe === tf;
                 return (
                   <button
                     key={tf}
                     onClick={() => setTimeframe(tf)}
-                    className={`px-2 sm:px-3 py-1 rounded-full text-[11px] sm:text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
-                      isActive ? 'bg-white dark:bg-[#2C2D35] text-slate-950 dark:text-white shadow-2xs' : 'text-slate-500 dark:text-[#8E8F99] hover:text-slate-900 dark:hover:text-white'
+                    className={`px-2.5 sm:px-3 py-1 rounded-full text-[11px] sm:text-xs font-bold transition-all cursor-pointer whitespace-nowrap active:scale-95 ${
+                      isActive ? 'glass-button bg-white text-[#0F172A] shadow-xs' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                     }`}
                   >
                     {tf}
@@ -867,18 +867,19 @@ export function PortfolioAnalytics({
       </div>
 
       {/* ========================================================= */}
-      {/* 2. REVOLUT ANALYTICS & CARD WIDGETS SECTION */}
+      {/* ========================================================= */}
+      {/* 2. ARCTIC GLACIER ANALYTICS & CARD WIDGETS SECTION */}
       {/* ========================================================= */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
         
         {/* Card 1: Sleeve Capital Allocation (Isolated Sleeves) */}
-        <div className="revolut-card p-5 space-y-4 rounded-[26px]">
+        <div className="glass-card p-5 space-y-4 rounded-[28px]">
           <div className="space-y-1">
             <div className="flex items-center justify-between">
               <span className="text-xs font-semibold text-slate-500 dark:text-[#8E8F99]">
                 {activeAllocationStats.targetSleeveCount}-Wallet Sleeve Capital
               </span>
-              <span className="text-[10px] font-mono font-bold text-emerald-600 dark:text-[#00D09C] bg-emerald-50 dark:bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-200/50 dark:border-emerald-500/20">
+              <span className="text-[10px] font-mono font-bold text-emerald-600 dark:text-[#00D09C] bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
                 {activeAllocationStats.activeWhales.length} Deployed · {Math.max(0, activeAllocationStats.targetSleeveCount - activeAllocationStats.activeWhales.length)} in Cash ({activeAllocationStats.count} Lots)
               </span>
             </div>
@@ -903,7 +904,7 @@ export function PortfolioAnalytics({
             {activeAllocationStats.top10Sleeves.map((sleeve) => (
               <div
                 key={sleeve.index}
-                className="h-2.5 rounded-full relative overflow-hidden bg-slate-100 dark:bg-white/[0.06] border border-black/[0.08] dark:border-white/10 flex items-center justify-start transition-colors"
+                className="h-2.5 rounded-full relative overflow-hidden bg-slate-100 dark:bg-white/[0.06] border border-sky-100/60 dark:border-white/10 flex items-center justify-start transition-colors"
                 title={
                   sleeve.isDeployed
                     ? `Sleeve #${sleeve.index} (${sleeve.name}): $${sleeve.deployedNotional.toFixed(2)} deployed (${formatAllocPct(sleeve.deployedNotional, activeAllocationStats.sleeveBudget)} of $${Math.round(activeAllocationStats.sleeveBudget).toLocaleString()} sleeve) • $${(activeAllocationStats.sleeveBudget - sleeve.deployedNotional).toFixed(2)} liquid cash`
@@ -975,7 +976,7 @@ export function PortfolioAnalytics({
         </div>
 
         {/* Card 2: Execution Win Rate & Micro Dual-Bars */}
-        <div className="revolut-card p-5 space-y-4 rounded-[26px]">
+        <div className="glass-card p-5 space-y-4 rounded-[28px]">
           <div className="space-y-1">
             <span className="text-xs font-semibold text-slate-500 dark:text-[#8E8F99]">Execution Win Rate</span>
             <div className="text-2xl font-bold text-slate-950 dark:text-white font-outfit">
@@ -985,13 +986,13 @@ export function PortfolioAnalytics({
 
           {/* Dual Progress Bars */}
           <div className="space-y-2">
-            <div className="h-2 w-full rounded-full bg-slate-100 dark:bg-[#1C1D22] overflow-hidden">
+            <div className="h-2 w-full rounded-full bg-sky-100/60 dark:bg-white/[0.06] overflow-hidden">
               <div 
                 className="h-full bg-[#00D09C] rounded-full transition-all" 
                 style={{ width: `${Math.min(100, Math.max(5, winRate))}%` }} 
               />
             </div>
-            <div className="h-2 w-full rounded-full bg-slate-100 dark:bg-[#1C1D22] overflow-hidden">
+            <div className="h-2 w-full rounded-full bg-sky-100/60 dark:bg-white/[0.06] overflow-hidden">
               <div 
                 className="h-full bg-[#FF453A] rounded-full transition-all" 
                 style={{ width: `${Math.min(100, Math.max(5, 100 - winRate))}%` }} 
@@ -1006,7 +1007,7 @@ export function PortfolioAnalytics({
         </div>
 
         {/* Card 3: Taker Fee & Cashflow Efficiency */}
-        <div className="revolut-card p-5 space-y-4 rounded-[26px]">
+        <div className="glass-card p-5 space-y-4 rounded-[28px]">
           <div className="space-y-1">
             <span className="text-xs font-semibold text-slate-500 dark:text-[#8E8F99]">Recorded Fees / Notional</span>
             <div className="text-2xl font-bold text-slate-950 dark:text-white font-outfit">
@@ -1016,10 +1017,10 @@ export function PortfolioAnalytics({
 
           {/* Micro Vertical Indicator Bars */}
           <div className="flex items-end gap-1.5 h-6">
-            <div className="w-2.5 h-3 bg-slate-200 dark:bg-[#2C2D35] rounded-full" />
-            <div className="w-2.5 h-5 bg-slate-200 dark:bg-[#2C2D35] rounded-full" />
+            <div className="w-2.5 h-3 bg-slate-200 dark:bg-white/10 rounded-full" />
+            <div className="w-2.5 h-5 bg-slate-200 dark:bg-white/10 rounded-full" />
             <div className="w-2.5 h-6 bg-[#00D09C] rounded-full" />
-            <div className="w-2.5 h-4 bg-slate-200 dark:bg-[#2C2D35] rounded-full" />
+            <div className="w-2.5 h-4 bg-slate-200 dark:bg-white/10 rounded-full" />
             <div className="w-2.5 h-5 bg-[#00D09C] rounded-full" />
           </div>
 
@@ -1032,20 +1033,21 @@ export function PortfolioAnalytics({
       </div>
 
       {/* ========================================================= */}
-      {/* 3. REVOLUT ALPHA & DRAWDOWN ATTRIBUTION LIST (CLICKABLE) */}
+      {/* ========================================================= */}
+      {/* 3. ARCTIC GLACIER ALPHA & DRAWDOWN ATTRIBUTION LIST (CLICKABLE) */}
       {/* ========================================================= */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
         {omittedMarketEvidenceCount > 0 && (
-          <div className="md:col-span-2 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-800 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-200">
+          <div className="md:col-span-2 rounded-2xl border border-amber-200/80 bg-amber-50/80 dark:border-amber-500/20 dark:bg-amber-500/10 px-4 py-3 text-xs text-amber-900 dark:text-amber-200">
             Market attribution shows known records only; {omittedMarketEvidenceCount} trade{omittedMarketEvidenceCount === 1 ? '' : 's'} omitted because price or PnL evidence is unavailable.
           </div>
         )}
         
         {/* Top Alpha Generators */}
-        <div className="revolut-card p-5 sm:p-6 space-y-4 rounded-[26px]">
+        <div className="glass-card p-5 sm:p-6 space-y-4 rounded-[28px]">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <div className="w-7 h-7 rounded-full bg-emerald-50 dark:bg-[#00D09C]/10 border border-emerald-200 dark:border-[#00D09C]/20 flex items-center justify-center text-emerald-600 dark:text-[#00D09C]">
+              <div className="w-7 h-7 rounded-full bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-600 dark:text-[#00D09C]">
                 <ArrowUpRight size={15} />
               </div>
               <h4 className="text-sm font-bold text-slate-950 dark:text-white">Top Alpha Generators</h4>
@@ -1055,7 +1057,7 @@ export function PortfolioAnalytics({
 
           <div className="space-y-2">
             {topAlpha.length === 0 ? (
-              <div className="p-4 rounded-2xl bg-slate-50 dark:bg-[#1C1D22] border border-black/[0.04] dark:border-white/5 text-center py-6">
+              <div className="p-4 rounded-2xl bg-white/40 dark:bg-white/[0.02] border border-sky-100/60 dark:border-white/5 text-center py-6">
                 <span className="text-xs text-slate-400 dark:text-[#8E8F99] font-medium">No positive alpha markets in this view</span>
               </div>
             ) : (
@@ -1063,7 +1065,7 @@ export function PortfolioAnalytics({
                 <div
                   key={m.key}
                   onClick={() => handleOpenMarketTrade(m)}
-                  className="p-3 rounded-2xl bg-slate-50 dark:bg-[#1C1D22] hover:bg-slate-100 dark:hover:bg-[#24262E] border border-black/[0.04] dark:border-white/5 transition-all cursor-pointer flex items-center justify-between group"
+                  className="p-3.5 rounded-2xl bg-white/60 dark:bg-white/[0.03] hover:bg-white/90 dark:hover:bg-white/[0.07] border border-sky-100/60 dark:border-white/5 transition-all cursor-pointer flex items-center justify-between group shadow-sm"
                 >
                   <div className="min-w-0 pr-3">
                     <p className="text-xs font-semibold text-slate-900 dark:text-white truncate group-hover:text-emerald-600 dark:group-hover:text-[#00D09C] transition-colors">{m.question}</p>
@@ -1081,10 +1083,10 @@ export function PortfolioAnalytics({
         </div>
 
         {/* Top Drawdowns */}
-        <div className="revolut-card p-5 sm:p-6 space-y-4 rounded-[26px]">
+        <div className="glass-card p-5 sm:p-6 space-y-4 rounded-[28px]">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <div className="w-7 h-7 rounded-full bg-rose-50 dark:bg-[#FF453A]/10 border border-rose-200 dark:border-[#FF453A]/20 flex items-center justify-center text-rose-600 dark:text-[#FF453A]">
+              <div className="w-7 h-7 rounded-full bg-rose-500/10 border border-rose-500/20 flex items-center justify-center text-rose-600 dark:text-[#FF453A]">
                 <ArrowDownRight size={15} />
               </div>
               <h4 className="text-sm font-bold text-slate-950 dark:text-white">Top Drawdowns</h4>
@@ -1094,7 +1096,7 @@ export function PortfolioAnalytics({
 
           <div className="space-y-2">
             {topDrawdown.length === 0 ? (
-              <div className="p-4 rounded-2xl bg-slate-50 dark:bg-[#1C1D22] border border-black/[0.04] dark:border-white/5 text-center py-6">
+              <div className="p-4 rounded-2xl bg-white/40 dark:bg-white/[0.02] border border-sky-100/60 dark:border-white/5 text-center py-6">
                 <span className="text-xs text-slate-400 dark:text-[#8E8F99] font-medium">No drawdown markets in this view</span>
               </div>
             ) : (
@@ -1102,7 +1104,7 @@ export function PortfolioAnalytics({
                 <div
                   key={m.key}
                   onClick={() => handleOpenMarketTrade(m)}
-                  className="p-3 rounded-2xl bg-slate-50 dark:bg-[#1C1D22] hover:bg-slate-100 dark:hover:bg-[#24262E] border border-black/[0.04] dark:border-white/5 transition-all cursor-pointer flex items-center justify-between group"
+                  className="p-3.5 rounded-2xl bg-white/60 dark:bg-white/[0.03] hover:bg-white/90 dark:hover:bg-white/[0.07] border border-sky-100/60 dark:border-white/5 transition-all cursor-pointer flex items-center justify-between group shadow-sm"
                 >
                   <div className="min-w-0 pr-3">
                     <p className="text-xs font-semibold text-slate-900 dark:text-white truncate group-hover:text-rose-600 dark:group-hover:text-[#FF453A] transition-colors">{m.question}</p>
@@ -1155,7 +1157,7 @@ export function PortfolioAnalytics({
               setCopied(true);
               setTimeout(() => setCopied(false), 2000);
             }}
-            className="w-full py-3 rounded-full bg-slate-100 dark:bg-[#1C1D22] hover:bg-slate-200 dark:hover:bg-[#24262E] text-slate-800 dark:text-white text-xs font-bold border border-black/5 dark:border-white/5 transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+            className="glass-button w-full py-3 rounded-xl text-slate-800 dark:text-white text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer"
           >
             {copied ? <Check size={14} className="text-[#00D09C]" /> : <Copy size={14} />}
             {copied ? 'Copied to Clipboard' : 'Copy JSON'}
