@@ -75,8 +75,8 @@ export function CumulativePnLChart({ data }: CumulativePnLChartProps) {
 
   if (!continuousData || continuousData.length === 0) {
     return (
-      <div className="w-full h-full flex items-center justify-center bg-slate-50 dark:bg-[#12141A] rounded-2xl border border-black/[0.06] dark:border-white/10">
-        <span className="text-xs text-slate-400 dark:text-zinc-400 font-medium">No trade history recorded in selected timeframe</span>
+      <div className="w-full h-full flex items-center justify-center bg-white/[0.03] rounded-2xl border border-white/10">
+        <span className="text-xs text-white/50 font-medium">No trade history recorded in selected timeframe</span>
       </div>
     );
   }

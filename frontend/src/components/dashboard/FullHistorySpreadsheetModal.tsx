@@ -246,7 +246,7 @@ export function FullHistorySpreadsheetModal({
               <button
                 onClick={() => exportToCSV()}
                 aria-label="Export CSV"
-                className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold shadow-sm transition-all cursor-pointer"
+                className="glass-button flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-white text-xs font-semibold shadow-md transition-all cursor-pointer"
               >
                 <Download size={14} />
                 <span>Export CSV</span>
@@ -254,7 +254,7 @@ export function FullHistorySpreadsheetModal({
               <button
                 onClick={onClose}
                 aria-label="Close modal"
-                className="p-2 text-slate-400 dark:text-[#8E8F99] hover:text-slate-900 dark:hover:text-white hover:bg-sky-50 dark:hover:bg-white/10 rounded-xl transition-colors cursor-pointer"
+                className="p-2 text-slate-400 hover:text-white hover:bg-white/10 rounded-xl transition-colors cursor-pointer"
               >
                 <X size={18} />
               </button>
@@ -262,53 +262,53 @@ export function FullHistorySpreadsheetModal({
           </div>
 
           {/* Aggregate KPI Summary Banner */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 p-4 px-6 bg-sky-50/30 dark:bg-white/[0.02] border-b border-sky-100/60 dark:border-white/10 text-xs">
-            <div className="p-2.5 px-3 glass-card rounded-xl border border-sky-100/60 dark:border-white/5 shadow-2xs">
-              <div className="text-[10px] uppercase font-bold text-slate-400 dark:text-[#8E8F99]">Total Volume Traded</div>
-              <div className="text-sm font-bold font-mono text-slate-900 dark:text-white mt-0.5">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 p-4 px-6 bg-white/[0.02] border-b border-white/10 text-xs">
+            <div className="p-2.5 px-3 glass-card rounded-xl border border-white/5 shadow-2xs">
+              <div className="text-[10px] uppercase font-bold text-slate-400">Total Volume Traded</div>
+              <div className="text-sm font-bold font-mono text-white mt-0.5">
                 ${stats.totalVol.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </div>
             </div>
-            <div className="p-2.5 px-3 glass-card rounded-xl border border-sky-100/60 dark:border-white/5 shadow-2xs">
-              <div className="text-[10px] uppercase font-bold text-slate-400 dark:text-[#8E8F99]">Total Polymarket Fees</div>
-              <div className="text-sm font-bold font-mono text-slate-600 dark:text-[#8E8F99] mt-0.5">
+            <div className="p-2.5 px-3 glass-card rounded-xl border border-white/5 shadow-2xs">
+              <div className="text-[10px] uppercase font-bold text-slate-400">Total Polymarket Fees</div>
+              <div className="text-sm font-bold font-mono text-slate-300 mt-0.5">
                 -${stats.totalFees.toFixed(2)}
               </div>
             </div>
-            <div className="p-2.5 px-3 glass-card rounded-xl border border-sky-100/60 dark:border-white/5 shadow-2xs">
-              <div className="text-[10px] uppercase font-bold text-slate-400 dark:text-[#8E8F99]">Win Rate</div>
-              <div className="text-sm font-bold font-mono text-indigo-600 dark:text-indigo-400 mt-0.5">
+            <div className="p-2.5 px-3 glass-card rounded-xl border border-white/5 shadow-2xs">
+              <div className="text-[10px] uppercase font-bold text-slate-400">Win Rate</div>
+              <div className="text-sm font-bold font-mono text-sky-400 mt-0.5">
                 {stats.winRate.toFixed(1)}%
               </div>
             </div>
-            <div className="p-2.5 px-3 glass-card rounded-xl border border-sky-100/60 dark:border-white/5 shadow-2xs">
-              <div className="text-[10px] uppercase font-bold text-slate-400 dark:text-[#8E8F99]">Simulated Portfolio P&L</div>
-              <div className={`text-sm font-bold font-mono mt-0.5 ${stats.totalPnl >= 0 ? 'text-emerald-600 dark:text-[#00D09C]' : 'text-rose-600 dark:text-[#FF453A]'}`}>
+            <div className="p-2.5 px-3 glass-card rounded-xl border border-white/5 shadow-2xs">
+              <div className="text-[10px] uppercase font-bold text-slate-400">Simulated Portfolio P&L</div>
+              <div className={`text-sm font-bold font-mono mt-0.5 ${stats.totalPnl >= 0 ? 'text-[#00D09C]' : 'text-[#FF453A]'}`}>
                 {stats.totalPnl >= 0 ? '+' : '-'}${Math.abs(stats.totalPnl).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </div>
             </div>
           </div>
 
           {/* Search, Filter Tabs & Sort Controls */}
-          <div className="p-3.5 px-6 border-b border-sky-100/60 dark:border-white/10 bg-white/40 dark:bg-white/[0.01] flex flex-col sm:flex-row items-center justify-between gap-3">
+          <div className="p-3.5 px-6 border-b border-white/10 bg-white/[0.01] flex flex-col sm:flex-row items-center justify-between gap-3">
             <div className="relative w-full sm:w-80">
-              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-[#8E8F99]" />
+              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
               <input
                 type="text"
                 placeholder="Search market, whale, outcome..."
                 aria-label="Search market, whale, outcome"
                 value={search}
                 onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-                className="w-full pl-9 pr-3 py-1.5 text-xs bg-white/60 dark:bg-white/[0.04] text-slate-900 dark:text-white border border-sky-100/60 dark:border-white/10 rounded-xl focus:outline-none focus:border-indigo-500/60 font-mono"
+                className="w-full pl-9 pr-3 py-1.5 text-xs bg-white/[0.06] text-white border border-white/15 rounded-xl focus:outline-none focus:border-sky-400/60 font-mono backdrop-blur-md placeholder:text-slate-400"
               />
             </div>
 
             <div className="flex items-center gap-2 w-full sm:w-auto justify-between sm:justify-end">
-              <div className="flex rounded-full bg-white/60 dark:bg-white/10 p-0.5 border border-sky-100/60 dark:border-white/5 text-[11px] font-semibold">
+              <div className="flex rounded-full bg-white/[0.06] p-0.5 border border-white/10 text-[11px] font-semibold backdrop-blur-md">
                 <button
                   onClick={() => { setStatusFilter('ALL'); setPage(1); }}
                   className={`px-3 py-1 rounded-full transition-all cursor-pointer ${
-                    statusFilter === 'ALL' ? 'bg-slate-950 text-white dark:bg-white dark:text-slate-950 shadow-xs' : 'text-slate-600 dark:text-[#8E8F99]'
+                    statusFilter === 'ALL' ? 'glass-button text-white shadow-xs' : 'text-slate-400 hover:text-white'
                   }`}
                 >
                   All Trades ({logs.length})
@@ -316,7 +316,7 @@ export function FullHistorySpreadsheetModal({
                 <button
                   onClick={() => { setStatusFilter('HOLDING'); setPage(1); }}
                   className={`px-3 py-1 rounded-full transition-all cursor-pointer ${
-                    statusFilter === 'HOLDING' ? 'bg-slate-950 text-white dark:bg-white dark:text-slate-950 shadow-xs' : 'text-slate-600 dark:text-[#8E8F99]'
+                    statusFilter === 'HOLDING' ? 'glass-button text-white shadow-xs' : 'text-slate-400 hover:text-white'
                   }`}
                 >
                   Currently Holding
@@ -324,7 +324,7 @@ export function FullHistorySpreadsheetModal({
                 <button
                   onClick={() => { setStatusFilter('CLOSED'); setPage(1); }}
                   className={`px-3 py-1 rounded-full transition-all cursor-pointer ${
-                    statusFilter === 'CLOSED' ? 'bg-slate-950 text-white dark:bg-white dark:text-slate-950 shadow-xs' : 'text-slate-600 dark:text-[#8E8F99]'
+                    statusFilter === 'CLOSED' ? 'glass-button text-white shadow-xs' : 'text-slate-400 hover:text-white'
                   }`}
                 >
                   Sold / Resolved

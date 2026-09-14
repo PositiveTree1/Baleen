@@ -99,12 +99,12 @@ function LoginForm() {
   };
 
   return (
-    <div className="min-h-screen bg-[#F8F9FB] dark:bg-[#000000] text-slate-900 dark:text-white flex flex-col items-center justify-center p-6 selection:bg-[#00D09C] selection:text-black transition-colors duration-150 relative">
+    <div className="min-h-screen text-white flex flex-col items-center justify-center p-6 selection:bg-[#00D09C] selection:text-black relative z-10">
       {/* Top right theme toggle */}
       <div className="absolute top-6 right-6">
         <button
           onClick={toggleTheme}
-          className="w-10 h-10 rounded-full bg-white dark:bg-[#16171B] hover:bg-slate-100 dark:hover:bg-[#24262E] border border-black/[0.08] dark:border-white/10 text-slate-700 dark:text-white flex items-center justify-center transition-all cursor-pointer shadow-xs focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00D09C]"
+          className="w-10 h-10 rounded-full ctrl-btn text-white flex items-center justify-center transition-all cursor-pointer shadow-xs focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00D09C]"
           aria-label={theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'}
         >
           {theme === 'light' ? <Moon size={16} aria-hidden="true" /> : <Sun size={16} aria-hidden="true" className="text-amber-400" />}
@@ -113,23 +113,23 @@ function LoginForm() {
 
       {/* Responsive Guest Session Transition Overlay */}
       {isGuestBusy && (
-        <div className="fixed inset-0 z-50 bg-[#F8F9FB]/95 dark:bg-[#000000]/95 backdrop-blur-sm flex flex-col items-center justify-center p-6 transition-all duration-300">
+        <div className="fixed inset-0 z-50 bg-[#020b18]/90 backdrop-blur-md flex flex-col items-center justify-center p-6 transition-all duration-300">
           <div className="flex flex-col items-center max-w-sm text-center space-y-4">
             <div className="relative flex items-center justify-center">
               <div className="w-12 h-12 rounded-full border-2 border-[#00D09C] border-t-transparent animate-spin" />
               <Sparkles size={16} className="text-amber-400 absolute" />
             </div>
             <div className="space-y-1.5">
-              <h2 className="text-base font-bold text-slate-950 dark:text-white tracking-tight">
+              <h2 className="text-base font-bold text-white tracking-tight">
                 {guestStatus === 'provisioning' ? 'Provisioning Isolated Sandbox…' : 'Entering Dashboard…'}
               </h2>
-              <p className="text-xs text-slate-500 dark:text-[#8E8F99]">
+              <p className="text-xs text-white/60">
                 Allocating $10,000 pUSD paper trading capital & connecting live whale streams.
               </p>
             </div>
             <button
               onClick={() => { window.location.href = '/dashboard'; }}
-              className="mt-2 text-[11px] text-slate-500 dark:text-slate-400 hover:text-[#00D09C] dark:hover:text-[#00D09C] underline transition-colors cursor-pointer"
+              className="mt-2 text-[11px] text-white/60 hover:text-[#00D09C] underline transition-colors cursor-pointer"
             >
               Taking longer than expected? Click here to enter dashboard →
             </button>
@@ -137,24 +137,24 @@ function LoginForm() {
         </div>
       )}
 
-      <div className="w-full max-w-md p-8 sm:p-9 rounded-[28px] bg-white dark:bg-[#16171B] border border-black/[0.08] dark:border-white/10 shadow-xl space-y-6">
+      <div className="glass-card w-full max-w-md p-8 sm:p-9 rounded-[32px] space-y-6 text-white shadow-2xl">
         <div className="text-center flex flex-col items-center">
           <div className="mb-4">
             <BrandLogo size="lg" />
           </div>
-          <h1 className="text-2xl font-bold tracking-tight text-slate-950 dark:text-white mb-1">Sign in to Baleen</h1>
-          <p className="text-slate-500 dark:text-[#8E8F99] text-xs">Access your automated whale-index dashboard</p>
+          <h1 className="text-2xl font-bold tracking-tight text-white mb-1">Sign in to Baleen</h1>
+          <p className="text-white/60 text-xs">Access your automated whale-index dashboard</p>
         </div>
 
         {displayedError && (
-          <div className="p-3.5 rounded-2xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800/60 text-rose-700 dark:text-rose-400 text-xs text-center font-semibold" role="alert">
+          <div className="p-3.5 rounded-2xl bg-rose-500/15 border border-rose-500/30 text-rose-300 text-xs text-center font-semibold" role="alert">
             {displayedError}
           </div>
         )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label htmlFor="login-email" className="block text-[11px] text-slate-600 dark:text-[#8E8F99] mb-1.5 font-bold">Email Address</label>
+            <label htmlFor="login-email" className="block text-[11px] text-white/70 mb-1.5 font-bold">Email Address</label>
             <input 
               id="login-email"
               type="email" 
@@ -164,12 +164,12 @@ function LoginForm() {
               required
               value={email}
               onChange={e => setEmail(e.target.value)}
-              className="w-full bg-slate-50 dark:bg-[#1C1D22] border border-black/[0.08] dark:border-white/10 rounded-2xl px-4 py-3 text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00D09C] transition-colors"
+              className="w-full bg-white/[0.06] border border-white/15 rounded-2xl px-4 py-3 text-sm text-white placeholder-white/30 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00D09C] transition-colors"
               placeholder="you@domain.com"
             />
           </div>
           <div>
-            <label htmlFor="login-password" className="block text-[11px] text-slate-600 dark:text-[#8E8F99] mb-1.5 font-bold">Password</label>
+            <label htmlFor="login-password" className="block text-[11px] text-white/70 mb-1.5 font-bold">Password</label>
             <input 
               id="login-password"
               type="password" 
@@ -178,13 +178,13 @@ function LoginForm() {
               required
               value={password}
               onChange={e => setPassword(e.target.value)}
-              className="w-full bg-slate-50 dark:bg-[#1C1D22] border border-black/[0.08] dark:border-white/10 rounded-2xl px-4 py-3 text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00D09C] transition-colors"
+              className="w-full bg-white/[0.06] border border-white/15 rounded-2xl px-4 py-3 text-sm text-white placeholder-white/30 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00D09C] transition-colors"
               placeholder="••••••••"
             />
           </div>
           <button 
             type="submit" 
-            className="w-full py-3.5 mt-2 rounded-full bg-slate-950 dark:bg-white text-white dark:text-black text-xs font-bold hover:bg-slate-800 dark:hover:bg-slate-200 transition-all shadow-md cursor-pointer disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00D09C] active:scale-[0.98]"
+            className="w-full py-3.5 mt-2 rounded-full glass-button text-white text-xs font-bold transition-all shadow-md cursor-pointer disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00D09C] active:scale-[0.98]"
             disabled={loading || isGuestBusy}
           >
             {loading ? 'Authenticating…' : 'Sign In'}
@@ -192,28 +192,28 @@ function LoginForm() {
         </form>
 
         <div className="relative flex items-center py-1">
-          <div className="flex-grow border-t border-black/[0.06] dark:border-white/10"></div>
-          <span className="flex-shrink-0 mx-3 text-[10px] uppercase font-mono text-slate-400 dark:text-[#8E8F99] font-bold">or</span>
-          <div className="flex-grow border-t border-black/[0.06] dark:border-white/10"></div>
+          <div className="flex-grow border-t border-white/10"></div>
+          <span className="flex-shrink-0 mx-3 text-[10px] uppercase font-mono text-white/40 font-bold">or</span>
+          <div className="flex-grow border-t border-white/10"></div>
         </div>
 
         <button 
           type="button"
-          className="w-full py-3.5 rounded-full bg-[#F1F3F5] dark:bg-[#1C1D22] hover:bg-[#E2E6EA] dark:hover:bg-[#2C2D35] border border-black/[0.08] dark:border-white/10 text-slate-900 dark:text-white text-xs font-bold transition-all shadow-xs cursor-pointer flex items-center justify-center gap-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00D09C] active:scale-[0.98] disabled:opacity-50"
+          className="w-full py-3.5 rounded-full ctrl-btn text-white text-xs font-bold transition-all shadow-xs cursor-pointer flex items-center justify-center gap-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00D09C] active:scale-[0.98] disabled:opacity-50"
           onClick={handleGuestLogin}
           disabled={loading || isGuestBusy}
         >
           {isGuestBusy ? (
             <Loader2 size={14} className="animate-spin text-[#00D09C]" aria-hidden="true" />
           ) : (
-            <Sparkles size={14} className="text-amber-500" aria-hidden="true" />
+            <Sparkles size={14} className="text-amber-400" aria-hidden="true" />
           )}
           <span>{isGuestBusy ? 'Opening Dashboard…' : 'Explore as Guest (Instant Demo)'}</span>
         </button>
 
-        <p className="text-center text-xs text-slate-500 dark:text-[#8E8F99] pt-2">
+        <p className="text-center text-xs text-white/60 pt-2">
           Don&apos;t have an account?{' '}
-          <Link href="/auth/signup" className="text-slate-950 dark:text-white hover:underline font-bold focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00D09C] rounded-md px-1 py-0.5">
+          <Link href="/auth/signup" className="text-white hover:underline font-bold focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00D09C] rounded-md px-1 py-0.5">
             Create Free Sandbox
           </Link>
         </p>

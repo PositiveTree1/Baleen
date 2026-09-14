@@ -26,11 +26,13 @@ export const metadata: Metadata = {
   description: 'Research Polymarket traders and explore simulated copying in a paper portfolio. Experimental results; real-money execution is unavailable.',
 }
 
+import { LiquidParallaxBackground } from '@/components/landing/LiquidParallaxBackground'
+
 export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
   maximumScale: 5,
-  themeColor: '#F0F7FF',
+  themeColor: '#020b18',
 }
 
 export default function RootLayout({
@@ -40,8 +42,13 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className={`${jakarta.variable} ${outfit.variable} ${cinzel.variable} ${inter.variable} ${spaceGrotesk.variable} font-sans antialiased bg-[#F0F7FF] text-slate-900 min-h-screen flex flex-col transition-colors duration-150`}>
-        <Providers>{children}</Providers>
+      <body className={`${jakarta.variable} ${outfit.variable} ${cinzel.variable} ${inter.variable} ${spaceGrotesk.variable} font-sans antialiased bg-[#020b18] text-white min-h-screen flex flex-col selection:bg-[#00D09C] selection:text-black`}>
+        <Providers>
+          <LiquidParallaxBackground />
+          <div className="relative z-10 flex-1 flex flex-col">
+            {children}
+          </div>
+        </Providers>
       </body>
     </html>
   )

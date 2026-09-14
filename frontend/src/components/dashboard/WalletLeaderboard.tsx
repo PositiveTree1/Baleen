@@ -203,7 +203,7 @@ export function WalletLeaderboard({ userId, onSelectWallet, targetSleeveCount = 
           onClick={handleReevaluate}
           disabled={evaluating}
           aria-label={evaluating ? "Evaluating whales..." : "Scan whales"}
-          className="glass-button flex items-center gap-1.5 px-3 py-1.5 rounded-full text-slate-800 dark:text-white text-xs font-semibold transition-all cursor-pointer disabled:opacity-50"
+          className="glass-button flex items-center gap-1.5 px-3 py-1.5 rounded-full text-white text-xs font-semibold transition-all cursor-pointer disabled:opacity-50"
         >
           <RotateCw size={12} className={evaluating ? "animate-spin text-[#00D09C]" : ""} />
           <span>{evaluating ? "Evaluating..." : "Scan Whales"}</span>
@@ -213,32 +213,32 @@ export function WalletLeaderboard({ userId, onSelectWallet, targetSleeveCount = 
       {/* Search & Tabs */}
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
         <div className="relative flex-1">
-          <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 dark:text-[#8E8F99]" />
+          <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
           <input
             type="text"
             placeholder="Search address or pseudonym..."
             aria-label="Search address or pseudonym"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-9 pr-3 py-2 bg-white/60 dark:bg-white/[0.04] border border-sky-100/60 dark:border-white/10 rounded-full text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-[#8E8F99] focus:outline-none focus:border-indigo-500/40"
+            className="w-full pl-9 pr-3 py-2 bg-white/[0.06] border border-white/15 rounded-full text-xs text-white placeholder-slate-400 focus:outline-none focus:border-sky-400/40 backdrop-blur-md"
           />
         </div>
-        <div className="flex rounded-full bg-white/60 dark:bg-white/[0.04] p-1 border border-sky-100/60 dark:border-white/5 text-[11px] font-bold justify-between sm:justify-start shrink-0">
+        <div className="flex rounded-full bg-white/[0.06] p-1 border border-white/10 text-[11px] font-bold justify-between sm:justify-start shrink-0 backdrop-blur-md">
           <button
             onClick={() => setTab('copied')}
-            className={`flex-1 sm:flex-initial px-3 py-1.5 rounded-full transition-all text-center ${tab === 'copied' ? 'bg-slate-950 text-white dark:bg-white dark:text-slate-950 shadow-xs' : 'text-slate-600 dark:text-[#8E8F99] hover:text-slate-950 dark:hover:text-white'}`}
+            className={`flex-1 sm:flex-initial px-3 py-1.5 rounded-full transition-all text-center ${tab === 'copied' ? 'glass-button text-white shadow-xs' : 'text-slate-400 hover:text-white'}`}
           >
             Copied
           </button>
           <button
             onClick={() => setTab('topActive')}
-            className={`flex-1 sm:flex-initial px-3 py-1.5 rounded-full transition-all text-center ${tab === 'topActive' ? 'bg-slate-950 text-white dark:bg-white dark:text-slate-950 shadow-xs' : 'text-slate-600 dark:text-[#8E8F99] hover:text-slate-950 dark:hover:text-white'}`}
+            className={`flex-1 sm:flex-initial px-3 py-1.5 rounded-full transition-all text-center ${tab === 'topActive' ? 'glass-button text-white shadow-xs' : 'text-slate-400 hover:text-white'}`}
           >
             Top {targetSleeveCount} Active
           </button>
           <button
             onClick={() => setTab('all')}
-            className={`flex-1 sm:flex-initial px-3 py-1.5 rounded-full transition-all text-center ${tab === 'all' ? 'bg-slate-950 text-white dark:bg-white dark:text-slate-950 shadow-xs' : 'text-slate-600 dark:text-[#8E8F99] hover:text-slate-950 dark:hover:text-white'}`}
+            className={`flex-1 sm:flex-initial px-3 py-1.5 rounded-full transition-all text-center ${tab === 'all' ? 'glass-button text-white shadow-xs' : 'text-slate-400 hover:text-white'}`}
           >
             All Tracked
           </button>

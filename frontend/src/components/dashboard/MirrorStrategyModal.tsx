@@ -149,15 +149,15 @@ export function MirrorStrategyModal({ isOpen, onClose, onSelectWallet, targetSle
                 </div>
 
                 <div className="flex items-center gap-3">
-                  <div className="flex rounded-full bg-white/60 dark:bg-white/10 p-0.5 border border-sky-100/60 dark:border-white/5 text-[10px] font-bold">
+                  <div className="flex rounded-full bg-white/[0.06] p-0.5 border border-white/10 text-[10px] font-bold backdrop-blur-md">
                     {[1.0, 1.5, 2.0].map((v) => (
                       <button
                         key={v}
                         type="button"
                         onClick={() => setMultiplier(w.address, v)}
                         aria-label={`Set multiplier ${v}x for ${name}`}
-                        className={`px-2 py-0.5 rounded-full transition-all cursor-pointer ${
-                          mult === v ? 'bg-slate-950 dark:bg-white text-white dark:text-slate-950 shadow-xs' : 'text-slate-600 dark:text-[#8E8F99]'
+                        className={`px-2.5 py-0.5 rounded-full transition-all cursor-pointer ${
+                          mult === v ? 'glass-button text-white shadow-2xs' : 'text-slate-400 hover:text-white'
                         }`}
                       >
                         {v}x
@@ -171,8 +171,8 @@ export function MirrorStrategyModal({ isOpen, onClose, onSelectWallet, targetSle
         </div>
 
         {/* Footer Actions */}
-        <div className="pt-3 border-t border-sky-100/60 dark:border-white/10 flex justify-between items-center">
-          <span className="text-xs text-slate-500 dark:text-[#8E8F99] font-mono">All paper orders simulated via CLOB taker limit</span>
+        <div className="pt-3 border-t border-white/10 flex justify-between items-center">
+          <span className="text-xs text-slate-400 font-mono">All paper orders simulated via CLOB taker limit</span>
           <button
             type="button"
             onClick={() => {
@@ -182,7 +182,7 @@ export function MirrorStrategyModal({ isOpen, onClose, onSelectWallet, targetSle
               }
               onClose();
             }}
-            className="px-6 py-2.5 rounded-xl bg-slate-950 dark:bg-white text-white dark:text-black text-xs font-bold hover:bg-slate-800 dark:hover:bg-slate-200 transition-all cursor-pointer shadow-sm"
+            className="px-6 py-2.5 rounded-xl glass-button text-white text-xs font-bold transition-all cursor-pointer shadow-sm"
           >
             Save Strategy
           </button>

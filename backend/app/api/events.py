@@ -15,9 +15,10 @@ async def get_events(
     limit: int = Query(100, le=500),
     event_type: Optional[str] = None,
     since: Optional[str] = None,
+    days: int = Query(7, ge=1, le=90),
     db: AsyncSession = Depends(get_db)
 ):
-    """Returns recent system events. Falls back to in-memory buffer if DB is empty."""
+    """Returns recent system events. Enforces recency cutoff (default 7 days) and falls back to in-memory buffer."""
     try:
         stmt = select(SystemEvent).order_by(SystemEvent.created_at.desc())
 
@@ -30,6 +31,10 @@ async def get_events(
                 stmt = stmt.where(SystemEvent.created_at >= since_dt)
             except Exception:
                 pass
+        else:
+            # Default to last N days (7 days) to exclude obsolete historical test artifacts
+            cutoff = datetime.utcnow() - timedelta(days=days)
+            stmt = stmt.where(SystemEvent.created_at >= cutoff)
 
         stmt = stmt.limit(limit)
         rows = (await db.execute(stmt)).scalars().all()
@@ -66,3 +71,18 @@ async def get_events(
         }
         for i, e in enumerate(memory_events)
     ]
+
+
+@router.delete("/prune")
+async def prune_stale_events(
+    days: int = Query(7, ge=1, le=90),
+    db: AsyncSession = Depends(get_db)
+):
+    """Prunes system events older than specified days (default 7 days)."""
+    from sqlalchemy import delete
+    cutoff = datetime.utcnow() - timedelta(days=days)
+    stmt = delete(SystemEvent).where(SystemEvent.created_at < cutoff)
+    result = await db.execute(stmt)
+    await db.commit()
+    return {"status": "success", "pruned": result.rowcount, "cutoff": cutoff.isoformat()}
+

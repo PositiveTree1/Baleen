@@ -6,6 +6,7 @@ import json
 import time
 import inspect
 from typing import List, Dict, Optional, Tuple, Any, Set
+from collections import defaultdict
 from datetime import datetime, timezone, timedelta
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, delete, text, func
@@ -388,10 +389,38 @@ def calculate_authentic_wallet_stats(
                 except Exception:
                     pass
 
-    # Map positions by asset and conditionId for avgPrice lookups when older trade logs were truncated
+    # Map conditionId <-> asset (bidirectional, supporting multiple outcome tokens per condition)
+    condition_to_asset: Dict[str, str] = {}
+    asset_to_condition: Dict[str, str] = {}
+    cid_to_assets: Dict[str, Set[str]] = defaultdict(set)
+    for item in list(combined_trades) + list(activity or []) + list(positions or []) + list(closed_positions or []):
+        if isinstance(item, dict):
+            cid_item = str(item.get("conditionId") or "")
+            aid_item = str(item.get("asset") or "")
+            if cid_item and aid_item:
+                condition_to_asset[cid_item] = aid_item
+                asset_to_condition[aid_item] = cid_item
+                cid_to_assets[cid_item].add(aid_item)
+
+    # Track executed trades count per day across all combined_trades
+    daily_executed_trades: Dict[str, int] = {}
+    for t in combined_trades:
+        if not isinstance(t, dict):
+            continue
+        ts_val = float(t.get("timestamp") or t.get("time") or t.get("match_time") or 0.0)
+        if ts_val <= 0.0:
+            continue
+        ts_sec = ts_val / 1000.0 if ts_val > 1e11 else ts_val
+        try:
+            dt_s = datetime.fromtimestamp(ts_sec, timezone.utc).strftime("%Y-%m-%d")
+            daily_executed_trades[dt_s] = daily_executed_trades.get(dt_s, 0) + 1
+        except Exception:
+            continue
+
+    # Map positions and closed_positions by asset and conditionId for avgPrice lookups when older trade logs were truncated
     pos_by_asset: Dict[str, Dict] = {}
     pos_by_condition: Dict[str, Dict] = {}
-    for p in list(positions or []):
+    for p in list(positions or []) + list(closed_positions or []):
         if isinstance(p, dict):
             a_key = str(p.get("asset") or "")
             c_key = str(p.get("conditionId") or "")
@@ -453,9 +482,6 @@ def calculate_authentic_wallet_stats(
                 continue
             act_type = str(act.get("type") or "").upper()
             if act_type in ["REDEMPTION", "REDEEM"]:
-                # Providers may expose the same redemption in multiple pages.
-                # Prefer stable chain/API evidence; the full-record fallback
-                # avoids a broad timestamp-window heuristic when no ID exists.
                 stable_id = act.get("transactionHash") or act.get("txHash") or act.get("id")
                 if stable_id:
                     redemption_key = f"id:{stable_id}"
@@ -476,25 +502,56 @@ def calculate_authentic_wallet_stats(
                 except Exception:
                     continue
 
-                asset = str(act.get("asset") or act.get("conditionId") or "")
+                raw_asset = str(act.get("asset") or "")
+                raw_cid = str(act.get("conditionId") or "")
+                asset = raw_asset or condition_to_asset.get(raw_cid, "")
+                cid = raw_cid or asset_to_condition.get(raw_asset, "")
                 size = float(act.get("size") or act.get("usdcSize") or 0.0)
                 
-                # Retrieve true cost basis: from matched holdings or official position avgPrice
-                if asset in holdings and holdings[asset]["shares"] > 0:
+                # Retrieve true cost basis: from matched holdings, official positions, or buy history
+                avg_p = None
+                if asset and asset in holdings and holdings[asset]["shares"] > 0:
                     avg_p = holdings[asset]["avg_price"]
-                elif asset in pos_by_asset and float(pos_by_asset[asset].get("avgPrice") or 0.0) > 0:
+                elif cid and cid in holdings and holdings[cid]["shares"] > 0:
+                    avg_p = holdings[cid]["avg_price"]
+                elif asset and asset in pos_by_asset and float(pos_by_asset[asset].get("avgPrice") or 0.0) > 0:
                     avg_p = float(pos_by_asset[asset]["avgPrice"])
-                elif asset in pos_by_condition and float(pos_by_condition[asset].get("avgPrice") or 0.0) > 0:
+                elif cid and cid in pos_by_condition and float(pos_by_condition[cid].get("avgPrice") or 0.0) > 0:
+                    avg_p = float(pos_by_condition[cid]["avgPrice"])
+                elif asset and asset in pos_by_condition and float(pos_by_condition[asset].get("avgPrice") or 0.0) > 0:
                     avg_p = float(pos_by_condition[asset]["avgPrice"])
-                else:
-                    # A redemption payout without an observed entry basis is
-                    # real cash movement but not measurable realized PnL.
-                    # Do not invent a 50-cent basis and inflate eligibility.
+                elif cid and cid in cid_to_assets:
+                    for cand_asset in cid_to_assets[cid]:
+                        if cand_asset in holdings and holdings[cand_asset]["shares"] > 0:
+                            avg_p = holdings[cand_asset]["avg_price"]
+                            break
+                        elif cand_asset in pos_by_asset and float(pos_by_asset[cand_asset].get("avgPrice") or 0.0) > 0:
+                            avg_p = float(pos_by_asset[cand_asset]["avgPrice"])
+                            break
+                
+                if avg_p is None:
+                    matching_buys = [
+                        t for t in combined_trades 
+                        if isinstance(t, dict) and str(t.get("side") or "").upper() == "BUY" and (
+                            (asset and str(t.get("asset") or "") == asset) or 
+                            (cid and str(t.get("conditionId") or "") == cid)
+                        )
+                    ]
+                    if matching_buys:
+                        total_buy_shares = sum(float(t.get("size") or 0.0) for t in matching_buys)
+                        total_buy_cost = sum(float(t.get("size") or 0.0) * float(t.get("price") or 0.0) for t in matching_buys)
+                        if total_buy_shares > 0 and total_buy_cost > 0:
+                            avg_p = total_buy_cost / total_buy_shares
+
+                if avg_p is None:
                     continue
 
                 cost_basis = size * avg_p
                 pnl = size - cost_basis
-                accounted_assets.add(asset)
+                if asset:
+                    accounted_assets.add(asset)
+                elif cid:
+                    accounted_assets.add(cid)
 
                 if dt_str not in daily_map:
                     daily_map[dt_str] = {"won": 0.0, "lost": 0.0, "net": 0.0, "count": 0.0}
@@ -510,10 +567,10 @@ def calculate_authentic_wallet_stats(
     for pos in (closed_positions or []):
         if not isinstance(pos, dict):
             continue
-        asset = str(pos.get("asset") or pos.get("conditionId") or "")
-        cid = str(pos.get("conditionId") or "")
-        # Assets are distinct outcome tokens even when they share a condition.
-        # Only use the condition fallback when the closed record has no asset.
+        raw_asset = str(pos.get("asset") or "")
+        raw_cid = str(pos.get("conditionId") or "")
+        asset = raw_asset or condition_to_asset.get(raw_cid, "")
+        cid = raw_cid or asset_to_condition.get(raw_asset, "")
         if (asset and asset in accounted_assets) or (not asset and cid and cid in accounted_assets):
             continue
 
@@ -567,8 +624,9 @@ def calculate_authentic_wallet_stats(
             if dt_str > today_utc:
                 dt_str = parse_date_to_utc_str(cid_latest_ts or aid_latest_ts or latest_trade_ts or today_utc, today_utc)
 
-            accounted_assets.add(asset)
-            if cid:
+            if asset:
+                accounted_assets.add(asset)
+            elif cid:
                 accounted_assets.add(cid)
 
             if dt_str not in daily_map:
@@ -585,6 +643,7 @@ def calculate_authentic_wallet_stats(
     for d_str in sorted(daily_map.keys()):
         d_info = daily_map[d_str]
         running_cum += d_info["net"]
+        daily_trades_count = max(int(d_info["count"]), daily_executed_trades.get(d_str, 0), 1)
         daily_pnl_history.append({
             "date": d_str,
             "won_usd": round(d_info["won"], 2),
@@ -592,7 +651,7 @@ def calculate_authentic_wallet_stats(
             "net_pnl": round(d_info["net"], 2),
             "daily_pnl": round(d_info["net"], 2),
             "cumulative_pnl": round(running_cum, 2),
-            "trades_count": int(d_info["count"])
+            "trades_count": daily_trades_count
         })
 
     # Curve Calibration Guard:

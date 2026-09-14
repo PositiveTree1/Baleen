@@ -15,6 +15,7 @@ import { RebalanceModal } from '@/components/dashboard/RebalanceModal';
 import { DeepAnalyticsModal } from '@/components/dashboard/DeepAnalyticsModal';
 import { ActivityFeed } from '@/components/dashboard/ActivityFeed';
 import { CommandPalette } from '@/components/ui/CommandPalette';
+import { LiquidParallaxBackground } from '@/components/landing/LiquidParallaxBackground';
 import {
   fetchUserSettings,
   fetchPortfolioSummary,
@@ -211,8 +212,7 @@ export default function DashboardPage() {
   const livePnlPct = (liveBalance !== null && liveBalance > 0 && livePnl !== null) ? (livePnl / liveBalance) * 100.0 : null;
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#F0F7FF] dark:bg-[#0F172A] text-[#0F172A] dark:text-white selection:bg-[#0284C7] selection:text-white relative overflow-x-hidden font-sans transition-colors duration-150 pb-[calc(2rem+env(safe-area-inset-bottom,0px))]">
-
+    <div className="min-h-screen flex flex-col bg-[#020b18] text-white selection:bg-[#0284C7] selection:text-white relative overflow-x-hidden font-sans transition-colors duration-150 pb-[calc(2rem+env(safe-area-inset-bottom,0px))]">
       {/* Floating Optical Glass Header */}
       <header className="sticky top-0 z-40 w-full px-2 sm:px-6 lg:px-8 pt-2 sm:pt-3 pb-1">
         <nav className="max-w-7xl mx-auto glass-dock px-3 sm:px-5 py-2 sm:py-2.5 flex items-center justify-between gap-2 sm:gap-4 shadow-lg border border-white/80 dark:border-white/10">
@@ -222,13 +222,13 @@ export default function DashboardPage() {
             <BrandLogo href="/" />
 
             {/* Top View Toggle: Sandbox vs Live Capital */}
-            <div className="flex items-center p-0.5 sm:p-1 rounded-full bg-[#E0F2FE]/50 dark:bg-white/5 border border-sky-200/50 dark:border-white/10 shadow-2xs">
+            <div className="flex items-center p-0.5 sm:p-1 rounded-full bg-white/5 border border-white/10 shadow-2xs">
               <button
                 onClick={() => setViewMode('sandbox')}
                 className={`px-2.5 sm:px-3.5 py-1 sm:py-1.5 rounded-full text-[11px] sm:text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
                   viewMode === 'sandbox'
-                    ? 'glass-button bg-white text-[#0F172A] shadow-xs'
-                    : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                    ? 'glass-button text-white shadow-xs'
+                    : 'text-slate-400 hover:text-white'
                 }`}
               >
                 <span>Sandbox</span>
@@ -239,7 +239,7 @@ export default function DashboardPage() {
                 className={`px-2.5 sm:px-3.5 py-1 sm:py-1.5 rounded-full text-[11px] sm:text-xs font-bold transition-all flex items-center gap-1 sm:gap-1.5 cursor-pointer whitespace-nowrap ${
                   viewMode === 'live'
                     ? 'glass-button bg-gradient-to-r from-sky-500 to-cyan-500 text-white shadow-xs font-extrabold'
-                    : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                    : 'text-slate-400 hover:text-white'
                 }`}
               >
                 <span className={`w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full shrink-0 ${liveDashboard?.is_live_active ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'}`} />
@@ -254,11 +254,11 @@ export default function DashboardPage() {
             type="button"
             onClick={() => setCommandPaletteOpen(true)}
             aria-label="Open command palette search (Command + K)"
-            className="hidden xl:flex items-center gap-2.5 px-4 py-2 rounded-full glass-button border border-sky-200/60 dark:border-white/10 text-xs text-slate-600 dark:text-slate-300 w-64 hover:scale-[1.02] active:scale-[0.98] transition-all cursor-pointer shadow-xs focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0284C7]"
+            className="hidden xl:flex items-center gap-2.5 px-4 py-2 rounded-full glass-button border border-white/10 text-xs text-slate-300 w-64 hover:scale-[1.02] active:scale-[0.98] transition-all cursor-pointer shadow-xs focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0284C7]"
           >
-            <Search size={14} className="text-[#0284C7] dark:text-[#38BDF8]" aria-hidden="true" />
-            <span className="text-slate-600 dark:text-slate-300 font-medium">Search markets, whales...</span>
-            <span className="ml-auto text-[10px] font-mono bg-white/80 dark:bg-white/10 px-1.5 py-0.5 rounded text-slate-700 dark:text-white shadow-2xs border border-sky-100 dark:border-white/5">⌘K</span>
+            <Search size={14} className="text-[#38BDF8]" aria-hidden="true" />
+            <span className="text-slate-300 font-medium">Search markets, whales...</span>
+            <span className="ml-auto text-[10px] font-mono bg-white/10 px-1.5 py-0.5 rounded text-white shadow-2xs border border-white/10">⌘K</span>
           </button>
 
           {/* Right: Circular Icon Actions with fluid spring physics */}
@@ -311,7 +311,7 @@ export default function DashboardPage() {
             {session?.user?.isAdmin && (
               <Link
                 href="/admin"
-                className="text-[10px] sm:text-xs font-bold text-slate-900 dark:text-white px-2 sm:px-3 py-1 sm:py-1.5 rounded-full glass-button border border-sky-200/60 dark:border-white/10 transition-all shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0284C7]"
+                className="text-[10px] sm:text-xs font-bold text-white px-2 sm:px-3 py-1 sm:py-1.5 rounded-full glass-button border border-white/10 transition-all shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0284C7]"
                 aria-label="Go to Admin Panel"
               >
                 Admin
@@ -320,7 +320,7 @@ export default function DashboardPage() {
 
             <Link
               href="/settings"
-              className="w-8 h-8 sm:w-9 sm:h-9 md:w-10 md:h-10 rounded-full glass-button border border-sky-200/60 dark:border-white/10 text-slate-700 dark:text-white flex items-center justify-center transition-all shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0284C7]"
+              className="w-8 h-8 sm:w-9 sm:h-9 md:w-10 md:h-10 rounded-full glass-button border border-white/10 text-white flex items-center justify-center transition-all shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0284C7]"
               aria-label="Go to User Settings"
             >
               <Settings size={14} aria-hidden="true" className="sm:w-[15px] sm:h-[15px]" />
@@ -338,7 +338,7 @@ export default function DashboardPage() {
                   window.alert('Sign out could not be completed. Please retry when the connection is restored.');
                 }
               }}
-              className="w-8 h-8 sm:w-9 sm:h-9 md:w-10 md:h-10 rounded-full glass-button hover:bg-rose-50 dark:hover:bg-rose-950/60 border border-sky-200/60 dark:border-white/10 text-slate-700 dark:text-slate-400 hover:text-rose-600 dark:hover:text-[#FF453A] flex items-center justify-center transition-all cursor-pointer shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-500"
+              className="w-8 h-8 sm:w-9 sm:h-9 md:w-10 md:h-10 rounded-full glass-button hover:bg-rose-950/60 border border-white/10 text-slate-300 hover:text-rose-400 flex items-center justify-center transition-all cursor-pointer shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-500"
               aria-label="Sign out of Baleen"
             >
               <LogOut size={14} aria-hidden="true" className="sm:w-[15px] sm:h-[15px]" />
@@ -463,7 +463,7 @@ export default function DashboardPage() {
                 {!liveDashboard?.is_configured ? (
                   <Link
                     href="/settings"
-                    className="glass-button px-5 py-2.5 rounded-full bg-[#0F172A] dark:bg-white text-white dark:text-[#0F172A] hover:opacity-90 text-xs font-bold transition-all shadow-sm flex items-center gap-1.5"
+                    className="glass-button px-5 py-2.5 rounded-full text-white text-xs font-bold transition-all shadow-sm flex items-center gap-1.5"
                   >
                     <Settings size={13} />
                     <span>Configure L2 Keys in Settings</span>
@@ -471,7 +471,7 @@ export default function DashboardPage() {
                 ) : (
                   <Link
                     href="/settings"
-                    className="glass-button px-4 py-2 rounded-full text-xs font-semibold text-[#0F172A] dark:text-white transition-all flex items-center gap-1.5"
+                    className="glass-button px-4 py-2 rounded-full text-xs font-semibold text-white transition-all flex items-center gap-1.5"
                   >
                     <span>Manage Keys</span>
                     <ExternalLink size={12} />

@@ -97,17 +97,17 @@ export function ActivityFeed({ isOpen, onClose }: ActivityFeedProps) {
         role="dialog"
         aria-modal="true"
         aria-label="Activity Feed"
-        className="fixed right-0 top-0 h-full w-full max-w-md bg-white dark:bg-[#0F172A] text-slate-900 dark:text-white border-l border-sky-100 dark:border-white/10 shadow-2xl z-50 flex flex-col animate-in slide-in-from-right duration-200"
+        className="fixed right-0 top-0 h-full w-full max-w-md bg-[#020b18]/95 text-white border-l border-white/15 backdrop-blur-2xl shadow-2xl z-50 flex flex-col animate-in slide-in-from-right duration-200"
       >
         {/* Header */}
-        <div className="flex items-center justify-between p-5 border-b border-sky-100/60 dark:border-white/10 bg-sky-50/40 dark:bg-white/[0.02]">
+        <div className="flex items-center justify-between p-5 border-b border-white/10 bg-white/[0.02]">
           <div className="flex items-center gap-2.5">
-            <div className="p-2 rounded-xl bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-500/20">
+            <div className="p-2 rounded-xl bg-sky-500/10 text-sky-400 border border-sky-500/20">
               <Bell size={16} />
             </div>
             <div>
-              <h2 className="text-sm font-bold text-slate-900 dark:text-white">Activity Feed</h2>
-              <p className="text-[11px] text-slate-500 dark:text-[#8E8F99] font-medium">{events.length} events</p>
+              <h2 className="text-sm font-bold text-white">Activity Feed</h2>
+              <p className="text-[11px] text-slate-400 font-medium">{events.length} events</p>
             </div>
           </div>
           <LiquidOrbButton
@@ -121,16 +121,16 @@ export function ActivityFeed({ isOpen, onClose }: ActivityFeedProps) {
         </div>
 
         {/* Filters */}
-        <div className="flex items-center gap-1.5 px-5 py-3 border-b border-sky-100/60 dark:border-white/5 overflow-x-auto">
-          <Filter size={12} className="text-slate-400 dark:text-[#8E8F99] shrink-0" />
+        <div className="flex items-center gap-1.5 px-5 py-3 border-b border-white/10 overflow-x-auto">
+          <Filter size={12} className="text-slate-400 shrink-0" />
           {filters.map((f) => (
             <button
               key={f.key}
               onClick={() => setFilter(f.key)}
               className={`px-3 py-1 rounded-full text-[11px] font-semibold transition-all cursor-pointer whitespace-nowrap ${
                 filter === f.key
-                  ? 'bg-slate-950 dark:bg-white text-white dark:text-slate-950 shadow-xs'
-                  : 'text-slate-600 dark:text-[#8E8F99] hover:text-slate-900 dark:hover:text-white hover:bg-white/40 dark:hover:bg-white/5'
+                  ? 'glass-button text-white shadow-xs'
+                  : 'text-slate-400 hover:text-white hover:bg-white/5'
               }`}
             >
               {f.label}

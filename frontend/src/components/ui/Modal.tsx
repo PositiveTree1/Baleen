@@ -315,18 +315,18 @@ export function Modal({
           >
             {/* Header */}
             {title ? (
-              <div className="flex justify-between items-center px-5 sm:px-6 py-4 border-b border-sky-100/60 dark:border-white/10 bg-sky-50/40 dark:bg-white/[0.02] shrink-0">
+              <div className="flex justify-between items-center px-5 sm:px-6 py-4 border-b border-white/10 bg-white/[0.02] shrink-0">
                 <div className="pr-4">
                   <h3
                     id={titleId}
-                    className="text-sm sm:text-base font-bold text-slate-950 dark:text-white tracking-tight"
+                    className="text-sm sm:text-base font-bold text-white tracking-tight"
                   >
                     {title}
                   </h3>
                   {subtitle && (
                     <p
                       id={descriptionId}
-                      className="text-xs text-slate-500 dark:text-[#8E8F99] mt-0.5"
+                      className="text-xs text-slate-400 mt-0.5"
                     >
                       {subtitle}
                     </p>
@@ -338,7 +338,7 @@ export function Modal({
                     type="button"
                     onClick={onClose}
                     aria-label="Close dialog"
-                    className="w-8 h-8 rounded-full flex items-center justify-center text-slate-500 dark:text-[#8E8F99] hover:text-slate-900 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/10 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/40 ml-auto shrink-0 cursor-pointer"
+                    className="w-8 h-8 rounded-full flex items-center justify-center text-slate-400 hover:text-white hover:bg-white/10 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/40 ml-auto shrink-0 cursor-pointer"
                   >
                     <X size={16} aria-hidden="true" />
                   </button>
@@ -350,7 +350,7 @@ export function Modal({
                 type="button"
                 onClick={onClose}
                 aria-label="Close dialog"
-                className="absolute top-4 right-4 z-20 w-8 h-8 rounded-full flex items-center justify-center text-slate-500 dark:text-[#8E8F99] hover:text-slate-900 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/10 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/40 cursor-pointer"
+                className="absolute top-4 right-4 z-20 w-8 h-8 rounded-full flex items-center justify-center text-slate-400 hover:text-white hover:bg-white/10 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/40 cursor-pointer"
               >
                 <X size={16} aria-hidden="true" />
               </button>
@@ -360,7 +360,7 @@ export function Modal({
             <div
               className={
                 contentClassName ??
-                'p-5 sm:p-6 text-slate-900 dark:text-white overflow-y-auto overscroll-contain flex-1'
+                'p-5 sm:p-6 text-white overflow-y-auto overscroll-contain flex-1'
               }
             >
               {children}

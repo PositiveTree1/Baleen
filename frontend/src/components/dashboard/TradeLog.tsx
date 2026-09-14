@@ -126,11 +126,11 @@ export function TradeLog({
 
           <div className="flex items-center gap-2">
             {/* Arctic Glass Segmented Pill Filter */}
-            <div className="flex rounded-full bg-[#E0F2FE]/60 dark:bg-white/5 p-1 border border-sky-200/50 dark:border-white/10 text-xs font-bold">
+            <div className="flex rounded-full bg-white/5 p-1 border border-white/10 text-xs font-bold">
               <button
                 onClick={() => setTab('holding')}
                 className={`px-3.5 py-1.5 rounded-full transition-all cursor-pointer ${
-                  tab === 'holding' ? 'glass-button bg-white text-[#0F172A] shadow-xs' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                  tab === 'holding' ? 'glass-button text-white shadow-xs' : 'text-slate-400 hover:text-white'
                 }`}
               >
                 Holding ({totalHoldingCount ?? holdingLogs.length})
@@ -138,7 +138,7 @@ export function TradeLog({
               <button
                 onClick={() => setTab('closed')}
                 className={`px-3.5 py-1.5 rounded-full transition-all cursor-pointer ${
-                  tab === 'closed' ? 'glass-button bg-white text-[#0F172A] shadow-xs' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                  tab === 'closed' ? 'glass-button text-white shadow-xs' : 'text-slate-400 hover:text-white'
                 }`}
               >
                 Closed ({totalClosedCount ?? closedLogs.length})
@@ -148,10 +148,10 @@ export function TradeLog({
             <button
               onClick={() => setIsSpreadsheetOpen(true)}
               aria-label="Open full execution history modal"
-              className="glass-button flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-slate-800 dark:text-white text-xs font-semibold border border-sky-200/60 dark:border-white/15 transition-all cursor-pointer shadow-xs active:scale-95"
+              className="glass-button flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-white text-xs font-semibold border border-white/15 transition-all cursor-pointer shadow-xs active:scale-95"
               title="Open full execution history modal"
             >
-              <FileSpreadsheet size={13} className="text-[#0284C7] dark:text-[#38BDF8]" />
+              <FileSpreadsheet size={13} className="text-[#38BDF8]" />
               <span className="hidden sm:inline">Export Audit</span>
             </button>
           </div>

@@ -51,17 +51,17 @@ export function BalanceCounter({
   return (
     <div className="glass-card p-5 sm:p-7 rounded-[28px] border border-sky-100/80 dark:border-white/10 shadow-sm flex flex-col items-start gap-3 sm:gap-4 select-none w-full">
       {/* Subtitle & Badge */}
-      <div className="flex items-center gap-2 text-xs font-semibold text-slate-500 dark:text-slate-400">
+      <div className="flex items-center gap-2 text-xs font-semibold text-slate-300">
         <span>Personal · USD</span>
-        <span className="w-1 h-1 rounded-full bg-slate-400 dark:bg-slate-500" aria-hidden="true" />
-        <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold text-[#0F172A] dark:text-white bg-white/90 dark:bg-white/10 border border-sky-200/60 dark:border-white/10 shadow-2xs">
+        <span className="w-1 h-1 rounded-full bg-slate-400" aria-hidden="true" />
+        <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold text-white bg-white/10 border border-white/20 shadow-2xs">
           Sandbox
         </span>
       </div>
 
       {/* Main Authoritative Balance */}
       <div className="flex flex-col sm:flex-row sm:items-baseline gap-2 sm:gap-3" aria-live="polite">
-        <h1 className="text-3xl sm:text-5xl lg:text-6xl font-bold tracking-tight text-[#0F172A] dark:text-white font-outfit tabular-nums">
+        <h1 className="text-3xl sm:text-5xl lg:text-6xl font-bold tracking-tight text-white font-outfit tabular-nums">
           {balance === null || balance === undefined ? <span>Unavailable</span> : <motion.span>{displayValue}</motion.span>}
         </h1>
 
@@ -69,8 +69,8 @@ export function BalanceCounter({
         {hasPnl && (
           <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] sm:text-xs font-bold font-mono tabular-nums border shadow-2xs ${
             isPositive 
-              ? 'text-emerald-700 dark:text-[#00D09C] bg-emerald-50/80 dark:bg-[#00D09C]/10 border-emerald-200/80 dark:border-[#00D09C]/20' 
-              : 'text-rose-700 dark:text-[#FF453A] bg-rose-50/80 dark:bg-[#FF453A]/10 border-rose-200/80 dark:border-[#FF453A]/20'
+              ? 'text-emerald-400 bg-emerald-500/10 border-emerald-400/30' 
+              : 'text-rose-400 bg-rose-500/10 border-rose-400/30'
           }`}>
             {isPositive ? <TrendingUp size={12} aria-hidden="true" /> : <TrendingDown size={12} aria-hidden="true" />}
             <span>
@@ -90,11 +90,11 @@ export function BalanceCounter({
             transition={{ type: 'spring', stiffness: 400, damping: 25 }}
             onClick={onMirrorClick}
             aria-label="Mirror top Polymarket whales"
-            className="w-12 h-12 sm:w-14 sm:h-14 rounded-full glass-button border border-sky-200/70 dark:border-white/15 flex items-center justify-center cursor-pointer shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0284C7] focus-visible:ring-offset-2"
+            className="w-12 h-12 sm:w-14 sm:h-14 rounded-full glass-button flex items-center justify-center cursor-pointer shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0284C7] focus-visible:ring-offset-2"
           >
-            <Plus size={20} className="text-[#0F172A] dark:text-white" aria-hidden="true" />
+            <Plus size={20} className="text-white" aria-hidden="true" />
           </motion.button>
-          <span className="text-[11px] sm:text-xs font-bold text-[#1E293B] dark:text-slate-200">Mirror</span>
+          <span className="text-[11px] sm:text-xs font-bold text-slate-200">Mirror</span>
         </div>
 
         {/* Action 2: Move / Rebalance */}
@@ -105,11 +105,11 @@ export function BalanceCounter({
             transition={{ type: 'spring', stiffness: 400, damping: 25 }}
             onClick={onRebalanceClick}
             aria-label="Rebalance basket allocation"
-            className="w-12 h-12 sm:w-14 sm:h-14 rounded-full glass-button border border-sky-200/70 dark:border-white/15 flex items-center justify-center cursor-pointer shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0284C7] focus-visible:ring-offset-2"
+            className="w-12 h-12 sm:w-14 sm:h-14 rounded-full glass-button flex items-center justify-center cursor-pointer shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0284C7] focus-visible:ring-offset-2"
           >
-            <ArrowLeftRight size={18} className="text-[#0F172A] dark:text-white" aria-hidden="true" />
+            <ArrowLeftRight size={18} className="text-white" aria-hidden="true" />
           </motion.button>
-          <span className="text-[11px] sm:text-xs font-bold text-[#1E293B] dark:text-slate-200">Rebalance</span>
+          <span className="text-[11px] sm:text-xs font-bold text-slate-200">Rebalance</span>
         </div>
 
         {/* Action 3: Analytics */}
@@ -120,11 +120,11 @@ export function BalanceCounter({
             transition={{ type: 'spring', stiffness: 400, damping: 25 }}
             onClick={onAnalyticsClick}
             aria-label="View portfolio analytics"
-            className="w-12 h-12 sm:w-14 sm:h-14 rounded-full glass-button border border-sky-200/70 dark:border-white/15 flex items-center justify-center cursor-pointer shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0284C7] focus-visible:ring-offset-2"
+            className="w-12 h-12 sm:w-14 sm:h-14 rounded-full glass-button flex items-center justify-center cursor-pointer shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0284C7] focus-visible:ring-offset-2"
           >
-            <BarChart2 size={18} className="text-[#0F172A] dark:text-white" aria-hidden="true" />
+            <BarChart2 size={18} className="text-white" aria-hidden="true" />
           </motion.button>
-          <span className="text-[11px] sm:text-xs font-bold text-[#1E293B] dark:text-slate-200">Analytics</span>
+          <span className="text-[11px] sm:text-xs font-bold text-slate-200">Analytics</span>
         </div>
 
         {/* Action 4: Reset */}
@@ -136,11 +136,11 @@ export function BalanceCounter({
               transition={{ type: 'spring', stiffness: 400, damping: 25 }}
               onClick={onResetClick}
               aria-label="Reset sandbox balance"
-              className="w-12 h-12 sm:w-14 sm:h-14 rounded-full glass-button hover:bg-rose-50 dark:hover:bg-rose-950/40 border border-sky-200/70 dark:border-white/15 hover:border-rose-400/50 flex items-center justify-center cursor-pointer shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-500 focus-visible:ring-offset-2"
+              className="w-12 h-12 sm:w-14 sm:h-14 rounded-full glass-button hover:bg-rose-950/40 hover:border-rose-400/50 flex items-center justify-center cursor-pointer shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-500 focus-visible:ring-offset-2"
             >
-              <RotateCcw size={17} className="text-slate-600 dark:text-slate-300 hover:text-rose-600" aria-hidden="true" />
+              <RotateCcw size={17} className="text-slate-300 hover:text-rose-400" aria-hidden="true" />
             </motion.button>
-            <span className="text-[11px] sm:text-xs font-bold text-[#1E293B] dark:text-slate-200">Reset</span>
+            <span className="text-[11px] sm:text-xs font-bold text-slate-200">Reset</span>
           </div>
         )}
       </div>

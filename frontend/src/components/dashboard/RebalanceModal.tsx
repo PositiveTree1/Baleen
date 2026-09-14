@@ -140,11 +140,11 @@ export function RebalanceModal({ isOpen, onClose, onRebalanceExecute }: Rebalanc
         </div>
 
         {/* Footer Actions */}
-        <div className="pt-3 border-t border-sky-100/60 dark:border-white/10 flex justify-between items-center">
+        <div className="pt-3 border-t border-white/10 flex justify-between items-center">
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2.5 rounded-xl text-slate-500 dark:text-[#8E8F99] text-xs font-semibold hover:text-slate-900 dark:hover:text-white transition-colors cursor-pointer"
+            className="glass-button px-4 py-2.5 rounded-xl text-slate-300 text-xs font-semibold hover:text-white transition-colors cursor-pointer"
           >
             Cancel
           </button>
@@ -152,9 +152,9 @@ export function RebalanceModal({ isOpen, onClose, onRebalanceExecute }: Rebalanc
             type="button"
             onClick={handleExecute}
             disabled={isExecuting || success}
-            className="px-6 py-2.5 rounded-xl bg-slate-950 dark:bg-white text-white dark:text-black text-xs font-bold hover:bg-slate-800 dark:hover:bg-slate-200 transition-all cursor-pointer flex items-center gap-1.5 shadow-sm disabled:opacity-50"
+            className="glass-button px-6 py-2.5 rounded-xl text-white text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 shadow-md disabled:opacity-50"
           >
-            {isExecuting && <RefreshCw size={13} className="animate-spin" />}
+            {isExecuting && <RefreshCw size={13} className="animate-spin text-sky-400" />}
             {success ? '✓ Paper Weights Updated!' : 'Update Paper Weights'}
           </button>
         </div>

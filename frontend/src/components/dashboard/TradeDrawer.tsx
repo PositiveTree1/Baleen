@@ -64,12 +64,12 @@ export function TradeDrawer({ trade, onClose, onSelectWallet }: TradeDrawerProps
           role="dialog"
           aria-modal="true"
           aria-label="Trade Execution Drawer"
-          className="relative w-full max-w-full sm:max-w-lg bg-white dark:bg-[#0F172A] text-slate-900 dark:text-white shadow-2xl z-50 flex flex-col h-full border-l border-sky-100 dark:border-white/10"
+          className="relative w-full max-w-full sm:max-w-lg bg-[#020b18]/95 text-white shadow-2xl z-50 flex flex-col h-full border-l border-white/15 backdrop-blur-2xl"
         >
           {/* Header */}
-          <div className="p-4 sm:p-6 border-b border-sky-100/60 dark:border-white/10 bg-sky-50/40 dark:bg-white/[0.02] flex items-center justify-between">
+          <div className="p-4 sm:p-6 border-b border-white/10 bg-white/[0.02] flex items-center justify-between">
             <div className="flex items-center gap-2.5 sm:gap-3">
-              <div className={`p-2 sm:p-2.5 rounded-2xl border ${isBuy ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-600 dark:text-[#00D09C]' : 'bg-rose-500/10 border-rose-500/20 text-rose-600 dark:text-[#FF453A]'}`}>
+              <div className={`p-2 sm:p-2.5 rounded-2xl border ${isBuy ? 'bg-emerald-500/10 border-emerald-500/20 text-[#00D09C]' : 'bg-rose-500/10 border-rose-500/20 text-[#FF453A]'}`}>
                 {isBuy ? <ArrowUpRight size={18} /> : <ArrowDownRight size={18} />}
               </div>
               <div>
@@ -212,7 +212,7 @@ export function TradeDrawer({ trade, onClose, onSelectWallet }: TradeDrawerProps
               {trade.walletAddress && onSelectWallet && (
                 <button
                   onClick={() => onSelectWallet(trade.walletAddress!)}
-                  className="glass-button px-3 py-1.5 rounded-full text-xs font-bold text-slate-900 dark:text-white transition-all cursor-pointer"
+                  className="glass-button px-3 py-1.5 rounded-full text-xs font-bold text-white transition-all cursor-pointer"
                 >
                   View Whale
                 </button>
@@ -224,7 +224,7 @@ export function TradeDrawer({ trade, onClose, onSelectWallet }: TradeDrawerProps
               href={polyUrl}
               target="_blank"
               rel="noreferrer"
-              className="w-full py-3 rounded-xl bg-slate-950 dark:bg-white text-white dark:text-black text-xs font-bold flex items-center justify-center gap-2 hover:bg-slate-800 dark:hover:bg-slate-200 transition-all cursor-pointer shadow-sm"
+              className="w-full py-3.5 rounded-2xl glass-button text-white text-xs font-bold flex items-center justify-center gap-2 cursor-pointer shadow-lg"
             >
               <span>Inspect on Polymarket Orderbook</span>
               <ExternalLink size={14} />

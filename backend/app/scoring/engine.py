@@ -136,6 +136,12 @@ def score_wallet(wallet_stats: dict) -> ScoringResult:
     if unrealized_open_pnl < -25000.0 or (pnl > 0 and abs(min(0.0, unrealized_open_pnl)) > 0.35 * pnl):
         return ScoringResult("rejected", None, "OPEN_POSITION_DRAWDOWN_EXCEEDED", False)
 
+    # FILTER 17: Latency Arbitrage / Fast-Twitch Scalper Disqualification
+    # Wallets with median holding duration < 5 minutes (300 seconds) are toxic latency-arb bots
+    median_hold_sec = wallet_stats.get('median_holding_time_seconds') if wallet_stats.get('median_holding_time_seconds') is not None else wallet_stats.get('median_hold_seconds')
+    if median_hold_sec is not None and float(median_hold_sec) < 300.0:
+        return ScoringResult("rejected", None, "HFT_LATENCY_ARBITRAGEUR_DETECTED", False)
+
     # TIER: Gold Sniper Elite Tier (Spec v2 Part B)
     # 1. Verified win rate >= 70.0%
     # 2. Max drawdown <= 15.0%

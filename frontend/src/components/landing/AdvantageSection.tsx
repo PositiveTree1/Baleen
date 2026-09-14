@@ -49,18 +49,18 @@ const advantages = [
 
 export function AdvantageSection() {
   return (
-    <section id="advantages" className="relative overflow-hidden px-4 sm:px-6 lg:px-8 py-24 sm:py-32 border-b border-sky-100/80">
+    <section id="advantages" className="relative overflow-hidden px-4 sm:px-6 lg:px-8 py-24 sm:py-32 border-b border-white/10">
       <div className="relative z-10 mx-auto max-w-[1240px]">
         {/* Section Header */}
         <div className="max-w-2xl">
-          <span className="font-mono text-xs font-bold tracking-widest text-sky-700 uppercase">
+          <span className="font-mono text-xs font-bold tracking-widest text-sky-400 uppercase">
             ARCHITECTURAL ADVANTAGE
           </span>
-          <h2 className="mt-3 font-outfit text-3xl sm:text-5xl font-black leading-[1.02] tracking-tight text-slate-950">
+          <h2 className="mt-3 font-outfit text-3xl sm:text-5xl font-black leading-[1.02] tracking-tight text-white">
             Built like an institution.
-            <span className="block text-slate-600 font-extrabold">Engineered for copy alpha.</span>
+            <span className="block text-slate-400 font-extrabold">Engineered for copy alpha.</span>
           </h2>
-          <p className="mt-4 text-sm sm:text-base text-slate-600 leading-relaxed">
+          <p className="mt-4 text-sm sm:text-base text-slate-300 leading-relaxed">
             Standard copy trading blindsides retail investors with slippage and contagion. Baleen enforces mathematical safeguards built specifically for binary prediction markets.
           </p>
         </div>
@@ -79,30 +79,30 @@ export function AdvantageSection() {
                 <div>
                   {/* Top Bar: Icon + Kicker */}
                   <div className="flex items-center justify-between">
-                    <div className="grid size-11 place-items-center rounded-2xl border border-sky-100 bg-sky-50/80 shadow-xs">
+                    <div className="grid size-11 place-items-center rounded-2xl border border-white/15 bg-white/[0.06] shadow-xs">
                       <adv.icon size={20} style={{ color: adv.color }} />
                     </div>
-                    <span className="rounded-full border border-sky-100 bg-white/80 px-2.5 py-1 font-mono text-[10px] font-bold tracking-wider text-slate-700 shadow-xs">
+                    <span className="rounded-full border border-white/15 bg-white/[0.06] px-2.5 py-1 font-mono text-[10px] font-bold tracking-wider text-slate-300 shadow-xs">
                       {adv.kicker}
                     </span>
                   </div>
 
                   {/* Title & Description */}
-                  <h3 className="mt-5 font-outfit text-xl font-bold tracking-tight text-slate-950">
+                  <h3 className="mt-5 font-outfit text-xl font-bold tracking-tight text-white">
                     {adv.title}
                   </h3>
-                  <p className="mt-3 text-xs sm:text-sm leading-relaxed text-slate-600 font-sans">
+                  <p className="mt-3 text-xs sm:text-sm leading-relaxed text-slate-300 font-sans">
                     {adv.description}
                   </p>
                 </div>
 
                 {/* Bottom Metric Stat */}
-                <div className="mt-8 border-t border-sky-100/80 pt-4 flex items-center justify-between font-mono">
+                <div className="mt-8 border-t border-white/10 pt-4 flex items-center justify-between font-mono">
                   <div>
-                    <div className="text-2xl font-black text-slate-950 tabular-nums tracking-tight">
+                    <div className="text-2xl font-black text-white tabular-nums tracking-tight">
                       {adv.stat}
                     </div>
-                    <div className="text-[10px] font-semibold text-slate-500">{adv.statLabel}</div>
+                    <div className="text-[10px] font-semibold text-slate-400">{adv.statLabel}</div>
                   </div>
                   <div
                     className="size-2 rounded-full"

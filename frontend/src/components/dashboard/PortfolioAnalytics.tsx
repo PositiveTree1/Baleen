@@ -693,11 +693,11 @@ export function PortfolioAnalytics({
           {/* Controls: Chart Type Toggle & Arctic Timeframe Pills */}
           <div className="flex flex-wrap sm:flex-nowrap items-center justify-between sm:justify-end gap-2 w-full sm:w-auto">
             {/* Area vs Candle Toggle */}
-            <div className="flex items-center bg-[#E0F2FE]/60 dark:bg-white/5 p-1 rounded-full border border-sky-200/50 dark:border-white/10">
+            <div className="flex items-center bg-white/5 p-1 rounded-full border border-white/10">
               <button
                 onClick={() => setChartType('area')}
                 className={`p-1.5 rounded-full text-xs font-bold transition-all cursor-pointer active:scale-95 ${
-                  chartType === 'area' ? 'glass-button bg-white text-[#0F172A] shadow-xs' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                  chartType === 'area' ? 'glass-button text-white shadow-xs' : 'text-slate-400 hover:text-white'
                 }`}
                 title="Line / Area View"
               >
@@ -706,7 +706,7 @@ export function PortfolioAnalytics({
               <button
                 onClick={() => setChartType('candles')}
                 className={`p-1.5 rounded-full text-xs font-bold transition-all cursor-pointer active:scale-95 ${
-                  chartType === 'candles' ? 'glass-button bg-white text-[#0F172A] shadow-xs' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                  chartType === 'candles' ? 'glass-button text-white shadow-xs' : 'text-slate-400 hover:text-white'
                 }`}
                 title="Candlestick (OHLC) Trader View"
               >
@@ -715,7 +715,7 @@ export function PortfolioAnalytics({
             </div>
 
             {/* Arctic Timeframe Pills */}
-            <div className="flex items-center gap-0.5 sm:gap-1 bg-[#E0F2FE]/60 dark:bg-white/5 p-1 rounded-full border border-sky-200/50 dark:border-white/10 overflow-x-auto max-w-full no-scrollbar">
+            <div className="flex items-center gap-0.5 sm:gap-1 bg-white/5 p-1 rounded-full border border-white/10 overflow-x-auto max-w-full no-scrollbar">
               {(['1H', '6H', '1D', '1W', '1M', 'YTD', 'ALL'] as const).map((tf) => {
                 const isActive = timeframe === tf;
                 return (
@@ -723,7 +723,7 @@ export function PortfolioAnalytics({
                     key={tf}
                     onClick={() => setTimeframe(tf)}
                     className={`px-2.5 sm:px-3 py-1 rounded-full text-[11px] sm:text-xs font-bold transition-all cursor-pointer whitespace-nowrap active:scale-95 ${
-                      isActive ? 'glass-button bg-white text-[#0F172A] shadow-xs' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                      isActive ? 'glass-button text-white shadow-xs' : 'text-slate-400 hover:text-white'
                     }`}
                   >
                     {tf}
@@ -1163,7 +1163,7 @@ export function PortfolioAnalytics({
               setCopied(true);
               setTimeout(() => setCopied(false), 2000);
             }}
-            className="glass-button w-full py-3 rounded-xl text-slate-800 dark:text-white text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+            className="glass-button w-full py-3 rounded-xl text-white text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer"
           >
             {copied ? <Check size={14} className="text-[#00D09C]" /> : <Copy size={14} />}
             {copied ? 'Copied to Clipboard' : 'Copy JSON'}

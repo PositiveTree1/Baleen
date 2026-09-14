@@ -155,6 +155,27 @@ class PolymarketClient:
         except Exception as e:
             logger.debug(f"Large trades discovery error: {e}")
 
+        # 1b. Latest 1,000 Live Market Trades (Unfiltered discovery across all active order flows)
+        for trade_offset in [0, 500]:
+            try:
+                live_trades = await self._fetch_with_retry(f"{self.data_api_url}/trades", {
+                    "limit": 500,
+                    "offset": trade_offset
+                })
+                if live_trades and isinstance(live_trades, list):
+                    for t in live_trades:
+                        w = (t.get("proxyWallet") or t.get("user") or "").lower().strip()
+                        if w and len(w) == 42 and w.startswith("0x") and w not in candidates:
+                            trade_cash = float(t.get("usdcSize") or (float(t.get("size", 0)) * float(t.get("price", 1))))
+                            candidates[w] = {
+                                "address": w,
+                                "source": "live_stream_trade",
+                                "trade_cash": trade_cash,
+                                "volume": trade_cash * 10
+                            }
+            except Exception as e:
+                logger.debug(f"Live trades stream discovery error at offset {trade_offset}: {e}")
+
         # 2. Paginated Multi-Period Leaderboards (ALL, MONTH, WEEK) via documented /v1/leaderboard
         for period in ["ALL", "MONTH", "WEEK"]:
             for offset in [0, 100, 200]:

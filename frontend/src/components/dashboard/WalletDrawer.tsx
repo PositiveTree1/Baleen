@@ -53,7 +53,7 @@ export function WalletDrawer({ address, onClose }: WalletDrawerProps) {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [reloadTrigger, setReloadTrigger] = useState(0);
   const [copied, setCopied] = useState(false);
-  const [activeChartTab, setActiveChartTab] = useState<'winloss' | 'pnl' | 'score'>('winloss');
+  const [activeChartTab, setActiveChartTab] = useState<'winloss' | 'pnl' | 'score'>('pnl');
   const [timeframe, setTimeframe] = useState<'1W' | '1M' | 'YTD' | 'ALL'>('ALL');
 
   const [prevAddress, setPrevAddress] = useState(address);
@@ -150,6 +150,36 @@ export function WalletDrawer({ address, onClose }: WalletDrawerProps) {
     return filtered.length > 0 ? filtered : raw;
   }, [wallet?.dailyPnLHistory, timeframe]);
 
+  const chartSummary = useMemo(() => {
+    if (!filteredDailyPnLHistory || filteredDailyPnLHistory.length === 0) return null;
+    let grossWon = 0;
+    let grossLost = 0;
+    let netPnL = 0;
+    let winDays = 0;
+    let lossDays = 0;
+    for (const d of filteredDailyPnLHistory) {
+      const pnl = d.dailyPnL ?? d.netPnL ?? 0;
+      netPnL += pnl;
+      if (pnl > 0) {
+        grossWon += pnl;
+        winDays++;
+      } else if (pnl < 0) {
+        grossLost += Math.abs(pnl);
+        lossDays++;
+      }
+    }
+    const dayWinRate = (winDays + lossDays) > 0 ? (winDays / (winDays + lossDays)) * 100 : 0;
+    return {
+      grossWon,
+      grossLost,
+      netPnL,
+      winDays,
+      lossDays,
+      dayWinRate,
+      totalDays: filteredDailyPnLHistory.length
+    };
+  }, [filteredDailyPnLHistory]);
+
   const cleanSummary = (() => {
     if (!wallet?.aiSummary) return null;
     let s = wallet.aiSummary;
@@ -186,27 +216,27 @@ export function WalletDrawer({ address, onClose }: WalletDrawerProps) {
             animate={{ x: 0 }}
             exit={{ x: '100%' }}
             transition={{ type: 'spring', damping: 30, stiffness: 300 }}
-            className={`fixed inset-y-0 right-0 z-50 w-full max-w-full sm:max-w-xl bg-white dark:bg-[#0F172A] text-slate-900 dark:text-white border-l shadow-2xl overflow-y-auto ${
-              isGold ? 'border-amber-400/50 dark:border-amber-400/30' : 'border-sky-100 dark:border-white/10'
+            className={`fixed inset-y-0 right-0 z-50 w-full max-w-full sm:max-w-xl bg-[#020b18]/95 text-white border-l shadow-2xl overflow-y-auto backdrop-blur-2xl ${
+              isGold ? 'border-amber-400/50' : 'border-white/15'
             }`}
           >
             <div className="p-4 sm:p-8">
               {/* Header */}
-              <div className="flex items-center justify-between mb-4 sm:mb-6 pb-3 sm:pb-4 border-b border-black/[0.06] dark:border-white/10">
+              <div className="flex items-center justify-between mb-4 sm:mb-6 pb-3 sm:pb-4 border-b border-white/10">
                 <div className="flex items-center gap-3">
                   <img 
                     src={wallet?.profileImage || `https://api.dicebear.com/7.x/identicon/svg?seed=${address}`} 
                     alt="" 
-                    className="w-10 h-10 rounded-full object-cover border border-black/10 dark:border-white/10 shadow-2xs shrink-0 bg-slate-100 dark:bg-[#1C1D22]" 
+                    className="w-10 h-10 rounded-full object-cover border border-white/10 shadow-2xs shrink-0 bg-white/5" 
                   />
                   <div>
                     <div className="flex items-center gap-2">
-                      <h2 className="text-base font-bold text-slate-950 dark:text-white tracking-tight">
+                      <h2 className="text-base font-bold text-white tracking-tight">
                         {wallet?.name || wallet?.pseudonym || 'Observed Whale Profile'}
                       </h2>
                       {isGold && <Badge tier="gold_sniper" />}
                       {loading && (
-                        <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-[10px] font-mono text-emerald-600 dark:text-emerald-400">
+                        <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-[10px] font-mono text-emerald-400">
                           <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping" />
                           <span>syncing</span>
                         </div>
@@ -333,34 +363,34 @@ export function WalletDrawer({ address, onClose }: WalletDrawerProps) {
                   <div className="p-5 glass-card border border-sky-100/80 dark:border-white/10 rounded-3xl space-y-4">
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-sky-100/60 dark:border-white/5 pb-3">
                       {/* Sub-tabs */}
-                      <div className="flex rounded-full bg-[#E0F2FE]/60 dark:bg-white/5 p-1 border border-sky-200/50 dark:border-white/10 text-xs font-bold">
+                      <div className="flex rounded-full bg-white/[0.06] p-1 border border-white/10 text-xs font-bold backdrop-blur-md">
                         <button
                           onClick={() => setActiveChartTab('winloss')}
-                          className={`px-3 py-1 rounded-full transition-all cursor-pointer ${activeChartTab === 'winloss' ? 'glass-button bg-white text-[#0F172A] shadow-xs' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'}`}
+                          className={`px-3 py-1 rounded-full transition-all cursor-pointer ${activeChartTab === 'winloss' ? 'glass-button text-white shadow-xs' : 'text-slate-400 hover:text-white'}`}
                         >
                           Daily Wins / Losses
                         </button>
                         <button
                           onClick={() => setActiveChartTab('pnl')}
-                          className={`px-3 py-1 rounded-full transition-all cursor-pointer ${activeChartTab === 'pnl' ? 'glass-button bg-white text-[#0F172A] shadow-xs' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'}`}
+                          className={`px-3 py-1 rounded-full transition-all cursor-pointer ${activeChartTab === 'pnl' ? 'glass-button text-white shadow-xs' : 'text-slate-400 hover:text-white'}`}
                         >
                           Cumulative PnL
                         </button>
                         <button
                           onClick={() => setActiveChartTab('score')}
-                          className={`px-3 py-1 rounded-full transition-all cursor-pointer ${activeChartTab === 'score' ? 'glass-button bg-white text-[#0F172A] shadow-xs' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'}`}
+                          className={`px-3 py-1 rounded-full transition-all cursor-pointer ${activeChartTab === 'score' ? 'glass-button text-white shadow-xs' : 'text-slate-400 hover:text-white'}`}
                         >
                           Score History
                         </button>
                       </div>
 
                       {/* Timeframe pills */}
-                      <div className="flex rounded-full bg-slate-200 dark:bg-[#2C2D35] p-0.5 text-[10px] font-bold">
+                      <div className="flex rounded-full bg-white/[0.06] p-0.5 text-[10px] font-bold border border-white/10 backdrop-blur-md">
                         {(['1W', '1M', 'YTD', 'ALL'] as const).map(tf => (
                           <button
                             key={tf}
                             onClick={() => setTimeframe(tf)}
-                            className={`px-2 py-0.5 rounded-full transition-all ${timeframe === tf ? 'bg-white dark:bg-[#16171B] text-slate-950 dark:text-white shadow-2xs' : 'text-slate-500 dark:text-[#8E8F99]'}`}
+                            className={`px-2.5 py-0.5 rounded-full transition-all ${timeframe === tf ? 'glass-button text-white shadow-2xs' : 'text-slate-400 hover:text-white'}`}
                           >
                             {tf}
                           </button>
@@ -368,12 +398,42 @@ export function WalletDrawer({ address, onClose }: WalletDrawerProps) {
                       </div>
                     </div>
 
-                    {/* Chart Container */}
-                    <div className="h-56 w-full">
+                    {/* Summary Metrics Strip */}
+                    {chartSummary && (
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs font-mono">
+                        <div className="p-2.5 rounded-2xl bg-white/[0.04] border border-white/10">
+                          <div className="text-[10px] text-white/50 uppercase font-sans font-semibold">Realized Won</div>
+                          <div className="text-[#00D09C] font-bold mt-0.5">
+                            +${chartSummary.grossWon.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                          </div>
+                        </div>
+                        <div className="p-2.5 rounded-2xl bg-white/[0.04] border border-white/10">
+                          <div className="text-[10px] text-white/50 uppercase font-sans font-semibold">Realized Lost</div>
+                          <div className="text-[#FF453A] font-bold mt-0.5">
+                            -${chartSummary.grossLost.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                          </div>
+                        </div>
+                        <div className="p-2.5 rounded-2xl bg-white/[0.04] border border-white/10">
+                          <div className="text-[10px] text-white/50 uppercase font-sans font-semibold">Net P&amp;L ({timeframe})</div>
+                          <div className={`font-bold mt-0.5 ${chartSummary.netPnL >= 0 ? 'text-[#00D09C]' : 'text-[#FF453A]'}`}>
+                            {chartSummary.netPnL >= 0 ? '+' : '-'}${Math.abs(chartSummary.netPnL).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                          </div>
+                        </div>
+                        <div className="p-2.5 rounded-2xl bg-white/[0.04] border border-white/10">
+                          <div className="text-[10px] text-white/50 uppercase font-sans font-semibold">Win Days ({chartSummary.totalDays}d)</div>
+                          <div className="text-white font-bold mt-0.5">
+                            {chartSummary.winDays}W / {chartSummary.lossDays}L ({chartSummary.dayWinRate.toFixed(0)}%)
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Massive Chart Container */}
+                    <div className="h-80 sm:h-96 w-full">
                       {loading && (!filteredDailyPnLHistory || filteredDailyPnLHistory.length === 0) && activeChartTab !== 'score' ? (
-                        <div className="w-full h-full flex flex-col items-center justify-center bg-slate-50 dark:bg-[#1C1D22] rounded-2xl border border-black/[0.06] dark:border-white/10 space-y-2">
+                        <div className="w-full h-full flex flex-col items-center justify-center bg-white/[0.03] rounded-2xl border border-white/10 space-y-2">
                           <div className="w-5 h-5 border-2 border-emerald-500/20 border-t-emerald-500 rounded-full animate-spin" />
-                          <span className="text-xs text-slate-400 dark:text-zinc-400 font-medium">Fetching historical trade equity curve...</span>
+                          <span className="text-xs text-white/60 font-medium">Fetching historical trade equity curve...</span>
                         </div>
                       ) : (
                         <>

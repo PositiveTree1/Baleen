@@ -53,23 +53,22 @@ def wallet_to_response(w: Wallet) -> dict:
 async def list_wallets(
     tier: Optional[str] = None,
     dormant: Optional[bool] = None,
+    status: Optional[str] = None,
     limit: int = 150,
     offset: int = 0,
     db: AsyncSession = Depends(get_db)
 ):
-    stmt = select(Wallet).where(
-        Wallet.status == "active",
-        Wallet.is_hft == False
-    )
+    stmt = select(Wallet).where(Wallet.is_hft == False)
     
-    if dormant is not None:
-        stmt = stmt.where(Wallet.dormant == dormant)
+    if status:
+        stmt = stmt.where(Wallet.status == status)
+    elif dormant is not None:
+        stmt = stmt.where(Wallet.status == "active", Wallet.dormant == dormant)
+    elif tier:
+        stmt = stmt.where(Wallet.status == "active", Wallet.tier == tier, Wallet.dormant == False)
     else:
-        # Default: only show active non-dormant whales on user dashboard
-        stmt = stmt.where(Wallet.dormant == False)
-        
-    if tier:
-        stmt = stmt.where(Wallet.tier == tier)
+        # Default roster: show active wallets; if active wallets < limit, include pending candidates
+        stmt = stmt.where(Wallet.status.in_(["active", "pending"]))
         
     stmt = stmt.order_by(Wallet.baleen_score.desc().nullslast()).limit(limit).offset(offset)
     result = await db.execute(stmt)
@@ -391,50 +390,99 @@ async def get_wallet(address: str, db: AsyncSession = Depends(get_db)):
                 first_won = float(cached_pts[0].get("won_usd", 0.0))
                 if len(cached_pts) > 10 and abs(first_won - 14272.63) < 0.1:
                     daily_pnl_history = []
+                elif len(cached_pts) < 15 and getattr(wallet, 'total_trades_analyzed', 0) and (wallet.total_trades_analyzed or 0) > 30:
+                    # Invalidate truncated cache from prior 3-page bug so full authentic history is re-fetched
+                    daily_pnl_history = []
                 else:
                     daily_pnl_history = cached_pts
         except Exception as e:
             logger.debug(f"Error parsing cached_daily_pnl for {clean_addr}: {e}")
             daily_pnl_history = []
 
-    # 2. If daily_pnl_history is empty, fetch authentic on-chain positions and closed positions in parallel batches
+    # 2. If daily_pnl_history is empty or truncated, fetch authentic on-chain data in parallel batches
     if not daily_pnl_history:
         client = PolymarketClient()
         try:
-            async def _fetch_closed_fast():
-                # Query up to 3 pages (150 positions) safely to avoid 429 rate limits
-                tasks = [
+            async def _fetch_deep_history():
+                cp_desc = [
+                    client._fetch_with_retry(
+                        f"{client.data_api_url}/closed-positions",
+                        params={"user": clean_addr, "limit": 50, "offset": i * 50, "sortBy": "timestamp", "sortDirection": "DESC"}
+                    )
+                    for i in range(25)
+                ]
+                cp_asc = [
                     client._fetch_with_retry(
                         f"{client.data_api_url}/closed-positions",
                         params={"user": clean_addr, "limit": 50, "offset": i * 50, "sortBy": "timestamp", "sortDirection": "ASC"}
                     )
-                    for i in range(3)
+                    for i in range(15)
                 ]
-                batches = await asyncio.gather(*tasks, return_exceptions=True)
-                all_closed = []
-                for b in batches:
-                    if isinstance(b, list):
-                        all_closed.extend(b)
-                        if len(b) < 50:
-                            break
-                return all_closed
+                tr_tasks = [
+                    client._fetch_with_retry(
+                        f"{client.data_api_url}/trades",
+                        params={"user": clean_addr, "limit": 500, "offset": i * 500}
+                    )
+                    for i in range(4)
+                ]
+                act_tasks = [
+                    client._fetch_with_retry(
+                        f"{client.data_api_url}/activity",
+                        params={"user": clean_addr, "limit": 500, "offset": i * 500, "sortBy": "TIMESTAMP", "sortDirection": "DESC"}
+                    )
+                    for i in range(4)
+                ]
+                pos_task = client.fetch_wallet_positions(clean_addr)
+                prof_task = client.fetch_wallet_profile(clean_addr)
 
-            pos_res, closed_res = await asyncio.wait_for(
-                asyncio.gather(client.fetch_wallet_positions(clean_addr), _fetch_closed_fast(), return_exceptions=True),
-                timeout=6.0
+                all_results = await asyncio.gather(
+                    *cp_desc, *cp_asc, *tr_tasks, *act_tasks, pos_task, prof_task,
+                    return_exceptions=True
+                )
+                
+                # Extract closed positions with deduplication
+                closed_positions = []
+                seen_cp = set()
+                for r in all_results[:40]:
+                    if isinstance(r, list):
+                        for item in r:
+                            if isinstance(item, dict):
+                                k = (str(item.get("conditionId") or ""), str(item.get("asset") or ""), str(item.get("timestamp") or ""))
+                                if k not in seen_cp:
+                                    seen_cp.add(k)
+                                    closed_positions.append(item)
+
+                # Extract trades
+                trades = []
+                for r in all_results[40:44]:
+                    if isinstance(r, list):
+                        trades.extend([t for t in r if isinstance(t, dict)])
+
+                # Extract activity
+                activity = []
+                for r in all_results[44:48]:
+                    if isinstance(r, list):
+                        activity.extend([a for a in r if isinstance(a, dict)])
+
+                positions = all_results[48] if isinstance(all_results[48], list) else []
+                profile = all_results[49] if isinstance(all_results[49], dict) else {"pnl": total_pnl, "vol": getattr(wallet, "volume_usd", 0.0)}
+
+                return closed_positions, trades, activity, positions, profile
+
+            closed_positions, trades, activity, positions, profile = await asyncio.wait_for(
+                _fetch_deep_history(),
+                timeout=8.0
             )
-            raw_positions = pos_res if isinstance(pos_res, list) else []
-            raw_closed = closed_res if isinstance(closed_res, list) else []
 
-            if raw_positions or raw_closed:
+            if closed_positions or trades or positions or activity:
                 from app.discovery.scanner import calculate_authentic_wallet_stats
                 stats = calculate_authentic_wallet_stats(
                     address=clean_addr,
-                    positions=raw_positions,
-                    activity=[],
-                    profile={"pnl": total_pnl, "vol": getattr(wallet, "volume_usd", 0.0)},
-                    trades=[],
-                    closed_positions=raw_closed
+                    positions=positions,
+                    activity=activity,
+                    profile=profile,
+                    trades=trades,
+                    closed_positions=closed_positions
                 )
                 real_hist = stats.get('daily_pnl_history', [])
                 if real_hist:
@@ -442,7 +490,7 @@ async def get_wallet(address: str, db: AsyncSession = Depends(get_db)):
                     wallet.cached_daily_pnl = json.dumps(real_hist)
                     await db.commit()
         except Exception as e:
-            logger.debug(f"Error computing fast live on-chain history for {clean_addr}: {e}")
+            logger.debug(f"Error computing deep live on-chain history for {clean_addr}: {e}")
         finally:
             await client.close()
 

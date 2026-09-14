@@ -567,6 +567,14 @@ async def reset_sandbox(
     from app.services.paper_runs import archive_and_start
     run = await archive_and_start(db, target_user, 10000)
 
+    # Automatically purge obsolete events older than 7 days on reset
+    try:
+        from datetime import datetime, timedelta
+        cutoff = datetime.utcnow() - timedelta(days=7)
+        await db.execute(delete(SystemEvent).where(SystemEvent.created_at < cutoff))
+    except Exception:
+        pass
+
     await db.commit()
     await db.refresh(target_user)
     return {

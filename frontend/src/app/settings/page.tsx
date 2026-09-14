@@ -792,10 +792,10 @@ export default function SettingsPage() {
 
   if (sessionStatus === 'loading') {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#F8F9FB] dark:bg-[#000000] text-slate-900 dark:text-white">
-        <div className="flex flex-col items-center gap-3">
+      <div className="min-h-screen flex items-center justify-center bg-transparent text-white">
+        <div className="flex flex-col items-center gap-3 glass-card p-8 rounded-3xl">
           <div className="w-8 h-8 rounded-full border-2 border-[#00D09C] border-t-transparent animate-spin" />
-          <span className="text-xs font-mono text-[#8E8F99]">Loading account settings...</span>
+          <span className="text-xs font-mono text-slate-300">Loading engine settings...</span>
         </div>
       </div>
     );
@@ -803,18 +803,18 @@ export default function SettingsPage() {
 
   if (sessionStatus === 'unauthenticated') {
     return (
-      <div className="min-h-screen bg-[#F8F9FB] dark:bg-[#000000] text-slate-900 dark:text-white flex flex-col items-center justify-center p-6">
-        <div className="w-full max-w-md p-8 rounded-2xl bg-white dark:bg-[#16171B] border border-black/10 dark:border-white/10 shadow-xl text-center space-y-4">
-          <div className="w-12 h-12 mx-auto rounded-2xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800/60 flex items-center justify-center text-rose-600 dark:text-rose-400">
-            <Lock size={24} />
+      <div className="min-h-screen bg-transparent text-white flex flex-col items-center justify-center p-6">
+        <div className="w-full max-w-md p-8 sm:p-10 rounded-3xl glass-card border border-white/20 shadow-2xl text-center space-y-5 backdrop-blur-2xl">
+          <div className="w-14 h-14 mx-auto rounded-2xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center text-rose-400">
+            <Lock size={26} />
           </div>
-          <h2 className="text-lg font-bold">Authentication Required</h2>
-          <p className="text-xs text-slate-500 dark:text-[#8E8F99]">
+          <h2 className="text-xl font-bold tracking-tight text-white">Authentication Required</h2>
+          <p className="text-xs text-slate-300 leading-relaxed">
             Please sign in to view and manage your account settings, trading preferences, and live credentials.
           </p>
           <Link
             href="/auth/login"
-            className="inline-block w-full py-3 rounded-full bg-slate-950 dark:bg-white text-white dark:text-black text-xs font-bold hover:bg-slate-800 dark:hover:bg-slate-200 transition-all cursor-pointer"
+            className="inline-block w-full py-3.5 rounded-full glass-button text-white text-xs font-bold shadow-lg transition-all cursor-pointer"
           >
             Sign In
           </Link>
@@ -824,14 +824,14 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#F8F9FB] dark:bg-[#000000] text-slate-900 dark:text-white p-6 lg:p-12 selection:bg-[#00D09C] selection:text-black transition-colors duration-150">
+    <div className="min-h-screen bg-transparent text-white p-4 sm:p-6 lg:p-12 selection:bg-[#00D09C] selection:text-black transition-colors duration-150">
       <div className="max-w-5xl mx-auto space-y-8">
         {/* Top bar */}
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-4">
             <BrandLogo size="sm" />
-            <span className="text-slate-300 dark:text-slate-700">|</span>
-            <Link href="/dashboard" className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-600 dark:text-[#8E8F99] hover:text-slate-950 dark:hover:text-white transition-colors">
+            <span className="text-white/20">|</span>
+            <Link href="/dashboard" className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-300 hover:text-white transition-colors">
               <ArrowLeft size={14} /> Back to Dashboard
             </Link>
           </div>
@@ -839,7 +839,7 @@ export default function SettingsPage() {
           <button
             type="button"
             onClick={toggleTheme}
-            className="w-9 h-9 rounded-full bg-[#F1F3F5] dark:bg-[#1C1D22] hover:bg-[#E2E6EA] dark:hover:bg-[#2C2D35] border border-black/[0.08] dark:border-white/10 text-slate-700 dark:text-white flex items-center justify-center transition-all cursor-pointer shadow-2xs"
+            className="w-9 h-9 rounded-full glass-dock border border-white/15 text-white flex items-center justify-center transition-all cursor-pointer shadow-xs"
             aria-label={theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'}
           >
             {theme === 'light' ? <Moon size={15} /> : <Sun size={15} className="text-amber-400" />}
@@ -847,84 +847,84 @@ export default function SettingsPage() {
         </div>
         
         <div>
-          <h1 className="text-3xl font-bold tracking-tight text-slate-950 dark:text-white mb-2">Engine Settings</h1>
-          <p className="text-slate-600 dark:text-[#8E8F99] text-sm">
+          <h1 className="text-3xl font-bold tracking-tight text-white mb-2">Engine Settings</h1>
+          <p className="text-slate-300 text-sm">
             Manage your paper trading balance, execution risk regime, Deposit Wallet session keys, and explicit copy policy.
           </p>
         </div>
 
         <div className="space-y-6">
           {/* Card 1: Owner L2 API Credentials */}
-          <div className="revolut-card bg-white dark:bg-[#16171B] border border-black/[0.08] dark:border-white/10 p-6 sm:p-8 rounded-[28px] shadow-sm space-y-6">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-black/[0.06] dark:border-white/5">
+          <div className="glass-card border border-white/15 p-6 sm:p-8 rounded-[28px] shadow-2xl space-y-6 text-white backdrop-blur-2xl">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-white/10">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-2xl bg-indigo-50 dark:bg-indigo-500/10 border border-indigo-200 dark:border-indigo-500/20 flex items-center justify-center text-indigo-600 dark:text-indigo-400">
+                <div className="w-10 h-10 rounded-2xl bg-sky-500/10 border border-sky-500/20 flex items-center justify-center text-sky-400">
                   <Key size={18} />
                 </div>
                 <div>
-                  <h2 className="text-sm font-bold text-slate-950 dark:text-white flex items-center gap-2">
+                  <h2 className="text-sm font-bold text-white flex items-center gap-2">
                     Polymarket CLOB L2 Credentials
                     {isConfigured && (
-                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-50 dark:bg-[#00D09C]/10 text-emerald-600 dark:text-[#00D09C] border border-emerald-200 dark:border-[#00D09C]/20 font-mono">
+                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#00D09C]/10 text-[#00D09C] border border-[#00D09C]/25 font-mono">
                         Configured
                       </span>
                     )}
                   </h2>
-                  <p className="text-xs text-slate-500 dark:text-[#8E8F99] mt-0.5">
+                  <p className="text-xs text-slate-300 mt-0.5">
                     Connect your Polymarket Layer 2 CLOB API credentials. These credentials are distinct from your owner private key (which Baleen never requests, stores, or displays).
                   </p>
                 </div>
               </div>
 
               {/* Server Live Execution Gated Status */}
-              <div className="flex items-center gap-2 self-end sm:self-auto px-3 py-1.5 rounded-full bg-slate-100 dark:bg-[#1C1D22] border border-black/[0.08] dark:border-white/10">
-                <div className="w-2 h-2 rounded-full bg-amber-500" />
-                <div className="text-[11px] font-bold text-slate-800 dark:text-white">
+              <div className="flex items-center gap-2 self-end sm:self-auto px-3 py-1.5 rounded-full bg-white/[0.06] border border-white/10">
+                <div className="w-2 h-2 rounded-full bg-amber-400" />
+                <div className="text-[11px] font-bold text-white">
                   Live Trading · Unavailable (Gated)
                 </div>
               </div>
             </div>
 
             {credentialError && (
-              <div role="alert" aria-live="polite" className="p-3.5 rounded-2xl bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/20 text-xs text-rose-700 dark:text-rose-400 flex items-start gap-2.5">
+              <div role="alert" aria-live="polite" className="p-3.5 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-xs text-rose-300 flex items-start gap-2.5">
                 <AlertTriangle size={15} className="shrink-0 mt-0.5" />
                 <span>{credentialError}</span>
               </div>
             )}
 
             {credentialsSavedSuccess && (
-              <div role="status" aria-live="polite" className="p-3.5 rounded-2xl bg-emerald-50 dark:bg-[#00D09C]/10 border border-emerald-200 dark:border-[#00D09C]/20 text-xs text-emerald-700 dark:text-[#00D09C] flex items-center gap-2.5">
+              <div role="status" aria-live="polite" className="p-3.5 rounded-2xl bg-[#00D09C]/10 border border-[#00D09C]/25 text-xs text-[#00D09C] flex items-center gap-2.5">
                 <CheckCircle2 size={15} />
                 <span>L2 credentials securely saved. Test reachability to verify private API transport.</span>
               </div>
             )}
 
             {testResult && (
-              <div className="p-4 rounded-2xl bg-slate-50 dark:bg-[#1C1D22] border border-black/[0.06] dark:border-white/5 space-y-2">
+              <div className="p-4 rounded-2xl bg-white/[0.04] border border-white/10 space-y-2">
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2 text-xs font-bold text-slate-900 dark:text-white">
+                  <div className="flex items-center gap-2 text-xs font-bold text-white">
                     <ShieldCheck size={16} className="text-[#00D09C]" />
                     <span>
                       CLOB Reachability: {testResult.connected ? 'Verified' : 'Unavailable'} · Credentials: {testResult.credentials_verified ? 'Verified' : 'Unverified'} · Live execution: Unavailable (Gated)
                     </span>
                   </div>
-                  <span className="text-[11px] font-mono text-slate-500 dark:text-[#8E8F99]">
+                  <span className="text-[11px] font-mono text-slate-400">
                     {formatUtcDate(testResult.verified_at)}
                   </span>
                 </div>
                 <div className="flex items-center justify-between pt-1">
-                  <span className="text-xs text-slate-500 dark:text-[#8E8F99]">Reported pUSD Collateral Balance:</span>
+                  <span className="text-xs text-slate-300">Reported pUSD Collateral Balance:</span>
                   <span className="text-lg font-bold font-mono text-[#00D09C]">
                     {testResult.balance_usdc === null ? 'Unavailable' : `${formatUsd(testResult.balance_usdc)} pUSD`}
                   </span>
                 </div>
-                <p className="text-[11px] text-slate-600 dark:text-[#8E8F99]">{testResult.status_message}</p>
+                <p className="text-[11px] text-slate-300">{testResult.status_message}</p>
               </div>
             )}
 
             <div className="space-y-4">
               <div>
-                <label htmlFor="proxy-wallet-address" className="block text-xs font-semibold text-slate-700 dark:text-[#8E8F99] mb-1.5">
+                <label htmlFor="proxy-wallet-address" className="block text-xs font-semibold text-slate-300 mb-1.5">
                   Deposit Proxy Wallet Address (0x...)
                 </label>
                 <input
@@ -934,16 +934,16 @@ export default function SettingsPage() {
                   aria-label="Deposit Proxy Wallet Address"
                   value={proxyAddress}
                   onChange={(e) => setProxyAddress(e.target.value)}
-                  className="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-[#1C1D22] border border-black/[0.08] dark:border-white/10 text-xs font-mono text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#00D09C]"
+                  className="w-full px-4 py-2.5 rounded-xl bg-white/[0.06] border border-white/15 text-xs font-mono text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-[#00D09C]"
                 />
-                <p className="text-[10px] text-slate-500 dark:text-[#8E8F99] mt-1">
+                <p className="text-[10px] text-slate-400 mt-1">
                   Your deposit proxy wallet shown in Polymarket Profile &gt; Deposit &gt; Copy Address.
                 </p>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label htmlFor="signer-address" className="block text-xs font-semibold text-slate-700 dark:text-[#8E8F99] mb-1.5">
+                  <label htmlFor="signer-address" className="block text-xs font-semibold text-slate-300 mb-1.5">
                     Order Signer Address (0x...)
                   </label>
                   <input
@@ -953,14 +953,14 @@ export default function SettingsPage() {
                     aria-label="Order Signer Address"
                     value={signerAddress}
                     onChange={(e) => setSignerAddress(e.target.value)}
-                    className="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-[#1C1D22] border border-black/[0.08] dark:border-white/10 text-xs font-mono text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#00D09C]"
+                    className="w-full px-4 py-2.5 rounded-xl bg-white/[0.06] border border-white/15 text-xs font-mono text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-[#00D09C]"
                   />
-                  <p className="text-[10px] text-slate-500 dark:text-[#8E8F99] mt-1">
+                  <p className="text-[10px] text-slate-400 mt-1">
                     The wallet authorized to sign CLOB orders; it may differ from the deposit proxy wallet.
                   </p>
                 </div>
                 <div>
-                  <label htmlFor="signature-type" className="block text-xs font-semibold text-slate-700 dark:text-[#8E8F99] mb-1.5">
+                  <label htmlFor="signature-type" className="block text-xs font-semibold text-slate-300 mb-1.5">
                     Wallet Signature Type
                   </label>
                   <select
@@ -968,7 +968,7 @@ export default function SettingsPage() {
                     aria-label="Wallet Signature Type"
                     value={signatureType}
                     onChange={(e) => setSignatureType(Number(e.target.value))}
-                    className="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-[#1C1D22] border border-black/[0.08] dark:border-white/10 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#00D09C]"
+                    className="w-full px-4 py-2.5 rounded-xl bg-[#031326] border border-white/15 text-xs text-white focus:outline-none focus:ring-2 focus:ring-[#00D09C]"
                   >
                     <option value={0}>0 · EOA</option>
                     <option value={1}>1 · POLY_PROXY</option>
@@ -980,7 +980,7 @@ export default function SettingsPage() {
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div>
-                  <label htmlFor="clob-api-key" className="block text-xs font-semibold text-slate-700 dark:text-[#8E8F99] mb-1.5">
+                  <label htmlFor="clob-api-key" className="block text-xs font-semibold text-slate-300 mb-1.5">
                     CLOB API Key
                   </label>
                   <input
@@ -990,12 +990,12 @@ export default function SettingsPage() {
                     aria-label="CLOB API Key"
                     value={apiKey}
                     onChange={(e) => setApiKey(e.target.value)}
-                    className="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-[#1C1D22] border border-black/[0.08] dark:border-white/10 text-xs font-mono text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#00D09C]"
+                    className="w-full px-4 py-2.5 rounded-xl bg-white/[0.06] border border-white/15 text-xs font-mono text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-[#00D09C]"
                   />
                 </div>
 
                 <div>
-                  <label htmlFor="clob-api-secret" className="block text-xs font-semibold text-slate-700 dark:text-[#8E8F99] mb-1.5">
+                  <label htmlFor="clob-api-secret" className="block text-xs font-semibold text-slate-300 mb-1.5">
                     CLOB API Secret
                   </label>
                   <input
@@ -1005,12 +1005,12 @@ export default function SettingsPage() {
                     aria-label="CLOB API Secret"
                     value={apiSecret}
                     onChange={(e) => setApiSecret(e.target.value)}
-                    className="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-[#1C1D22] border border-black/[0.08] dark:border-white/10 text-xs font-mono text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#00D09C]"
+                    className="w-full px-4 py-2.5 rounded-xl bg-white/[0.06] border border-white/15 text-xs font-mono text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-[#00D09C]"
                   />
                 </div>
 
                 <div>
-                  <label htmlFor="clob-passphrase" className="block text-xs font-semibold text-slate-700 dark:text-[#8E8F99] mb-1.5">
+                  <label htmlFor="clob-passphrase" className="block text-xs font-semibold text-slate-300 mb-1.5">
                     CLOB Passphrase
                   </label>
                   <input
@@ -1020,20 +1020,20 @@ export default function SettingsPage() {
                     aria-label="CLOB Passphrase"
                     value={passphrase}
                     onChange={(e) => setPassphrase(e.target.value)}
-                    className="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-[#1C1D22] border border-black/[0.08] dark:border-white/10 text-xs font-mono text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#00D09C]"
+                    className="w-full px-4 py-2.5 rounded-xl bg-white/[0.06] border border-white/15 text-xs font-mono text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-[#00D09C]"
                   />
                 </div>
               </div>
             </div>
 
             <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2">
-              <div className="text-[11px] text-slate-500 dark:text-[#8E8F99] flex flex-col gap-0.5">
+              <div className="text-[11px] text-slate-400 flex flex-col gap-0.5">
                 <div className="flex items-center gap-1.5">
                   <Lock size={12} />
                   <span>Credentials are encrypted server-side; owner private keys are never accepted or stored.</span>
                 </div>
                 {(lastVerifiedAt || liveBalanceUsdc != null) && (
-                  <div className="text-[10px] text-slate-400">
+                  <div className="text-[10px] text-slate-400 font-mono">
                     Last Verified: {formatUtcDate(lastVerifiedAt)} · Balance: {formatUsd(liveBalanceUsdc)} pUSD
                   </div>
                 )}
@@ -1044,7 +1044,7 @@ export default function SettingsPage() {
                   type="button"
                   onClick={handleTestConnection}
                   disabled={testingConnection || (!proxyAddress && !isConfigured)}
-                  className="px-4 py-2.5 rounded-full bg-slate-100 dark:bg-[#1C1D22] hover:bg-slate-200 dark:hover:bg-[#2C2D35] border border-black/[0.08] dark:border-white/10 text-xs font-bold text-slate-800 dark:text-white transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                  className="px-4 py-2.5 rounded-full glass-card hover:bg-white/10 border border-white/15 text-xs font-bold text-white transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
                 >
                   <RefreshCw size={13} className={testingConnection ? 'animate-spin' : ''} />
                   <span>{testingConnection ? 'Pinging CLOB...' : 'Test Connection & Fetch L2 Balance'}</span>
@@ -1054,7 +1054,7 @@ export default function SettingsPage() {
                   type="button"
                   onClick={handleSaveCredentials}
                   disabled={savingCredentials}
-                  className="px-5 py-2.5 rounded-full bg-slate-950 dark:bg-white text-white dark:text-black hover:bg-slate-800 dark:hover:bg-slate-200 text-xs font-bold transition-all shadow-sm flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                  className="px-5 py-2.5 rounded-full glass-button text-white text-xs font-bold transition-all shadow-md flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
                 >
                   <Save size={13} />
                   <span>{savingCredentials ? 'Saving...' : 'Save Credentials'}</span>
@@ -1064,27 +1064,27 @@ export default function SettingsPage() {
           </div>
 
           {/* Card 2: Deposit Wallet Signing Session Panel */}
-          <div className="revolut-card bg-white dark:bg-[#16171B] border border-black/[0.08] dark:border-white/10 p-6 sm:p-8 rounded-[28px] shadow-sm space-y-6">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-black/[0.06] dark:border-white/5">
+          <div className="glass-card border border-white/15 p-6 sm:p-8 rounded-[28px] shadow-2xl space-y-6 text-white backdrop-blur-2xl">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-white/10">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-2xl bg-indigo-50 dark:bg-indigo-500/10 border border-indigo-200 dark:border-indigo-500/20 flex items-center justify-center text-indigo-600 dark:text-indigo-400">
+                <div className="w-10 h-10 rounded-2xl bg-sky-500/10 border border-sky-500/20 flex items-center justify-center text-sky-400">
                   <Shield size={18} />
                 </div>
                 <div>
-                  <h2 className="text-sm font-bold text-slate-950 dark:text-white flex items-center gap-2">
+                  <h2 className="text-sm font-bold text-white flex items-center gap-2">
                     Deposit Wallet Signing Session
                     {sessionSetup?.status === 'authorization_observed' && (
-                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-50 dark:bg-[#00D09C]/10 text-emerald-600 dark:text-[#00D09C] border border-emerald-200 dark:border-[#00D09C]/20 font-mono">
+                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#00D09C]/10 text-[#00D09C] border border-[#00D09C]/25 font-mono">
                         Grant Observed
                       </span>
                     )}
                     {sessionSetup?.status === 'locally_disabled' && (
-                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-500/20 font-mono">
+                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-rose-500/10 text-rose-400 border border-rose-500/20 font-mono">
                         Locally Disabled
                       </span>
                     )}
                   </h2>
-                  <p className="text-xs text-slate-500 dark:text-[#8E8F99] mt-0.5">
+                  <p className="text-xs text-slate-300 mt-0.5">
                     Account-bound session signer with CLOB-only order scope. Creating a key does not authorize it on-chain; owner approval challenge is required.
                   </p>
                 </div>
@@ -1095,7 +1095,7 @@ export default function SettingsPage() {
                   type="button"
                   onClick={loadSessionData}
                   disabled={sessionLoading}
-                  className="px-3.5 py-1.5 rounded-full bg-slate-100 dark:bg-[#1C1D22] border border-black/[0.08] dark:border-white/10 text-xs font-bold text-slate-800 dark:text-white flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                  className="px-3.5 py-1.5 rounded-full glass-card hover:bg-white/10 border border-white/15 text-xs font-bold text-white flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
                   aria-label="Refresh signing session status"
                 >
                   <RefreshCw size={12} className={sessionLoading ? 'animate-spin' : ''} />
@@ -1105,37 +1105,37 @@ export default function SettingsPage() {
             </div>
 
             {sessionError && (
-              <div role="alert" aria-live="polite" className="p-3.5 rounded-2xl bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/20 text-xs text-rose-700 dark:text-rose-400 flex items-start gap-2.5">
+              <div role="alert" aria-live="polite" className="p-3.5 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-xs text-rose-300 flex items-start gap-2.5">
                 <AlertTriangle size={15} className="shrink-0 mt-0.5" />
                 <span>{sessionError}</span>
               </div>
             )}
 
             {sessionSuccess && (
-              <div role="status" aria-live="polite" className="p-3.5 rounded-2xl bg-emerald-50 dark:bg-[#00D09C]/10 border border-emerald-200 dark:border-[#00D09C]/20 text-xs text-emerald-700 dark:text-[#00D09C] flex items-center gap-2.5">
+              <div role="status" aria-live="polite" className="p-3.5 rounded-2xl bg-[#00D09C]/10 border border-[#00D09C]/25 text-xs text-[#00D09C] flex items-center gap-2.5">
                 <CheckCircle2 size={15} />
                 <span>{sessionSuccess}</span>
               </div>
             )}
 
             {/* Explanatory Invariants Box */}
-            <div className="p-4 rounded-2xl bg-slate-50 dark:bg-[#1C1D22] border border-black/[0.05] dark:border-white/5 space-y-2.5 text-xs text-slate-600 dark:text-[#8E8F99]">
-              <div className="flex items-center gap-2 font-bold text-slate-900 dark:text-white">
-                <HelpCircle size={15} className="text-indigo-500 shrink-0" />
+            <div className="p-4 rounded-2xl bg-white/[0.04] border border-white/10 space-y-2.5 text-xs text-slate-300">
+              <div className="flex items-center gap-2 font-bold text-white">
+                <HelpCircle size={15} className="text-sky-400 shrink-0" />
                 <span>Session Security Invariants &amp; Warnings Explained:</span>
               </div>
               <ul className="space-y-2 text-xs pl-1">
                 <li className="flex items-start gap-2">
-                  <span className="font-mono text-indigo-600 dark:text-indigo-400 font-bold shrink-0">1. Key Creation ≠ Authorization:</span>
+                  <span className="font-mono text-sky-400 font-bold shrink-0">1. Key Creation ≠ Authorization:</span>
                   <span>Creating an encrypted session key only prepares the keypair on the backend; it does <em>not</em> authorize it on Polymarket until granted on-chain by the wallet owner.</span>
                 </li>
                 <li className="flex items-start gap-2">
                   <span className="font-mono text-[#00D09C] font-bold shrink-0">2. Grant Observed ≠ Live Trading:</span>
-                  <span><code className="font-mono px-1 py-0.5 rounded bg-slate-200 dark:bg-white/10 text-slate-900 dark:text-white">authorization_observed</code> means a previous check detected the owner grant, but live execution remains safety-gated on the server (<code className="font-mono text-[11px]">LIVE_EXECUTION_ENABLED=false</code>).</span>
+                  <span><code className="font-mono px-1 py-0.5 rounded bg-white/10 text-white">authorization_observed</code> means a previous check detected the owner grant, but live execution remains safety-gated on the server (<code className="font-mono text-[11px]">LIVE_EXECUTION_ENABLED=false</code>).</span>
                 </li>
                 <li className="flex items-start gap-2">
-                  <span className="font-mono text-amber-600 dark:text-amber-400 font-bold shrink-0">3. Locally Disabled ≠ On-chain Revoked:</span>
-                  <span><code className="font-mono px-1 py-0.5 rounded bg-slate-200 dark:bg-white/10 text-slate-900 dark:text-white">locally_disabled</code> ceases local signing on the Baleen server, but does <em>not</em> prove on-chain revocation; owner revocation must be signed and submitted to the exchange relayer to cancel smart contract permissions.</span>
+                  <span className="font-mono text-amber-400 font-bold shrink-0">3. Locally Disabled ≠ On-chain Revoked:</span>
+                  <span><code className="font-mono px-1 py-0.5 rounded bg-white/10 text-white">locally_disabled</code> ceases local signing on the Baleen server, but does <em>not</em> prove on-chain revocation; owner revocation must be signed and submitted to the exchange relayer to cancel smart contract permissions.</span>
                 </li>
               </ul>
             </div>
@@ -1152,21 +1152,21 @@ export default function SettingsPage() {
                 ['Revoked at (UTC)', formatUtcDate(sessionSetup?.revokedAt)],
                 ['Live Execution Readiness', 'Unavailable (Gated)'],
               ].map(([label, value]) => (
-                <div key={label} className="p-3.5 rounded-2xl bg-slate-50 dark:bg-[#1C1D22] border border-black/[0.05] dark:border-white/5">
-                  <div className="text-[10px] uppercase tracking-wide text-slate-500 dark:text-[#8E8F99]">{label}</div>
-                  <div className="mt-1 text-xs font-mono font-semibold text-slate-900 dark:text-white break-all">{value}</div>
+                <div key={label} className="p-3.5 rounded-2xl bg-white/[0.04] border border-white/10">
+                  <div className="text-[10px] uppercase tracking-wide text-slate-400">{label}</div>
+                  <div className="mt-1 text-xs font-mono font-semibold text-white break-all">{value}</div>
                 </div>
               ))}
             </div>
 
             {/* Session Setup Action Buttons */}
-            <div className="flex flex-wrap items-center gap-3 pt-1 border-t border-black/[0.06] dark:border-white/5">
+            <div className="flex flex-wrap items-center gap-3 pt-1 border-t border-white/10">
               {(!sessionSetup || sessionSetup.status === 'not_configured') ? (
                 <button
                   type="button"
                   onClick={handlePrepareSession}
                   disabled={sessionLoading}
-                  className="px-5 py-2.5 rounded-full bg-slate-950 dark:bg-white text-white dark:text-black hover:bg-slate-800 dark:hover:bg-slate-200 text-xs font-bold transition-all flex items-center gap-2 cursor-pointer disabled:opacity-50"
+                  className="px-5 py-2.5 rounded-full glass-button text-white text-xs font-bold transition-all flex items-center gap-2 cursor-pointer disabled:opacity-50"
                 >
                   <Key size={13} />
                   <span>{sessionLoading ? 'Preparing session key...' : 'Prepare Session Key'}</span>
@@ -1177,7 +1177,7 @@ export default function SettingsPage() {
                     type="button"
                     onClick={handleVerifySession}
                     disabled={sessionLoading}
-                    className="px-4 py-2.5 rounded-full bg-indigo-50 dark:bg-indigo-500/10 hover:bg-indigo-100 dark:hover:bg-indigo-500/20 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-500/20 text-xs font-bold transition-all flex items-center gap-2 cursor-pointer disabled:opacity-50"
+                    className="px-4 py-2.5 rounded-full glass-card hover:bg-sky-500/20 text-sky-300 border border-sky-500/30 text-xs font-bold transition-all flex items-center gap-2 cursor-pointer disabled:opacity-50"
                   >
                     <ShieldCheck size={14} />
                     <span>{sessionLoading ? 'Verifying grant...' : 'Verify Actual Owner Grant'}</span>
@@ -1187,7 +1187,7 @@ export default function SettingsPage() {
                     type="button"
                     onClick={handleDisableSession}
                     disabled={sessionLoading}
-                    className="px-4 py-2.5 rounded-full bg-rose-50 dark:bg-rose-500/10 hover:bg-rose-100 dark:hover:bg-rose-500/20 text-rose-700 dark:text-rose-400 border border-rose-200 dark:border-rose-500/20 text-xs font-bold transition-all flex items-center gap-2 cursor-pointer disabled:opacity-50"
+                    className="px-4 py-2.5 rounded-full glass-card hover:bg-rose-500/20 text-rose-300 border border-rose-500/30 text-xs font-bold transition-all flex items-center gap-2 cursor-pointer disabled:opacity-50"
                   >
                     <StopCircle size={14} />
                     <span>Stop Local Signing</span>
@@ -1197,13 +1197,13 @@ export default function SettingsPage() {
             </div>
 
             {/* Owner EIP-712 Approvals Workflow */}
-            <div className="pt-4 border-t border-black/[0.06] dark:border-white/5 space-y-4">
+            <div className="pt-4 border-t border-white/10 space-y-4">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div>
-                  <h3 className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider">
+                  <h3 className="text-xs font-bold text-white uppercase tracking-wider">
                     Owner Approvals &amp; Revocations (EIP-712)
                   </h3>
-                  <p className="text-xs text-slate-500 dark:text-[#8E8F99] mt-0.5">
+                  <p className="text-xs text-slate-300 mt-0.5">
                     Prepare a fixed-purpose challenge, review contract call and expiry, then approve with your connected EIP-1193 owner wallet.
                   </p>
                 </div>
@@ -1212,7 +1212,7 @@ export default function SettingsPage() {
                     type="button"
                     onClick={() => handlePrepareOperation('AUTHORIZE')}
                     disabled={preparingOpKind !== null || !sessionSetup?.sessionAddress}
-                    className="px-3.5 py-2 rounded-full bg-slate-100 dark:bg-[#1C1D22] hover:bg-slate-200 dark:hover:bg-[#2C2D35] border border-black/[0.08] dark:border-white/10 text-xs font-bold text-slate-800 dark:text-white transition-all cursor-pointer disabled:opacity-50"
+                    className="px-3.5 py-2 rounded-full glass-card hover:bg-white/10 border border-white/15 text-xs font-bold text-white transition-all cursor-pointer disabled:opacity-50"
                   >
                     {preparingOpKind === 'AUTHORIZE' ? 'Preparing...' : 'Prepare Authorization'}
                   </button>
@@ -1220,7 +1220,7 @@ export default function SettingsPage() {
                     type="button"
                     onClick={() => handlePrepareOperation('REVOKE')}
                     disabled={preparingOpKind !== null || !sessionSetup?.sessionAddress}
-                    className="px-3.5 py-2 rounded-full bg-slate-100 dark:bg-[#1C1D22] hover:bg-slate-200 dark:hover:bg-[#2C2D35] border border-black/[0.08] dark:border-white/10 text-xs font-bold text-slate-800 dark:text-white transition-all cursor-pointer disabled:opacity-50"
+                    className="px-3.5 py-2 rounded-full glass-card hover:bg-white/10 border border-white/15 text-xs font-bold text-white transition-all cursor-pointer disabled:opacity-50"
                   >
                     {preparingOpKind === 'REVOKE' ? 'Preparing...' : 'Prepare Revocation'}
                   </button>
@@ -1228,7 +1228,7 @@ export default function SettingsPage() {
               </div>
 
               {walletApprovalError && (
-                <div role="alert" aria-live="polite" className="p-3.5 rounded-2xl bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/20 text-xs text-rose-700 dark:text-rose-400 flex items-start gap-2.5">
+                <div role="alert" aria-live="polite" className="p-3.5 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-xs text-rose-300 flex items-start gap-2.5">
                   <AlertTriangle size={15} className="shrink-0 mt-0.5" />
                   <span>{walletApprovalError}</span>
                 </div>
@@ -1236,42 +1236,42 @@ export default function SettingsPage() {
 
               {/* Active Prepared Challenge Card */}
               {activePreparedOperation && (
-                <div className="p-4 rounded-2xl bg-indigo-50/50 dark:bg-indigo-950/20 border border-indigo-200 dark:border-indigo-800/40 space-y-3">
+                <div className="p-4 rounded-2xl bg-sky-950/30 border border-sky-500/30 space-y-3">
                   <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-indigo-900 dark:text-indigo-200">
+                    <span className="text-xs font-bold text-sky-200">
                       Prepared Challenge for Review: {activePreparedOperation.kind}
                     </span>
-                    <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-indigo-100 dark:bg-indigo-900/50 text-indigo-800 dark:text-indigo-300">
+                    <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-sky-900/50 text-sky-300">
                       State: {activePreparedOperation.state}
                     </span>
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs font-mono">
-                    <div className="p-2.5 rounded-xl bg-white/80 dark:bg-[#16171B]/80 border border-indigo-100 dark:border-indigo-900/20">
-                      <div className="text-[10px] text-slate-500 dark:text-[#8E8F99]">Owner Address</div>
-                      <div className="text-slate-900 dark:text-white break-all">{activePreparedOperation.ownerAddress}</div>
+                    <div className="p-2.5 rounded-xl bg-white/[0.05] border border-white/10">
+                      <div className="text-[10px] text-slate-400">Owner Address</div>
+                      <div className="text-white break-all">{activePreparedOperation.ownerAddress}</div>
                     </div>
-                    <div className="p-2.5 rounded-xl bg-white/80 dark:bg-[#16171B]/80 border border-indigo-100 dark:border-indigo-900/20">
-                      <div className="text-[10px] text-slate-500 dark:text-[#8E8F99]">Deposit Wallet</div>
-                      <div className="text-slate-900 dark:text-white break-all">{activePreparedOperation.walletAddress}</div>
+                    <div className="p-2.5 rounded-xl bg-white/[0.05] border border-white/10">
+                      <div className="text-[10px] text-slate-400">Deposit Wallet</div>
+                      <div className="text-white break-all">{activePreparedOperation.walletAddress}</div>
                     </div>
-                    <div className="p-2.5 rounded-xl bg-white/80 dark:bg-[#16171B]/80 border border-indigo-100 dark:border-indigo-900/20">
-                      <div className="text-[10px] text-slate-500 dark:text-[#8E8F99]">Session Address</div>
-                      <div className="text-slate-900 dark:text-white break-all">{activePreparedOperation.sessionAddress}</div>
+                    <div className="p-2.5 rounded-xl bg-white/[0.05] border border-white/10">
+                      <div className="text-[10px] text-slate-400">Session Address</div>
+                      <div className="text-white break-all">{activePreparedOperation.sessionAddress}</div>
                     </div>
-                    <div className="p-2.5 rounded-xl bg-white/80 dark:bg-[#16171B]/80 border border-indigo-100 dark:border-indigo-900/20">
-                      <div className="text-[10px] text-slate-500 dark:text-[#8E8F99]">Scopes &amp; Nonce</div>
-                      <div className="text-slate-900 dark:text-white break-all">
+                    <div className="p-2.5 rounded-xl bg-white/[0.05] border border-white/10">
+                      <div className="text-[10px] text-slate-400">Scopes &amp; Nonce</div>
+                      <div className="text-white break-all">
                         Scopes: {activePreparedOperation.scopes.join(', ') || 'None'} · Nonce: {activePreparedOperation.typedData?.message?.nonce || 'Unavailable'}
                       </div>
                     </div>
-                    <div className="p-2.5 rounded-xl bg-white/80 dark:bg-[#16171B]/80 border border-indigo-100 dark:border-indigo-900/20">
-                      <div className="text-[10px] text-slate-500 dark:text-[#8E8F99]">Signing Deadline (UTC)</div>
-                      <div className="text-slate-900 dark:text-white">{formatUtcDate(activePreparedOperation.deadline)}</div>
+                    <div className="p-2.5 rounded-xl bg-white/[0.05] border border-white/10">
+                      <div className="text-[10px] text-slate-400">Signing Deadline (UTC)</div>
+                      <div className="text-white">{formatUtcDate(activePreparedOperation.deadline)}</div>
                     </div>
-                    <div className="p-2.5 rounded-xl bg-white/80 dark:bg-[#16171B]/80 border border-indigo-100 dark:border-indigo-900/20">
-                      <div className="text-[10px] text-slate-500 dark:text-[#8E8F99]">Valid Until (UTC)</div>
-                      <div className="text-slate-900 dark:text-white">{formatUtcDate(activePreparedOperation.validUntil)}</div>
+                    <div className="p-2.5 rounded-xl bg-white/[0.05] border border-white/10">
+                      <div className="text-[10px] text-slate-400">Valid Until (UTC)</div>
+                      <div className="text-white">{formatUtcDate(activePreparedOperation.validUntil)}</div>
                     </div>
                   </div>
 
@@ -1279,7 +1279,7 @@ export default function SettingsPage() {
                     <button
                       type="button"
                       onClick={() => setActivePreparedOperation(null)}
-                      className="px-3.5 py-1.5 rounded-full border border-black/10 dark:border-white/10 text-xs font-semibold text-slate-700 dark:text-white hover:bg-slate-100 dark:hover:bg-[#1C1D22] transition-colors cursor-pointer"
+                      className="px-3.5 py-1.5 rounded-full border border-white/15 text-xs font-semibold text-slate-300 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
                     >
                       Dismiss
                     </button>
@@ -1287,7 +1287,7 @@ export default function SettingsPage() {
                       type="button"
                       onClick={() => handleApproveOperation(activePreparedOperation)}
                       disabled={signingOpId !== null}
-                      className="px-5 py-2 rounded-full bg-[#00D09C] hover:bg-[#00b084] text-black text-xs font-bold transition-all shadow-sm flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                      className="px-5 py-2 rounded-full glass-button text-white text-xs font-bold transition-all shadow-md flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
                     >
                       <Check size={14} />
                       <span>{signingOpId ? 'Signing with Wallet...' : 'Approve & Sign with Connected Wallet'}</span>
@@ -1299,12 +1299,12 @@ export default function SettingsPage() {
               {/* Operations History List */}
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <div className="text-xs font-semibold text-slate-700 dark:text-[#8E8F99]">Recent Owner Operations</div>
+                  <div className="text-xs font-semibold text-slate-300">Recent Owner Operations</div>
                   <button
                     type="button"
                     onClick={loadSessionData}
                     disabled={sessionLoading}
-                    className="px-2.5 py-1 rounded-full bg-slate-100 dark:bg-[#1C1D22] hover:bg-slate-200 dark:hover:bg-[#2C2D35] border border-black/[0.08] dark:border-white/10 text-[11px] font-bold text-slate-800 dark:text-white flex items-center gap-1 cursor-pointer disabled:opacity-50"
+                    className="px-2.5 py-1 rounded-full glass-card hover:bg-white/10 border border-white/15 text-[11px] font-bold text-white flex items-center gap-1 cursor-pointer disabled:opacity-50"
                     aria-label="Refresh session operations"
                   >
                     <RefreshCw size={10} className={sessionLoading ? 'animate-spin' : ''} />
@@ -1312,54 +1312,54 @@ export default function SettingsPage() {
                   </button>
                 </div>
                 {sessionOperations.length === 0 ? (
-                  <p className="text-xs text-slate-500 dark:text-[#8E8F99]">No session operations recorded.</p>
+                  <p className="text-xs text-slate-400">No session operations recorded.</p>
                 ) : (
                   <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
                     {sessionOperations.map((op) => {
                       const isUnresolved = ['PENDING', 'UNKNOWN', 'SUBMITTING'].includes(op.state);
                       return (
-                        <div key={op.id} className="p-3 rounded-xl bg-slate-50 dark:bg-[#1C1D22] border border-black/[0.05] dark:border-white/5 space-y-1">
+                        <div key={op.id} className="p-3 rounded-xl bg-white/[0.04] border border-white/10 space-y-1">
                           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
-                            <span className="text-xs font-mono font-bold text-slate-900 dark:text-white">
-                              {op.kind} · <span className="text-[11px] font-normal text-slate-500">ID: {op.id.slice(0, 8)}...</span>
+                            <span className="text-xs font-mono font-bold text-white">
+                              {op.kind} · <span className="text-[11px] font-normal text-slate-400">ID: {op.id.slice(0, 8)}...</span>
                             </span>
                             <div className="flex items-center gap-2">
                               {op.state === 'PREPARED' && (!activePreparedOperation || activePreparedOperation.id !== op.id) && (
                                 <button
                                   type="button"
                                   onClick={() => setActivePreparedOperation(op)}
-                                  className="px-2.5 py-0.5 rounded-full bg-indigo-50 dark:bg-indigo-500/10 hover:bg-indigo-100 dark:hover:bg-indigo-500/20 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-500/20 text-[10px] font-bold transition-all cursor-pointer"
+                                  className="px-2.5 py-0.5 rounded-full glass-card hover:bg-sky-500/20 text-sky-300 border border-sky-500/30 text-[10px] font-bold transition-all cursor-pointer"
                                 >
                                   Review Challenge
                                 </button>
                               )}
                               <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
                                 op.state === 'GRANT_OBSERVED' 
-                                  ? 'bg-emerald-100 dark:bg-[#00D09C]/10 text-emerald-700 dark:text-[#00D09C]' 
+                                  ? 'bg-[#00D09C]/10 text-[#00D09C] border border-[#00D09C]/25' 
                                   : isUnresolved
-                                  ? 'bg-amber-100 dark:bg-amber-500/10 text-amber-800 dark:text-amber-300'
-                                  : 'bg-slate-200 dark:bg-white/10 text-slate-700 dark:text-slate-300'
+                                  ? 'bg-amber-500/10 text-amber-300 border border-amber-500/25' 
+                                  : 'bg-white/10 text-slate-300 border border-white/10'
                               }`}>
                                 {op.state}
                               </span>
                             </div>
                           </div>
-                          <div className="text-[11px] font-mono text-slate-600 dark:text-[#8E8F99] flex flex-wrap gap-x-4">
+                          <div className="text-[11px] font-mono text-slate-400 flex flex-wrap gap-x-4">
                             <span>Deadline: {formatUtcDate(op.deadline)}</span>
                             {op.transactionId && <span>Tx ID: {op.transactionId}</span>}
                           </div>
                           {isUnresolved && (
-                            <div className="text-[10px] text-amber-700 dark:text-amber-400">
+                            <div className="text-[10px] text-amber-300">
                               ⚠️ Submission unresolved ({op.state}). Check status with your relayer/RPC; do not auto-resubmit.
                             </div>
                           )}
                           {op.kind === 'REVOKE' && op.state === 'PENDING' && (
-                            <div className="text-[10px] text-slate-500 dark:text-[#8E8F99]">
+                            <div className="text-[10px] text-slate-400">
                               Note: Revocation is pending relayer confirmation; not yet confirmed revoked on-chain.
                             </div>
                           )}
                           {op.state === 'GRANT_OBSERVED' && (
-                            <div className="text-[10px] text-slate-500 dark:text-[#8E8F99]">
+                            <div className="text-[10px] text-slate-400">
                               Note: Grant observed on-chain; does not enable live trading.
                             </div>
                           )}
@@ -1372,53 +1372,53 @@ export default function SettingsPage() {
             </div>
 
             {/* Baseline Initialization Section */}
-            <div className="pt-4 border-t border-black/[0.06] dark:border-white/5 space-y-3">
+            <div className="pt-4 border-t border-white/10 space-y-3">
               <div>
-                <h3 className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider">
+                <h3 className="text-xs font-bold text-white uppercase tracking-wider">
                   Read &amp; Initialize Wallet Account
                 </h3>
-                <p className="text-xs text-slate-500 dark:text-[#8E8F99] mt-0.5">
+                <p className="text-xs text-slate-300 mt-0.5">
                   After on-chain grant verification, establish an immutable live account baseline with live execution disabled. Requires verified session grant, complete RPC wallet history, no existing venue orders, and no positions needing cost-basis import.
                 </p>
               </div>
 
               {initError && (
-                <div role="alert" aria-live="polite" className="p-3.5 rounded-2xl bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/20 text-xs text-rose-700 dark:text-rose-400 flex items-start gap-2.5">
+                <div role="alert" aria-live="polite" className="p-3.5 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-xs text-rose-300 flex items-start gap-2.5">
                   <AlertTriangle size={15} className="shrink-0 mt-0.5" />
                   <span>{initError}</span>
                 </div>
               )}
 
               {initSuccess && (
-                <div role="status" aria-live="polite" className="p-3.5 rounded-2xl bg-emerald-50 dark:bg-[#00D09C]/10 border border-emerald-200 dark:border-[#00D09C]/20 text-xs text-emerald-700 dark:text-[#00D09C] flex items-center gap-2.5">
+                <div role="status" aria-live="polite" className="p-3.5 rounded-2xl bg-[#00D09C]/10 border border-[#00D09C]/25 text-xs text-[#00D09C] flex items-center gap-2.5">
                   <CheckCircle2 size={15} />
                   <span>{initSuccess}</span>
                 </div>
               )}
 
               {sessionSetup?.status !== 'authorization_observed' && (
-                <div className="p-3 rounded-xl bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 text-xs text-amber-800 dark:text-amber-300">
+                <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-xs text-amber-300">
                   ⚠️ Grant verification required: You must verify your Deposit Wallet session authorization grant on-chain before initializing an account baseline.
                 </div>
               )}
 
               {initResult && (
-                <div className="p-4 rounded-2xl bg-slate-50 dark:bg-[#1C1D22] border border-black/[0.05] dark:border-white/5 grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="p-4 rounded-2xl bg-white/[0.04] border border-white/10 grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div>
-                    <div className="text-[10px] uppercase text-slate-500 dark:text-[#8E8F99]">Confirmed Starting Cash</div>
+                    <div className="text-[10px] uppercase text-slate-400">Confirmed Starting Cash</div>
                     <div className="text-sm font-bold font-mono text-[#00D09C] mt-0.5">
                       ${initResult.startingCash} pUSD
                     </div>
                   </div>
                   <div>
-                    <div className="text-[10px] uppercase text-slate-500 dark:text-[#8E8F99]">Baseline Block</div>
-                    <div className="text-sm font-bold font-mono text-slate-900 dark:text-white mt-0.5">
+                    <div className="text-[10px] uppercase text-slate-400">Baseline Block</div>
+                    <div className="text-sm font-bold font-mono text-white mt-0.5">
                       #{initResult.blockNumber}
                     </div>
                   </div>
                   <div>
-                    <div className="text-[10px] uppercase text-slate-500 dark:text-[#8E8F99]">Execution Readiness</div>
-                    <div className="text-sm font-bold font-mono text-amber-500 mt-0.5">
+                    <div className="text-[10px] uppercase text-slate-400">Execution Readiness</div>
+                    <div className="text-sm font-bold font-mono text-amber-400 mt-0.5">
                       Unavailable (Gated)
                     </div>
                   </div>
@@ -1429,7 +1429,7 @@ export default function SettingsPage() {
                 type="button"
                 onClick={handleInitializeAccount}
                 disabled={initLoading || sessionLoading || sessionSetup?.status !== 'authorization_observed'}
-                className="px-5 py-2.5 rounded-full bg-slate-950 dark:bg-white text-white dark:text-black hover:bg-slate-800 dark:hover:bg-slate-200 text-xs font-bold transition-all shadow-sm flex items-center gap-2 cursor-pointer disabled:opacity-50"
+                className="px-5 py-2.5 rounded-full glass-button text-white text-xs font-bold transition-all shadow-md flex items-center gap-2 cursor-pointer disabled:opacity-50"
               >
                 <Layers size={14} />
                 <span>{initLoading ? 'Reading & Initializing Account...' : 'Read and Initialize Wallet Account'}</span>
@@ -1438,22 +1438,22 @@ export default function SettingsPage() {
           </div>
 
           {/* Card 3: Explicit Copy Policy & Deterministic Risk Limits */}
-          <div className="revolut-card bg-white dark:bg-[#16171B] border border-black/[0.08] dark:border-white/10 p-6 sm:p-8 rounded-[28px] shadow-sm space-y-6">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-black/[0.06] dark:border-white/5">
+          <div className="glass-card p-6 sm:p-8 rounded-[28px] space-y-6 text-white">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-white/10">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-2xl bg-indigo-50 dark:bg-indigo-500/10 border border-indigo-200 dark:border-indigo-500/20 flex items-center justify-center text-indigo-600 dark:text-indigo-400">
+                <div className="w-10 h-10 rounded-2xl bg-indigo-500/15 border border-indigo-500/30 flex items-center justify-center text-indigo-400">
                   <FileSpreadsheet size={18} />
                 </div>
                 <div>
-                  <h2 className="text-sm font-bold text-slate-950 dark:text-white flex items-center gap-2">
+                  <h2 className="text-sm font-bold text-white flex items-center gap-2">
                     Live Copy Policy &amp; Risk Limits
                     {copyPolicy && (
-                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-indigo-50 dark:bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-500/20 font-mono">
+                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 font-mono">
                         Revision #{copyPolicy.revision}
                       </span>
                     )}
                   </h2>
-                  <p className="text-xs text-slate-500 dark:text-[#8E8F99] mt-0.5">
+                  <p className="text-xs text-white/60 mt-0.5">
                     Configure strictly enforced risk limits for live execution. Unset policy renders an empty form. Saving policy stops execution and requests cancellation of pending orders; reactivation is required.
                   </p>
                 </div>
@@ -1464,7 +1464,7 @@ export default function SettingsPage() {
                   type="button"
                   onClick={loadPolicyData}
                   disabled={policyLoading}
-                  className="px-3.5 py-1.5 rounded-full bg-slate-100 dark:bg-[#1C1D22] border border-black/[0.08] dark:border-white/10 text-xs font-bold text-slate-800 dark:text-white flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                  className="px-3.5 py-1.5 rounded-full ctrl-btn text-xs font-bold text-white flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
                   aria-label="Refresh copy policy"
                 >
                   <RefreshCw size={12} className={policyLoading ? 'animate-spin' : ''} />
@@ -1474,76 +1474,76 @@ export default function SettingsPage() {
             </div>
 
             {policyLoaded && copyPolicy === null && (
-              <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-[#1C1D22] border border-black/[0.05] dark:border-white/5 text-xs text-slate-600 dark:text-[#8E8F99]">
+              <div className="p-3.5 rounded-2xl bg-white/[0.04] border border-white/10 text-xs text-white/70">
                 ℹ️ No copy policy is currently configured. Complete all required fields below to establish your live copy policy.
               </div>
             )}
 
             {copyPolicy && (
-              <div className="p-4 rounded-2xl bg-slate-50 dark:bg-[#1C1D22] border border-black/[0.05] dark:border-white/5 space-y-3">
+              <div className="p-4 rounded-2xl bg-white/[0.04] border border-white/10 space-y-3">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-slate-900 dark:text-white">
+                  <span className="text-xs font-bold text-white">
                     Confirmed Policy Revision #{copyPolicy.revision} Limits
                   </span>
-                  <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-indigo-50 dark:bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-500/20">
+                  <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
                     Active on Server
                   </span>
                 </div>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs font-mono">
-                  <div className="p-2 rounded-xl bg-white dark:bg-[#16171B] border border-black/[0.04] dark:border-white/5">
-                    <div className="text-[10px] text-slate-500 dark:text-[#8E8F99]">Copy Ratio</div>
-                    <div className="text-slate-900 dark:text-white font-semibold">
+                  <div className="p-2.5 rounded-xl bg-white/[0.04] border border-white/10">
+                    <div className="text-[10px] text-white/50">Copy Ratio</div>
+                    <div className="text-white font-semibold">
                       {copyPolicy.copy_ratio} ({(parseFloat(copyPolicy.copy_ratio) * 100).toFixed(0)}%)
                     </div>
                   </div>
-                  <div className="p-2 rounded-xl bg-white dark:bg-[#16171B] border border-black/[0.04] dark:border-white/5">
-                    <div className="text-[10px] text-slate-500 dark:text-[#8E8F99]">Max Order Cash</div>
-                    <div className="text-slate-900 dark:text-white font-semibold">${copyPolicy.limits.max_order_cash} pUSD</div>
+                  <div className="p-2.5 rounded-xl bg-white/[0.04] border border-white/10">
+                    <div className="text-[10px] text-white/50">Max Order Cash</div>
+                    <div className="text-white font-semibold">${copyPolicy.limits.max_order_cash} pUSD</div>
                   </div>
-                  <div className="p-2 rounded-xl bg-white dark:bg-[#16171B] border border-black/[0.04] dark:border-white/5">
-                    <div className="text-[10px] text-slate-500 dark:text-[#8E8F99]">Max Total Exposure</div>
-                    <div className="text-slate-900 dark:text-white font-semibold">${copyPolicy.limits.max_total_exposure} pUSD</div>
+                  <div className="p-2.5 rounded-xl bg-white/[0.04] border border-white/10">
+                    <div className="text-[10px] text-white/50">Max Total Exposure</div>
+                    <div className="text-white font-semibold">${copyPolicy.limits.max_total_exposure} pUSD</div>
                   </div>
-                  <div className="p-2 rounded-xl bg-white dark:bg-[#16171B] border border-black/[0.04] dark:border-white/5">
-                    <div className="text-[10px] text-slate-500 dark:text-[#8E8F99]">Max Token Exposure</div>
-                    <div className="text-slate-900 dark:text-white font-semibold">${copyPolicy.limits.max_token_exposure} pUSD</div>
+                  <div className="p-2.5 rounded-xl bg-white/[0.04] border border-white/10">
+                    <div className="text-[10px] text-white/50">Max Token Exposure</div>
+                    <div className="text-white font-semibold">${copyPolicy.limits.max_token_exposure} pUSD</div>
                   </div>
-                  <div className="p-2 rounded-xl bg-white dark:bg-[#16171B] border border-black/[0.04] dark:border-white/5">
-                    <div className="text-[10px] text-slate-500 dark:text-[#8E8F99]">Max Daily Loss</div>
-                    <div className="text-slate-900 dark:text-white font-semibold">${copyPolicy.limits.max_daily_loss} pUSD</div>
+                  <div className="p-2.5 rounded-xl bg-white/[0.04] border border-white/10">
+                    <div className="text-[10px] text-white/50">Max Daily Loss</div>
+                    <div className="text-white font-semibold">${copyPolicy.limits.max_daily_loss} pUSD</div>
                   </div>
-                  <div className="p-2 rounded-xl bg-white dark:bg-[#16171B] border border-black/[0.04] dark:border-white/5">
-                    <div className="text-[10px] text-slate-500 dark:text-[#8E8F99]">Max Open Orders</div>
-                    <div className="text-slate-900 dark:text-white font-semibold">{copyPolicy.limits.max_open_orders}</div>
+                  <div className="p-2.5 rounded-xl bg-white/[0.04] border border-white/10">
+                    <div className="text-[10px] text-white/50">Max Open Orders</div>
+                    <div className="text-white font-semibold">{copyPolicy.limits.max_open_orders}</div>
                   </div>
-                  <div className="p-2 rounded-xl bg-white dark:bg-[#16171B] border border-black/[0.04] dark:border-white/5">
-                    <div className="text-[10px] text-slate-500 dark:text-[#8E8F99]">Max Slippage / Fee</div>
-                    <div className="text-slate-900 dark:text-white font-semibold">
+                  <div className="p-2.5 rounded-xl bg-white/[0.04] border border-white/10">
+                    <div className="text-[10px] text-white/50">Max Slippage / Fee</div>
+                    <div className="text-white font-semibold">
                       {copyPolicy.limits.max_slippage_bps} bps / {copyPolicy.limits.max_fee_bps} bps
                     </div>
                   </div>
-                  <div className="p-2 rounded-xl bg-white dark:bg-[#16171B] border border-black/[0.04] dark:border-white/5">
-                    <div className="text-[10px] text-slate-500 dark:text-[#8E8F99]">Max Quote / Source Age</div>
-                    <div className="text-slate-900 dark:text-white font-semibold">
+                  <div className="p-2.5 rounded-xl bg-white/[0.04] border border-white/10">
+                    <div className="text-[10px] text-white/50">Max Quote / Source Age</div>
+                    <div className="text-white font-semibold">
                       {copyPolicy.limits.max_quote_age_ms} ms / {copyPolicy.limits.max_source_age_ms} ms
                     </div>
                   </div>
                 </div>
-                <div className="text-[11px] font-mono text-slate-500 dark:text-[#8E8F99]">
+                <div className="text-[11px] font-mono text-white/60">
                   Sources ({copyPolicy.source_wallets.length}): {copyPolicy.source_wallets.join(', ')}
                 </div>
               </div>
             )}
 
             {policyError && (
-              <div role="alert" aria-live="polite" className="p-3.5 rounded-2xl bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/20 text-xs text-rose-700 dark:text-rose-400 flex items-start gap-2.5">
+              <div role="alert" aria-live="polite" className="p-3.5 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-xs text-rose-300 flex items-start gap-2.5">
                 <AlertTriangle size={15} className="shrink-0 mt-0.5" />
                 <span>{policyError}</span>
               </div>
             )}
 
             {policySuccess && (
-              <div role="status" aria-live="polite" className="p-3.5 rounded-2xl bg-emerald-50 dark:bg-[#00D09C]/10 border border-emerald-200 dark:border-[#00D09C]/20 text-xs text-emerald-700 dark:text-[#00D09C] flex items-center gap-2.5">
+              <div role="status" aria-live="polite" className="p-3.5 rounded-2xl bg-[#00D09C]/10 border border-[#00D09C]/20 text-xs text-[#00D09C] flex items-center gap-2.5">
                 <CheckCircle2 size={15} />
                 <span>{policySuccess}</span>
               </div>
@@ -1551,7 +1551,7 @@ export default function SettingsPage() {
 
             <div className="space-y-4">
               <div>
-                <label htmlFor="policy-source-wallets" className="block text-xs font-semibold text-slate-700 dark:text-[#8E8F99] mb-1.5">
+                <label htmlFor="policy-source-wallets" className="block text-xs font-semibold text-white/80 mb-1.5">
                   Source Wallet Addresses (1–20 unique 0x addresses, comma or newline separated)
                 </label>
                 <textarea
@@ -1561,13 +1561,13 @@ export default function SettingsPage() {
                   aria-label="Source Wallet Addresses"
                   value={policySourceWallets}
                   onChange={(e) => setPolicySourceWallets(e.target.value)}
-                  className="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-[#1C1D22] border border-black/[0.08] dark:border-white/10 text-xs font-mono text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#00D09C]"
+                  className="w-full px-4 py-2.5 rounded-xl bg-white/[0.06] border border-white/15 text-xs font-mono text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-[#00D09C]"
                 />
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label htmlFor="policy-copy-ratio" className="block text-xs font-semibold text-slate-700 dark:text-[#8E8F99] mb-1.5">
+                  <label htmlFor="policy-copy-ratio" className="block text-xs font-semibold text-white/80 mb-1.5">
                     Copy Ratio (0.01 to 1.00)
                   </label>
                   <input
@@ -1577,14 +1577,14 @@ export default function SettingsPage() {
                     aria-label="Copy Ratio"
                     value={policyCopyRatio}
                     onChange={(e) => setPolicyCopyRatio(e.target.value)}
-                    className="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-[#1C1D22] border border-black/[0.08] dark:border-white/10 text-xs font-mono text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#00D09C]"
+                    className="w-full px-4 py-2.5 rounded-xl bg-white/[0.06] border border-white/15 text-xs font-mono text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-[#00D09C]"
                   />
-                  <p className="text-[10px] text-slate-500 dark:text-[#8E8F99] mt-1">
+                  <p className="text-[10px] text-white/50 mt-1">
                     Decimal greater than 0 and at most 1. Example: 0.10 copies 10% of source shares.
                   </p>
                 </div>
                 <div>
-                  <label htmlFor="policy-max-open-orders" className="block text-xs font-semibold text-slate-700 dark:text-[#8E8F99] mb-1.5">
+                  <label htmlFor="policy-max-open-orders" className="block text-xs font-semibold text-white/80 mb-1.5">
                     Max Open Orders (1–100)
                   </label>
                   <input
@@ -1595,14 +1595,14 @@ export default function SettingsPage() {
                     aria-label="Max Open Orders"
                     value={policyMaxOpenOrders}
                     onChange={(e) => setPolicyMaxOpenOrders(e.target.value)}
-                    className="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-[#1C1D22] border border-black/[0.08] dark:border-white/10 text-xs font-mono text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#00D09C]"
+                    className="w-full px-4 py-2.5 rounded-xl bg-white/[0.06] border border-white/15 text-xs font-mono text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-[#00D09C]"
                   />
                 </div>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 <div>
-                  <label htmlFor="policy-max-order-cash" className="block text-xs font-semibold text-slate-700 dark:text-[#8E8F99] mb-1.5">
+                  <label htmlFor="policy-max-order-cash" className="block text-xs font-semibold text-white/80 mb-1.5">
                     Max Order Cash (pUSD)
                   </label>
                   <input
@@ -1612,11 +1612,11 @@ export default function SettingsPage() {
                     aria-label="Max Order Cash"
                     value={policyMaxOrderCash}
                     onChange={(e) => setPolicyMaxOrderCash(e.target.value)}
-                    className="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-[#1C1D22] border border-black/[0.08] dark:border-white/10 text-xs font-mono text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#00D09C]"
+                    className="w-full px-4 py-2.5 rounded-xl bg-white/[0.06] border border-white/15 text-xs font-mono text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-[#00D09C]"
                   />
                 </div>
                 <div>
-                  <label htmlFor="policy-max-total-exposure" className="block text-xs font-semibold text-slate-700 dark:text-[#8E8F99] mb-1.5">
+                  <label htmlFor="policy-max-total-exposure" className="block text-xs font-semibold text-white/80 mb-1.5">
                     Max Total Exposure (pUSD)
                   </label>
                   <input
@@ -1626,11 +1626,11 @@ export default function SettingsPage() {
                     aria-label="Max Total Exposure"
                     value={policyMaxTotalExposure}
                     onChange={(e) => setPolicyMaxTotalExposure(e.target.value)}
-                    className="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-[#1C1D22] border border-black/[0.08] dark:border-white/10 text-xs font-mono text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#00D09C]"
+                    className="w-full px-4 py-2.5 rounded-xl bg-white/[0.06] border border-white/15 text-xs font-mono text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-[#00D09C]"
                   />
                 </div>
                 <div>
-                  <label htmlFor="policy-max-token-exposure" className="block text-xs font-semibold text-slate-700 dark:text-[#8E8F99] mb-1.5">
+                  <label htmlFor="policy-max-token-exposure" className="block text-xs font-semibold text-white/80 mb-1.5">
                     Max Token Exposure (pUSD)
                   </label>
                   <input
@@ -1640,11 +1640,11 @@ export default function SettingsPage() {
                     aria-label="Max Token Exposure"
                     value={policyMaxTokenExposure}
                     onChange={(e) => setPolicyMaxTokenExposure(e.target.value)}
-                    className="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-[#1C1D22] border border-black/[0.08] dark:border-white/10 text-xs font-mono text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#00D09C]"
+                    className="w-full px-4 py-2.5 rounded-xl bg-white/[0.06] border border-white/15 text-xs font-mono text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-[#00D09C]"
                   />
                 </div>
                 <div>
-                  <label htmlFor="policy-max-daily-loss" className="block text-xs font-semibold text-slate-700 dark:text-[#8E8F99] mb-1.5">
+                  <label htmlFor="policy-max-daily-loss" className="block text-xs font-semibold text-white/80 mb-1.5">
                     Max Daily Loss (pUSD)
                   </label>
                   <input
@@ -1654,14 +1654,14 @@ export default function SettingsPage() {
                     aria-label="Max Daily Loss"
                     value={policyMaxDailyLoss}
                     onChange={(e) => setPolicyMaxDailyLoss(e.target.value)}
-                    className="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-[#1C1D22] border border-black/[0.08] dark:border-white/10 text-xs font-mono text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#00D09C]"
+                    className="w-full px-4 py-2.5 rounded-xl bg-white/[0.06] border border-white/15 text-xs font-mono text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-[#00D09C]"
                   />
                 </div>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label htmlFor="policy-max-slippage-bps" className="block text-xs font-semibold text-slate-700 dark:text-[#8E8F99] mb-1.5">
+                  <label htmlFor="policy-max-slippage-bps" className="block text-xs font-semibold text-white/80 mb-1.5">
                     Max Slippage (basis points: 100 bps = 1%)
                   </label>
                   <input
@@ -1671,11 +1671,11 @@ export default function SettingsPage() {
                     aria-label="Max Slippage in basis points"
                     value={policyMaxSlippageBps}
                     onChange={(e) => setPolicyMaxSlippageBps(e.target.value)}
-                    className="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-[#1C1D22] border border-black/[0.08] dark:border-white/10 text-xs font-mono text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#00D09C]"
+                    className="w-full px-4 py-2.5 rounded-xl bg-white/[0.06] border border-white/15 text-xs font-mono text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-[#00D09C]"
                   />
                 </div>
                 <div>
-                  <label htmlFor="policy-max-fee-bps" className="block text-xs font-semibold text-slate-700 dark:text-[#8E8F99] mb-1.5">
+                  <label htmlFor="policy-max-fee-bps" className="block text-xs font-semibold text-white/80 mb-1.5">
                     Max Fee Bound (basis points: 100 bps = 1%)
                   </label>
                   <input
@@ -1685,14 +1685,14 @@ export default function SettingsPage() {
                     aria-label="Max Fee Bound in basis points"
                     value={policyMaxFeeBps}
                     onChange={(e) => setPolicyMaxFeeBps(e.target.value)}
-                    className="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-[#1C1D22] border border-black/[0.08] dark:border-white/10 text-xs font-mono text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#00D09C]"
+                    className="w-full px-4 py-2.5 rounded-xl bg-white/[0.06] border border-white/15 text-xs font-mono text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-[#00D09C]"
                   />
                 </div>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label htmlFor="policy-max-quote-age-ms" className="block text-xs font-semibold text-slate-700 dark:text-[#8E8F99] mb-1.5">
+                  <label htmlFor="policy-max-quote-age-ms" className="block text-xs font-semibold text-white/80 mb-1.5">
                     Max Quote Age (milliseconds, 1–60,000 ms)
                   </label>
                   <input
@@ -1703,11 +1703,11 @@ export default function SettingsPage() {
                     aria-label="Max Quote Age in milliseconds"
                     value={policyMaxQuoteAgeMs}
                     onChange={(e) => setPolicyMaxQuoteAgeMs(e.target.value)}
-                    className="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-[#1C1D22] border border-black/[0.08] dark:border-white/10 text-xs font-mono text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#00D09C]"
+                    className="w-full px-4 py-2.5 rounded-xl bg-white/[0.06] border border-white/15 text-xs font-mono text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-[#00D09C]"
                   />
                 </div>
                 <div>
-                  <label htmlFor="policy-max-source-age-ms" className="block text-xs font-semibold text-slate-700 dark:text-[#8E8F99] mb-1.5">
+                  <label htmlFor="policy-max-source-age-ms" className="block text-xs font-semibold text-white/80 mb-1.5">
                     Max Source Age (milliseconds, 1–3,600,000 ms)
                   </label>
                   <input
@@ -1718,9 +1718,9 @@ export default function SettingsPage() {
                     aria-label="Max Source Age in milliseconds"
                     value={policyMaxSourceAgeMs}
                     onChange={(e) => setPolicyMaxSourceAgeMs(e.target.value)}
-                    className="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-[#1C1D22] border border-black/[0.08] dark:border-white/10 text-xs font-mono text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#00D09C]"
+                    className="w-full px-4 py-2.5 rounded-xl bg-white/[0.06] border border-white/15 text-xs font-mono text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-[#00D09C]"
                   />
-                  <p className="text-[10px] text-slate-500 dark:text-[#8E8F99] mt-1">
+                  <p className="text-[10px] text-white/50 mt-1">
                     Source age includes Polygon confirmation delay; setting this too low can exclude every confirmed event.
                   </p>
                 </div>
@@ -1728,7 +1728,7 @@ export default function SettingsPage() {
             </div>
 
             <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2">
-              <div className="text-[11px] text-slate-500 dark:text-[#8E8F99]">
+              <div className="text-[11px] text-white/60">
                 Saving policy stops current live execution and requests cancellation of pending orders; reactivation is required.
               </div>
 
@@ -1736,7 +1736,7 @@ export default function SettingsPage() {
                 type="button"
                 onClick={handleSavePolicy}
                 disabled={policySaving}
-                className="px-6 py-2.5 rounded-full bg-slate-950 dark:bg-white text-white dark:text-black hover:bg-slate-800 dark:hover:bg-slate-200 text-xs font-bold transition-all shadow-sm flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                className="px-6 py-2.5 rounded-full glass-button text-white text-xs font-bold transition-all shadow-md flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
               >
                 <Save size={13} />
                 <span>{policySaving ? 'Saving policy...' : 'Save Copy Policy'}</span>
@@ -1745,11 +1745,11 @@ export default function SettingsPage() {
           </div>
 
           {/* Card 4: Read-only Reconciled Execution State */}
-          <div className="revolut-card bg-white dark:bg-[#16171B] border border-black/[0.08] dark:border-white/10 p-6 sm:p-8 rounded-[28px] shadow-sm space-y-5">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-black/[0.06] dark:border-white/5 pb-4">
+          <div className="glass-card p-6 sm:p-8 rounded-[28px] space-y-5 text-white">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-white/10 pb-4">
               <div>
-                <h2 className="text-sm font-bold text-slate-950 dark:text-white">Read-only Execution State</h2>
-                <p className="text-xs text-slate-500 dark:text-[#8E8F99] mt-1">
+                <h2 className="text-sm font-bold text-white">Read-only Execution State</h2>
+                <p className="text-xs text-white/60 mt-1">
                   Persisted account reconciliation and order journal state. Viewing this does not enable live execution.
                 </p>
               </div>
@@ -1757,7 +1757,7 @@ export default function SettingsPage() {
                 type="button"
                 onClick={refreshExecutionState}
                 disabled={refreshingExecutionState}
-                className="px-3.5 py-2 rounded-full bg-slate-100 dark:bg-[#1C1D22] border border-black/[0.08] dark:border-white/10 text-xs font-bold text-slate-800 dark:text-white flex items-center gap-2 cursor-pointer disabled:opacity-50"
+                className="px-3.5 py-2 rounded-full ctrl-btn text-xs font-bold text-white flex items-center gap-2 cursor-pointer disabled:opacity-50"
               >
                 <RefreshCw size={13} className={refreshingExecutionState ? 'animate-spin' : ''} />
                 <span>{refreshingExecutionState ? 'Refreshing...' : 'Refresh state'}</span>
@@ -1779,42 +1779,42 @@ export default function SettingsPage() {
                 ['Available cash', showExactValue(executionState?.availableCash, executionState?.collateralCurrency ? ` ${executionState.collateralCurrency}` : '')],
                 ['Reconciliation completed', formatUtcDate(executionState?.reconciliation?.finishedAt)],
               ].map(([label, value]) => (
-                <div key={label} className="p-3.5 rounded-2xl bg-slate-50 dark:bg-[#1C1D22] border border-black/[0.05] dark:border-white/5">
-                  <div className="text-[10px] uppercase tracking-wide text-slate-500 dark:text-[#8E8F99]">{label}</div>
-                  <div className="mt-1 text-xs font-mono font-semibold text-slate-900 dark:text-white break-all">{value}</div>
+                <div key={label} className="p-3.5 rounded-2xl bg-white/[0.04] border border-white/10">
+                  <div className="text-[10px] uppercase tracking-wide text-white/50">{label}</div>
+                  <div className="mt-1 text-xs font-mono font-semibold text-white break-all">{value}</div>
                 </div>
               ))}
             </div>
 
-            <div className="text-xs text-slate-600 dark:text-[#8E8F99]">
+            <div className="text-xs text-white/60">
               Reconciliation detail: {showExactValue(executionState?.reconciliation?.detail ?? executionState?.reason)}
               {!executionStateLoaded && <span> · Loading state</span>}
             </div>
 
             <div className="space-y-3">
-              <h3 className="text-xs font-bold text-slate-900 dark:text-white">Persisted Order Intents</h3>
+              <h3 className="text-xs font-bold text-white">Persisted Order Intents</h3>
               {executionState?.orders == null ? (
-                <p className="text-xs text-slate-500 dark:text-[#8E8F99]">Unavailable</p>
+                <p className="text-xs text-white/50">Unavailable</p>
               ) : executionState.orders.length === 0 ? (
-                <p className="text-xs text-slate-500 dark:text-[#8E8F99]">No persisted order intents.</p>
+                <p className="text-xs text-white/50">No persisted order intents.</p>
               ) : (
                 <div className="space-y-2">
                   {executionState.orders.map((order, index) => (
-                    <div key={order.id ?? `${order.tokenId ?? 'order'}-${index}`} className="p-3.5 rounded-2xl bg-slate-50 dark:bg-[#1C1D22] border border-black/[0.05] dark:border-white/5">
+                    <div key={order.id ?? `${order.tokenId ?? 'order'}-${index}`} className="p-3.5 rounded-2xl bg-white/[0.04] border border-white/10">
                       <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2">
                         <div className="min-w-0 space-y-1">
-                          <div className="text-xs font-mono text-slate-900 dark:text-white break-all">
+                          <div className="text-xs font-mono text-white break-all">
                             Token: {showExactValue(order.tokenId)} · Side: {showExactValue(order.side)}
                           </div>
-                          <div className="text-[11px] font-mono text-slate-600 dark:text-[#8E8F99]">
+                          <div className="text-[11px] font-mono text-white/60">
                             Quantity: {showExactValue(order.quantity)} · Filled: {showExactValue(order.filledQuantity)} · Limit: {showExactValue(order.limitPrice)}
                           </div>
                         </div>
-                        <span className={`shrink-0 text-[10px] font-bold px-2 py-1 rounded-full ${order.cancelRequestedAt && getLiveOrderStateLabel(order) === 'Pending cancellation' ? 'bg-amber-100 dark:bg-amber-500/10 text-amber-800 dark:text-amber-300' : 'bg-slate-200 dark:bg-white/10 text-slate-700 dark:text-slate-300'}`}>
+                        <span className={`shrink-0 text-[10px] font-bold px-2.5 py-1 rounded-full ${order.cancelRequestedAt && getLiveOrderStateLabel(order) === 'Pending cancellation' ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' : 'bg-white/10 text-white/80 border border-white/15'}`}>
                           {getLiveOrderStateLabel(order)}
                         </span>
                       </div>
-                      <div className="mt-2 text-[10px] font-mono text-slate-500 dark:text-[#8E8F99]">
+                      <div className="mt-2 text-[10px] font-mono text-white/50">
                         Cancel requested at: {formatUtcDate(order.cancelRequestedAt)}
                       </div>
                     </div>
@@ -1825,32 +1825,32 @@ export default function SettingsPage() {
           </div>
 
           {/* Card 5: Sandbox Capital Allocation & Paper Run Archives */}
-          <div className="revolut-card bg-white dark:bg-[#16171B] border border-black/[0.08] dark:border-white/10 p-6 sm:p-8 rounded-[28px] shadow-sm space-y-6">
+          <div className="glass-card p-6 sm:p-8 rounded-[28px] space-y-6 text-white">
             <div className="flex items-center justify-between">
               <div>
-                <h2 className="text-sm font-bold text-slate-950 dark:text-white">Sandbox Capital Allocation</h2>
-                <p className="text-xs text-slate-500 dark:text-[#8E8F99] mt-0.5">
+                <h2 className="text-sm font-bold text-white">Sandbox Capital Allocation</h2>
+                <p className="text-xs text-white/60 mt-0.5">
                   Simulated paper trading capital allocated to your account.
                 </p>
               </div>
               <button
                 type="button"
                 onClick={() => setIsResetOpen(true)}
-                className="text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 bg-indigo-50 dark:bg-indigo-500/10 px-3.5 py-1.5 rounded-full border border-indigo-200 dark:border-indigo-500/20 transition-colors cursor-pointer"
+                className="text-xs font-semibold text-indigo-300 hover:text-white ctrl-btn px-3.5 py-1.5 rounded-full transition-colors cursor-pointer"
               >
                 Start New Paper Run
               </button>
             </div>
             <div className="grid grid-cols-2 gap-4">
-              <div className="p-4 rounded-2xl bg-slate-50 dark:bg-[#1C1D22] border border-black/[0.04] dark:border-white/5">
-                <div className="text-[11px] text-slate-500 dark:text-[#8E8F99] font-medium mb-1">Starting Allocation</div>
-                <div className="text-2xl font-bold font-mono text-slate-900 dark:text-white">
+              <div className="p-4 rounded-2xl bg-white/[0.04] border border-white/10">
+                <div className="text-[11px] text-white/50 font-medium mb-1">Starting Allocation</div>
+                <div className="text-2xl font-bold font-mono text-white">
                   {user?.startingBalance != null ? `${formatUsd(user.startingBalance)} pUSD` : 'Unavailable'}
                 </div>
               </div>
-              <div className="p-4 rounded-2xl bg-slate-50 dark:bg-[#1C1D22] border border-black/[0.04] dark:border-white/5">
-                <div className="text-[11px] text-slate-500 dark:text-[#8E8F99] font-medium mb-1">Current Mark-to-Market</div>
-                <div className="text-2xl font-bold font-mono text-emerald-600 dark:text-[#00D09C]">
+              <div className="p-4 rounded-2xl bg-white/[0.04] border border-white/10">
+                <div className="text-[11px] text-white/50 font-medium mb-1">Current Mark-to-Market</div>
+                <div className="text-2xl font-bold font-mono text-[#00D09C]">
                   {(portfolio?.currentBalance ?? user?.currentBalance) != null 
                     ? `${formatUsd(portfolio?.currentBalance ?? user?.currentBalance)} pUSD` 
                     : 'Unavailable'}
@@ -1859,13 +1859,13 @@ export default function SettingsPage() {
             </div>
 
             {/* Paper Run Archives Section */}
-            <div className="pt-4 border-t border-black/[0.06] dark:border-white/5 space-y-4">
+            <div className="pt-4 border-t border-white/10 space-y-4">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div>
-                  <h3 className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider">
+                  <h3 className="text-xs font-bold text-white uppercase tracking-wider">
                     Paper Run History &amp; Retained Archives
                   </h3>
-                  <p className="text-xs text-slate-500 dark:text-[#8E8F99] mt-0.5">
+                  <p className="text-xs text-white/60 mt-0.5">
                     Account-owned past paper runs and trade journals retained in database. Never trigger a reset to test this screen.
                   </p>
                 </div>
@@ -1873,7 +1873,7 @@ export default function SettingsPage() {
                   type="button"
                   onClick={loadPaperRuns}
                   disabled={loadingPaperRuns}
-                  className="px-3 py-1.5 rounded-full bg-slate-100 dark:bg-[#1C1D22] border border-black/[0.08] dark:border-white/10 text-xs font-bold text-slate-800 dark:text-white flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                  className="px-3 py-1.5 rounded-full ctrl-btn text-xs font-bold text-white flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
                   aria-label="Refresh paper run archives"
                 >
                   <RefreshCw size={12} className={loadingPaperRuns ? 'animate-spin' : ''} />
@@ -1882,25 +1882,25 @@ export default function SettingsPage() {
               </div>
 
               {paperRunsError && (
-                <div role="alert" aria-live="polite" className="p-3 rounded-xl bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/20 text-xs text-rose-700 dark:text-rose-400">
+                <div role="alert" aria-live="polite" className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-xs text-rose-300">
                   {paperRunsError}
                 </div>
               )}
 
               {paperRuns.length === 0 ? (
-                <p className="text-xs text-slate-500 dark:text-[#8E8F99]">No archived paper runs found for this account.</p>
+                <p className="text-xs text-white/50">No archived paper runs found for this account.</p>
               ) : (
                 <div className="space-y-2">
                   {paperRuns.map((run) => (
-                    <div key={run.id} className="p-3.5 rounded-2xl bg-slate-50 dark:bg-[#1C1D22] border border-black/[0.05] dark:border-white/5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div key={run.id} className="p-3.5 rounded-2xl bg-white/[0.04] border border-white/10 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                       <div className="space-y-1 font-mono text-xs">
                         <div className="flex items-center gap-2">
-                          <span className="font-bold text-slate-900 dark:text-white">Run ID: {run.id.slice(0, 13)}...</span>
-                          <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${run.status === 'ACTIVE' ? 'bg-emerald-100 dark:bg-[#00D09C]/10 text-emerald-700 dark:text-[#00D09C]' : 'bg-slate-200 dark:bg-white/10 text-slate-600 dark:text-[#8E8F99]'}`}>
+                          <span className="font-bold text-white">Run ID: {run.id.slice(0, 13)}...</span>
+                          <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${run.status === 'ACTIVE' ? 'bg-[#00D09C]/15 text-[#00D09C] border border-[#00D09C]/30' : 'bg-white/10 text-white/60 border border-white/15'}`}>
                             {run.status}
                           </span>
                         </div>
-                        <div className="text-[11px] text-slate-600 dark:text-[#8E8F99] flex flex-wrap gap-x-3">
+                        <div className="text-[11px] text-white/60 flex flex-wrap gap-x-3">
                           <span>Started: {formatUtcDate(run.startedAt)}</span>
                           <span>Ended: {formatUtcDate(run.endedAt)}</span>
                           <span>Starting: {formatUsd(run.startingBalance)} pUSD</span>
@@ -1911,7 +1911,7 @@ export default function SettingsPage() {
                         type="button"
                         onClick={() => handleViewTrades(run.id)}
                         disabled={loadingTrades && tradesModalRunId === run.id}
-                        className="px-3.5 py-1.5 rounded-full bg-slate-100 dark:bg-[#2C2D35] hover:bg-slate-200 dark:hover:bg-[#383944] text-xs font-bold text-slate-800 dark:text-white transition-colors flex items-center gap-1.5 cursor-pointer disabled:opacity-50 shrink-0"
+                        className="px-3.5 py-1.5 rounded-full ctrl-btn text-xs font-bold text-white transition-colors flex items-center gap-1.5 cursor-pointer disabled:opacity-50 shrink-0"
                         aria-label={`View or export trades for paper run ${run.id}`}
                       >
                         <FileText size={13} />
@@ -1925,10 +1925,10 @@ export default function SettingsPage() {
           </div>
 
           {/* Card 6: Risk Profile Selector */}
-          <div className="revolut-card bg-white dark:bg-[#16171B] border border-black/[0.08] dark:border-white/10 p-6 sm:p-8 rounded-[28px] shadow-sm space-y-4">
+          <div className="glass-card p-6 sm:p-8 rounded-[28px] space-y-4 text-white">
             <div>
-              <h2 className="text-sm font-bold text-slate-950 dark:text-white mb-1">Risk Regime</h2>
-              <p className="text-xs text-slate-500 dark:text-[#8E8F99]">Controls maximum capital committed per mirrored trade event in paper simulation.</p>
+              <h2 className="text-sm font-bold text-white mb-1">Risk Regime</h2>
+              <p className="text-xs text-white/60">Controls maximum capital committed per mirrored trade event in paper simulation.</p>
             </div>
             
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
@@ -1943,17 +1943,17 @@ export default function SettingsPage() {
                     onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setRiskProfile(p.id); }}
                     className={`p-4 rounded-2xl border transition-all cursor-pointer ${
                       isSelected 
-                        ? 'border-indigo-600 dark:border-[#00D09C] bg-indigo-50/50 dark:bg-[#00D09C]/10 shadow-sm' 
-                        : 'border-black/[0.06] dark:border-white/5 bg-slate-50 dark:bg-[#1C1D22] hover:border-black/20'
+                        ? 'border-[#00D09C] bg-[#00D09C]/10 shadow-[0_0_15px_rgba(0,208,156,0.15)]' 
+                        : 'border-white/10 bg-white/[0.04] hover:border-white/20'
                     }`}
                   >
                     <div className="flex items-center justify-between mb-2">
-                      <span className="text-xs font-bold text-slate-900 dark:text-white">{p.id}</span>
-                      <div className={`w-4 h-4 rounded-full border flex items-center justify-center ${isSelected ? 'border-indigo-600 dark:border-[#00D09C] bg-indigo-600 dark:bg-[#00D09C]' : 'border-slate-300 dark:border-slate-600'}`}>
-                        {isSelected && <div className="w-1.5 h-1.5 rounded-full bg-white dark:bg-black" />}
+                      <span className="text-xs font-bold text-white">{p.id}</span>
+                      <div className={`w-4 h-4 rounded-full border flex items-center justify-center ${isSelected ? 'border-[#00D09C] bg-[#00D09C]' : 'border-white/30'}`}>
+                        {isSelected && <div className="w-1.5 h-1.5 rounded-full bg-black" />}
                       </div>
                     </div>
-                    <p className="text-[11px] text-slate-600 dark:text-[#8E8F99] leading-relaxed">{p.desc}</p>
+                    <p className="text-[11px] text-white/60 leading-relaxed">{p.desc}</p>
                   </div>
                 );
               })}
@@ -1961,18 +1961,18 @@ export default function SettingsPage() {
           </div>
 
           {/* Card 7: Daily Digest Toggle & Save Preferences */}
-          <div className="revolut-card bg-white dark:bg-[#16171B] border border-black/[0.08] dark:border-white/10 p-6 sm:p-8 rounded-[28px] shadow-sm flex items-center justify-between">
+          <div className="glass-card p-6 sm:p-8 rounded-[28px] flex items-center justify-between text-white">
             <div>
-              <h2 className="text-sm font-bold text-slate-950 dark:text-white">Daily Digest Alerts</h2>
-              <p className="text-xs text-slate-500 dark:text-[#8E8F99] mt-0.5">Receive daily performance digest summaries of all copy-trade executions.</p>
+              <h2 className="text-sm font-bold text-white">Daily Digest Alerts</h2>
+              <p className="text-xs text-white/60 mt-0.5">Receive daily performance digest summaries of all copy-trade executions.</p>
             </div>
             <button
               type="button"
               onClick={() => setDailyDigest(!dailyDigest)}
-              className={`w-12 h-6 rounded-full p-0.5 transition-colors cursor-pointer ${dailyDigest ? 'bg-[#00D09C]' : 'bg-slate-300 dark:bg-[#2C2D35]'}`}
+              className={`w-12 h-6 rounded-full p-0.5 transition-colors cursor-pointer ${dailyDigest ? 'bg-[#00D09C]' : 'bg-white/20'}`}
               aria-label="Toggle Daily Digest Alerts"
             >
-              <div className={`w-5 h-5 rounded-full bg-white dark:bg-black shadow-xs transform transition-transform ${dailyDigest ? 'translate-x-6' : 'translate-x-0'}`} />
+              <div className={`w-5 h-5 rounded-full bg-white shadow-sm transform transition-transform ${dailyDigest ? 'translate-x-6' : 'translate-x-0'}`} />
             </button>
           </div>
 
@@ -1982,7 +1982,7 @@ export default function SettingsPage() {
               type="button"
               onClick={handleSavePreferences}
               disabled={savingPreferences}
-              className="flex items-center gap-2 px-8 py-3.5 rounded-full bg-slate-950 dark:bg-white text-white dark:text-black hover:bg-slate-800 dark:hover:bg-slate-200 text-xs font-bold transition-all shadow-md active:scale-[0.98] cursor-pointer disabled:opacity-50"
+              className="flex items-center gap-2 px-8 py-3.5 rounded-full glass-button text-white text-xs font-bold transition-all shadow-md active:scale-[0.98] cursor-pointer disabled:opacity-50"
             >
               <Save size={14} />
               <span>{savingPreferences ? 'Saving...' : savedPreferencesSuccess ? '✓ Preferences Saved' : 'Save Preferences'}</span>
@@ -2000,14 +2000,14 @@ export default function SettingsPage() {
         >
           <div className="space-y-4">
             <div className="flex items-center justify-between">
-              <span className="text-xs text-slate-500 dark:text-[#8E8F99]">
+              <span className="text-xs text-white/60">
                 {selectedRunTrades ? `${selectedRunTrades.length} trades recorded in this run` : 'Loading trades...'}
               </span>
               {selectedRunTrades && selectedRunTrades.length > 0 && (
                 <button
                   type="button"
                   onClick={() => handleExportTradesJson(tradesModalRunId || 'archive', selectedRunTrades)}
-                  className="px-3.5 py-1.5 rounded-full bg-slate-950 dark:bg-white text-white dark:text-black text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
+                  className="px-3.5 py-1.5 rounded-full glass-button text-white text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
                   aria-label="Download trades JSON export"
                 >
                   <Download size={13} />
@@ -2018,25 +2018,25 @@ export default function SettingsPage() {
 
             <div className="max-h-72 overflow-y-auto space-y-2 pr-1">
               {!selectedRunTrades ? (
-                <div className="p-8 text-center text-xs text-slate-500 dark:text-[#8E8F99]">Loading trade journal...</div>
+                <div className="p-8 text-center text-xs text-white/50">Loading trade journal...</div>
               ) : selectedRunTrades.length === 0 ? (
-                <div className="p-8 text-center text-xs text-slate-500 dark:text-[#8E8F99]">No trades recorded during this run.</div>
+                <div className="p-8 text-center text-xs text-white/50">No trades recorded during this run.</div>
               ) : (
                 selectedRunTrades.map((t) => (
-                  <div key={t.id} className="p-3 rounded-xl bg-slate-50 dark:bg-[#1C1D22] border border-black/[0.05] dark:border-white/5 font-mono text-xs space-y-1">
+                  <div key={t.id} className="p-3 rounded-xl bg-white/[0.04] border border-white/10 font-mono text-xs space-y-1 text-white">
                     <div className="flex items-center justify-between">
-                      <span className="font-bold text-slate-900 dark:text-white">
-                        {t.side} {t.tokenId ? `${t.tokenId.slice(0, 10)}...` : 'Unknown Token'} <span className="text-[10px] font-normal text-slate-400">(Simulated)</span>
+                      <span className="font-bold text-white">
+                        {t.side} {t.tokenId ? `${t.tokenId.slice(0, 10)}...` : 'Unknown Token'} <span className="text-[10px] font-normal text-white/50">(Simulated)</span>
                       </span>
-                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-200 dark:bg-white/10 text-slate-700 dark:text-slate-300 font-bold">{t.status}</span>
+                      <span className="text-[10px] px-2.5 py-0.5 rounded-full bg-white/10 text-white font-bold border border-white/15">{t.status}</span>
                     </div>
-                    <div className="text-[11px] text-slate-600 dark:text-[#8E8F99] flex flex-wrap gap-x-4">
+                    <div className="text-[11px] text-white/60 flex flex-wrap gap-x-4">
                       <span>Fill Price: {t.fillPrice != null ? `$${t.fillPrice.toFixed(4)}` : 'Unavailable'}</span>
                       <span>Notional: {t.notionalUsd != null ? `$${t.notionalUsd.toFixed(2)} pUSD` : 'Unavailable'}</span>
                       <span>Fee: {t.feeUsd != null ? `$${t.feeUsd.toFixed(4)} pUSD` : 'Unavailable'}</span>
                       <span>PnL: {t.realizedPnlUsd != null ? `$${t.realizedPnlUsd.toFixed(2)} pUSD` : 'Unavailable'}</span>
                     </div>
-                    <div className="text-[10px] text-slate-400">
+                    <div className="text-[10px] text-white/40">
                       Executed at: {formatUtcDate(t.executedAt)} · Source: {t.sourceWallet ? `${t.sourceWallet.slice(0, 10)}...` : 'Unavailable'}
                     </div>
                   </div>
@@ -2048,7 +2048,7 @@ export default function SettingsPage() {
               <button
                 type="button"
                 onClick={() => { setTradesModalRunId(null); setSelectedRunTrades(null); }}
-                className="px-5 py-2 rounded-full border border-black/10 dark:border-white/10 text-xs font-semibold text-slate-700 dark:text-white hover:bg-slate-100 dark:hover:bg-[#1C1D22] transition-colors cursor-pointer"
+                className="px-5 py-2 rounded-full ctrl-btn text-xs font-semibold text-white transition-colors cursor-pointer"
               >
                 Close
               </button>

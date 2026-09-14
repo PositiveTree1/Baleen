@@ -1,5 +1,6 @@
 'use client';
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, ReferenceLine, Cell } from 'recharts';
+import { useMemo } from 'react';
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, ReferenceLine } from 'recharts';
 import { DailyPnLPoint } from '@/types';
 import { formatFrenchDate } from '@/lib/formatters';
 
@@ -8,10 +9,25 @@ interface DailyWinLossBarChartProps {
 }
 
 export function DailyWinLossBarChart({ data }: DailyWinLossBarChartProps) {
-  if (!data || data.length === 0) {
+  const chartData = useMemo(() => {
+    if (!data || data.length === 0) return [];
+    return data.map(pt => {
+      const daily = pt.dailyPnL ?? pt.netPnL ?? 0;
+      const won = pt.wonUsd != null ? pt.wonUsd : Math.max(0, daily);
+      const lost = pt.lostUsd != null ? (pt.lostUsd > 0 ? -pt.lostUsd : pt.lostUsd) : Math.min(0, daily);
+      return {
+        ...pt,
+        wonUsd: won,
+        lostUsd: lost,
+        netPnL: pt.netPnL ?? daily
+      };
+    });
+  }, [data]);
+
+  if (!data || data.length === 0 || chartData.length === 0) {
     return (
-      <div className="w-full h-full flex items-center justify-center bg-slate-50 dark:bg-[#1C1D22] rounded-2xl border border-black/[0.06] dark:border-white/10">
-        <span className="text-xs text-slate-400 dark:text-zinc-400 font-medium">No trade history recorded in selected timeframe</span>
+      <div className="w-full h-full flex items-center justify-center bg-white/[0.03] rounded-2xl border border-white/10">
+        <span className="text-xs text-white/50 font-medium">No trade history recorded in selected timeframe</span>
       </div>
     );
   }
@@ -23,15 +39,17 @@ export function DailyWinLossBarChart({ data }: DailyWinLossBarChartProps) {
     return `${val < 0 ? '-' : ''}$${absVal.toFixed(0)}`;
   };
 
+  const calculatedMaxBar = chartData.length > 80 ? 6 : chartData.length > 40 ? 10 : 18;
+
   return (
     <div className="w-full h-full text-xs select-none outline-none focus:outline-none ring-0 focus:ring-0 [&_*]:outline-none">
       <ResponsiveContainer width="100%" height="100%" className="outline-none">
-        <BarChart data={data} margin={{ top: 10, right: 10, left: 0, bottom: 0 }} stackOffset="sign" className="outline-none">
-          <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.05)" vertical={false} />
+        <BarChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }} stackOffset="sign" className="outline-none">
+          <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" vertical={false} />
           <XAxis 
             dataKey="date" 
-            stroke="#94A3B8" 
-            tick={{ fill: '#64748B', fontSize: 10, fontWeight: 500 }}
+            stroke="rgba(255,255,255,0.2)" 
+            tick={{ fill: 'rgba(255,255,255,0.5)', fontSize: 10, fontWeight: 500 }}
             tickLine={false}
             axisLine={false}
             minTickGap={20}
@@ -45,17 +63,17 @@ export function DailyWinLossBarChart({ data }: DailyWinLossBarChartProps) {
             }}
           />
           <YAxis 
-            stroke="#94A3B8" 
-            tick={{ fill: '#64748B', fontSize: 10, fontWeight: 500 }}
+            stroke="rgba(255,255,255,0.2)" 
+            tick={{ fill: 'rgba(255,255,255,0.5)', fontSize: 10, fontWeight: 500 }}
             tickLine={false}
             axisLine={false}
-            width={42}
+            width={46}
             tickFormatter={formatCurrency}
           />
-          <ReferenceLine y={0} stroke="rgba(0,0,0,0.18)" strokeWidth={1} />
+          <ReferenceLine y={0} stroke="rgba(255,255,255,0.2)" strokeWidth={1} />
           <Tooltip 
             isAnimationActive={false}
-            cursor={{ fill: 'rgba(99, 102, 241, 0.08)' }}
+            cursor={{ fill: 'rgba(255, 255, 255, 0.06)' }}
             content={({ active, payload, label }) => {
               if (active && payload && payload.length) {
                 const pt = payload[0].payload as DailyPnLPoint;
@@ -65,24 +83,24 @@ export function DailyWinLossBarChart({ data }: DailyWinLossBarChartProps) {
                 const trades = pt.tradesCount ?? 1;
 
                 return (
-                  <div className="bg-white/95 dark:bg-[#1C1D22]/95 backdrop-blur-xl p-3.5 rounded-2xl border border-black/[0.08] dark:border-white/10 shadow-xl text-slate-900 dark:text-white min-w-[170px]">
-                    <div className="text-[10px] text-slate-400 dark:text-[#8E8F99] font-bold uppercase tracking-wider mb-2 flex items-center justify-between">
+                  <div className="glass-card p-3.5 rounded-2xl border border-white/20 shadow-2xl text-white min-w-[170px] backdrop-blur-2xl">
+                    <div className="text-[10px] text-white/50 font-bold uppercase tracking-wider mb-2 flex items-center justify-between">
                       <span>{label}</span>
-                      <span className="font-mono text-slate-500 dark:text-[#8E8F99]">{trades} trades</span>
+                      <span className="font-mono text-white/70">{trades} trades</span>
                     </div>
 
                     <div className="space-y-1.5 font-mono text-xs">
-                      <div className="flex items-center justify-between text-emerald-600 dark:text-[#00D09C] font-bold">
-                        <span className="font-sans text-slate-500 dark:text-[#8E8F99] font-medium">Won:</span>
+                      <div className="flex items-center justify-between text-[#00D09C] font-bold">
+                        <span className="font-sans text-white/60 font-medium">Won:</span>
                         <span>+${won.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                       </div>
-                      <div className="flex items-center justify-between text-rose-600 dark:text-[#FF453A] font-bold">
-                        <span className="font-sans text-slate-500 dark:text-[#8E8F99] font-medium">Lost:</span>
+                      <div className="flex items-center justify-between text-[#FF453A] font-bold">
+                        <span className="font-sans text-white/60 font-medium">Lost:</span>
                         <span>-${Math.abs(lost).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                       </div>
-                      <div className="pt-1.5 border-t border-black/[0.06] dark:border-white/10 flex items-center justify-between font-extrabold text-sm">
-                        <span className="font-sans text-slate-700 dark:text-slate-200 text-xs font-semibold">Net P&L:</span>
-                        <span className={net >= 0 ? 'text-emerald-600 dark:text-[#00D09C]' : 'text-rose-600 dark:text-[#FF453A]'}>
+                      <div className="pt-1.5 border-t border-white/10 flex items-center justify-between font-extrabold text-sm">
+                        <span className="font-sans text-white/80 text-xs font-semibold">Net P&L:</span>
+                        <span className={net >= 0 ? 'text-[#00D09C]' : 'text-[#FF453A]'}>
                           {net >= 0 ? '+' : '-'}${Math.abs(net).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </span>
                       </div>
@@ -97,16 +115,16 @@ export function DailyWinLossBarChart({ data }: DailyWinLossBarChartProps) {
             dataKey="wonUsd" 
             name="Gross Won"
             fill="#00D09C" 
-            maxBarSize={18}
-            radius={[4, 4, 0, 0]}
+            maxBarSize={calculatedMaxBar}
+            radius={[3, 3, 0, 0]}
             isAnimationActive={false}
           />
           <Bar 
             dataKey="lostUsd" 
             name="Gross Lost"
             fill="#FF453A" 
-            maxBarSize={18}
-            radius={[0, 0, 4, 4]}
+            maxBarSize={calculatedMaxBar}
+            radius={[0, 0, 3, 3]}
             isAnimationActive={false}
           />
         </BarChart>

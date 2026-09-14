@@ -18,17 +18,17 @@ export function Hero() {
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
-          className="glass-dock glass-chromatic-bezel mb-5 sm:mb-8 inline-flex items-center gap-2 px-3.5 sm:px-5 py-1.5 sm:py-2 text-[10px] sm:text-xs font-bold tracking-wider text-slate-800 shadow-md max-w-full border border-white/95"
+          className="glass-dock glass-chromatic-bezel mb-5 sm:mb-8 inline-flex items-center gap-2 px-3.5 sm:px-5 py-1.5 sm:py-2 text-[10px] sm:text-xs font-bold tracking-wider text-slate-200 shadow-md max-w-full border border-white/20"
         >
           <span className="relative flex size-2 shrink-0">
-            <span className="absolute inline-flex size-full animate-ping rounded-full bg-emerald-500 opacity-75" />
-            <span className="relative inline-flex size-2 rounded-full bg-emerald-500" />
+            <span className="absolute inline-flex size-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+            <span className="relative inline-flex size-2 rounded-full bg-emerald-400" />
           </span>
-          <span className="font-mono uppercase tracking-widest text-slate-700">
+          <span className="font-mono uppercase tracking-widest text-slate-300">
             BALEEN ENGINE
           </span>
-          <span className="text-slate-300">·</span>
-          <span className="font-mono text-sky-700 font-black">
+          <span className="text-slate-500">·</span>
+          <span className="font-mono text-sky-400 font-black">
             ISOLATED SLEEVES
           </span>
         </motion.div>
@@ -38,10 +38,10 @@ export function Hero() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 0.08 }}
-          className="font-outfit text-3xl sm:text-5xl lg:text-7xl font-black leading-[1.06] tracking-[-0.03em] text-slate-950 px-2"
+          className="font-outfit text-3xl sm:text-5xl lg:text-7xl font-black leading-[1.06] tracking-[-0.03em] text-white px-2"
         >
           Filter the noise.
-          <span className="block mt-1 sm:mt-2 text-transparent bg-clip-text bg-gradient-to-r from-slate-950 via-slate-800 to-sky-700">
+          <span className="block mt-1 sm:mt-2 text-transparent bg-clip-text bg-gradient-to-r from-white via-sky-200 to-cyan-400">
             Mirror verified conviction.
           </span>
         </motion.h1>
@@ -51,7 +51,7 @@ export function Hero() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 0.16 }}
-          className="mt-4 sm:mt-6 max-w-2xl text-xs sm:text-base md:text-lg font-normal leading-relaxed text-slate-600 px-2"
+          className="mt-4 sm:mt-6 max-w-2xl text-xs sm:text-base md:text-lg font-normal leading-relaxed text-slate-300 px-2"
         >
           Just as the baleen whale filters ocean waters to capture pure sustenance, Baleen indexes millions of Polymarket trades in real-time, isolating verified whale convictions across strictly segregated risk sleeves.
         </motion.p>
@@ -66,7 +66,7 @@ export function Hero() {
           {/* Primary CTA: High-Contrast Luminous Action Pill */}
           <Link
             href="/dashboard"
-            className="w-full sm:w-auto inline-flex h-12 sm:h-14 items-center justify-center gap-2.5 rounded-full bg-gradient-to-r from-sky-600 to-cyan-600 text-white px-7 sm:px-8 text-xs sm:text-sm font-mono font-black shadow-lg shadow-sky-500/25 transition-all hover:from-sky-500 hover:to-cyan-500 hover:scale-[1.02] active:scale-[0.98] border border-white/40"
+            className="w-full sm:w-auto inline-flex h-12 sm:h-14 items-center justify-center gap-2.5 rounded-full bg-gradient-to-r from-sky-500 to-cyan-500 text-white px-7 sm:px-8 text-xs sm:text-sm font-mono font-black shadow-lg shadow-sky-500/30 transition-all hover:from-sky-400 hover:to-cyan-400 hover:scale-[1.02] active:scale-[0.98] border border-white/40"
           >
             <span>Launch $10,000 Sandbox</span>
             <ArrowRight size={14} className="transition-transform group-hover:translate-x-1 text-white" aria-hidden="true" />
@@ -75,9 +75,9 @@ export function Hero() {
           {/* Secondary CTA: Translucent Liquid Glass Pill */}
           <Link
             href="#simulator"
-            className="glass-button w-full sm:w-auto inline-flex h-12 sm:h-14 items-center justify-center gap-2 px-6 sm:px-7 text-xs sm:text-sm font-mono font-bold text-slate-800 transition-all hover:text-slate-950 border border-white/90 shadow-sm"
+            className="glass-button w-full sm:w-auto inline-flex h-12 sm:h-14 items-center justify-center gap-2 px-6 sm:px-7 text-xs sm:text-sm font-mono font-bold text-white transition-all shadow-sm rounded-full"
           >
-            <Sparkles size={14} className="text-sky-600" />
+            <Sparkles size={14} className="text-sky-400" />
             <span>Interactive Simulator</span>
           </Link>
         </motion.div>
@@ -92,27 +92,27 @@ export function Hero() {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ duration: 0.8, delay: 0.35 }}
-          className="glass-dock glass-chromatic-bezel mt-8 sm:mt-12 inline-flex flex-wrap items-center justify-center gap-x-6 gap-y-2.5 px-5 sm:px-8 py-2.5 sm:py-3 text-xs font-mono font-semibold text-slate-700 shadow-md max-w-[95vw] border border-white/95"
+          className="glass-dock glass-chromatic-bezel mt-8 sm:mt-12 inline-flex flex-wrap items-center justify-center gap-x-6 gap-y-2.5 px-5 sm:px-8 py-2.5 sm:py-3 text-xs font-mono font-semibold text-slate-200 shadow-md max-w-[95vw] border border-white/20"
         >
           <span className="inline-flex items-center gap-2">
-            <ShieldCheck size={14} className="text-emerald-600" aria-hidden="true" />
+            <ShieldCheck size={14} className="text-emerald-400" aria-hidden="true" />
             <span>100% Risk-Free Sandbox</span>
           </span>
-          <span className="text-slate-300 hidden sm:inline">·</span>
+          <span className="text-slate-600 hidden sm:inline">·</span>
           <span className="inline-flex items-center gap-2">
-            <Zap size={14} className="text-sky-600" aria-hidden="true" />
+            <Zap size={14} className="text-sky-400" aria-hidden="true" />
             <span>Sub-120ms Envio Pipeline</span>
           </span>
-          <span className="text-slate-300 hidden sm:inline">·</span>
+          <span className="text-slate-600 hidden sm:inline">·</span>
           <span className="inline-flex items-center gap-2">
-            <Layers size={14} className="text-indigo-600" aria-hidden="true" />
+            <Layers size={14} className="text-indigo-400" aria-hidden="true" />
             <span>Dynamic Bankroll Sleeves</span>
           </span>
         </motion.div>
       </div>
 
       {/* Subtle Bottom Separator */}
-      <div className="absolute bottom-0 inset-x-0 h-px bg-sky-100" />
+      <div className="absolute bottom-0 inset-x-0 h-px bg-white/10" />
     </section>
   );
 }
