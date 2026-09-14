@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from 'next'
-import { Plus_Jakarta_Sans, Space_Grotesk, Inter, Outfit, Cinzel } from 'next/font/google'
+import { Plus_Jakarta_Sans, Outfit } from 'next/font/google'
 import { Providers } from './providers'
 import './globals.css'
 
@@ -13,26 +13,16 @@ const outfit = Outfit({
   variable: '--font-outfit',
   weight: ['400', '500', '600', '700', '800', '900']
 })
-const cinzel = Cinzel({
-  subsets: ['latin'],
-  variable: '--font-cinzel',
-  weight: ['700', '800', '900']
-})
-const spaceGrotesk = Space_Grotesk({ subsets: ['latin'], variable: '--font-space' })
-const inter = Inter({ subsets: ['latin'], variable: '--font-inter' })
-
 export const metadata: Metadata = {
-  title: 'Baleen — Polymarket Paper Copy Trading',
-  description: 'Research Polymarket traders and explore simulated copying in a paper portfolio. Experimental results; real-money execution is unavailable.',
+  title: 'Baleen — Smarter prediction market research',
+  description: 'Research top prediction-market traders and test copy strategies in a clear, risk-isolated paper portfolio.',
 }
-
-import { LiquidParallaxBackground } from '@/components/landing/LiquidParallaxBackground'
 
 export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
   maximumScale: 5,
-  themeColor: '#020b18',
+  themeColor: '#f7fbff',
 }
 
 export default function RootLayout({
@@ -42,10 +32,9 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className={`${jakarta.variable} ${outfit.variable} ${cinzel.variable} ${inter.variable} ${spaceGrotesk.variable} font-sans antialiased bg-[#020b18] text-white min-h-screen flex flex-col selection:bg-[#00D09C] selection:text-black`}>
+      <body className={`${jakarta.variable} ${outfit.variable} font-sans antialiased min-h-screen flex flex-col`}>
         <Providers>
-          <LiquidParallaxBackground />
-          <div className="relative z-10 flex-1 flex flex-col">
+          <div className="flex-1 flex flex-col">
             {children}
           </div>
         </Providers>

@@ -113,7 +113,7 @@ function LoginForm() {
 
       {/* Responsive Guest Session Transition Overlay */}
       {isGuestBusy && (
-        <div className="fixed inset-0 z-50 bg-[#020b18]/90 backdrop-blur-md flex flex-col items-center justify-center p-6 transition-all duration-300">
+        <div className="fixed inset-0 z-50 bg-[#f4faff]/95 backdrop-blur-md flex flex-col items-center justify-center p-6 transition-all duration-300">
           <div className="flex flex-col items-center max-w-sm text-center space-y-4">
             <div className="relative flex items-center justify-center">
               <div className="w-12 h-12 rounded-full border-2 border-[#00D09C] border-t-transparent animate-spin" />

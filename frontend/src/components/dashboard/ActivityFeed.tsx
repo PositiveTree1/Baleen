@@ -97,7 +97,7 @@ export function ActivityFeed({ isOpen, onClose }: ActivityFeedProps) {
         role="dialog"
         aria-modal="true"
         aria-label="Activity Feed"
-        className="fixed right-0 top-0 h-full w-full max-w-md bg-[#020b18]/95 text-white border-l border-white/15 backdrop-blur-2xl shadow-2xl z-50 flex flex-col animate-in slide-in-from-right duration-200"
+        className="fixed right-0 top-0 h-full w-full max-w-md bg-white/95 text-slate-950 border-l border-slate-200 backdrop-blur-2xl shadow-2xl z-50 flex flex-col animate-in slide-in-from-right duration-200"
       >
         {/* Header */}
         <div className="flex items-center justify-between p-5 border-b border-white/10 bg-white/[0.02]">

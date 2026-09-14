@@ -64,7 +64,7 @@ export function TradeDrawer({ trade, onClose, onSelectWallet }: TradeDrawerProps
           role="dialog"
           aria-modal="true"
           aria-label="Trade Execution Drawer"
-          className="relative w-full max-w-full sm:max-w-lg bg-[#020b18]/95 text-white shadow-2xl z-50 flex flex-col h-full border-l border-white/15 backdrop-blur-2xl"
+          className="relative w-full max-w-full sm:max-w-lg bg-white/95 text-slate-950 shadow-2xl z-50 flex flex-col h-full border-l border-slate-200 backdrop-blur-2xl"
         >
           {/* Header */}
           <div className="p-4 sm:p-6 border-b border-white/10 bg-white/[0.02] flex items-center justify-between">

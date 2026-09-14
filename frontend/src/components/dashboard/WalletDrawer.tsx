@@ -216,7 +216,7 @@ export function WalletDrawer({ address, onClose }: WalletDrawerProps) {
             animate={{ x: 0 }}
             exit={{ x: '100%' }}
             transition={{ type: 'spring', damping: 30, stiffness: 300 }}
-            className={`fixed inset-y-0 right-0 z-50 w-full max-w-full sm:max-w-xl bg-[#020b18]/95 text-white border-l shadow-2xl overflow-y-auto backdrop-blur-2xl ${
+            className={`fixed inset-y-0 right-0 z-50 w-full max-w-full sm:max-w-xl bg-white/95 text-slate-950 border-l border-slate-200 shadow-2xl overflow-y-auto backdrop-blur-2xl ${
               isGold ? 'border-amber-400/50' : 'border-white/15'
             }`}
           >

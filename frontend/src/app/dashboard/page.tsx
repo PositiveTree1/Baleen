@@ -15,7 +15,6 @@ import { RebalanceModal } from '@/components/dashboard/RebalanceModal';
 import { DeepAnalyticsModal } from '@/components/dashboard/DeepAnalyticsModal';
 import { ActivityFeed } from '@/components/dashboard/ActivityFeed';
 import { CommandPalette } from '@/components/ui/CommandPalette';
-import { LiquidParallaxBackground } from '@/components/landing/LiquidParallaxBackground';
 import {
   fetchUserSettings,
   fetchPortfolioSummary,
@@ -212,7 +211,7 @@ export default function DashboardPage() {
   const livePnlPct = (liveBalance !== null && liveBalance > 0 && livePnl !== null) ? (livePnl / liveBalance) * 100.0 : null;
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#020b18] text-white selection:bg-[#0284C7] selection:text-white relative overflow-x-hidden font-sans transition-colors duration-150 pb-[calc(2rem+env(safe-area-inset-bottom,0px))]">
+    <div className="min-h-screen flex flex-col bg-transparent text-slate-950 selection:bg-sky-200 selection:text-slate-950 relative overflow-x-hidden font-sans pb-[calc(2rem+env(safe-area-inset-bottom,0px))]">
       {/* Floating Optical Glass Header */}
       <header className="sticky top-0 z-40 w-full px-2 sm:px-6 lg:px-8 pt-2 sm:pt-3 pb-1">
         <nav className="max-w-7xl mx-auto glass-dock px-3 sm:px-5 py-2 sm:py-2.5 flex items-center justify-between gap-2 sm:gap-4 shadow-lg border border-white/80 dark:border-white/10">
