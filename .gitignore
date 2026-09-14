@@ -48,3 +48,7 @@ npm-debug.log*
 # Listener
 listener/dist/
 listener/checkpoint.json
+
+# Local design resources
+UIKitIdea/
+*.mbr
