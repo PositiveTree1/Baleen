@@ -53,6 +53,7 @@ import {
 } from 'lucide-react';
 import { signOut } from 'next-auth/react';
 import { BrandLogo } from '@/components/ui/BrandLogo';
+import { LiquidOrbButton } from '@/components/ui/LiquidOrbButton';
 import { soundFx } from '@/lib/sound';
 
 export default function DashboardPage() {
@@ -262,57 +263,50 @@ export default function DashboardPage() {
 
           {/* Right: Circular Icon Actions with fluid spring physics */}
           <div className="flex items-center gap-1 sm:gap-1.5 md:gap-2 shrink-0">
-            {/* Search Trigger for smaller screens */}
-            <motion.button
-              whileHover={{ scale: 1.08 }}
-              whileTap={{ scale: 0.94 }}
-              transition={{ type: 'spring', stiffness: 400, damping: 25 }}
+            {/* Search Command Palette */}
+            <LiquidOrbButton
+              size="sm"
               onClick={() => setCommandPaletteOpen(true)}
-              className="xl:hidden w-8 h-8 sm:w-9 sm:h-9 rounded-full glass-button border border-sky-200/60 dark:border-white/10 text-slate-700 dark:text-white flex items-center justify-center cursor-pointer shadow-2xs shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0284C7]"
+              className="xl:hidden"
               aria-label="Open search command palette"
+              title="Search (Cmd+K)"
             >
               <Search size={14} aria-hidden="true" className="text-[#0284C7] dark:text-[#38BDF8]" />
-            </motion.button>
+            </LiquidOrbButton>
 
             {/* Light / Dark Mode Toggle */}
-            <motion.button
-              whileHover={{ scale: 1.08 }}
-              whileTap={{ scale: 0.94 }}
-              transition={{ type: 'spring', stiffness: 400, damping: 25 }}
+            <LiquidOrbButton
+              size="sm"
               onClick={toggleTheme}
-              className="w-8 h-8 sm:w-9 sm:h-9 md:w-10 md:h-10 rounded-full glass-button border border-sky-200/60 dark:border-white/10 text-slate-700 dark:text-white flex items-center justify-center cursor-pointer shadow-2xs shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0284C7]"
               aria-label={theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'}
+              title={theme === 'light' ? 'Dark mode' : 'Light mode'}
             >
-              {theme === 'light' ? <Moon size={14} aria-hidden="true" className="sm:w-[15px] sm:h-[15px]" /> : <Sun size={14} aria-hidden="true" className="text-amber-400 sm:w-[15px] sm:h-[15px]" />}
-            </motion.button>
+              {theme === 'light' ? <Moon size={14} aria-hidden="true" className="text-slate-700 dark:text-slate-200" /> : <Sun size={14} aria-hidden="true" className="text-amber-400" />}
+            </LiquidOrbButton>
 
             {/* Activity Feed Button */}
-            <motion.button
-              whileHover={{ scale: 1.08 }}
-              whileTap={{ scale: 0.94 }}
-              transition={{ type: 'spring', stiffness: 400, damping: 25 }}
-              onClick={() => setActivityOpen(true)}
-              className="w-8 h-8 sm:w-9 sm:h-9 md:w-10 md:h-10 rounded-full glass-button border border-sky-200/60 dark:border-white/10 text-slate-700 dark:text-white flex items-center justify-center cursor-pointer shadow-2xs shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0284C7]"
+            <LiquidOrbButton
+              size="sm"
+              onClick={() => {
+                soundFx.playWhoosh();
+                setActivityOpen(true);
+              }}
               aria-label="Open activity feed and notifications"
+              title="Activity Feed"
             >
-              <Bell size={14} aria-hidden="true" className="sm:w-[15px] sm:h-[15px]" />
-            </motion.button>
+              <Bell size={14} aria-hidden="true" className="text-slate-700 dark:text-slate-200" />
+            </LiquidOrbButton>
 
             {/* Sound FX Toggle */}
-            <motion.button
-              whileHover={{ scale: 1.08 }}
-              whileTap={{ scale: 0.94 }}
-              transition={{ type: 'spring', stiffness: 400, damping: 25 }}
+            <LiquidOrbButton
+              size="sm"
+              active={soundActive}
               onClick={toggleSound}
-              className={`w-8 h-8 sm:w-9 sm:h-9 md:w-10 md:h-10 rounded-full glass-button border transition-all cursor-pointer flex items-center justify-center shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0284C7] ${
-                soundActive
-                  ? 'bg-sky-500/15 text-[#0284C7] dark:text-[#38BDF8] border-sky-400/40 shadow-xs'
-                  : 'border-sky-200/60 dark:border-white/10 text-slate-700 dark:text-slate-400'
-              }`}
               aria-label={soundActive ? 'Mute trade signal sound effects' : 'Enable real-time trade signal sound effects'}
+              title={soundActive ? 'Mute sound FX' : 'Enable audio FX'}
             >
-              {soundActive ? <Volume2 size={14} aria-hidden="true" className="sm:w-[15px] sm:h-[15px]" /> : <VolumeX size={14} aria-hidden="true" className="sm:w-[15px] sm:h-[15px]" />}
-            </motion.button>
+              {soundActive ? <Volume2 size={14} aria-hidden="true" className="text-sky-600 dark:text-sky-400" /> : <VolumeX size={14} aria-hidden="true" className="text-slate-400" />}
+            </LiquidOrbButton>
 
             {session?.user?.isAdmin && (
               <Link

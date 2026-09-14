@@ -4,6 +4,7 @@ import { ExecutionLog } from '@/types';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, ExternalLink, Activity, ArrowUpRight, ArrowDownRight, Users, ShieldCheck, Clock, DollarSign, Wallet, CheckCircle2 } from 'lucide-react';
 import { TradePriceChart } from './TradePriceChart';
+import { LiquidOrbButton } from '../ui/LiquidOrbButton';
 import { formatFrenchDateTime } from '@/lib/formatters';
 
 interface TradeDrawerProps {
@@ -90,13 +91,14 @@ export function TradeDrawer({ trade, onClose, onSelectWallet }: TradeDrawerProps
                 </p>
               </div>
             </div>
-            <button
+            <LiquidOrbButton
+              size="sm"
               onClick={onClose}
               aria-label="Close trade details drawer"
-              className="p-2 rounded-xl text-slate-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/40 dark:text-[#8E8F99] hover:text-slate-900 dark:hover:text-white hover:bg-sky-50 dark:hover:bg-white/10 transition-colors cursor-pointer"
+              title="Close"
             >
-              <X size={18} />
-            </button>
+              <X size={15} />
+            </LiquidOrbButton>
           </div>
 
           {/* Content Body */}

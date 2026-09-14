@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { fetchSystemEvents } from '@/lib/api-client';
 import { X, Bell, Filter, TrendingUp, AlertTriangle, CheckCircle2, Info, Wallet, ShieldAlert } from 'lucide-react';
 import { SystemEvent } from '@/types';
+import { LiquidOrbButton } from '../ui/LiquidOrbButton';
 
 interface ActivityFeedProps {
   isOpen: boolean;
@@ -109,13 +110,14 @@ export function ActivityFeed({ isOpen, onClose }: ActivityFeedProps) {
               <p className="text-[11px] text-slate-500 dark:text-[#8E8F99] font-medium">{events.length} events</p>
             </div>
           </div>
-          <button
+          <LiquidOrbButton
+            size="sm"
             onClick={onClose}
             aria-label="Close activity feed"
-            className="p-2 rounded-xl hover:bg-sky-50 dark:hover:bg-white/10 text-slate-400 dark:text-[#8E8F99] hover:text-slate-900 dark:hover:text-white transition-colors cursor-pointer"
+            title="Close"
           >
-            <X size={18} />
-          </button>
+            <X size={15} />
+          </LiquidOrbButton>
         </div>
 
         {/* Filters */}

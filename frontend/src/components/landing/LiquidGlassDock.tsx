@@ -3,9 +3,11 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
-import { Sparkles, Activity, Layers, ArrowRight, Moon, Sun } from 'lucide-react';
+import { Sparkles, Activity, Layers, ArrowRight, Moon, Sun, Volume2, VolumeX } from 'lucide-react';
 import { BrandLogo } from '@/components/ui/BrandLogo';
+import { LiquidOrbButton } from '@/components/ui/LiquidOrbButton';
 import { useTheme } from '@/context/ThemeContext';
+import { soundFx } from '@/lib/sound';
 
 interface NavItem {
   id: string;
@@ -24,6 +26,7 @@ const navItems: NavItem[] = [
 export function LiquidGlassHeader() {
   const [activeTab, setActiveTab] = useState<string>('advantages');
   const [hoveredTab, setHoveredTab] = useState<string | null>(null);
+  const [soundEnabled, setSoundEnabled] = useState<boolean>(() => (typeof window !== 'undefined' ? soundFx.isEnabled() : false));
   const { theme, toggleTheme } = useTheme();
 
   return (
@@ -49,7 +52,10 @@ export function LiquidGlassHeader() {
                 href={item.href}
                 onMouseEnter={() => setHoveredTab(item.id)}
                 onMouseLeave={() => setHoveredTab(null)}
-                onClick={() => setActiveTab(item.id)}
+                onClick={() => {
+                  soundFx.playTap();
+                  setActiveTab(item.id);
+                }}
                 className="relative z-10 flex items-center gap-2 px-5 py-2 text-xs font-mono font-bold transition-colors"
                 style={{
                   color: isActive ? '#0F172A' : isHovered ? '#0F172A' : '#475569',
@@ -103,18 +109,41 @@ export function LiquidGlassHeader() {
         </div>
 
         {/* Action Controls */}
-        <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-          <button
-            type="button"
+        <div className="flex items-center gap-2 sm:gap-2.5 shrink-0">
+          {/* BentoMotion Sound FX Orb Button */}
+          <LiquidOrbButton
+            size="sm"
+            onClick={() => {
+              const state = soundFx.toggleSound();
+              setSoundEnabled(state);
+            }}
+            aria-label={soundEnabled ? 'Mute sound effects' : 'Enable sound effects'}
+            title={soundEnabled ? 'Mute sound' : 'Enable audio feedback'}
+          >
+            {soundEnabled ? (
+              <Volume2 size={13} className="text-sky-600 dark:text-sky-400" aria-hidden="true" />
+            ) : (
+              <VolumeX size={13} className="text-slate-400" aria-hidden="true" />
+            )}
+          </LiquidOrbButton>
+
+          {/* BentoMotion Theme Orb Button */}
+          <LiquidOrbButton
+            size="sm"
             onClick={toggleTheme}
             aria-label={theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'}
-            className="grid size-8 sm:size-9 place-items-center rounded-full text-slate-700 transition-colors hover:bg-sky-50 hover:text-slate-950"
+            title={theme === 'light' ? 'Dark mode' : 'Light mode'}
           >
-            {theme === 'light' ? <Moon size={15} aria-hidden="true" /> : <Sun size={15} aria-hidden="true" />}
-          </button>
+            {theme === 'light' ? (
+              <Moon size={13} className="text-slate-700 dark:text-slate-200" aria-hidden="true" />
+            ) : (
+              <Sun size={13} className="text-amber-400" aria-hidden="true" />
+            )}
+          </LiquidOrbButton>
 
           <Link
             href="/auth/login"
+            onClick={() => soundFx.playTap()}
             className="hidden sm:block rounded-full px-3.5 py-1.5 text-xs font-mono font-bold text-slate-700 transition-colors hover:text-slate-950 hover:bg-sky-50"
           >
             Sign In
@@ -122,6 +151,7 @@ export function LiquidGlassHeader() {
 
           <Link
             href="/dashboard"
+            onClick={() => soundFx.playWhoosh()}
             className="glass-button group inline-flex h-9 sm:h-11 items-center gap-1.5 sm:gap-2 px-3.5 sm:px-5 text-[11px] sm:text-xs font-mono font-black text-slate-900 shadow-md hover:scale-105 active:scale-95 transition-all border border-white/95"
           >
             <span className="hidden sm:inline">Launch Sandbox</span>
@@ -148,7 +178,10 @@ export function LiquidGlassMobileDock() {
             <Link
               key={item.id}
               href={item.href}
-              onClick={() => setActiveTab(item.id)}
+              onClick={() => {
+                soundFx.playTap();
+                setActiveTab(item.id);
+              }}
               className="relative z-10 flex flex-1 items-center justify-center gap-1.5 rounded-full py-2 px-2 text-[11px] font-mono font-bold transition-all text-center"
               style={{
                 color: isActive ? '#0F172A' : '#475569',
@@ -195,6 +228,7 @@ export function LiquidGlassMobileDock() {
         {/* Sandbox Launch Pill */}
         <Link
           href="/dashboard"
+          onClick={() => soundFx.playWhoosh()}
           className="flex items-center gap-1.5 rounded-full bg-gradient-to-r from-sky-600 to-cyan-600 px-3.5 py-2 text-[11px] font-mono font-black text-white shadow-md transition-transform active:scale-95 shrink-0 hover:from-sky-500 hover:to-cyan-500"
         >
           <span>Sandbox</span>

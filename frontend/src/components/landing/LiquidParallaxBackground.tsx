@@ -40,6 +40,17 @@ export function LiquidParallaxBackground() {
         }}
       />
 
+      {/* 3. BentoMotion Ultra-HD Glacier Caustic Texture Layer */}
+      <div
+        className="absolute inset-0 opacity-20 mix-blend-multiply pointer-events-none transition-transform duration-1000 ease-out"
+        style={{
+          backgroundImage: `url('/images/glacier-caustic-light.webp')`,
+          backgroundSize: 'cover',
+          backgroundPosition: 'center 20%',
+          transform: `translate3d(${mousePos.x * 12}px, ${mousePos.y * 12}px, 0) scale(1.05)`,
+        }}
+      />
+
       <div
         className="absolute top-1/3 -left-48 w-[600px] h-[600px] rounded-full bg-sky-200/25 blur-[140px] transition-transform duration-1000 ease-out"
         style={{
@@ -54,7 +65,7 @@ export function LiquidParallaxBackground() {
         }}
       />
 
-      {/* 3. Subtle Edge Refraction Vignette */}
+      {/* 4. Subtle Edge Refraction Vignette */}
       <div className="absolute inset-0 bg-gradient-to-b from-transparent via-sky-50/20 to-sky-100/30 pointer-events-none" />
       <div className="absolute inset-0 bg-radial-[at_50%_50%] from-transparent via-sky-50/10 to-sky-100/20 pointer-events-none" />
     </div>

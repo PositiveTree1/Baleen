@@ -1,7 +1,8 @@
-// Web Audio API Synthetic Chime Engine (Zero external audio files needed)
+// Web Audio API & BentoMotion Liquid Glass Audio Engine
 class SoundEngine {
   private ctx: AudioContext | null = null;
   private enabled: boolean = false;
+  private audioCache: Map<string, HTMLAudioElement> = new Map();
 
   constructor() {
     // Lazy initialized on first user interaction
@@ -24,13 +25,61 @@ class SoundEngine {
   public toggleSound(): boolean {
     this.enabled = !this.enabled;
     if (this.enabled) {
-      this.playChime('success');
+      this.playTap();
     }
     return this.enabled;
   }
 
   public isEnabled(): boolean {
     return this.enabled;
+  }
+
+  public playGlassAudio(type: 'tap' | 'slider' | 'whoosh' | 'transition') {
+    if (!this.enabled) return;
+    if (typeof window === 'undefined') return;
+
+    const fileMap: Record<string, string> = {
+      tap: '/sounds/glass-tap.wav',
+      slider: '/sounds/glass-slider.wav',
+      whoosh: '/sounds/glass-whoosh.wav',
+      transition: '/sounds/glass-transition.wav',
+    };
+
+    const src = fileMap[type];
+    if (!src) return;
+
+    try {
+      let audio = this.audioCache.get(src);
+      if (!audio) {
+        audio = new Audio(src);
+        audio.preload = 'auto';
+        this.audioCache.set(src, audio);
+      }
+      audio.currentTime = 0;
+      audio.volume = type === 'tap' ? 0.35 : 0.25;
+      audio.play().catch(() => {
+        // Fallback to Web Audio oscillator if audio element play is blocked
+        this.playChime(type === 'slider' ? 'click' : 'fill');
+      });
+    } catch {
+      this.playChime('click');
+    }
+  }
+
+  public playTap() {
+    this.playGlassAudio('tap');
+  }
+
+  public playSlider() {
+    this.playGlassAudio('slider');
+  }
+
+  public playWhoosh() {
+    this.playGlassAudio('whoosh');
+  }
+
+  public playTransition() {
+    this.playGlassAudio('transition');
   }
 
   public playChime(type: 'fill' | 'consensus' | 'success' | 'click' = 'fill') {

@@ -9,6 +9,7 @@ import { ScoreHistoryChart } from '../charts/ScoreHistoryChart';
 import { CumulativePnLChart } from '../charts/CumulativePnLChart';
 import { DailyWinLossBarChart } from '../charts/DailyWinLossBarChart';
 import { TypewriterText } from '../ui/TypewriterText';
+import { LiquidOrbButton } from '../ui/LiquidOrbButton';
 import { formatCompactPnL, formatExactPnL } from '@/lib/formatters';
 
 interface WalletDrawerProps {
@@ -228,13 +229,14 @@ export function WalletDrawer({ address, onClose }: WalletDrawerProps) {
                   >
                     <ExternalLink size={16} />
                   </a>
-                  <button
+                  <LiquidOrbButton
+                    size="sm"
                     onClick={onClose}
                     aria-label="Close wallet drawer"
-                    className="p-2 text-slate-400 dark:text-[#8E8F99] hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-[#1C1D22] rounded-xl transition-colors cursor-pointer"
+                    title="Close"
                   >
-                    <X size={18} />
-                  </button>
+                    <X size={15} />
+                  </LiquidOrbButton>
                 </div>
               </div>
 
