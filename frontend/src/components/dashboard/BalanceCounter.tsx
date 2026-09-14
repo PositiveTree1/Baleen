@@ -51,10 +51,10 @@ export function BalanceCounter({
   return (
     <div className="glass-card p-5 sm:p-7 rounded-[28px] border border-sky-100/80 dark:border-white/10 shadow-sm flex flex-col items-start gap-3 sm:gap-4 select-none w-full">
       {/* Subtitle & Badge */}
-      <div className="flex items-center gap-2 text-xs font-semibold text-slate-300">
+      <div className="flex items-center gap-2 text-xs font-semibold text-slate-600">
         <span>Personal · USD</span>
         <span className="w-1 h-1 rounded-full bg-slate-400" aria-hidden="true" />
-        <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold text-white bg-white/10 border border-white/20 shadow-2xs">
+        <span className="px-2.5 py-0.5 rounded-full text-xs font-bold text-sky-800 bg-sky-50 border border-sky-200 shadow-2xs">
           Sandbox
         </span>
       </div>
@@ -94,7 +94,7 @@ export function BalanceCounter({
           >
             <Plus size={20} className="text-white" aria-hidden="true" />
           </motion.button>
-          <span className="text-[11px] sm:text-xs font-bold text-slate-200">Mirror</span>
+          <span className="text-xs font-bold text-slate-700">Mirror</span>
         </div>
 
         {/* Action 2: Move / Rebalance */}
@@ -109,7 +109,7 @@ export function BalanceCounter({
           >
             <ArrowLeftRight size={18} className="text-white" aria-hidden="true" />
           </motion.button>
-          <span className="text-[11px] sm:text-xs font-bold text-slate-200">Rebalance</span>
+          <span className="text-xs font-bold text-slate-700">Rebalance</span>
         </div>
 
         {/* Action 3: Analytics */}
@@ -124,7 +124,7 @@ export function BalanceCounter({
           >
             <BarChart2 size={18} className="text-white" aria-hidden="true" />
           </motion.button>
-          <span className="text-[11px] sm:text-xs font-bold text-slate-200">Analytics</span>
+          <span className="text-xs font-bold text-slate-700">Analytics</span>
         </div>
 
         {/* Action 4: Reset */}
@@ -140,7 +140,7 @@ export function BalanceCounter({
             >
               <RotateCcw size={17} className="text-slate-300 hover:text-rose-400" aria-hidden="true" />
             </motion.button>
-            <span className="text-[11px] sm:text-xs font-bold text-slate-200">Reset</span>
+            <span className="text-xs font-bold text-slate-700">Reset</span>
           </div>
         )}
       </div>

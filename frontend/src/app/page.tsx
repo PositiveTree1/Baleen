@@ -1,10 +1,22 @@
 'use client';
 
 import Link from 'next/link';
+import { useRef } from 'react';
+import { motion, useReducedMotion, useScroll, useTransform } from 'framer-motion';
 import { ArrowRight, BarChart3, Layers3, Radar, ShieldCheck, Sparkles } from 'lucide-react';
 import { BrandLogo } from '@/components/ui/BrandLogo';
 
 export default function LandingPage() {
+  const heroRef = useRef<HTMLElement>(null);
+  const prefersReducedMotion = useReducedMotion();
+  const { scrollYProgress } = useScroll({
+    target: heroRef,
+    offset: ['start start', 'end start'],
+  });
+  const imageY = useTransform(scrollYProgress, [0, 1], ['0%', prefersReducedMotion ? '0%' : '14%']);
+  const imageScale = useTransform(scrollYProgress, [0, 1], [1.035, prefersReducedMotion ? 1.035 : 1.11]);
+  const contentY = useTransform(scrollYProgress, [0, 1], [0, prefersReducedMotion ? 0 : -54]);
+
   return (
     <main className="baleen-landing">
       <header className="landing-header">
@@ -22,10 +34,10 @@ export default function LandingPage() {
         </nav>
       </header>
 
-      <section className="landing-hero" aria-labelledby="hero-title">
-        <div className="hero-image" aria-hidden="true" />
+      <section ref={heroRef} className="landing-hero" aria-labelledby="hero-title">
+        <motion.div className="hero-image" style={{ y: imageY, scale: imageScale }} aria-hidden="true" />
         <div className="hero-wash" aria-hidden="true" />
-        <div className="hero-content">
+        <motion.div className="hero-content" style={{ y: contentY }}>
           <div className="eyebrow"><Sparkles size={14} /> Prediction intelligence, simplified</div>
           <h1 id="hero-title">Follow conviction.<br />Protect your capital.</h1>
           <p>Discover consistent prediction-market traders and test their strategies in a paper portfolio built around isolated risk.</p>
@@ -37,7 +49,7 @@ export default function LandingPage() {
             <span><ShieldCheck size={17} /> Paper funds only</span>
             <span><Radar size={17} /> Live market signals</span>
           </div>
-        </div>
+        </motion.div>
       </section>
 
       <section id="platform" className="section shell">
