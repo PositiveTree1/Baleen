@@ -20,7 +20,13 @@ def execution_valuation(log):
     gross = net = None
     if log.status in ('CLOSED', 'RESOLVED'):
         net = finite(log.realized_pnl_usd)
-        # Entry fee alone does not prove total round-trip fees or gross profit.
+        # When orderbook trading closes upon resolution, derive the settled exit price
+        if current is None and fill is not None and notional is not None and notional > 0 and net is not None:
+            fee_val = fee or 0.0
+            shares = notional / fill
+            if shares > 0:
+                payout = max(0.0, notional + net + fee_val)
+                current = round(max(0.0, min(1.0, payout / shares)), 4)
     elif log.status == 'FILLED' and fill is not None and fill > 0 and current is not None and notional is not None:
         direction = 1 if log.side == 'BUY' else -1
         gross = round(direction * notional * (current - fill) / fill, 2)

@@ -30,6 +30,11 @@ export function TradeDrawer({ trade, onClose, onSelectWallet }: TradeDrawerProps
   const pnlPct = trade.pnlPct ?? null;
   const effectivePnl = pnl !== null ? pnl : (trade.status === 'FILLED' && trade.feeUsd !== null && trade.feeUsd !== undefined ? -trade.feeUsd : null);
   const effectivePnlPct = pnlPct !== null ? pnlPct : (trade.status === 'FILLED' && trade.size && trade.feeUsd ? (-trade.feeUsd / trade.size) * 100 : null);
+  const isClosed = trade.status === 'CLOSED' || trade.status === 'RESOLVED' || trade.side === 'SELL';
+  const derivedExitP = (isClosed && curP === null && fillP && (trade.size ?? 0) > 0 && effectivePnl !== null)
+    ? Math.max(0, Math.min(1, ((trade.size ?? 0) + effectivePnl + (trade.feeUsd ?? 0)) / ((trade.size ?? 0) / fillP)))
+    : null;
+  const displayCurP = curP ?? derivedExitP;
   const isProfit = effectivePnl !== null && effectivePnl >= 0;
   const consensus = trade.consensus;
   const shares = fillP !== null && fillP > 0 ? ((trade.size ?? 0) / fillP) : null;
@@ -146,10 +151,14 @@ export function TradeDrawer({ trade, onClose, onSelectWallet }: TradeDrawerProps
                   {trade.status === 'CLOSED' || trade.status === 'RESOLVED' || trade.side === 'SELL' ? 'Exit Settled Price' : 'Live Market Price'}
                 </span>
                 <div className="text-base font-bold font-mono text-slate-900 dark:text-white">
-                  {curP === null ? (trade.status === 'FILLED' && fillP !== null ? `$${fillP.toFixed(3)}` : 'Unavailable') : `$${curP.toFixed(3)}`}
+                  {displayCurP !== null
+                    ? `$${displayCurP.toFixed(3)}`
+                    : (trade.status === 'FILLED' && fillP !== null ? `$${fillP.toFixed(3)}` : isClosed ? 'Settled' : 'Unavailable')}
                 </div>
                 <span className="text-[10px] text-slate-400 dark:text-[#8E8F99] font-mono">
-                  {curP === null ? (trade.status === 'FILLED' && fillP !== null ? 'At Entry Fill' : 'Price unavailable') : trade.status === 'CLOSED' || trade.status === 'RESOLVED' ? 'Settled Valuation' : 'Live CLOB Midpoint'}
+                  {displayCurP !== null
+                    ? (isClosed ? 'Settled Valuation' : 'Live CLOB Midpoint')
+                    : (trade.status === 'FILLED' && fillP !== null ? 'At Entry Fill' : 'Price unavailable')}
                 </span>
               </div>
 

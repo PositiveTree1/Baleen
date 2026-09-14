@@ -186,10 +186,20 @@ export function TradeLog({
               const notional = trade.size ?? 0.0;
               const pnl = trade.pnl;
               const fillPrice = trade.fillPrice ?? trade.entryPrice;
-              const livePrice = trade.currentPrice;
               const isProfit = pnl !== null && pnl !== undefined && pnl >= 0;
               const isClosed = trade.status === 'CLOSED' || trade.status === 'RESOLVED' || trade.side === 'SELL';
               const whaleDisplay = trade.whaleName || trade.whalePseudonym || (trade.walletAddress ? `${trade.walletAddress.slice(0, 6)}...${trade.walletAddress.slice(-4)}` : 'Whale');
+
+              // Derive authentic exit settlement price for closed/resolved binary prediction markets if currentPrice is null
+              let displayPrice = trade.currentPrice;
+              if (isClosed && (displayPrice === null || displayPrice === undefined)) {
+                if (pnl !== null && pnl !== undefined && fillPrice && notional > 0) {
+                  const fee = trade.feeUsd ?? 0.0;
+                  const shares = notional / fillPrice;
+                  const payout = Math.max(0, notional + pnl + fee);
+                  displayPrice = shares > 0 ? Math.max(0, Math.min(1, payout / shares)) : null;
+                }
+              }
 
               return (
                 <div
@@ -231,7 +241,7 @@ export function TradeLog({
                         <span className="shrink-0">Fill {fillPrice === null ? 'Unavailable' : `$${fillPrice.toFixed(3)}`}</span>
                         <span className="opacity-40">•</span>
                         <span className="shrink-0 font-bold text-[#0F172A] dark:text-white">
-                          {isClosed ? 'Exit' : 'Mark'} {livePrice === null || livePrice === undefined ? 'Unavailable' : `$${livePrice.toFixed(3)}`}
+                          {isClosed ? 'Exit' : 'Mark'} {displayPrice !== null && displayPrice !== undefined ? `$${displayPrice.toFixed(3)}` : isClosed ? 'Settled' : 'Unavailable'}
                         </span>
                       </div>
                     </div>

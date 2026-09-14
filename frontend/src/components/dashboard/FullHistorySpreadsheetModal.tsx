@@ -180,7 +180,11 @@ export function FullHistorySpreadsheetModal({
 
     const rows = listToExport.map(l => {
       const fillP = l.fillPrice ?? l.entryPrice;
-      const curP = l.currentPrice;
+      const isClosed = l.status === 'CLOSED' || l.status === 'RESOLVED' || l.side === 'SELL';
+      const derivedExitP = (isClosed && l.currentPrice == null && fillP && (l.size ?? 0) > 0 && l.pnl != null)
+        ? Math.max(0, Math.min(1, ((l.size ?? 0) + l.pnl + (l.feeUsd ?? 0)) / ((l.size ?? 0) / fillP)))
+        : null;
+      const curP = l.currentPrice ?? derivedExitP;
       const fee = l.feeUsd;
       const pnl = l.pnl;
 
@@ -387,7 +391,11 @@ export function FullHistorySpreadsheetModal({
               <tbody className="divide-y divide-black/[0.04] dark:divide-white/5 text-slate-800 dark:text-white">
                 {paginatedLogs.map((trade) => {
                   const fillP = trade.fillPrice ?? trade.entryPrice;
-                  const curP = trade.currentPrice;
+                  const isClosed = trade.status === 'CLOSED' || trade.status === 'RESOLVED' || trade.side === 'SELL';
+                  const derivedExitP = (isClosed && trade.currentPrice == null && fillP && (trade.size ?? 0) > 0 && trade.pnl != null)
+                    ? Math.max(0, Math.min(1, ((trade.size ?? 0) + trade.pnl + (trade.feeUsd ?? 0)) / ((trade.size ?? 0) / fillP)))
+                    : null;
+                  const curP = trade.currentPrice ?? derivedExitP;
                   const pnl = trade.pnl;
                   const isProfit = pnl !== null && pnl !== undefined && pnl >= 0;
 
