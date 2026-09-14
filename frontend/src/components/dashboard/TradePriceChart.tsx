@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { fetchTradePriceChart } from '@/lib/api-client';
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, ReferenceLine } from 'recharts';
 import { Skeleton } from '../ui/Skeleton';
-import { TrendingUp, TrendingDown, Clock, Activity, ExternalLink } from 'lucide-react';
+import { Activity } from 'lucide-react';
 
 interface TradePriceChartProps {
   tradeId: string;
@@ -36,15 +36,18 @@ export function TradePriceChart({ tradeId, fillPrice, currentPrice, side }: Trad
     };
   }, [tradeId]);
 
-  const hasPrices = fillPrice !== null && currentPrice !== null;
-  const isProfitable = hasPrices && (side === 'BUY' ? currentPrice >= fillPrice : currentPrice <= fillPrice);
+  const history = data?.history || [];
+  const latestHistoryPrice = history.length > 0 ? history[history.length - 1].price : null;
+  const effectiveCurrentPrice = currentPrice ?? latestHistoryPrice ?? fillPrice;
+  const hasPrices = fillPrice !== null && effectiveCurrentPrice !== null;
+  const isProfitable = hasPrices && (side === 'BUY' ? effectiveCurrentPrice >= fillPrice : effectiveCurrentPrice <= fillPrice);
   const strokeColor = isProfitable ? '#10B981' : '#F43F5E';
   const fillColor = isProfitable ? '#10B981' : '#F43F5E';
-  const priceMovePct = hasPrices && fillPrice > 0 ? ((currentPrice - fillPrice) / fillPrice) * 100 * (side === 'BUY' ? 1 : -1) : null;
+  const priceMovePct = hasPrices && fillPrice > 0 ? ((effectiveCurrentPrice - fillPrice) / fillPrice) * 100 * (side === 'BUY' ? 1 : -1) : null;
 
   if (loading) {
     return (
-      <div className="p-4 rounded-2xl bg-slate-50 border border-black/[0.06] space-y-3">
+      <div className="p-4 rounded-2xl bg-slate-50 dark:bg-[#1C1D22] border border-black/[0.06] dark:border-white/5 space-y-3">
         <div className="flex justify-between items-center">
           <Skeleton className="h-4 w-28" />
           <Skeleton className="h-4 w-16" />
@@ -54,8 +57,7 @@ export function TradePriceChart({ tradeId, fillPrice, currentPrice, side }: Trad
     );
   }
 
-  const history = data?.history || [];
-  const allPrices = [...history.map(h => h.price), fillPrice, currentPrice].filter((p): p is number => p !== null && p > 0);
+  const allPrices = [...history.map(h => h.price), fillPrice, effectiveCurrentPrice].filter((p): p is number => p !== null && p > 0);
   const rawMin = allPrices.length > 0 ? Math.min(...allPrices) : 0.0;
   const rawMax = allPrices.length > 0 ? Math.max(...allPrices) : 1.0;
   const padding = Math.max(0.02, (rawMax - rawMin) * 0.15);
@@ -72,8 +74,8 @@ export function TradePriceChart({ tradeId, fillPrice, currentPrice, side }: Trad
           </span>
         </div>
         <div className="flex items-center gap-1.5 font-mono text-xs font-bold">
-          <span className={isProfitable ? 'text-emerald-700 dark:text-[#00D09C]' : 'text-rose-700 dark:text-[#FF453A]'}>
-            {priceMovePct === null ? 'Unavailable' : `${isProfitable ? '+' : ''}${priceMovePct.toFixed(1)}%`}
+          <span className={priceMovePct === null ? 'text-slate-400 dark:text-[#8E8F99]' : (isProfitable ? 'text-emerald-700 dark:text-[#00D09C]' : 'text-rose-700 dark:text-[#FF453A]')}>
+            {priceMovePct === null ? 'Settled Valuation' : `${isProfitable ? '+' : ''}${priceMovePct.toFixed(1)}%`}
           </span>
         </div>
       </div>
@@ -153,7 +155,7 @@ export function TradePriceChart({ tradeId, fillPrice, currentPrice, side }: Trad
 
       <div className="flex items-center justify-between text-[10px] font-mono text-slate-400 pt-1 border-t border-black/[0.04]">
         <span>Dashed line: <strong>Whale Entry Fill ({fillPrice === null ? 'Unavailable' : `$${fillPrice.toFixed(3)}`})</strong></span>
-        <span>Latest: <strong>{currentPrice === null ? 'Unavailable' : `$${currentPrice.toFixed(3)}`}</strong></span>
+        <span>Latest: <strong>{effectiveCurrentPrice === null ? 'Settled' : `$${effectiveCurrentPrice.toFixed(3)}`}</strong></span>
       </div>
     </div>
   );

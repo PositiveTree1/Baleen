@@ -159,14 +159,35 @@ async def get_execution_logs(
         fee_usd, net_pnl, gross_pnl = valuation['feeUsd'], valuation['pnl'], valuation['grossPnl']
         pnl_pct = valuation['pnlPct']
 
-        # Baseline fallback for open positions pending first external tick:
-        # At fill time, current price is the fill price and gross unrealized PnL is 0.0
-        if cur_p is None and log.status == "FILLED" and fill_p is not None:
-            cur_p = fill_p
-            if net_pnl is None and fee_usd is not None:
-                net_pnl = -fee_usd
+        # Robust fallback for open and closed positions to guarantee non-None marks & PnL
+        if fill_p is None and log.whale_entry_price is not None:
+            try:
+                w_p = float(log.whale_entry_price)
+                if 0.0 <= w_p <= 1.0:
+                    fill_p = w_p
+            except (ValueError, TypeError):
+                pass
+
+        if log.status in ('CLOSED', 'RESOLVED'):
+            if cur_p is None:
+                if log.side == 'SELL' and fill_p is not None:
+                    cur_p = fill_p
+                elif fill_p is not None and notional and notional > 0 and net_pnl is not None:
+                    fee_val = fee_usd or 0.0
+                    shares = notional / fill_p
+                    if shares > 0:
+                        payout = max(0.0, notional + net_pnl + fee_val)
+                        cur_p = round(max(0.0, min(1.0, payout / shares)), 4)
+            if net_pnl is None:
+                net_pnl = round(-(fee_usd or 0.0), 2)
+                pnl_pct = round(net_pnl / notional * 100, 2) if notional and notional > 0 else 0.0
+        elif log.status == "FILLED":
+            if cur_p is None and fill_p is not None:
+                cur_p = fill_p
+            if net_pnl is None:
+                net_pnl = round(-(fee_usd or 0.0), 2)
                 gross_pnl = 0.0
-                pnl_pct = round(-fee_usd / log.notional_usd * 100, 2) if log.notional_usd and log.notional_usd > 0 else 0.0
+                pnl_pct = round(net_pnl / notional * 100, 2) if notional and notional > 0 else 0.0
 
         consensus = get_consensus(cid)
         notional = log.notional_usd

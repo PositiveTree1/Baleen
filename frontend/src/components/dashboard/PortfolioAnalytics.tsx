@@ -187,7 +187,11 @@ export function PortfolioAnalytics({
     // Otherwise compute from filtered timeframe logs
     const marketMap = new Map<string, MarketSummary>();
 
-    targetLogs.filter((l) => l.pnl !== null && l.pnl !== undefined && l.fillPrice !== null && l.fillPrice !== undefined).forEach((l) => {
+    targetLogs.forEach((l) => {
+      const effPrice = l.fillPrice ?? l.entryPrice ?? null;
+      const effPnl = l.pnl !== null && l.pnl !== undefined ? l.pnl : (l.feeUsd !== null && l.feeUsd !== undefined ? -l.feeUsd : 0.0);
+      if (effPrice === null) return;
+
       const key = l.marketConditionId || l.marketQuestion || 'unknown';
       if (!marketMap.has(key)) {
         marketMap.set(key, {
@@ -198,16 +202,15 @@ export function PortfolioAnalytics({
           totalPnl: 0,
           totalNotional: 0,
           fillsCount: 0,
-          avgFillPrice: l.fillPrice as number,
+          avgFillPrice: effPrice,
           whaleName: l.whaleName || l.whalePseudonym || 'Whale',
           sampleTrade: l,
         });
       }
 
       const item = marketMap.get(key)!;
-      const pnl = l.pnl as number;
-      const notional = l.size ? l.size * (l.fillPrice as number) : 0.0;
-      item.totalPnl += pnl;
+      const notional = l.size ? l.size * effPrice : 0.0;
+      item.totalPnl += effPnl;
       item.totalNotional += notional;
       item.fillsCount += 1;
       if (!item.sampleTrade) item.sampleTrade = l;
@@ -649,7 +652,10 @@ export function PortfolioAnalytics({
   const periodPnLPct = firstBal > 0 ? (periodPnL / firstBal) * 100 : 0;
 
   const isPositive = periodPnL >= 0;
-  const omittedMarketEvidenceCount = targetLogs.filter((l) => l.pnl === null || l.pnl === undefined || l.fillPrice === null || l.fillPrice === undefined).length;
+  const omittedMarketEvidenceCount = targetLogs.filter((l) => {
+    const effPrice = l.fillPrice ?? l.entryPrice ?? null;
+    return effPrice === null && (l.pnl === null || l.pnl === undefined);
+  }).length;
 
   const handleOpenMarketTrade = useCallback((m: MarketSummary) => {
     if (!onSelectTrade) return;

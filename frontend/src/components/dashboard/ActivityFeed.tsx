@@ -87,7 +87,7 @@ export function ActivityFeed({ isOpen, onClose }: ActivityFeedProps) {
     <>
       {/* Backdrop */}
       <div
-        className="fixed inset-0 glass-modal-backdrop z-50 transition-opacity"
+        className="fixed inset-0 bg-slate-900/60 dark:bg-black/80 backdrop-blur-sm z-50 transition-opacity"
         onClick={onClose}
       />
 
@@ -96,7 +96,7 @@ export function ActivityFeed({ isOpen, onClose }: ActivityFeedProps) {
         role="dialog"
         aria-modal="true"
         aria-label="Activity Feed"
-        className="fixed right-0 top-0 h-full w-full max-w-md glass-panel border-l border-sky-100/60 dark:border-white/10 shadow-2xl z-50 flex flex-col animate-in slide-in-from-right duration-200"
+        className="fixed right-0 top-0 h-full w-full max-w-md bg-white dark:bg-[#0F172A] text-slate-900 dark:text-white border-l border-sky-100 dark:border-white/10 shadow-2xl z-50 flex flex-col animate-in slide-in-from-right duration-200"
       >
         {/* Header */}
         <div className="flex items-center justify-between p-5 border-b border-sky-100/60 dark:border-white/10 bg-sky-50/40 dark:bg-white/[0.02]">

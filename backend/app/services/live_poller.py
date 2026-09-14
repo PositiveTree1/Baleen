@@ -706,7 +706,7 @@ class LiveTradeMirrorService:
                     active_basket_size_at_trade=len(active_wallets),
                     is_sandbox=True,
                     status="CLOSED",
-                    realized_pnl_usd=None,
+                    realized_pnl_usd=matched_realized_pnl,
                     executed_at=pending_sell_match.dt,
                     latency_ms=calc_latency_ms
                 )
@@ -789,7 +789,7 @@ class LiveTradeMirrorService:
                         active_basket_size_at_trade=len(active_wallets),
                         is_sandbox=True,
                         status="CLOSED",
-                        realized_pnl_usd=None,
+                        realized_pnl_usd=u_matched_realized_pnl,
                         executed_at=pending_sell_match.dt,
                         latency_ms=calc_latency_ms
                     )

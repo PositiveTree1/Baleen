@@ -176,7 +176,7 @@ export function WalletDrawer({ address, onClose }: WalletDrawerProps) {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={onClose}
-            className="fixed inset-0 glass-modal-backdrop z-40"
+            className="fixed inset-0 bg-slate-900/60 dark:bg-black/80 backdrop-blur-sm z-40"
           />
 
           {/* Drawer Container */}
@@ -185,8 +185,8 @@ export function WalletDrawer({ address, onClose }: WalletDrawerProps) {
             animate={{ x: 0 }}
             exit={{ x: '100%' }}
             transition={{ type: 'spring', damping: 30, stiffness: 300 }}
-            className={`fixed inset-y-0 right-0 z-50 w-full max-w-full sm:max-w-xl glass-panel border-l shadow-2xl overflow-y-auto ${
-              isGold ? 'border-amber-400/50 dark:border-amber-400/30' : 'border-sky-100/80 dark:border-white/10'
+            className={`fixed inset-y-0 right-0 z-50 w-full max-w-full sm:max-w-xl bg-white dark:bg-[#0F172A] text-slate-900 dark:text-white border-l shadow-2xl overflow-y-auto ${
+              isGold ? 'border-amber-400/50 dark:border-amber-400/30' : 'border-sky-100 dark:border-white/10'
             }`}
           >
             <div className="p-4 sm:p-8">

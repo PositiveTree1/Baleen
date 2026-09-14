@@ -28,13 +28,13 @@ export function TradeDrawer({ trade, onClose, onSelectWallet }: TradeDrawerProps
   const curP = trade.currentPrice ?? null;
   const pnl = trade.pnl ?? null;
   const pnlPct = trade.pnlPct ?? null;
-  const effectivePnl = pnl !== null ? pnl : (trade.status === 'FILLED' && trade.feeUsd !== null && trade.feeUsd !== undefined ? -trade.feeUsd : null);
-  const effectivePnlPct = pnlPct !== null ? pnlPct : (trade.status === 'FILLED' && trade.size && trade.feeUsd ? (-trade.feeUsd / trade.size) * 100 : null);
   const isClosed = trade.status === 'CLOSED' || trade.status === 'RESOLVED' || trade.side === 'SELL';
+  const effectivePnl = pnl !== null ? pnl : (isClosed ? 0.0 : (trade.feeUsd ? -trade.feeUsd : null));
+  const effectivePnlPct = pnlPct !== null ? pnlPct : (trade.size && effectivePnl !== null ? (effectivePnl / trade.size) * 100 : null);
   const derivedExitP = (isClosed && curP === null && fillP && (trade.size ?? 0) > 0 && effectivePnl !== null)
     ? Math.max(0, Math.min(1, ((trade.size ?? 0) + effectivePnl + (trade.feeUsd ?? 0)) / ((trade.size ?? 0) / fillP)))
     : null;
-  const displayCurP = curP ?? derivedExitP;
+  const displayCurP = curP ?? (trade.side === 'SELL' ? fillP : derivedExitP);
   const isProfit = effectivePnl !== null && effectivePnl >= 0;
   const consensus = trade.consensus;
   const shares = fillP !== null && fillP > 0 ? ((trade.size ?? 0) / fillP) : null;
@@ -51,7 +51,7 @@ export function TradeDrawer({ trade, onClose, onSelectWallet }: TradeDrawerProps
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           onClick={onClose}
-          className="fixed inset-0 glass-modal-backdrop"
+          className="fixed inset-0 bg-slate-900/60 dark:bg-black/80 backdrop-blur-sm z-40"
         />
 
         {/* Slide-out Panel */}
@@ -63,7 +63,7 @@ export function TradeDrawer({ trade, onClose, onSelectWallet }: TradeDrawerProps
           role="dialog"
           aria-modal="true"
           aria-label="Trade Execution Drawer"
-          className="relative w-full max-w-full sm:max-w-lg glass-panel text-slate-900 dark:text-white shadow-2xl z-10 flex flex-col h-full border-l border-sky-100/60 dark:border-white/10"
+          className="relative w-full max-w-full sm:max-w-lg bg-white dark:bg-[#0F172A] text-slate-900 dark:text-white shadow-2xl z-50 flex flex-col h-full border-l border-sky-100 dark:border-white/10"
         >
           {/* Header */}
           <div className="p-4 sm:p-6 border-b border-sky-100/60 dark:border-white/10 bg-sky-50/40 dark:bg-white/[0.02] flex items-center justify-between">
@@ -139,7 +139,9 @@ export function TradeDrawer({ trade, onClose, onSelectWallet }: TradeDrawerProps
             {/* Pricing & Execution Grid */}
             <div className="grid grid-cols-2 gap-3">
               <div className="p-3.5 rounded-2xl glass-card space-y-1">
-                <span className="text-[10px] uppercase font-bold text-slate-400 dark:text-[#8E8F99]">Entry Fill Price</span>
+                <span className="text-[10px] uppercase font-bold text-slate-400 dark:text-[#8E8F99]">
+                  {trade.side === 'SELL' ? 'Sell Execution Fill' : 'Entry Fill Price'}
+                </span>
                 <div className="text-base font-bold font-mono text-slate-900 dark:text-white">
                   {fillP === null ? 'Unavailable' : `$${fillP.toFixed(3)}`}
                 </div>
@@ -153,11 +155,11 @@ export function TradeDrawer({ trade, onClose, onSelectWallet }: TradeDrawerProps
                 <div className="text-base font-bold font-mono text-slate-900 dark:text-white">
                   {displayCurP !== null
                     ? `$${displayCurP.toFixed(3)}`
-                    : (trade.status === 'FILLED' && fillP !== null ? `$${fillP.toFixed(3)}` : isClosed ? 'Settled' : 'Unavailable')}
+                    : (trade.status === 'FILLED' && fillP !== null ? `$${fillP.toFixed(3)}` : isClosed ? (fillP !== null ? `$${fillP.toFixed(3)}` : 'Settled') : 'Unavailable')}
                 </div>
                 <span className="text-[10px] text-slate-400 dark:text-[#8E8F99] font-mono">
                   {displayCurP !== null
-                    ? (isClosed ? 'Settled Valuation' : 'Live CLOB Midpoint')
+                    ? (isClosed ? (trade.side === 'SELL' ? 'Closing Sell Fill' : 'Settled Valuation') : 'Live CLOB Midpoint')
                     : (trade.status === 'FILLED' && fillP !== null ? 'At Entry Fill' : 'Price unavailable')}
                 </span>
               </div>
@@ -175,9 +177,9 @@ export function TradeDrawer({ trade, onClose, onSelectWallet }: TradeDrawerProps
                   {trade.status === 'CLOSED' || trade.status === 'RESOLVED' ? 'Net Realized PnL' : 'Unrealized PnL (MTM)'}
                 </span>
                 <div className={`text-base font-bold font-mono ${isProfit ? 'text-emerald-600 dark:text-[#00D09C]' : 'text-rose-600 dark:text-[#FF453A]'}`}>
-                  {effectivePnl === null ? 'Unavailable' : `${effectivePnl >= 0 ? '+' : ''}$${effectivePnl.toFixed(2)}${effectivePnlPct === null ? '' : ` (${effectivePnl >= 0 ? '+' : ''}${effectivePnlPct.toFixed(1)}%)`}`}
+                  {effectivePnl === null ? '$0.00' : `${effectivePnl >= 0 ? '+' : ''}$${effectivePnl.toFixed(2)}${effectivePnlPct === null ? '' : ` (${effectivePnl >= 0 ? '+' : ''}${effectivePnlPct.toFixed(1)}%)`}`}
                 </div>
-                <span className="text-[10px] text-slate-400 dark:text-[#8E8F99] font-mono">Fee: {trade.feeUsd === null || trade.feeUsd === undefined ? 'Unavailable' : `-$${trade.feeUsd.toFixed(2)}`}</span>
+                <span className="text-[10px] text-slate-400 dark:text-[#8E8F99] font-mono">Fee: {trade.feeUsd === null || trade.feeUsd === undefined ? '$0.00' : `-$${trade.feeUsd.toFixed(2)}`}</span>
               </div>
             </div>
 
@@ -185,7 +187,7 @@ export function TradeDrawer({ trade, onClose, onSelectWallet }: TradeDrawerProps
             <TradePriceChart 
               tradeId={trade.id}
               fillPrice={fillP} 
-              currentPrice={curP} 
+              currentPrice={displayCurP ?? fillP} 
               side={trade.side} 
             />
 
