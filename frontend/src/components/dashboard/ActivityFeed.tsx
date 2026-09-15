@@ -97,17 +97,17 @@ export function ActivityFeed({ isOpen, onClose }: ActivityFeedProps) {
         role="dialog"
         aria-modal="true"
         aria-label="Activity Feed"
-        className="fixed right-0 top-0 h-full w-full max-w-md bg-white/95 text-slate-950 border-l border-slate-200 backdrop-blur-2xl shadow-2xl z-50 flex flex-col animate-in slide-in-from-right duration-200"
+        className="fixed right-0 top-0 h-full w-full max-w-md bg-white text-slate-950 border-l border-slate-200 shadow-2xl z-50 flex flex-col animate-in slide-in-from-right duration-200"
       >
         {/* Header */}
-        <div className="flex items-center justify-between p-5 border-b border-white/10 bg-white/[0.02]">
+        <div className="flex items-center justify-between p-5 border-b border-slate-200 bg-slate-50/80">
           <div className="flex items-center gap-2.5">
-            <div className="p-2 rounded-xl bg-sky-500/10 text-sky-400 border border-sky-500/20">
+            <div className="p-2 rounded-xl bg-sky-500/10 text-sky-600 border border-sky-500/20">
               <Bell size={16} />
             </div>
             <div>
-              <h2 className="text-sm font-bold text-white">Activity Feed</h2>
-              <p className="text-[11px] text-slate-400 font-medium">{events.length} events</p>
+              <h2 className="text-sm font-bold text-slate-950">Activity Feed</h2>
+              <p className="text-[11px] text-slate-500 font-medium">{events.length} events</p>
             </div>
           </div>
           <LiquidOrbButton
@@ -121,7 +121,7 @@ export function ActivityFeed({ isOpen, onClose }: ActivityFeedProps) {
         </div>
 
         {/* Filters */}
-        <div className="flex items-center gap-1.5 px-5 py-3 border-b border-white/10 overflow-x-auto">
+        <div className="flex items-center gap-1.5 px-5 py-3 border-b border-slate-200 overflow-x-auto bg-slate-50/40">
           <Filter size={12} className="text-slate-400 shrink-0" />
           {filters.map((f) => (
             <button
@@ -129,8 +129,8 @@ export function ActivityFeed({ isOpen, onClose }: ActivityFeedProps) {
               onClick={() => setFilter(f.key)}
               className={`px-3 py-1 rounded-full text-[11px] font-semibold transition-all cursor-pointer whitespace-nowrap ${
                 filter === f.key
-                  ? 'glass-button text-white shadow-xs'
-                  : 'text-slate-400 hover:text-white hover:bg-white/5'
+                  ? 'bg-slate-950 text-white font-bold shadow-xs'
+                  : 'text-slate-600 hover:text-slate-950 hover:bg-slate-100'
               }`}
             >
               {f.label}

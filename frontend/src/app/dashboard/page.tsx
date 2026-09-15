@@ -49,7 +49,9 @@ import {
   TrendingUp,
   ArrowUpRight,
   Activity,
-  Zap
+  Zap,
+  Menu,
+  X
 } from 'lucide-react';
 import { signOut } from 'next-auth/react';
 import { BrandLogo } from '@/components/ui/BrandLogo';
@@ -83,6 +85,7 @@ export default function DashboardPage() {
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
 
   const [activityOpen, setActivityOpen] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [soundActive, setSoundActive] = useState(false);
   const [logs, setLogs] = useState<ExecutionLog[]>(() => getCachedExecutionLogs(session?.user?.id) || []);
   const [portfolio, setPortfolio] = useState<PortfolioSummary | null>(() => getCachedPortfolioSummary(session?.user?.id) || null);
@@ -221,13 +224,13 @@ export default function DashboardPage() {
             <BrandLogo href="/" />
 
             {/* Top View Toggle: Sandbox vs Live Capital */}
-            <div className="flex items-center p-0.5 sm:p-1 rounded-full bg-white/5 border border-white/10 shadow-2xs">
+            <div className="flex items-center p-0.5 sm:p-1 rounded-full bg-slate-100/90 border border-slate-200/80 shadow-2xs">
               <button
                 onClick={() => setViewMode('sandbox')}
                 className={`px-2.5 sm:px-3.5 py-1 sm:py-1.5 rounded-full text-[11px] sm:text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
                   viewMode === 'sandbox'
-                    ? 'glass-button text-white shadow-xs'
-                    : 'text-slate-400 hover:text-white'
+                    ? 'bg-slate-950 text-white shadow-xs'
+                    : 'text-slate-600 hover:text-slate-950'
                 }`}
               >
                 <span>Sandbox</span>
@@ -237,8 +240,8 @@ export default function DashboardPage() {
                 onClick={() => setViewMode('live')}
                 className={`px-2.5 sm:px-3.5 py-1 sm:py-1.5 rounded-full text-[11px] sm:text-xs font-bold transition-all flex items-center gap-1 sm:gap-1.5 cursor-pointer whitespace-nowrap ${
                   viewMode === 'live'
-                    ? 'glass-button bg-gradient-to-r from-sky-500 to-cyan-500 text-white shadow-xs font-extrabold'
-                    : 'text-slate-400 hover:text-white'
+                    ? 'bg-gradient-to-r from-sky-600 to-cyan-600 text-white shadow-xs font-extrabold'
+                    : 'text-slate-600 hover:text-slate-950'
                 }`}
               >
                 <span className={`w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full shrink-0 ${liveDashboard?.is_live_active ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'}`} />
@@ -253,15 +256,15 @@ export default function DashboardPage() {
             type="button"
             onClick={() => setCommandPaletteOpen(true)}
             aria-label="Open command palette search (Command + K)"
-            className="hidden xl:flex items-center gap-2.5 px-4 py-2 rounded-full glass-button border border-white/10 text-xs text-slate-300 w-64 hover:scale-[1.02] active:scale-[0.98] transition-all cursor-pointer shadow-xs focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0284C7]"
+            className="hidden xl:flex items-center gap-2.5 px-4 py-2 rounded-full bg-slate-50/80 hover:bg-slate-100/90 border border-slate-200 text-xs text-slate-600 w-64 hover:scale-[1.02] active:scale-[0.98] transition-all cursor-pointer shadow-xs focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0284C7]"
           >
-            <Search size={14} className="text-[#38BDF8]" aria-hidden="true" />
-            <span className="text-slate-300 font-medium">Search markets, whales...</span>
-            <span className="ml-auto text-[10px] font-mono bg-white/10 px-1.5 py-0.5 rounded text-white shadow-2xs border border-white/10">⌘K</span>
+            <Search size={14} className="text-[#0284C7]" aria-hidden="true" />
+            <span className="text-slate-600 font-medium">Search markets, whales...</span>
+            <span className="ml-auto text-[10px] font-mono bg-white px-1.5 py-0.5 rounded text-slate-700 shadow-2xs border border-slate-200">⌘K</span>
           </button>
 
-          {/* Right: Circular Icon Actions with fluid spring physics */}
-          <div className="flex items-center gap-1 sm:gap-1.5 md:gap-2 shrink-0">
+          {/* Right: Desktop Actions */}
+          <div className="hidden md:flex items-center gap-1.5 md:gap-2 shrink-0">
             {/* Search Command Palette */}
             <LiquidOrbButton
               size="sm"
@@ -270,7 +273,7 @@ export default function DashboardPage() {
               aria-label="Open search command palette"
               title="Search (Cmd+K)"
             >
-              <Search size={14} aria-hidden="true" className="text-[#0284C7] dark:text-[#38BDF8]" />
+              <Search size={14} aria-hidden="true" className="text-[#0284C7]" />
             </LiquidOrbButton>
 
             {/* Light / Dark Mode Toggle */}
@@ -280,7 +283,7 @@ export default function DashboardPage() {
               aria-label={theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'}
               title={theme === 'light' ? 'Dark mode' : 'Light mode'}
             >
-              {theme === 'light' ? <Moon size={14} aria-hidden="true" className="text-slate-700 dark:text-slate-200" /> : <Sun size={14} aria-hidden="true" className="text-amber-400" />}
+              {theme === 'light' ? <Moon size={14} aria-hidden="true" className="text-slate-700" /> : <Sun size={14} aria-hidden="true" className="text-amber-500" />}
             </LiquidOrbButton>
 
             {/* Activity Feed Button */}
@@ -293,7 +296,7 @@ export default function DashboardPage() {
               aria-label="Open activity feed and notifications"
               title="Activity Feed"
             >
-              <Bell size={14} aria-hidden="true" className="text-slate-700 dark:text-slate-200" />
+              <Bell size={14} aria-hidden="true" className="text-slate-700" />
             </LiquidOrbButton>
 
             {/* Sound FX Toggle */}
@@ -304,7 +307,7 @@ export default function DashboardPage() {
               aria-label={soundActive ? 'Mute trade signal sound effects' : 'Enable real-time trade signal sound effects'}
               title={soundActive ? 'Mute sound FX' : 'Enable audio FX'}
             >
-              {soundActive ? <Volume2 size={14} aria-hidden="true" className="text-sky-600 dark:text-sky-400" /> : <VolumeX size={14} aria-hidden="true" className="text-slate-400" />}
+              {soundActive ? <Volume2 size={14} aria-hidden="true" className="text-sky-600" /> : <VolumeX size={14} aria-hidden="true" className="text-slate-400" />}
             </LiquidOrbButton>
 
             {session?.user?.isAdmin && (
@@ -343,7 +346,105 @@ export default function DashboardPage() {
               <LogOut size={14} aria-hidden="true" className="sm:w-[15px] sm:h-[15px]" />
             </motion.button>
           </div>
+
+          {/* Right: Mobile Hamburger Button */}
+          <div className="flex md:hidden items-center gap-1 shrink-0">
+            <LiquidOrbButton
+              size="sm"
+              onClick={() => setMobileMenuOpen(prev => !prev)}
+              aria-label={mobileMenuOpen ? "Close navigation menu" : "Open navigation menu"}
+              title="Menu"
+            >
+              {mobileMenuOpen ? <X size={16} className="text-slate-800" /> : <Menu size={16} className="text-slate-800" />}
+            </LiquidOrbButton>
+          </div>
         </nav>
+
+        {/* Mobile Dropdown Menu Sheet */}
+        {mobileMenuOpen && (
+          <motion.div
+            initial={{ opacity: 0, y: -10, scale: 0.98 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -10, scale: 0.98 }}
+            transition={{ type: 'spring', damping: 25, stiffness: 350 }}
+            className="md:hidden max-w-7xl mx-auto mt-2 p-3 bg-white text-slate-950 rounded-2xl shadow-xl border border-slate-200 flex flex-col gap-1.5 z-50"
+          >
+            <button
+              onClick={() => {
+                setMobileMenuOpen(false);
+                setCommandPaletteOpen(true);
+              }}
+              className="flex items-center gap-3 px-3.5 py-2.5 rounded-xl bg-slate-50 hover:bg-slate-100 text-xs font-semibold text-slate-700 hover:text-slate-950 transition-colors w-full text-left cursor-pointer"
+            >
+              <Search size={15} className="text-sky-600 shrink-0" />
+              <span className="flex-1">Search Markets &amp; Whales</span>
+              <span className="text-[10px] font-mono text-slate-400 bg-white px-1.5 py-0.5 rounded border border-slate-200">⌘K</span>
+            </button>
+
+            <button
+              onClick={() => {
+                setMobileMenuOpen(false);
+                soundFx.playWhoosh();
+                setActivityOpen(true);
+              }}
+              className="flex items-center gap-3 px-3.5 py-2.5 rounded-xl bg-slate-50 hover:bg-slate-100 text-xs font-semibold text-slate-700 hover:text-slate-950 transition-colors w-full text-left cursor-pointer"
+            >
+              <Bell size={15} className="text-sky-600 shrink-0" />
+              <span>Activity &amp; Trade Notifications</span>
+            </button>
+
+            <button
+              onClick={() => {
+                toggleSound();
+              }}
+              className="flex items-center gap-3 px-3.5 py-2.5 rounded-xl bg-slate-50 hover:bg-slate-100 text-xs font-semibold text-slate-700 hover:text-slate-950 transition-colors w-full text-left cursor-pointer"
+            >
+              {soundActive ? <Volume2 size={15} className="text-sky-600 shrink-0" /> : <VolumeX size={15} className="text-slate-400 shrink-0" />}
+              <span className="flex-1">Audio Feedback</span>
+              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${soundActive ? 'bg-sky-100 text-sky-800' : 'bg-slate-200 text-slate-600'}`}>
+                {soundActive ? 'ON' : 'OFF'}
+              </span>
+            </button>
+
+            <Link
+              href="/settings"
+              onClick={() => setMobileMenuOpen(false)}
+              className="flex items-center gap-3 px-3.5 py-2.5 rounded-xl bg-slate-50 hover:bg-slate-100 text-xs font-semibold text-slate-700 hover:text-slate-950 transition-colors w-full text-left"
+            >
+              <Settings size={15} className="text-slate-600 shrink-0" />
+              <span>Account &amp; API Configuration</span>
+            </Link>
+
+            {session?.user?.isAdmin && (
+              <Link
+                href="/admin"
+                onClick={() => setMobileMenuOpen(false)}
+                className="flex items-center gap-3 px-3.5 py-2.5 rounded-xl bg-sky-50 hover:bg-sky-100 text-xs font-bold text-sky-800 transition-colors w-full text-left"
+              >
+                <ShieldCheck size={15} className="text-sky-600 shrink-0" />
+                <span>Admin Governance</span>
+              </Link>
+            )}
+
+            <div className="h-px bg-slate-100 my-0.5" />
+
+            <button
+              onClick={async () => {
+                setMobileMenuOpen(false);
+                try {
+                  await logoutBackend();
+                  await signOut({ callbackUrl: '/auth/login' });
+                } catch {
+                  window.alert('Sign out could not be completed. Please retry when the connection is restored.');
+                }
+              }}
+              className="flex items-center gap-3 px-3.5 py-2.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-xs font-semibold text-rose-700 transition-colors w-full text-left cursor-pointer"
+            >
+              <LogOut size={15} className="text-rose-600 shrink-0" />
+              <span>Sign Out</span>
+            </button>
+          </motion.div>
+        )}
       </header>
 
       {/* Main Container */}

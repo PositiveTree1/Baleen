@@ -29,15 +29,15 @@ export function BrandLogo({ size = 'md', href = '/', subtitle, className = '' }:
         alt="Baleen Logo" 
         width={imgSizes[size].w} 
         height={imgSizes[size].h} 
-        className={`${imgSizes[size].cls} object-contain dark:brightness-0 dark:invert group-hover:scale-105 transition-all duration-200`}
+        className={`${imgSizes[size].cls} object-contain group-hover:scale-105 transition-all duration-200`}
       />
 
       <div className="flex flex-col">
-        <span className={`font-outfit font-black tracking-[0.12em] text-slate-950 dark:text-white ${textSizes[size]} transition-colors group-hover:text-slate-700 dark:group-hover:text-slate-200`}>
+        <span className={`font-outfit font-black tracking-[0.12em] text-slate-950 ${textSizes[size]} transition-colors group-hover:text-slate-700`}>
           BALEEN
         </span>
         {subtitle && (
-          <span className="text-[10px] font-mono text-slate-400 dark:text-[#8E8F99] font-semibold tracking-wider -mt-0.5 uppercase">
+          <span className="text-[10px] font-mono text-slate-500 font-semibold tracking-wider -mt-0.5 uppercase">
             {subtitle}
           </span>
         )}

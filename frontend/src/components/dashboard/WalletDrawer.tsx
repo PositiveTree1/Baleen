@@ -3,12 +3,11 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useEffect, useState, useMemo } from 'react';
 import { fetchWallet, getCachedWallets, getCachedWalletDetail } from '@/lib/api-client';
 import { WalletDetail } from '@/types';
-import { X, ExternalLink, Copy, Check, Sparkles, AlertCircle, RotateCw } from 'lucide-react';
+import { X, ExternalLink, Copy, Check, AlertCircle, RotateCw } from 'lucide-react';
 import { Badge } from '../ui/Badge';
 import { ScoreHistoryChart } from '../charts/ScoreHistoryChart';
 import { CumulativePnLChart } from '../charts/CumulativePnLChart';
 import { DailyWinLossBarChart } from '../charts/DailyWinLossBarChart';
-import { TypewriterText } from '../ui/TypewriterText';
 import { LiquidOrbButton } from '../ui/LiquidOrbButton';
 import { formatCompactPnL, formatExactPnL } from '@/lib/formatters';
 
@@ -180,23 +179,6 @@ export function WalletDrawer({ address, onClose }: WalletDrawerProps) {
     };
   }, [filteredDailyPnLHistory]);
 
-  const cleanSummary = (() => {
-    if (!wallet?.aiSummary) return null;
-    let s = wallet.aiSummary;
-    if (s.includes("Metrics Provided:") || s.includes("<2 punchy") || s.includes("TAG:") || s.includes("Deconstruct Metrics")) {
-      const parts = s.split(/(?:SUMMARY|Executive Summary):/i);
-      if (parts.length > 1) {
-        s = parts[1].split(/(?:TAG|Tag):/i)[0].trim();
-      } else {
-        s = wallet.winRate != null && wallet.pnl != null
-          ? `Tactical prediction trader with ${formatPct(wallet.winRate)} accuracy and ${formatExactPnL(wallet.pnl)} net profit.`
-          : '';
-      }
-    }
-    const cleaned = s.replace(/\*\*/g, '').replace(/<[^>]*>/g, '').trim();
-    return cleaned || null;
-  })();
-
   return (
     <AnimatePresence>
       {address && (
@@ -216,34 +198,34 @@ export function WalletDrawer({ address, onClose }: WalletDrawerProps) {
             animate={{ x: 0 }}
             exit={{ x: '100%' }}
             transition={{ type: 'spring', damping: 30, stiffness: 300 }}
-            className={`fixed inset-y-0 right-0 z-50 w-full max-w-full sm:max-w-xl bg-white/95 text-slate-950 border-l border-slate-200 shadow-2xl overflow-y-auto backdrop-blur-2xl ${
-              isGold ? 'border-amber-400/50' : 'border-white/15'
+            className={`fixed inset-y-0 right-0 z-50 w-full max-w-full sm:max-w-xl bg-white text-slate-950 border-l border-slate-200 shadow-2xl overflow-y-auto ${
+              isGold ? 'border-amber-400/50' : 'border-slate-200'
             }`}
           >
             <div className="p-4 sm:p-8">
               {/* Header */}
-              <div className="flex items-center justify-between mb-4 sm:mb-6 pb-3 sm:pb-4 border-b border-white/10">
+              <div className="flex items-center justify-between mb-4 sm:mb-6 pb-3 sm:pb-4 border-b border-slate-200">
                 <div className="flex items-center gap-3">
                   <img 
                     src={wallet?.profileImage || `https://api.dicebear.com/7.x/identicon/svg?seed=${address}`} 
                     alt="" 
-                    className="w-10 h-10 rounded-full object-cover border border-white/10 shadow-2xs shrink-0 bg-white/5" 
+                    className="w-10 h-10 rounded-full object-cover border border-slate-200 shadow-2xs shrink-0 bg-slate-100" 
                   />
                   <div>
                     <div className="flex items-center gap-2">
-                      <h2 className="text-base font-bold text-white tracking-tight">
+                      <h2 className="text-base font-bold text-slate-950 tracking-tight">
                         {wallet?.name || wallet?.pseudonym || 'Observed Whale Profile'}
                       </h2>
                       {isGold && <Badge tier="gold_sniper" />}
                       {loading && (
-                        <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-[10px] font-mono text-emerald-400">
+                        <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-[10px] font-mono text-emerald-700">
                           <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping" />
                           <span>syncing</span>
                         </div>
                       )}
                     </div>
                     {wallet?.pseudonym && wallet?.name && wallet.pseudonym !== wallet.name && (
-                      <p className="text-xs text-slate-500 dark:text-[#8E8F99] font-mono">@{wallet.pseudonym}</p>
+                      <p className="text-xs text-slate-500 font-mono">@{wallet.pseudonym}</p>
                     )}
                   </div>
                 </div>
@@ -254,7 +236,7 @@ export function WalletDrawer({ address, onClose }: WalletDrawerProps) {
                     target="_blank"
                     rel="noreferrer"
                     aria-label="Open profile on Polymarket"
-                    className="p-2 text-slate-400 dark:text-[#8E8F99] hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-[#1C1D22] rounded-xl transition-colors cursor-pointer"
+                    className="p-2 text-slate-400 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer"
                     title="Open on Polymarket"
                   >
                     <ExternalLink size={16} />
@@ -273,50 +255,18 @@ export function WalletDrawer({ address, onClose }: WalletDrawerProps) {
               {/* Body */}
               {wallet ? (
                 <div className="space-y-6">
-                  {/* Address Badge & Style */}
-                  <div className="flex items-center justify-between p-3.5 glass-card rounded-2xl border border-sky-100/80 dark:border-white/10">
+                  {/* Address Badge */}
+                  <div className="flex items-center justify-between p-3.5 bg-slate-50 border border-slate-200 rounded-2xl">
                     <div className="flex items-center gap-2">
-                      <span className="text-xs font-mono text-[#0F172A] dark:text-white font-semibold">{address}</span>
+                      <span className="text-xs font-mono text-slate-900 font-semibold">{address}</span>
                       <button
                         onClick={handleCopy}
                         aria-label="Copy address"
-                        className="text-slate-400 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors cursor-pointer"
+                        className="text-slate-400 hover:text-slate-900 transition-colors cursor-pointer"
                         title="Copy Address"
                       >
-                        {copied ? <Check size={13} className="text-[#00D09C]" /> : <Copy size={13} />}
+                        {copied ? <Check size={13} className="text-emerald-600" /> : <Copy size={13} />}
                       </button>
-                    </div>
-
-                    {wallet.aiStyleTag && (
-                      <span className="text-[11px] font-bold text-[#0F172A] dark:text-white bg-sky-50 dark:bg-white/10 px-2.5 py-0.5 rounded-full border border-sky-200/60 dark:border-white/10 shadow-2xs">
-                        {wallet.aiStyleTag}
-                      </span>
-                    )}
-                  </div>
-
-                  {/* AI Quantitative Executive Summary */}
-                  <div className="p-5 rounded-3xl relative overflow-hidden glass-card border border-sky-100/80 dark:border-white/10 shadow-sm">
-                    <div className="space-y-2.5">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <div className={`p-1 rounded-lg ${isGold ? 'bg-amber-100 dark:bg-amber-400/10 text-amber-800 dark:text-amber-400' : 'bg-sky-100 dark:bg-sky-500/10 text-sky-800 dark:text-sky-400'}`}>
-                            <Sparkles size={13} />
-                          </div>
-                          <h4 className="text-xs font-bold uppercase tracking-wider text-[#0F172A] dark:text-white">
-                            Quantitative Strategy Synopsis
-                          </h4>
-                        </div>
-                        <span className="text-[10px] font-mono font-semibold text-[#0284C7] dark:text-[#38BDF8] bg-sky-50 dark:bg-sky-500/10 px-2.5 py-0.5 rounded-full border border-sky-200/80 dark:border-sky-500/20">
-                          Llama 3.1 70B
-                        </span>
-                      </div>
-                      <p className="text-sm text-[#0F172A] dark:text-white leading-relaxed font-medium min-h-[48px]">
-                        <TypewriterText 
-                          text={cleanSummary || 'Automated quantitative analysis computed via Groq Llama-3.1 engine based on on-chain trading behavior.'}
-                          speed={8}
-                          delay={150}
-                        />
-                      </p>
                     </div>
                   </div>
 
@@ -360,37 +310,37 @@ export function WalletDrawer({ address, onClose }: WalletDrawerProps) {
                   </div>
 
                   {/* Chart Container Card */}
-                  <div className="p-5 glass-card border border-sky-100/80 dark:border-white/10 rounded-3xl space-y-4">
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-sky-100/60 dark:border-white/5 pb-3">
+                  <div className="p-5 glass-card border border-sky-100/80 rounded-3xl space-y-4">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200 pb-3">
                       {/* Sub-tabs */}
-                      <div className="flex rounded-full bg-white/[0.06] p-1 border border-white/10 text-xs font-bold backdrop-blur-md">
+                      <div className="flex rounded-full bg-slate-100/90 p-1 border border-slate-200/80 text-xs font-bold">
                         <button
                           onClick={() => setActiveChartTab('winloss')}
-                          className={`px-3 py-1 rounded-full transition-all cursor-pointer ${activeChartTab === 'winloss' ? 'glass-button text-white shadow-xs' : 'text-slate-400 hover:text-white'}`}
+                          className={`px-3 py-1.5 rounded-full transition-all cursor-pointer ${activeChartTab === 'winloss' ? 'bg-slate-950 text-white font-bold shadow-xs' : 'text-slate-600 hover:text-slate-950'}`}
                         >
                           Daily Wins / Losses
                         </button>
                         <button
                           onClick={() => setActiveChartTab('pnl')}
-                          className={`px-3 py-1 rounded-full transition-all cursor-pointer ${activeChartTab === 'pnl' ? 'glass-button text-white shadow-xs' : 'text-slate-400 hover:text-white'}`}
+                          className={`px-3 py-1.5 rounded-full transition-all cursor-pointer ${activeChartTab === 'pnl' ? 'bg-slate-950 text-white font-bold shadow-xs' : 'text-slate-600 hover:text-slate-950'}`}
                         >
                           Cumulative PnL
                         </button>
                         <button
                           onClick={() => setActiveChartTab('score')}
-                          className={`px-3 py-1 rounded-full transition-all cursor-pointer ${activeChartTab === 'score' ? 'glass-button text-white shadow-xs' : 'text-slate-400 hover:text-white'}`}
+                          className={`px-3 py-1.5 rounded-full transition-all cursor-pointer ${activeChartTab === 'score' ? 'bg-slate-950 text-white font-bold shadow-xs' : 'text-slate-600 hover:text-slate-950'}`}
                         >
                           Score History
                         </button>
                       </div>
 
                       {/* Timeframe pills */}
-                      <div className="flex rounded-full bg-white/[0.06] p-0.5 text-[10px] font-bold border border-white/10 backdrop-blur-md">
+                      <div className="flex rounded-full bg-slate-100/90 p-0.5 text-[10px] font-bold border border-slate-200/80">
                         {(['1W', '1M', 'YTD', 'ALL'] as const).map(tf => (
                           <button
                             key={tf}
                             onClick={() => setTimeframe(tf)}
-                            className={`px-2.5 py-0.5 rounded-full transition-all ${timeframe === tf ? 'glass-button text-white shadow-2xs' : 'text-slate-400 hover:text-white'}`}
+                            className={`px-2.5 py-1 rounded-full transition-all cursor-pointer ${timeframe === tf ? 'bg-slate-950 text-white font-bold shadow-2xs' : 'text-slate-600 hover:text-slate-950'}`}
                           >
                             {tf}
                           </button>
@@ -401,27 +351,27 @@ export function WalletDrawer({ address, onClose }: WalletDrawerProps) {
                     {/* Summary Metrics Strip */}
                     {chartSummary && (
                       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs font-mono">
-                        <div className="p-2.5 rounded-2xl bg-white/[0.04] border border-white/10">
-                          <div className="text-[10px] text-white/50 uppercase font-sans font-semibold">Realized Won</div>
-                          <div className="text-[#00D09C] font-bold mt-0.5">
+                        <div className="p-2.5 rounded-2xl bg-slate-50 border border-slate-200">
+                          <div className="text-[10px] text-slate-500 uppercase font-sans font-semibold">Realized Won</div>
+                          <div className="text-emerald-600 font-bold mt-0.5">
                             +${chartSummary.grossWon.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                           </div>
                         </div>
-                        <div className="p-2.5 rounded-2xl bg-white/[0.04] border border-white/10">
-                          <div className="text-[10px] text-white/50 uppercase font-sans font-semibold">Realized Lost</div>
-                          <div className="text-[#FF453A] font-bold mt-0.5">
+                        <div className="p-2.5 rounded-2xl bg-slate-50 border border-slate-200">
+                          <div className="text-[10px] text-slate-500 uppercase font-sans font-semibold">Realized Lost</div>
+                          <div className="text-rose-600 font-bold mt-0.5">
                             -${chartSummary.grossLost.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                           </div>
                         </div>
-                        <div className="p-2.5 rounded-2xl bg-white/[0.04] border border-white/10">
-                          <div className="text-[10px] text-white/50 uppercase font-sans font-semibold">Net P&amp;L ({timeframe})</div>
-                          <div className={`font-bold mt-0.5 ${chartSummary.netPnL >= 0 ? 'text-[#00D09C]' : 'text-[#FF453A]'}`}>
+                        <div className="p-2.5 rounded-2xl bg-slate-50 border border-slate-200">
+                          <div className="text-[10px] text-slate-500 uppercase font-sans font-semibold">Net P&amp;L ({timeframe})</div>
+                          <div className={`font-bold mt-0.5 ${chartSummary.netPnL >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
                             {chartSummary.netPnL >= 0 ? '+' : '-'}${Math.abs(chartSummary.netPnL).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                           </div>
                         </div>
-                        <div className="p-2.5 rounded-2xl bg-white/[0.04] border border-white/10">
-                          <div className="text-[10px] text-white/50 uppercase font-sans font-semibold">Win Days ({chartSummary.totalDays}d)</div>
-                          <div className="text-white font-bold mt-0.5">
+                        <div className="p-2.5 rounded-2xl bg-slate-50 border border-slate-200">
+                          <div className="text-[10px] text-slate-500 uppercase font-sans font-semibold">Win Days ({chartSummary.totalDays}d)</div>
+                          <div className="text-slate-950 font-bold mt-0.5">
                             {chartSummary.winDays}W / {chartSummary.lossDays}L ({chartSummary.dayWinRate.toFixed(0)}%)
                           </div>
                         </div>
@@ -431,9 +381,9 @@ export function WalletDrawer({ address, onClose }: WalletDrawerProps) {
                     {/* Massive Chart Container */}
                     <div className="h-80 sm:h-96 w-full">
                       {loading && (!filteredDailyPnLHistory || filteredDailyPnLHistory.length === 0) && activeChartTab !== 'score' ? (
-                        <div className="w-full h-full flex flex-col items-center justify-center bg-white/[0.03] rounded-2xl border border-white/10 space-y-2">
+                        <div className="w-full h-full flex flex-col items-center justify-center bg-slate-50 rounded-2xl border border-slate-200 space-y-2">
                           <div className="w-5 h-5 border-2 border-emerald-500/20 border-t-emerald-500 rounded-full animate-spin" />
-                          <span className="text-xs text-white/60 font-medium">Fetching historical trade equity curve...</span>
+                          <span className="text-xs text-slate-500 font-medium">Fetching historical trade equity curve...</span>
                         </div>
                       ) : (
                         <>

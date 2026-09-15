@@ -64,28 +64,28 @@ export function TradeDrawer({ trade, onClose, onSelectWallet }: TradeDrawerProps
           role="dialog"
           aria-modal="true"
           aria-label="Trade Execution Drawer"
-          className="relative w-full max-w-full sm:max-w-lg bg-white/95 text-slate-950 shadow-2xl z-50 flex flex-col h-full border-l border-slate-200 backdrop-blur-2xl"
+          className="relative w-full max-w-full sm:max-w-lg bg-white text-slate-950 shadow-2xl z-50 flex flex-col h-full border-l border-slate-200"
         >
           {/* Header */}
-          <div className="p-4 sm:p-6 border-b border-white/10 bg-white/[0.02] flex items-center justify-between">
+          <div className="p-4 sm:p-6 border-b border-slate-200 bg-slate-50/80 flex items-center justify-between">
             <div className="flex items-center gap-2.5 sm:gap-3">
-              <div className={`p-2 sm:p-2.5 rounded-2xl border ${isBuy ? 'bg-emerald-500/10 border-emerald-500/20 text-[#00D09C]' : 'bg-rose-500/10 border-rose-500/20 text-[#FF453A]'}`}>
+              <div className={`p-2 sm:p-2.5 rounded-2xl border ${isBuy ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-600' : 'bg-rose-500/10 border-rose-500/20 text-rose-600'}`}>
                 {isBuy ? <ArrowUpRight size={18} /> : <ArrowDownRight size={18} />}
               </div>
               <div>
                 <div className="flex items-center gap-1.5 sm:gap-2">
                   <span className={`text-[10px] sm:text-[11px] font-extrabold uppercase px-2 py-0.5 rounded-full border ${
                     isBuy 
-                      ? 'bg-emerald-500/10 text-emerald-700 dark:text-[#00D09C] border-emerald-500/30' 
-                      : 'bg-rose-500/10 text-rose-700 dark:text-[#FF453A] border-rose-500/30'
+                      ? 'bg-emerald-500/10 text-emerald-800 border-emerald-500/30' 
+                      : 'bg-rose-500/10 text-rose-800 border-rose-500/30'
                   }`}>
                     {trade.side || 'BUY'} {outcomeLabel.toUpperCase()}
                   </span>
-                  <span className="text-[9px] sm:text-[10px] font-mono font-bold text-slate-500 dark:text-[#8E8F99] bg-white/80 dark:bg-white/10 px-1.5 sm:px-2 py-0.5 rounded-full border border-sky-100/60 dark:border-white/10">
+                  <span className="text-[9px] sm:text-[10px] font-mono font-bold text-slate-600 bg-slate-100 px-1.5 sm:px-2 py-0.5 rounded-full border border-slate-200">
                     {trade.status === 'FILLED' ? '🟢 OPEN' : '⚪ CLOSED'}
                   </span>
                 </div>
-                <p className="text-[10px] sm:text-[11px] font-mono text-slate-500 dark:text-[#8E8F99] flex items-center gap-1 mt-0.5 sm:mt-1">
+                <p className="text-[10px] sm:text-[11px] font-mono text-slate-500 flex items-center gap-1 mt-0.5 sm:mt-1">
                   <Clock size={11} />
                   {formatFrenchDateTime(trade.timestamp, true)}
                 </p>

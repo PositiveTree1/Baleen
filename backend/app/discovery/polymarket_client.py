@@ -81,7 +81,10 @@ class PolymarketClient:
         self.data_api_url = settings.POLYMARKET_DATA_API_URL
         self.clob_api_url = settings.CLOB_API_URL
         self.gamma_api_url = settings.GAMMA_API_URL
-        self.client = httpx.AsyncClient(timeout=10.0)
+        self.client = httpx.AsyncClient(
+            timeout=10.0,
+            headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"}
+        )
 
     async def close(self):
         await self.client.aclose()
@@ -449,6 +452,36 @@ class PolymarketClient:
             if abs(pnl_sum) > 0.01:
                 return round(pnl_sum, 2)
         return None
+
+    async def fetch_wallet_pnl_timeseries(self, address: str, interval: str = "all", fidelity: str = "1d") -> List[Dict]:
+        """Pulls authentic timeseries points [{"t": timestamp_sec, "p": cumulative_pnl_usd}] directly from Polymarket user-pnl-api."""
+        norm_addr = address.lower().strip()
+        try:
+            url = "https://user-pnl-api.polymarket.com/user-pnl"
+            data = await self._fetch_with_retry(url, params={
+                "user_address": norm_addr,
+                "interval": interval,
+                "fidelity": fidelity
+            })
+            if isinstance(data, list):
+                return data
+            return []
+        except Exception as e:
+            logger.debug(f"Error fetching wallet pnl timeseries for {norm_addr}: {e}")
+            return []
+
+    async def fetch_wallet_user_stats(self, address: str) -> Optional[Dict]:
+        """Pulls user prediction stats (trades, biggest_win, views, all_time_pnl) from Polymarket data API v2."""
+        norm_addr = address.lower().strip()
+        try:
+            url = f"{self.data_api_url}/v2/user-stats"
+            data = await self._fetch_with_retry(url, params={"user": norm_addr})
+            if isinstance(data, dict):
+                return data.get("data") or data
+            return None
+        except Exception as e:
+            logger.debug(f"Error fetching user stats for {norm_addr}: {e}")
+            return None
 
     async def fetch_wallet_trades(self, address: str, max_trades: int = 4000) -> List[Dict]:
         """Pulls multi-page trade history up to max_trades for a wallet using documented user= param."""

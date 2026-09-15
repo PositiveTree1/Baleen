@@ -161,15 +161,26 @@ button, a { -webkit-tap-highlight-color: transparent; }
   color: inherit !important;
   stroke: currentColor !important;
 }
+.glass-modal-backdrop {
+  background: rgba(7, 24, 47, 0.5) !important;
+  backdrop-filter: blur(8px) saturate(120%) !important;
+  -webkit-backdrop-filter: blur(8px) saturate(120%) !important;
+}
+.glass-modal {
+  background: #ffffff !important;
+  color: var(--navy-950) !important;
+  border: 1px solid #d4e5f5 !important;
+  box-shadow: 0 25px 60px -12px rgba(7, 24, 47, 0.25), 0 0 0 1px rgba(7, 24, 47, 0.05) !important;
+}
+
 .min-h-screen.bg-\[\#020b18\] { background: transparent !important; }
 .text-white { color: var(--navy-950); }
-.glass-button.text-white, .liquid-pill-btn.text-white, .obsidian-card .text-white, .closing-card .text-white { color: white !important; }
+.obsidian-card .text-white, .closing-card .text-white, .button-primary .text-white, .button-primary.text-white { color: white !important; }
 .text-white\/90, .text-white\/80, .text-white\/70 { color: #40556d !important; }
 .text-white\/60, .text-white\/50 { color: #657a91 !important; }
 .text-white\/40, .text-white\/30, .text-white\/20 { color: #8497aa !important; }
 .text-slate-200, .text-slate-300 { color: #41566f !important; }
 .text-slate-400 { color: #637991 !important; }
-.glass-button .text-white, .liquid-pill-btn .text-white { color: white !important; }
 .border-white\/10, .border-white\/15, .border-white\/20 { border-color: #dce9f3 !important; }
 .bg-white\/5, .bg-white\/\[0\.04\], .bg-white\/\[0\.06\] { background-color: #eff7fc !important; }
 input, textarea, select { color: var(--navy-950) !important; background: #f6fbff !important; border-color: #d7e6f1 !important; }

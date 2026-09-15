@@ -384,17 +384,81 @@ async def get_wallet(address: str, db: AsyncSession = Depends(get_db)):
     total_pnl = wallet.all_time_pnl_usd or 0.0
     daily_pnl_history = []
 
-    # 1. Use authentic cached on-chain daily PnL curve for the whale's lifetime track record
-    if wallet.cached_daily_pnl:
+    # 1. Primary: Query Polymarket authentic timeseries and user-stats directly
+    client = PolymarketClient()
+    try:
+        raw_pts = []
+        user_stats = None
+        try:
+            pnl_task = client.fetch_wallet_pnl_timeseries(clean_addr, interval="all", fidelity="1d")
+            stats_task = client.fetch_wallet_user_stats(clean_addr)
+            pnl_res, stats_res = await asyncio.wait_for(
+                asyncio.gather(pnl_task, stats_task, return_exceptions=True),
+                timeout=4.0
+            )
+            raw_pts = pnl_res if isinstance(pnl_res, list) else []
+            user_stats = stats_res if isinstance(stats_res, dict) else None
+        except Exception as e:
+            logger.debug(f"Polymarket user-pnl/stats fetch note for {clean_addr}: {e}")
+
+        if raw_pts:
+            date_map = {}
+            for pt in raw_pts:
+                if isinstance(pt, dict) and "t" in pt and "p" in pt:
+                    try:
+                        dt = datetime.utcfromtimestamp(pt["t"]).strftime("%Y-%m-%d")
+                        date_map[dt] = float(pt["p"])
+                    except Exception:
+                        pass
+
+            if date_map:
+                pts_history = []
+                prev_p = 0.0
+                for i, dt in enumerate(sorted(date_map.keys())):
+                    cum = round(date_map[dt], 2)
+                    daily = round(cum - prev_p if i > 0 else cum, 2)
+                    prev_p = cum
+                    pts_history.append({
+                        "date": dt,
+                        "won_usd": max(0.0, daily),
+                        "lost_usd": -abs(daily) if daily < 0 else 0.0,
+                        "net_pnl": daily,
+                        "daily_pnl": daily,
+                        "cumulative_pnl": cum,
+                        "trades_count": 1
+                    })
+
+                if pts_history:
+                    daily_pnl_history = pts_history
+                    wallet.cached_daily_pnl = json.dumps(pts_history)
+                    latest_pnl = round(pts_history[-1]["cumulative_pnl"], 2)
+                    wallet.all_time_pnl_usd = latest_pnl
+
+        if user_stats:
+            trades_cnt = user_stats.get("trades") or (user_stats.get("all_time_pnl") or {}).get("trade_count")
+            if trades_cnt:
+                try:
+                    wallet.total_trades_analyzed = int(trades_cnt)
+                except (ValueError, TypeError):
+                    pass
+
+        if raw_pts or user_stats:
+            await db.commit()
+            await db.refresh(wallet)
+    except Exception as e:
+        logger.debug(f"Error querying Polymarket user-pnl for {clean_addr}: {e}")
+    finally:
+        await client.close()
+
+    # 2. Secondary: Fallback to existing cached on-chain daily PnL curve if user-pnl returned empty
+    if not daily_pnl_history and wallet.cached_daily_pnl:
         try:
             cached_pts = json.loads(wallet.cached_daily_pnl)
             if isinstance(cached_pts, list) and len(cached_pts) >= 1:
-                # Sanitize legacy synthetic placeholder data (e.g. identical 14272.63 repeating marks)
                 first_won = float(cached_pts[0].get("won_usd", 0.0))
                 if len(cached_pts) > 10 and abs(first_won - 14272.63) < 0.1:
                     daily_pnl_history = []
                 elif len(cached_pts) < 15 and getattr(wallet, 'total_trades_analyzed', 0) and (wallet.total_trades_analyzed or 0) > 30:
-                    # Invalidate truncated cache from prior 3-page bug so full authentic history is re-fetched
                     daily_pnl_history = []
                 else:
                     daily_pnl_history = cached_pts
@@ -402,7 +466,7 @@ async def get_wallet(address: str, db: AsyncSession = Depends(get_db)):
             logger.debug(f"Error parsing cached_daily_pnl for {clean_addr}: {e}")
             daily_pnl_history = []
 
-    # 2. If daily_pnl_history is empty or truncated, fetch authentic on-chain data in parallel batches
+    # 3. Tertiary: Fallback to multi-page closed positions & activity scanner reconstruction
     if not daily_pnl_history:
         client = PolymarketClient()
         try:
