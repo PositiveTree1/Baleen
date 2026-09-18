@@ -1,0 +1,3061 @@
+[
+  {
+    "address": "0x204f72f35326db932158cba6adff0b9a1da95e14",
+    "name": "swisstony",
+    "source_period": "ALL",
+    "source_pnl": 23630667.09711526,
+    "coverage": {
+      "complete": true,
+      "pages": 1,
+      "reason": "cursor exhausted"
+    },
+    "trades": {
+      "rows": 0,
+      "distinct_diagnostic_keys": 0,
+      "transactions": 0,
+      "wrong_wallet": 0,
+      "oldest": null,
+      "newest": null,
+      "outside_requested_window": 0,
+      "descending": true,
+      "span_hours": null,
+      "daily_fills": {}
+    },
+    "weekly_fill_band": false
+  },
+  {
+    "address": "0x56687bf447db6ffa42ffe2204a05edaa20f55839",
+    "name": "Theo4",
+    "source_period": "ALL",
+    "source_pnl": 22053933.752321757,
+    "coverage": {
+      "complete": true,
+      "pages": 1,
+      "reason": "cursor exhausted"
+    },
+    "trades": {
+      "rows": 0,
+      "distinct_diagnostic_keys": 0,
+      "transactions": 0,
+      "wrong_wallet": 0,
+      "oldest": null,
+      "newest": null,
+      "outside_requested_window": 0,
+      "descending": true,
+      "span_hours": null,
+      "daily_fills": {}
+    },
+    "weekly_fill_band": false
+  },
+  {
+    "address": "0x1f2dd6d473f3e824cd2f8a89d9c69fb96f6ad0cf",
+    "name": "Fredi9999",
+    "source_period": "ALL",
+    "source_pnl": 16619506.631730152,
+    "coverage": {
+      "complete": true,
+      "pages": 1,
+      "reason": "cursor exhausted"
+    },
+    "trades": {
+      "rows": 0,
+      "distinct_diagnostic_keys": 0,
+      "transactions": 0,
+      "wrong_wallet": 0,
+      "oldest": null,
+      "newest": null,
+      "outside_requested_window": 0,
+      "descending": true,
+      "span_hours": null,
+      "daily_fills": {}
+    },
+    "weekly_fill_band": false
+  },
+  {
+    "address": "0x2005d16a84ceefa912d4e380cd32e7ff827875ea",
+    "name": "RN1",
+    "source_period": "ALL",
+    "source_pnl": 13694585.906184291,
+    "coverage": {
+      "complete": false,
+      "pages": 1,
+      "reason": "audit page budget reached"
+    },
+    "trades": {
+      "rows": 211,
+      "distinct_diagnostic_keys": 211,
+      "transactions": 206,
+      "wrong_wallet": 0,
+      "oldest": 1789598122,
+      "newest": 1789601290,
+      "outside_requested_window": 0,
+      "descending": true,
+      "span_hours": 0.88,
+      "daily_fills": {
+        "2026-09-16": 211
+      }
+    },
+    "weekly_fill_band": false
+  },
+  {
+    "address": "0x6a72f61820b26b1fe4d956e17b6dc2a1ea3033ee",
+    "name": "kch123",
+    "source_period": "ALL",
+    "source_pnl": 11386690.875513867,
+    "coverage": {
+      "complete": true,
+      "pages": 1,
+      "reason": "cursor exhausted"
+    },
+    "trades": {
+      "rows": 0,
+      "distinct_diagnostic_keys": 0,
+      "transactions": 0,
+      "wrong_wallet": 0,
+      "oldest": null,
+      "newest": null,
+      "outside_requested_window": 0,
+      "descending": true,
+      "span_hours": null,
+      "daily_fills": {}
+    },
+    "weekly_fill_band": false
+  },
+  {
+    "address": "0x96cfcb0c30942cfcd1cdf76c7d408794d66b1acb",
+    "name": "mintblade",
+    "source_period": "ALL",
+    "source_pnl": 9238344.623224001,
+    "coverage": {
+      "complete": true,
+      "pages": 1,
+      "reason": "cursor exhausted"
+    },
+    "trades": {
+      "rows": 0,
+      "distinct_diagnostic_keys": 0,
+      "transactions": 0,
+      "wrong_wallet": 0,
+      "oldest": null,
+      "newest": null,
+      "outside_requested_window": 0,
+      "descending": true,
+      "span_hours": null,
+      "daily_fills": {}
+    },
+    "weekly_fill_band": false
+  },
+  {
+    "address": "0xed64a7bf029040aa331abc87902434d815ef217d",
+    "name": "fishalive",
+    "source_period": "ALL",
+    "source_pnl": 9063378.176199999,
+    "coverage": {
+      "complete": true,
+      "pages": 1,
+      "reason": "cursor exhausted"
+    },
+    "trades": {
+      "rows": 0,
+      "distinct_diagnostic_keys": 0,
+      "transactions": 0,
+      "wrong_wallet": 0,
+      "oldest": null,
+      "newest": null,
+      "outside_requested_window": 0,
+      "descending": true,
+      "span_hours": null,
+      "daily_fills": {}
+    },
+    "weekly_fill_band": false
+  },
+  {
+    "address": "0xbc11a64ab34a03a043fbe80598fa065ee87eeec6",
+    "name": "frostrizz",
+    "source_period": "ALL",
+    "source_pnl": 8928561.11799,
+    "coverage": {
+      "complete": true,
+      "pages": 1,
+      "reason": "cursor exhausted"
+    },
+    "trades": {
+      "rows": 0,
+      "distinct_diagnostic_keys": 0,
+      "transactions": 0,
+      "wrong_wallet": 0,
+      "oldest": null,
+      "newest": null,
+      "outside_requested_window": 0,
+      "descending": true,
+      "span_hours": null,
+      "daily_fills": {}
+    },
+    "weekly_fill_band": false
+  },
+  {
+    "address": "0x78b9ac44a6d7d7a076c14e0ad518b301b63c6b76",
+    "name": "Len9311238",
+    "source_period": "ALL",
+    "source_pnl": 8709972.988069998,
+    "coverage": {
+      "complete": true,
+      "pages": 1,
+      "reason": "cursor exhausted"
+    },
+    "trades": {
+      "rows": 0,
+      "distinct_diagnostic_keys": 0,
+      "transactions": 0,
+      "wrong_wallet": 0,
+      "oldest": null,
+      "newest": null,
+      "outside_requested_window": 0,
+      "descending": true,
+      "span_hours": null,
+      "daily_fills": {}
+    },
+    "weekly_fill_band": false
+  },
+  {
+    "address": "0x664ce9fb97ae1bbd538d7381b2f4e92dab16f49c",
+    "name": "sparklingwater123",
+    "source_period": "ALL",
+    "source_pnl": 8474966.272470918,
+    "coverage": {
+      "complete": true,
+      "pages": 1,
+      "reason": "cursor exhausted"
+    },
+    "trades": {
+      "rows": 0,
+      "distinct_diagnostic_keys": 0,
+      "transactions": 0,
+      "wrong_wallet": 0,
+      "oldest": null,
+      "newest": null,
+      "outside_requested_window": 0,
+      "descending": true,
+      "span_hours": null,
+      "daily_fills": {}
+    },
+    "weekly_fill_band": false
+  },
+  {
+    "address": "0x09b428f7c2b469786286214aa5c90dd9015f7320",
+    "name": "DEEDDIT",
+    "source_period": "ALL",
+    "source_pnl": 8052184.542897382,
+    "coverage": {
+      "complete": true,
+      "pages": 1,
+      "reason": "cursor exhausted"
+    },
+    "trades": {
+      "rows": 0,
+      "distinct_diagnostic_keys": 0,
+      "transactions": 0,
+      "wrong_wallet": 0,
+      "oldest": null,
+      "newest": null,
+      "outside_requested_window": 0,
+      "descending": true,
+      "span_hours": null,
+      "daily_fills": {}
+    },
+    "weekly_fill_band": false
+  },
+  {
+    "address": "0x2c335066fe58fe9237c3d3dc7b275c2a034a0563",
+    "name": "0x2c335066FE58fe9237c3d3Dc7b275C2a034a0563-1759935795465",
+    "source_period": "ALL",
+    "source_pnl": 7861197.175123833,
+    "coverage": {
+      "complete": false,
+      "pages": 1,
+      "reason": "audit page budget reached"
+    },
+    "trades": {
+      "rows": 211,
+      "distinct_diagnostic_keys": 211,
+      "transactions": 211,
+      "wrong_wallet": 0,
+      "oldest": 1789585149,
+      "newest": 1789598581,
+      "outside_requested_window": 0,
+      "descending": true,
+      "span_hours": 3.7311111111111113,
+      "daily_fills": {
+        "2026-09-16": 211
+      }
+    },
+    "weekly_fill_band": false
+  },
+  {
+    "address": "0xd235973291b2b75ff4070e9c0b01728c520b0f29",
+    "name": "zxgngl",
+    "source_period": "ALL",
+    "source_pnl": 7807265.589240883,
+    "coverage": {
+      "complete": true,
+      "pages": 1,
+      "reason": "cursor exhausted"
+    },
+    "trades": {
+      "rows": 0,
+      "distinct_diagnostic_keys": 0,
+      "transactions": 0,
+      "wrong_wallet": 0,
+      "oldest": null,
+      "newest": null,
+      "outside_requested_window": 0,
+      "descending": true,
+      "span_hours": null,
+      "daily_fills": {}
+    },
+    "weekly_fill_band": false
+  },
+  {
+    "address": "0x3f87d51f27ba6e19ec52aaeebb68559a839c742c",
+    "name": "GRIMDRIP",
+    "source_period": "ALL",
+    "source_pnl": 7602742.057861,
+    "coverage": {
+      "complete": true,
+      "pages": 1,
+      "reason": "cursor exhausted"
+    },
+    "trades": {
+      "rows": 0,
+      "distinct_diagnostic_keys": 0,
+      "transactions": 0,
+      "wrong_wallet": 0,
+      "oldest": null,
+      "newest": null,
+      "outside_requested_window": 0,
+      "descending": true,
+      "span_hours": null,
+      "daily_fills": {}
+    },
+    "weekly_fill_band": false
+  },
+  {
+    "address": "0x863134d00841b2e200492805a01e1e2f5defaa53",
+    "name": "RepTrump",
+    "source_period": "ALL",
+    "source_pnl": 7532409.671579,
+    "coverage": {
+      "complete": true,
+      "pages": 1,
+      "reason": "cursor exhausted"
+    },
+    "trades": {
+      "rows": 0,
+      "distinct_diagnostic_keys": 0,
+      "transactions": 0,
+      "wrong_wallet": 0,
+      "oldest": null,
+      "newest": null,
+      "outside_requested_window": 0,
+      "descending": true,
+      "span_hours": null,
+      "daily_fills": {}
+    },
+    "weekly_fill_band": false
+  },
+  {
+    "address": "0x5e4c3b5b81171e2ca4ab776ac0d6bba787f9dba2",
+    "name": "endlessFate",
+    "source_period": "ALL",
+    "source_pnl": 7409836.65260974,
+    "coverage": {
+      "complete": true,
+      "pages": 1,
+      "reason": "cursor exhausted"
+    },
+    "trades": {
+      "rows": 0,
+      "distinct_diagnostic_keys": 0,
+      "transactions": 0,
+      "wrong_wallet": 0,
+      "oldest": null,
+      "newest": null,
+      "outside_requested_window": 0,
+      "descending": true,
+      "span_hours": null,
+      "daily_fills": {}
+    },
+    "weekly_fill_band": false
+  },
+  {
+    "address": "0xc2e7800b5af46e6093872b177b7a5e7f0563be51",
+    "name": "beachboy4",
+    "source_period": "ALL",
+    "source_pnl": 6187246.515578268,
+    "coverage": {
+      "complete": true,
+      "pages": 1,
+      "reason": "cursor exhausted"
+    },
+    "trades": {
+      "rows": 0,
+      "distinct_diagnostic_keys": 0,
+      "transactions": 0,
+      "wrong_wallet": 0,
+      "oldest": null,
+      "newest": null,
+      "outside_requested_window": 0,
+      "descending": true,
+      "span_hours": null,
+      "daily_fills": {}
+    },
+    "weekly_fill_band": false
+  },
+  {
+    "address": "0x8119010a6e589062aa03583bb3f39ca632d9f887",
+    "name": "PrincessCaro",
+    "source_period": "ALL",
+    "source_pnl": 6083643.099591745,
+    "coverage": {
+      "complete": true,
+      "pages": 1,
+      "reason": "cursor exhausted"
+    },
+    "trades": {
+      "rows": 0,
+      "distinct_diagnostic_keys": 0,
+      "transactions": 0,
+      "wrong_wallet": 0,
+      "oldest": null,
+      "newest": null,
+      "outside_requested_window": 0,
+      "descending": true,
+      "span_hours": null,
+      "daily_fills": {}
+    },
+    "weekly_fill_band": false
+  },
+  {
+    "address": "0xe9ad918c7678cd38b12603a762e638a5d1ee7091",
+    "name": "walletmobile",
+    "source_period": "ALL",
+    "source_pnl": 5942685.45339684,
+    "coverage": {
+      "complete": true,
+      "pages": 1,
+      "reason": "cursor exhausted"
+    },
+    "trades": {
+      "rows": 0,
+      "distinct_diagnostic_keys": 0,
+      "transactions": 0,
+      "wrong_wallet": 0,
+      "oldest": null,
+      "newest": null,
+      "outside_requested_window": 0,
+      "descending": true,
+      "span_hours": null,
+      "daily_fills": {}
+    },
+    "weekly_fill_band": false
+  },
+  {
+    "address": "0x94f199fb7789f1aef7fff6b758d6b375100f4c7a",
+    "name": "KeyTransporter",
+    "source_period": "ALL",
+    "source_pnl": 5711459.802519929,
+    "coverage": {
+      "complete": true,
+      "pages": 1,
+      "reason": "cursor exhausted"
+    },
+    "trades": {
+      "rows": 0,
+      "distinct_diagnostic_keys": 0,
+      "transactions": 0,
+      "wrong_wallet": 0,
+      "oldest": null,
+      "newest": null,
+      "outside_requested_window": 0,
+      "descending": true,
+      "span_hours": null,
+      "daily_fills": {}
+    },
+    "weekly_fill_band": false
+  },
+  {
+    "address": "0x885783760858e1bd5dd09a3c3f916cfa251ac270",
+    "name": "BetTom42",
+    "source_period": "ALL",
+    "source_pnl": 5642135.735356,
+    "coverage": {
+      "complete": true,
+      "pages": 1,
+      "reason": "cursor exhausted"
+    },
+    "trades": {
+      "rows": 0,
+      "distinct_diagnostic_keys": 0,
+      "transactions": 0,
+      "wrong_wallet": 0,
+      "oldest": null,
+      "newest": null,
+      "outside_requested_window": 0,
+      "descending": true,
+      "span_hours": null,
+      "daily_fills": {}
+    },
+    "weekly_fill_band": false
+  },
+  {
+    "address": "0x23786fdad0073692157c6d7dc81f281843a35fcb",
+    "name": "mikatrade77",
+    "source_period": "ALL",
+    "source_pnl": 5147998.544602999,
+    "coverage": {
+      "complete": true,
+      "pages": 1,
+      "reason": "cursor exhausted"
+    },
+    "trades": {
+      "rows": 0,
+      "distinct_diagnostic_keys": 0,
+      "transactions": 0,
+      "wrong_wallet": 0,
+      "oldest": null,
+      "newest": null,
+      "outside_requested_window": 0,
+      "descending": true,
+      "span_hours": null,
+      "daily_fills": {}
+    },
+    "weekly_fill_band": false
+  },
+  {
+    "address": "0xe90bec87d9ef430f27f9dcfe72c34b76967d5da2",
+    "name": "gmanas",
+    "source_period": "ALL",
+    "source_pnl": 4955880.748691752,
+    "coverage": {
+      "complete": true,
+      "pages": 1,
+      "reason": "cursor exhausted"
+    },
+    "trades": {
+      "rows": 0,
+      "distinct_diagnostic_keys": 0,
+      "transactions": 0,
+      "wrong_wallet": 0,
+      "oldest": null,
+      "newest": null,
+      "outside_requested_window": 0,
+      "descending": true,
+      "span_hours": null,
+      "daily_fills": {}
+    },
+    "weekly_fill_band": false
+  },
+  {
+    "address": "0xd0c042c08f755ff940249f62745e82d356345565",
+    "name": "alexmulti",
+    "source_period": "ALL",
+    "source_pnl": 4804855.613376001,
+    "coverage": {
+      "complete": true,
+      "pages": 1,
+      "reason": "cursor exhausted"
+    },
+    "trades": {
+      "rows": 0,
+      "distinct_diagnostic_keys": 0,
+      "transactions": 0,
+      "wrong_wallet": 0,
+      "oldest": null,
+      "newest": null,
+      "outside_requested_window": 0,
+      "descending": true,
+      "span_hours": null,
+      "daily_fills": {}
+    },
+    "weekly_fill_band": false
+  },
+  {
+    "address": "0x006cc834cc092684f1b56626e23bedb3835c16ea",
+    "name": "0x006cc834Cc092684F1B56626E23BEdB3835c16ea-1729683673397",
+    "source_period": "ALL",
+    "source_pnl": 4719388.933777024,
+    "coverage": {
+      "complete": true,
+      "pages": 1,
+      "reason": "cursor exhausted"
+    },
+    "trades": {
+      "rows": 0,
+      "distinct_diagnostic_keys": 0,
+      "transactions": 0,
+      "wrong_wallet": 0,
+      "oldest": null,
+      "newest": null,
+      "outside_requested_window": 0,
+      "descending": true,
+      "span_hours": null,
+      "daily_fills": {}
+    },
+    "weekly_fill_band": false
+  },
+  {
+    "address": "0x9319a045cdd0c2180e5eb7ad44374383db9a6410",
+    "name": "sainttroplay",
+    "source_period": "ALL",
+    "source_pnl": 4563513.9901202805,
+    "coverage": {
+      "complete": true,
+      "pages": 1,
+      "reason": "cursor exhausted"
+    },
+    "trades": {
+      "rows": 0,
+      "distinct_diagnostic_keys": 0,
+      "transactions": 0,
+      "wrong_wallet": 0,
+      "oldest": null,
+      "newest": null,
+      "outside_requested_window": 0,
+      "descending": true,
+      "span_hours": null,
+      "daily_fills": {}
+    },
+    "weekly_fill_band": false
+  },
+  {
+    "address": "0xdc876e6873772d38716fda7f2452a78d426d7ab6",
+    "name": "432614799197",
+    "source_period": "ALL",
+    "source_pnl": 4526176.046414716,
+    "coverage": {
+      "complete": true,
+      "pages": 1,
+      "reason": "cursor exhausted"
+    },
+    "trades": {
+      "rows": 0,
+      "distinct_diagnostic_keys": 0,
+      "transactions": 0,
+      "wrong_wallet": 0,
+      "oldest": null,
+      "newest": null,
+      "outside_requested_window": 0,
+      "descending": true,
+      "span_hours": null,
+      "daily_fills": {}
+    },
+    "weekly_fill_band": false
+  },
+  {
+    "address": "0x34dd4a4b70eaf79a17878f7938263c801d4dfd83",
+    "name": "vito3corleone",
+    "source_period": "ALL",
+    "source_pnl": 4517505.222435784,
+    "coverage": {
+      "complete": true,
+      "pages": 1,
+      "reason": "cursor exhausted"
+    },
+    "trades": {
+      "rows": 0,
+      "distinct_diagnostic_keys": 0,
+      "transactions": 0,
+      "wrong_wallet": 0,
+      "oldest": null,
+      "newest": null,
+      "outside_requested_window": 0,
+      "descending": true,
+      "span_hours": null,
+      "daily_fills": {}
+    },
+    "weekly_fill_band": false
+  },
+  {
+    "address": "0x507e52ef684ca2dd91f90a9d26d149dd3288beae",
+    "name": "GamblingIsAllYouNeed",
+    "source_period": "ALL",
+    "source_pnl": 4496083.472344104,
+    "coverage": {
+      "complete": true,
+      "pages": 1,
+      "reason": "cursor exhausted"
+    },
+    "trades": {
+      "rows": 0,
+      "distinct_diagnostic_keys": 0,
+      "transactions": 0,
+      "wrong_wallet": 0,
+      "oldest": null,
+      "newest": null,
+      "outside_requested_window": 0,
+      "descending": true,
+      "span_hours": null,
+      "daily_fills": {}
+    },
+    "weekly_fill_band": false
+  },
+  {
+    "address": "0xe549581668a5751c1972d3ad2d1991d900bd2d54",
+    "name": "Allezpapa",
+    "source_period": "ALL",
+    "source_pnl": 4280722.833949986,
+    "coverage": {
+      "complete": true,
+      "pages": 1,
+      "reason": "cursor exhausted"
+    },
+    "trades": {
+      "rows": 0,
+      "distinct_diagnostic_keys": 0,
+      "transactions": 0,
+      "wrong_wallet": 0,
+      "oldest": null,
+      "newest": null,
+      "outside_requested_window": 0,
+      "descending": true,
+      "span_hours": null,
+      "daily_fills": {}
+    },
+    "weekly_fill_band": false
+  },
+  {
+    "address": "0x2a2c53bd278c04da9962fcf96490e17f3dfb9bc1",
+    "name": "0x2a2C53bD278c04DA9962Fcf96490E17F3DfB9Bc1-1772479215461",
+    "source_period": "ALL",
+    "source_pnl": 4236955.373332033,
+    "coverage": {
+      "complete": true,
+      "pages": 1,
+      "reason": "cursor exhausted"
+    },
+    "trades": {
+      "rows": 0,
+      "distinct_diagnostic_keys": 0,
+      "transactions": 0,
+      "wrong_wallet": 0,
+      "oldest": null,
+      "newest": null,
+      "outside_requested_window": 0,
+      "descending": true,
+      "span_hours": null,
+      "daily_fills": {}
+    },
+    "weekly_fill_band": false
+  },
+  {
+    "address": "0xdb27bf2ac5d428a9c63dbc914611036855a6c56e",
+    "name": "DrPufferfish",
+    "source_period": "ALL",
+    "source_pnl": 4055413.259574452,
+    "coverage": {
+      "complete": true,
+      "pages": 1,
+      "reason": "cursor exhausted"
+    },
+    "trades": {
+      "rows": 0,
+      "distinct_diagnostic_keys": 0,
+      "transactions": 0,
+      "wrong_wallet": 0,
+      "oldest": null,
+      "newest": null,
+      "outside_requested_window": 0,
+      "descending": true,
+      "span_hours": null,
+      "daily_fills": {}
+    },
+    "weekly_fill_band": false
+  },
+  {
+    "address": "0x16f91db2592924cfed6e03b7e5cb5bb1e32299e3",
+    "name": "Jenzigo",
+    "source_period": "ALL",
+    "source_pnl": 4049827.0941029997,
+    "coverage": {
+      "complete": true,
+      "pages": 1,
+      "reason": "cursor exhausted"
+    },
+    "trades": {
+      "rows": 0,
+      "distinct_diagnostic_keys": 0,
+      "transactions": 0,
+      "wrong_wallet": 0,
+      "oldest": null,
+      "newest": null,
+      "outside_requested_window": 0,
+      "descending": true,
+      "span_hours": null,
+      "daily_fills": {}
+    },
+    "weekly_fill_band": false
+  },
+  {
+    "address": "0xf8831548531d56ad6a4331493243c447a827cd1f",
+    "name": "Inaccuratestake",
+    "source_period": "ALL",
+    "source_pnl": 3987825.6346347546,
+    "coverage": {
+      "complete": true,
+      "pages": 1,
+      "reason": "cursor exhausted"
+    },
+    "trades": {
+      "rows": 0,
+      "distinct_diagnostic_keys": 0,
+      "transactions": 0,
+      "wrong_wallet": 0,
+      "oldest": null,
+      "newest": null,
+      "outside_requested_window": 0,
+      "descending": true,
+      "span_hours": null,
+      "daily_fills": {}
+    },
+    "weekly_fill_band": false
+  },
+  {
+    "address": "0x076daa87c4fe1a85402a9b6b8e0a866224388d4c",
+    "name": "",
+    "source_period": "ALL",
+    "source_pnl": 3761946.287685969,
+    "coverage": {
+      "complete": false,
+      "pages": 1,
+      "reason": "audit page budget reached"
+    },
+    "trades": {
+      "rows": 211,
+      "distinct_diagnostic_keys": 211,
+      "transactions": 211,
+      "wrong_wallet": 0,
+      "oldest": 1789586136,
+      "newest": 1789601221,
+      "outside_requested_window": 0,
+      "descending": true,
+      "span_hours": 4.190277777777778,
+      "daily_fills": {
+        "2026-09-16": 211
+      }
+    },
+    "weekly_fill_band": false
+  },
+  {
+    "address": "0xefbc5fec8d7b0acdc8911bdd9a98d6964308f9a2",
+    "name": "reachingthesky",
+    "source_period": "ALL",
+    "source_pnl": 3742635.156562068,
+    "coverage": {
+      "complete": true,
+      "pages": 1,
+      "reason": "cursor exhausted"
+    },
+    "trades": {
+      "rows": 0,
+      "distinct_diagnostic_keys": 0,
+      "transactions": 0,
+      "wrong_wallet": 0,
+      "oldest": null,
+      "newest": null,
+      "outside_requested_window": 0,
+      "descending": true,
+      "span_hours": null,
+      "daily_fills": {}
+    },
+    "weekly_fill_band": false
+  },
+  {
+    "address": "0x019782cab5d844f02bafb71f512758be78579f3c",
+    "name": "majorexploiter",
+    "source_period": "ALL",
+    "source_pnl": 3668541.581104434,
+    "coverage": {
+      "complete": true,
+      "pages": 1,
+      "reason": "cursor exhausted"
+    },
+    "trades": {
+      "rows": 0,
+      "distinct_diagnostic_keys": 0,
+      "transactions": 0,
+      "wrong_wallet": 0,
+      "oldest": null,
+      "newest": null,
+      "outside_requested_window": 0,
+      "descending": true,
+      "span_hours": null,
+      "daily_fills": {}
+    },
+    "weekly_fill_band": false
+  },
+  {
+    "address": "0x51698a47f840a242abc2ca0351371c7ffac41842",
+    "name": "00gringo00",
+    "source_period": "ALL",
+    "source_pnl": 3654637.09567778,
+    "coverage": {
+      "complete": false,
+      "pages": 1,
+      "reason": "audit page budget reached"
+    },
+    "trades": {
+      "rows": 211,
+      "distinct_diagnostic_keys": 211,
+      "transactions": 211,
+      "wrong_wallet": 0,
+      "oldest": 1789396758,
+      "newest": 1789485901,
+      "outside_requested_window": 0,
+      "descending": true,
+      "span_hours": 24.761944444444445,
+      "daily_fills": {
+        "2026-09-14": 91,
+        "2026-09-15": 120
+      }
+    },
+    "weekly_fill_band": false
+  },
+  {
+    "address": "0x16b29c50f2439faf627209b2ac0c7bbddaa8a881",
+    "name": "SeriouslySirius",
+    "source_period": "ALL",
+    "source_pnl": 3648171.807038876,
+    "coverage": {
+      "complete": true,
+      "pages": 1,
+      "reason": "cursor exhausted"
+    },
+    "trades": {
+      "rows": 0,
+      "distinct_diagnostic_keys": 0,
+      "transactions": 0,
+      "wrong_wallet": 0,
+      "oldest": null,
+      "newest": null,
+      "outside_requested_window": 0,
+      "descending": true,
+      "span_hours": null,
+      "daily_fills": {}
+    },
+    "weekly_fill_band": false
+  },
+  {
+    "address": "0x5966db1fe50763c9e3c014d756369bad07e1f804",
+    "name": "0x5966Db1fE50763C9e3C014d756369BAd07E1F804-1777648534241",
+    "source_period": "ALL",
+    "source_pnl": 3623045.392835586,
+    "coverage": {
+      "complete": true,
+      "pages": 1,
+      "reason": "cursor exhausted"
+    },
+    "trades": {
+      "rows": 118,
+      "distinct_diagnostic_keys": 118,
+      "transactions": 118,
+      "wrong_wallet": 0,
+      "oldest": 1789580584,
+      "newest": 1789581330,
+      "outside_requested_window": 0,
+      "descending": true,
+      "span_hours": 0.20722222222222222,
+      "daily_fills": {
+        "2026-09-16": 118
+      }
+    },
+    "weekly_fill_band": true
+  },
+  {
+    "address": "0xee613b3fc183ee44f9da9c05f53e2da107e3debf",
+    "name": "sovereign2013",
+    "source_period": "ALL",
+    "source_pnl": 3588720.2180176293,
+    "coverage": {
+      "complete": true,
+      "pages": 1,
+      "reason": "cursor exhausted"
+    },
+    "trades": {
+      "rows": 0,
+      "distinct_diagnostic_keys": 0,
+      "transactions": 0,
+      "wrong_wallet": 0,
+      "oldest": null,
+      "newest": null,
+      "outside_requested_window": 0,
+      "descending": true,
+      "span_hours": null,
+      "daily_fills": {}
+    },
+    "weekly_fill_band": false
+  },
+  {
+    "address": "0x476e1322d1a412fa0325527b8c3bc5e707b1396d",
+    "name": "asparagus2012",
+    "source_period": "ALL",
+    "source_pnl": 3562639.5541690006,
+    "coverage": {
+      "complete": true,
+      "pages": 1,
+      "reason": "cursor exhausted"
+    },
+    "trades": {
+      "rows": 0,
+      "distinct_diagnostic_keys": 0,
+      "transactions": 0,
+      "wrong_wallet": 0,
+      "oldest": null,
+      "newest": null,
+      "outside_requested_window": 0,
+      "descending": true,
+      "span_hours": null,
+      "daily_fills": {}
+    },
+    "weekly_fill_band": false
+  },
+  {
+    "address": "0x14964aefa2cd7caff7878b3820a690a03c5aa429",
+    "name": "gmpm",
+    "source_period": "ALL",
+    "source_pnl": 3530847.582818515,
+    "coverage": {
+      "complete": true,
+      "pages": 1,
+      "reason": "cursor exhausted"
+    },
+    "trades": {
+      "rows": 0,
+      "distinct_diagnostic_keys": 0,
+      "transactions": 0,
+      "wrong_wallet": 0,
+      "oldest": null,
+      "newest": null,
+      "outside_requested_window": 0,
+      "descending": true,
+      "span_hours": null,
+      "daily_fills": {}
+    },
+    "weekly_fill_band": false
+  },
+  {
+    "address": "0x94a428cfa4f84b264e01f70d93d02bc96cb36356",
+    "name": "GCottrell93",
+    "source_period": "ALL",
+    "source_pnl": 3460528.38717085,
+    "coverage": {
+      "complete": true,
+      "pages": 1,
+      "reason": "cursor exhausted"
+    },
+    "trades": {
+      "rows": 0,
+      "distinct_diagnostic_keys": 0,
+      "transactions": 0,
+      "wrong_wallet": 0,
+      "oldest": null,
+      "newest": null,
+      "outside_requested_window": 0,
+      "descending": true,
+      "span_hours": null,
+      "daily_fills": {}
+    },
+    "weekly_fill_band": false
+  },
+  {
+    "address": "0xee00ba338c59557141789b127927a55f5cc5cea1",
+    "name": "S-Works",
+    "source_period": "ALL",
+    "source_pnl": 3332257.933806841,
+    "coverage": {
+      "complete": true,
+      "pages": 1,
+      "reason": "cursor exhausted"
+    },
+    "trades": {
+      "rows": 3,
+      "distinct_diagnostic_keys": 3,
+      "transactions": 3,
+      "wrong_wallet": 0,
+      "oldest": 1789561945,
+      "newest": 1789580910,
+      "outside_requested_window": 0,
+      "descending": true,
+      "span_hours": 5.268055555555556,
+      "daily_fills": {
+        "2026-09-16": 3
+      }
+    },
+    "weekly_fill_band": false
+  },
+  {
+    "address": "0xf0318c32136c2db7fec88b84869aee6a1106c80c",
+    "name": "BreakTheBank",
+    "source_period": "ALL",
+    "source_pnl": 3219206.8021337125,
+    "coverage": {
+      "complete": false,
+      "pages": 1,
+      "reason": "audit page budget reached"
+    },
+    "trades": {
+      "rows": 211,
+      "distinct_diagnostic_keys": 211,
+      "transactions": 211,
+      "wrong_wallet": 0,
+      "oldest": 1789429933,
+      "newest": 1789592934,
+      "outside_requested_window": 0,
+      "descending": true,
+      "span_hours": 45.278055555555554,
+      "daily_fills": {
+        "2026-09-14": 20,
+        "2026-09-15": 126,
+        "2026-09-16": 65
+      }
+    },
+    "weekly_fill_band": false
+  },
+  {
+    "address": "0xfea31bc088000ff909be1dfd8d0e3f2c7ef2d227",
+    "name": "ndb1",
+    "source_period": "ALL",
+    "source_pnl": 3189139.3583179386,
+    "coverage": {
+      "complete": false,
+      "pages": 1,
+      "reason": "audit page budget reached"
+    },
+    "trades": {
+      "rows": 211,
+      "distinct_diagnostic_keys": 211,
+      "transactions": 210,
+      "wrong_wallet": 0,
+      "oldest": 1789429705,
+      "newest": 1789597032,
+      "outside_requested_window": 0,
+      "descending": true,
+      "span_hours": 46.47972222222222,
+      "daily_fills": {
+        "2026-09-14": 21,
+        "2026-09-15": 133,
+        "2026-09-16": 57
+      }
+    },
+    "weekly_fill_band": false
+  },
+  {
+    "address": "0x9d84ce0306f8551e02efef1680475fc0f1dc1344",
+    "name": "ImJustKen",
+    "source_period": "ALL",
+    "source_pnl": 3142404.730303068,
+    "coverage": {
+      "complete": false,
+      "pages": 1,
+      "reason": "audit page budget reached"
+    },
+    "trades": {
+      "rows": 211,
+      "distinct_diagnostic_keys": 211,
+      "transactions": 211,
+      "wrong_wallet": 0,
+      "oldest": 1789427514,
+      "newest": 1789596877,
+      "outside_requested_window": 0,
+      "descending": true,
+      "span_hours": 47.04527777777778,
+      "daily_fills": {
+        "2026-09-14": 2,
+        "2026-09-15": 140,
+        "2026-09-16": 69
+      }
+    },
+    "weekly_fill_band": false
+  },
+  {
+    "address": "0x033a07b3de5947eab4306676ad74eb546da30d50",
+    "name": "RandomGenius-190",
+    "source_period": "ALL",
+    "source_pnl": 3115550.407118868,
+    "coverage": {
+      "complete": true,
+      "pages": 1,
+      "reason": "cursor exhausted"
+    },
+    "trades": {
+      "rows": 0,
+      "distinct_diagnostic_keys": 0,
+      "transactions": 0,
+      "wrong_wallet": 0,
+      "oldest": null,
+      "newest": null,
+      "outside_requested_window": 0,
+      "descending": true,
+      "span_hours": null,
+      "daily_fills": {}
+    },
+    "weekly_fill_band": false
+  },
+  {
+    "address": "0xed2239a9150c3920000d0094d28fa51c7db03dd0",
+    "name": "Michie",
+    "source_period": "ALL",
+    "source_pnl": 3095007.670859059,
+    "coverage": {
+      "complete": true,
+      "pages": 1,
+      "reason": "cursor exhausted"
+    },
+    "trades": {
+      "rows": 0,
+      "distinct_diagnostic_keys": 0,
+      "transactions": 0,
+      "wrong_wallet": 0,
+      "oldest": null,
+      "newest": null,
+      "outside_requested_window": 0,
+      "descending": true,
+      "span_hours": null,
+      "daily_fills": {}
+    },
+    "weekly_fill_band": false
+  },
+  {
+    "address": "0x3a8aa345d5db7ec5138298c8c4f4540259be7699",
+    "name": "TheReturnOfDarthMaul",
+    "source_period": "MONTH",
+    "source_pnl": 2020797.9214955785,
+    "coverage": {
+      "complete": false,
+      "pages": 1,
+      "reason": "audit page budget reached"
+    },
+    "trades": {
+      "rows": 211,
+      "distinct_diagnostic_keys": 211,
+      "transactions": 211,
+      "wrong_wallet": 0,
+      "oldest": 1789518355,
+      "newest": 1789592418,
+      "outside_requested_window": 0,
+      "descending": true,
+      "span_hours": 20.573055555555555,
+      "daily_fills": {
+        "2026-09-16": 211
+      }
+    },
+    "weekly_fill_band": false
+  },
+  {
+    "address": "0x224a89dbe0db0d6124b335edabd15b3f877da3d5",
+    "name": "wr0ngw4yb3tt0r",
+    "source_period": "MONTH",
+    "source_pnl": 1396631.0545842182,
+    "coverage": {
+      "complete": false,
+      "pages": 1,
+      "reason": "audit page budget reached"
+    },
+    "trades": {
+      "rows": 211,
+      "distinct_diagnostic_keys": 211,
+      "transactions": 209,
+      "wrong_wallet": 0,
+      "oldest": 1789591371,
+      "newest": 1789601233,
+      "outside_requested_window": 0,
+      "descending": true,
+      "span_hours": 2.7394444444444446,
+      "daily_fills": {
+        "2026-09-16": 211
+      }
+    },
+    "weekly_fill_band": false
+  },
+  {
+    "address": "0x5a218c7ad04135830a45c41aaed7294df7809318",
+    "name": "balthazar",
+    "source_period": "MONTH",
+    "source_pnl": 1140674.358173177,
+    "coverage": {
+      "complete": false,
+      "pages": 1,
+      "reason": "audit page budget reached"
+    },
+    "trades": {
+      "rows": 211,
+      "distinct_diagnostic_keys": 209,
+      "transactions": 204,
+      "wrong_wallet": 0,
+      "oldest": 1789589830,
+      "newest": 1789600534,
+      "outside_requested_window": 0,
+      "descending": true,
+      "span_hours": 2.973333333333333,
+      "daily_fills": {
+        "2026-09-16": 211
+      }
+    },
+    "weekly_fill_band": false
+  },
+  {
+    "address": "0x821dab0565ebf5b327f51db06223fdcfe01acf16",
+    "name": "Flaznorp",
+    "source_period": "MONTH",
+    "source_pnl": 1088896.9146896363,
+    "coverage": {
+      "complete": false,
+      "pages": 1,
+      "reason": "audit page budget reached"
+    },
+    "trades": {
+      "rows": 211,
+      "distinct_diagnostic_keys": 211,
+      "transactions": 211,
+      "wrong_wallet": 0,
+      "oldest": 1789600362,
+      "newest": 1789601290,
+      "outside_requested_window": 0,
+      "descending": true,
+      "span_hours": 0.2577777777777778,
+      "daily_fills": {
+        "2026-09-16": 211
+      }
+    },
+    "weekly_fill_band": false
+  },
+  {
+    "address": "0x168a51f1cac0ad3b166797069382495a8aa10d24",
+    "name": "ripley86alien",
+    "source_period": "MONTH",
+    "source_pnl": 758230.480625413,
+    "coverage": {
+      "complete": true,
+      "pages": 1,
+      "reason": "cursor exhausted"
+    },
+    "trades": {
+      "rows": 74,
+      "distinct_diagnostic_keys": 74,
+      "transactions": 73,
+      "wrong_wallet": 0,
+      "oldest": 1789150284,
+      "newest": 1789239601,
+      "outside_requested_window": 0,
+      "descending": true,
+      "span_hours": 24.810277777777777,
+      "daily_fills": {
+        "2026-09-11": 40,
+        "2026-09-12": 34
+      }
+    },
+    "weekly_fill_band": true
+  },
+  {
+    "address": "0x924379a79c64b77ad5816ad362122a5f6228658e",
+    "name": "Kch-Temp",
+    "source_period": "MONTH",
+    "source_pnl": 686452.9538112405,
+    "coverage": {
+      "complete": false,
+      "pages": 1,
+      "reason": "audit page budget reached"
+    },
+    "trades": {
+      "rows": 211,
+      "distinct_diagnostic_keys": 211,
+      "transactions": 211,
+      "wrong_wallet": 0,
+      "oldest": 1789330096,
+      "newest": 1789412125,
+      "outside_requested_window": 0,
+      "descending": true,
+      "span_hours": 22.785833333333333,
+      "daily_fills": {
+        "2026-09-13": 141,
+        "2026-09-14": 70
+      }
+    },
+    "weekly_fill_band": false
+  },
+  {
+    "address": "0x4f1d5ae26fc31472966e951af3183308736d8de2",
+    "name": "e46m3",
+    "source_period": "MONTH",
+    "source_pnl": 678319.495102424,
+    "coverage": {
+      "complete": false,
+      "pages": 1,
+      "reason": "audit page budget reached"
+    },
+    "trades": {
+      "rows": 211,
+      "distinct_diagnostic_keys": 211,
+      "transactions": 211,
+      "wrong_wallet": 0,
+      "oldest": 1789591791,
+      "newest": 1789601235,
+      "outside_requested_window": 0,
+      "descending": true,
+      "span_hours": 2.6233333333333335,
+      "daily_fills": {
+        "2026-09-16": 211
+      }
+    },
+    "weekly_fill_band": false
+  },
+  {
+    "address": "0x7ad71d79a3bb90d0a87a06500fa0fe11663842aa",
+    "name": "theowalcott",
+    "source_period": "MONTH",
+    "source_pnl": 672078.6660573022,
+    "coverage": {
+      "complete": false,
+      "pages": 1,
+      "reason": "audit page budget reached"
+    },
+    "trades": {
+      "rows": 211,
+      "distinct_diagnostic_keys": 211,
+      "transactions": 211,
+      "wrong_wallet": 0,
+      "oldest": 1789345003,
+      "newest": 1789597837,
+      "outside_requested_window": 0,
+      "descending": true,
+      "span_hours": 70.23166666666667,
+      "daily_fills": {
+        "2026-09-14": 30,
+        "2026-09-16": 181
+      }
+    },
+    "weekly_fill_band": false
+  },
+  {
+    "address": "0x0f6f76ced62a911bccef92f50faaff143854d977",
+    "name": "totoro3miyazaki",
+    "source_period": "MONTH",
+    "source_pnl": 641288.0885766451,
+    "coverage": {
+      "complete": true,
+      "pages": 1,
+      "reason": "cursor exhausted"
+    },
+    "trades": {
+      "rows": 53,
+      "distinct_diagnostic_keys": 53,
+      "transactions": 53,
+      "wrong_wallet": 0,
+      "oldest": 1789150623,
+      "newest": 1789411501,
+      "outside_requested_window": 0,
+      "descending": true,
+      "span_hours": 72.4661111111111,
+      "daily_fills": {
+        "2026-09-11": 17,
+        "2026-09-13": 33,
+        "2026-09-14": 3
+      }
+    },
+    "weekly_fill_band": true
+  },
+  {
+    "address": "0x73e3fec494611d73c170cb2f23850fd998b21be9",
+    "name": "mmklop",
+    "source_period": "MONTH",
+    "source_pnl": 547019.6480051209,
+    "coverage": {
+      "complete": false,
+      "pages": 1,
+      "reason": "audit page budget reached"
+    },
+    "trades": {
+      "rows": 211,
+      "distinct_diagnostic_keys": 211,
+      "transactions": 211,
+      "wrong_wallet": 0,
+      "oldest": 1789273179,
+      "newest": 1789284450,
+      "outside_requested_window": 0,
+      "descending": true,
+      "span_hours": 3.1308333333333334,
+      "daily_fills": {
+        "2026-09-13": 211
+      }
+    },
+    "weekly_fill_band": false
+  },
+  {
+    "address": "0xc8ab97a9089a9ff7e6ef0688e6e591a066946418",
+    "name": "ArmageddonRewardsBilly",
+    "source_period": "MONTH",
+    "source_pnl": 545303.8223503287,
+    "coverage": {
+      "complete": false,
+      "pages": 1,
+      "reason": "audit page budget reached"
+    },
+    "trades": {
+      "rows": 211,
+      "distinct_diagnostic_keys": 211,
+      "transactions": 206,
+      "wrong_wallet": 0,
+      "oldest": 1789584238,
+      "newest": 1789601259,
+      "outside_requested_window": 0,
+      "descending": true,
+      "span_hours": 4.728055555555556,
+      "daily_fills": {
+        "2026-09-16": 211
+      }
+    },
+    "weekly_fill_band": false
+  },
+  {
+    "address": "0x03805a13a0b3e058f55f6c6af95389d4f431073d",
+    "name": "donthackme",
+    "source_period": "MONTH",
+    "source_pnl": 521494.1934066971,
+    "coverage": {
+      "complete": false,
+      "pages": 1,
+      "reason": "audit page budget reached"
+    },
+    "trades": {
+      "rows": 211,
+      "distinct_diagnostic_keys": 210,
+      "transactions": 194,
+      "wrong_wallet": 0,
+      "oldest": 1789590066,
+      "newest": 1789601167,
+      "outside_requested_window": 0,
+      "descending": true,
+      "span_hours": 3.0836111111111113,
+      "daily_fills": {
+        "2026-09-16": 211
+      }
+    },
+    "weekly_fill_band": false
+  },
+  {
+    "address": "0x7b02b2bac2a30ed5e40b7094e734f4c3dc2a4991",
+    "name": "foodenjoyer",
+    "source_period": "MONTH",
+    "source_pnl": 513991.5685648106,
+    "coverage": {
+      "complete": false,
+      "pages": 1,
+      "reason": "audit page budget reached"
+    },
+    "trades": {
+      "rows": 211,
+      "distinct_diagnostic_keys": 211,
+      "transactions": 211,
+      "wrong_wallet": 0,
+      "oldest": 1789534230,
+      "newest": 1789600939,
+      "outside_requested_window": 0,
+      "descending": true,
+      "span_hours": 18.530277777777776,
+      "daily_fills": {
+        "2026-09-16": 211
+      }
+    },
+    "weekly_fill_band": false
+  },
+  {
+    "address": "0x5e9458202b5817a72cf81105ec8a30e6f3705ba1",
+    "name": "pleaseplease123",
+    "source_period": "MONTH",
+    "source_pnl": 511035.71895583486,
+    "coverage": {
+      "complete": false,
+      "pages": 1,
+      "reason": "audit page budget reached"
+    },
+    "trades": {
+      "rows": 211,
+      "distinct_diagnostic_keys": 211,
+      "transactions": 211,
+      "wrong_wallet": 0,
+      "oldest": 1789597689,
+      "newest": 1789601224,
+      "outside_requested_window": 0,
+      "descending": true,
+      "span_hours": 0.9819444444444444,
+      "daily_fills": {
+        "2026-09-16": 211
+      }
+    },
+    "weekly_fill_band": false
+  },
+  {
+    "address": "0xb1ca909e848cc24ec4e220ce1c453bc290c51705",
+    "name": "InterestingUser",
+    "source_period": "MONTH",
+    "source_pnl": 466761.4150292418,
+    "coverage": {
+      "complete": false,
+      "pages": 1,
+      "reason": "audit page budget reached"
+    },
+    "trades": {
+      "rows": 211,
+      "distinct_diagnostic_keys": 211,
+      "transactions": 211,
+      "wrong_wallet": 0,
+      "oldest": 1789432264,
+      "newest": 1789598445,
+      "outside_requested_window": 0,
+      "descending": true,
+      "span_hours": 46.16138888888889,
+      "daily_fills": {
+        "2026-09-15": 181,
+        "2026-09-16": 30
+      }
+    },
+    "weekly_fill_band": false
+  },
+  {
+    "address": "0xd570e634aeb745d6501566dba5f81a555cc7e4f8",
+    "name": "0xd9670ea74384c1e1b9dc1e4267ffadaf4cdd140",
+    "source_period": "MONTH",
+    "source_pnl": 466164.1036357592,
+    "coverage": {
+      "complete": true,
+      "pages": 1,
+      "reason": "cursor exhausted"
+    },
+    "trades": {
+      "rows": 0,
+      "distinct_diagnostic_keys": 0,
+      "transactions": 0,
+      "wrong_wallet": 0,
+      "oldest": null,
+      "newest": null,
+      "outside_requested_window": 0,
+      "descending": true,
+      "span_hours": null,
+      "daily_fills": {}
+    },
+    "weekly_fill_band": false
+  },
+  {
+    "address": "0x1058f156b207cafe61d102e97bf6796931d301c1",
+    "name": "TheyAreTakingTheHobitsToIsengard",
+    "source_period": "MONTH",
+    "source_pnl": 445436.680258743,
+    "coverage": {
+      "complete": true,
+      "pages": 1,
+      "reason": "cursor exhausted"
+    },
+    "trades": {
+      "rows": 106,
+      "distinct_diagnostic_keys": 106,
+      "transactions": 106,
+      "wrong_wallet": 0,
+      "oldest": 1789043776,
+      "newest": 1789151707,
+      "outside_requested_window": 0,
+      "descending": true,
+      "span_hours": 29.980833333333333,
+      "daily_fills": {
+        "2026-09-10": 64,
+        "2026-09-11": 42
+      }
+    },
+    "weekly_fill_band": true
+  },
+  {
+    "address": "0xb0c85813a7a4428f1139ff91d3118a92c391fe7f",
+    "name": "midturn.rekt",
+    "source_period": "MONTH",
+    "source_pnl": 405692.2193180133,
+    "coverage": {
+      "complete": false,
+      "pages": 1,
+      "reason": "audit page budget reached"
+    },
+    "trades": {
+      "rows": 211,
+      "distinct_diagnostic_keys": 211,
+      "transactions": 208,
+      "wrong_wallet": 0,
+      "oldest": 1789594488,
+      "newest": 1789600762,
+      "outside_requested_window": 0,
+      "descending": true,
+      "span_hours": 1.7427777777777778,
+      "daily_fills": {
+        "2026-09-16": 211
+      }
+    },
+    "weekly_fill_band": false
+  },
+  {
+    "address": "0xeb34b86ca3ca64eb3cee6c9a0cce668385df7268",
+    "name": "kneelbeforetheking",
+    "source_period": "MONTH",
+    "source_pnl": 401863.5294432809,
+    "coverage": {
+      "complete": false,
+      "pages": 1,
+      "reason": "audit page budget reached"
+    },
+    "trades": {
+      "rows": 211,
+      "distinct_diagnostic_keys": 202,
+      "transactions": 181,
+      "wrong_wallet": 0,
+      "oldest": 1789587348,
+      "newest": 1789601268,
+      "outside_requested_window": 0,
+      "descending": true,
+      "span_hours": 3.8666666666666667,
+      "daily_fills": {
+        "2026-09-16": 211
+      }
+    },
+    "weekly_fill_band": false
+  },
+  {
+    "address": "0xe9b710551dd82a44e79203c2394a2b10163ace7b",
+    "name": "googleplay",
+    "source_period": "MONTH",
+    "source_pnl": 361635.86562299996,
+    "coverage": {
+      "complete": true,
+      "pages": 1,
+      "reason": "cursor exhausted"
+    },
+    "trades": {
+      "rows": 74,
+      "distinct_diagnostic_keys": 74,
+      "transactions": 74,
+      "wrong_wallet": 0,
+      "oldest": 1789149280,
+      "newest": 1789263126,
+      "outside_requested_window": 0,
+      "descending": true,
+      "span_hours": 31.62388888888889,
+      "daily_fills": {
+        "2026-09-11": 67,
+        "2026-09-12": 2,
+        "2026-09-13": 5
+      }
+    },
+    "weekly_fill_band": true
+  },
+  {
+    "address": "0x0346afae2603313d2bbee96b628536c8cbe352a5",
+    "name": "GoalLineGhost",
+    "source_period": "MONTH",
+    "source_pnl": 354293.7942122042,
+    "coverage": {
+      "complete": false,
+      "pages": 1,
+      "reason": "audit page budget reached"
+    },
+    "trades": {
+      "rows": 211,
+      "distinct_diagnostic_keys": 211,
+      "transactions": 206,
+      "wrong_wallet": 0,
+      "oldest": 1789599724,
+      "newest": 1789601296,
+      "outside_requested_window": 0,
+      "descending": true,
+      "span_hours": 0.43666666666666665,
+      "daily_fills": {
+        "2026-09-16": 211
+      }
+    },
+    "weekly_fill_band": false
+  },
+  {
+    "address": "0x04d5524a0a5af2eca6e39e03defc261d42fe66d8",
+    "name": "WTSA",
+    "source_period": "MONTH",
+    "source_pnl": 352979.9795411213,
+    "coverage": {
+      "complete": true,
+      "pages": 1,
+      "reason": "cursor exhausted"
+    },
+    "trades": {
+      "rows": 0,
+      "distinct_diagnostic_keys": 0,
+      "transactions": 0,
+      "wrong_wallet": 0,
+      "oldest": null,
+      "newest": null,
+      "outside_requested_window": 0,
+      "descending": true,
+      "span_hours": null,
+      "daily_fills": {}
+    },
+    "weekly_fill_band": false
+  },
+  {
+    "address": "0x06dc51826bc524d9a83770e7de9dd7e005b04524",
+    "name": "0x06dc51826bc524d9a83770e7de9dd7e005b0452",
+    "source_period": "MONTH",
+    "source_pnl": 350088.85143271484,
+    "coverage": {
+      "complete": false,
+      "pages": 1,
+      "reason": "audit page budget reached"
+    },
+    "trades": {
+      "rows": 211,
+      "distinct_diagnostic_keys": 211,
+      "transactions": 211,
+      "wrong_wallet": 0,
+      "oldest": 1789588168,
+      "newest": 1789601296,
+      "outside_requested_window": 0,
+      "descending": true,
+      "span_hours": 3.6466666666666665,
+      "daily_fills": {
+        "2026-09-16": 211
+      }
+    },
+    "weekly_fill_band": false
+  },
+  {
+    "address": "0xc6587b11a2209e46dfe3928b31c5514a8e33b784",
+    "name": "Erasmus.",
+    "source_period": "MONTH",
+    "source_pnl": 336993.1288445946,
+    "coverage": {
+      "complete": true,
+      "pages": 1,
+      "reason": "cursor exhausted"
+    },
+    "trades": {
+      "rows": 117,
+      "distinct_diagnostic_keys": 117,
+      "transactions": 117,
+      "wrong_wallet": 0,
+      "oldest": 1789042768,
+      "newest": 1789590082,
+      "outside_requested_window": 0,
+      "descending": true,
+      "span_hours": 152.03166666666667,
+      "daily_fills": {
+        "2026-09-10": 12,
+        "2026-09-11": 16,
+        "2026-09-14": 2,
+        "2026-09-15": 5,
+        "2026-09-16": 82
+      }
+    },
+    "weekly_fill_band": true
+  },
+  {
+    "address": "0xa309f903dbbd559e87d8d368834b8e41355c4cf2",
+    "name": "ratehikes",
+    "source_period": "MONTH",
+    "source_pnl": 336416.0075140158,
+    "coverage": {
+      "complete": true,
+      "pages": 1,
+      "reason": "cursor exhausted"
+    },
+    "trades": {
+      "rows": 22,
+      "distinct_diagnostic_keys": 22,
+      "transactions": 22,
+      "wrong_wallet": 0,
+      "oldest": 1789057635,
+      "newest": 1789588980,
+      "outside_requested_window": 0,
+      "descending": true,
+      "span_hours": 147.59583333333333,
+      "daily_fills": {
+        "2026-09-10": 17,
+        "2026-09-16": 5
+      }
+    },
+    "weekly_fill_band": true
+  },
+  {
+    "address": "0x397062018dfb77e855608fe23223592bc82c44ce",
+    "name": "11vsldfdsgfkjgos",
+    "source_period": "MONTH",
+    "source_pnl": 311871.98599839874,
+    "coverage": {
+      "complete": true,
+      "pages": 1,
+      "reason": "cursor exhausted"
+    },
+    "trades": {
+      "rows": 19,
+      "distinct_diagnostic_keys": 19,
+      "transactions": 19,
+      "wrong_wallet": 0,
+      "oldest": 1789023637,
+      "newest": 1789251057,
+      "outside_requested_window": 0,
+      "descending": true,
+      "span_hours": 63.172222222222224,
+      "daily_fills": {
+        "2026-09-10": 15,
+        "2026-09-12": 4
+      }
+    },
+    "weekly_fill_band": true
+  },
+  {
+    "address": "0xf68a281980f8c13828e84e147e3822381d6e5b1b",
+    "name": "Nooserac",
+    "source_period": "MONTH",
+    "source_pnl": 292732.78656669636,
+    "coverage": {
+      "complete": false,
+      "pages": 1,
+      "reason": "audit page budget reached"
+    },
+    "trades": {
+      "rows": 211,
+      "distinct_diagnostic_keys": 211,
+      "transactions": 211,
+      "wrong_wallet": 0,
+      "oldest": 1789343109,
+      "newest": 1789599937,
+      "outside_requested_window": 0,
+      "descending": true,
+      "span_hours": 71.3411111111111,
+      "daily_fills": {
+        "2026-09-13": 4,
+        "2026-09-14": 35,
+        "2026-09-15": 68,
+        "2026-09-16": 104
+      }
+    },
+    "weekly_fill_band": false
+  },
+  {
+    "address": "0x29b52d98ac9ef9414b04164246c95bc63d74cc6c",
+    "name": "0x29b52d98ac9ef9414b04164246c95BC63d7",
+    "source_period": "MONTH",
+    "source_pnl": 285282.191349174,
+    "coverage": {
+      "complete": false,
+      "pages": 1,
+      "reason": "audit page budget reached"
+    },
+    "trades": {
+      "rows": 211,
+      "distinct_diagnostic_keys": 211,
+      "transactions": 211,
+      "wrong_wallet": 0,
+      "oldest": 1789460230,
+      "newest": 1789600609,
+      "outside_requested_window": 0,
+      "descending": true,
+      "span_hours": 38.994166666666665,
+      "daily_fills": {
+        "2026-09-15": 87,
+        "2026-09-16": 124
+      }
+    },
+    "weekly_fill_band": false
+  },
+  {
+    "address": "0xc3ca1a42fd9217b2d02fb05980c1803af462688e",
+    "name": "ThePrinceThatWasPromised",
+    "source_period": "MONTH",
+    "source_pnl": 280079.00907469785,
+    "coverage": {
+      "complete": true,
+      "pages": 1,
+      "reason": "cursor exhausted"
+    },
+    "trades": {
+      "rows": 0,
+      "distinct_diagnostic_keys": 0,
+      "transactions": 0,
+      "wrong_wallet": 0,
+      "oldest": null,
+      "newest": null,
+      "outside_requested_window": 0,
+      "descending": true,
+      "span_hours": null,
+      "daily_fills": {}
+    },
+    "weekly_fill_band": false
+  },
+  {
+    "address": "0xe015b5a2a299167be835a2fd1e86f09c49e06ffd",
+    "name": "TAIWANNUMBERONE",
+    "source_period": "MONTH",
+    "source_pnl": 269777.0640261942,
+    "coverage": {
+      "complete": false,
+      "pages": 1,
+      "reason": "audit page budget reached"
+    },
+    "trades": {
+      "rows": 211,
+      "distinct_diagnostic_keys": 211,
+      "transactions": 211,
+      "wrong_wallet": 0,
+      "oldest": 1789383372,
+      "newest": 1789590979,
+      "outside_requested_window": 0,
+      "descending": true,
+      "span_hours": 57.66861111111111,
+      "daily_fills": {
+        "2026-09-14": 27,
+        "2026-09-15": 172,
+        "2026-09-16": 12
+      }
+    },
+    "weekly_fill_band": false
+  },
+  {
+    "address": "0x2dc13c6bda81b202281e796953a7323de675b33c",
+    "name": "xifutloong3",
+    "source_period": "MONTH",
+    "source_pnl": 258873.6894765116,
+    "coverage": {
+      "complete": true,
+      "pages": 1,
+      "reason": "cursor exhausted"
+    },
+    "trades": {
+      "rows": 48,
+      "distinct_diagnostic_keys": 48,
+      "transactions": 48,
+      "wrong_wallet": 0,
+      "oldest": 1789058548,
+      "newest": 1789579807,
+      "outside_requested_window": 0,
+      "descending": true,
+      "span_hours": 144.79416666666665,
+      "daily_fills": {
+        "2026-09-10": 4,
+        "2026-09-11": 11,
+        "2026-09-13": 18,
+        "2026-09-15": 4,
+        "2026-09-16": 11
+      }
+    },
+    "weekly_fill_band": true
+  },
+  {
+    "address": "0x8a8685a792c184e5c2ee8c7d4d4baba7c2c94998",
+    "name": "BrotherObama",
+    "source_period": "MONTH",
+    "source_pnl": 242638.38536370208,
+    "coverage": {
+      "complete": true,
+      "pages": 1,
+      "reason": "cursor exhausted"
+    },
+    "trades": {
+      "rows": 143,
+      "distinct_diagnostic_keys": 143,
+      "transactions": 143,
+      "wrong_wallet": 0,
+      "oldest": 1789133751,
+      "newest": 1789590888,
+      "outside_requested_window": 0,
+      "descending": true,
+      "span_hours": 126.9825,
+      "daily_fills": {
+        "2026-09-11": 28,
+        "2026-09-12": 35,
+        "2026-09-13": 38,
+        "2026-09-14": 18,
+        "2026-09-15": 12,
+        "2026-09-16": 12
+      }
+    },
+    "weekly_fill_band": true
+  },
+  {
+    "address": "0xa71093cafc0c099b4ccab24c3cb8018d817923c4",
+    "name": "Talvez10",
+    "source_period": "MONTH",
+    "source_pnl": 233507.88330825535,
+    "coverage": {
+      "complete": false,
+      "pages": 1,
+      "reason": "audit page budget reached"
+    },
+    "trades": {
+      "rows": 211,
+      "distinct_diagnostic_keys": 211,
+      "transactions": 211,
+      "wrong_wallet": 0,
+      "oldest": 1789424386,
+      "newest": 1789598487,
+      "outside_requested_window": 0,
+      "descending": true,
+      "span_hours": 48.36138888888889,
+      "daily_fills": {
+        "2026-09-14": 84,
+        "2026-09-15": 118,
+        "2026-09-16": 9
+      }
+    },
+    "weekly_fill_band": false
+  },
+  {
+    "address": "0x6c557de3d1056971396317b2553b15b094a24a8c",
+    "name": "Di88medes",
+    "source_period": "MONTH",
+    "source_pnl": 226369.38109883651,
+    "coverage": {
+      "complete": true,
+      "pages": 1,
+      "reason": "cursor exhausted"
+    },
+    "trades": {
+      "rows": 207,
+      "distinct_diagnostic_keys": 207,
+      "transactions": 207,
+      "wrong_wallet": 0,
+      "oldest": 1789109775,
+      "newest": 1789583368,
+      "outside_requested_window": 0,
+      "descending": true,
+      "span_hours": 131.5536111111111,
+      "daily_fills": {
+        "2026-09-11": 20,
+        "2026-09-16": 187
+      }
+    },
+    "weekly_fill_band": true
+  },
+  {
+    "address": "0x78becf0a4e4f2640380af0c19ad32e2557e6bde0",
+    "name": "",
+    "source_period": "MONTH",
+    "source_pnl": 221899.05558691177,
+    "coverage": {
+      "complete": false,
+      "pages": 1,
+      "reason": "audit page budget reached"
+    },
+    "trades": {
+      "rows": 211,
+      "distinct_diagnostic_keys": 211,
+      "transactions": 211,
+      "wrong_wallet": 0,
+      "oldest": 1789132063,
+      "newest": 1789601265,
+      "outside_requested_window": 0,
+      "descending": true,
+      "span_hours": 130.33388888888888,
+      "daily_fills": {
+        "2026-09-11": 88,
+        "2026-09-12": 75,
+        "2026-09-14": 10,
+        "2026-09-15": 10,
+        "2026-09-16": 28
+      }
+    },
+    "weekly_fill_band": false
+  },
+  {
+    "address": "0x45060425ac73951a6f57474a9321abea427843fd",
+    "name": "RRRRRRRRL",
+    "source_period": "MONTH",
+    "source_pnl": 219798.97384182754,
+    "coverage": {
+      "complete": true,
+      "pages": 1,
+      "reason": "cursor exhausted"
+    },
+    "trades": {
+      "rows": 0,
+      "distinct_diagnostic_keys": 0,
+      "transactions": 0,
+      "wrong_wallet": 0,
+      "oldest": null,
+      "newest": null,
+      "outside_requested_window": 0,
+      "descending": true,
+      "span_hours": null,
+      "daily_fills": {}
+    },
+    "weekly_fill_band": false
+  },
+  {
+    "address": "0x19c4aa3200949f1dfc0f84cc2c9a47d78ed18c95",
+    "name": "Devs777",
+    "source_period": "MONTH",
+    "source_pnl": 218211.19503601314,
+    "coverage": {
+      "complete": false,
+      "pages": 1,
+      "reason": "audit page budget reached"
+    },
+    "trades": {
+      "rows": 211,
+      "distinct_diagnostic_keys": 211,
+      "transactions": 211,
+      "wrong_wallet": 0,
+      "oldest": 1789488409,
+      "newest": 1789546428,
+      "outside_requested_window": 0,
+      "descending": true,
+      "span_hours": 16.11638888888889,
+      "daily_fills": {
+        "2026-09-15": 195,
+        "2026-09-16": 16
+      }
+    },
+    "weekly_fill_band": false
+  },
+  {
+    "address": "0x1029e54f164fc5f06b0f7b4498de323c2d77c621",
+    "name": "Datacent",
+    "source_period": "MONTH",
+    "source_pnl": 203404.98489200947,
+    "coverage": {
+      "complete": false,
+      "pages": 1,
+      "reason": "audit page budget reached"
+    },
+    "trades": {
+      "rows": 211,
+      "distinct_diagnostic_keys": 211,
+      "transactions": 209,
+      "wrong_wallet": 0,
+      "oldest": 1789309831,
+      "newest": 1789463530,
+      "outside_requested_window": 0,
+      "descending": true,
+      "span_hours": 42.69416666666667,
+      "daily_fills": {
+        "2026-09-13": 125,
+        "2026-09-15": 86
+      }
+    },
+    "weekly_fill_band": false
+  },
+  {
+    "address": "0xeee1b757ce93e076fdb4c1f4ff183dc302c53e28",
+    "name": "Dreamlawn",
+    "source_period": "MONTH",
+    "source_pnl": 191781.7172031949,
+    "coverage": {
+      "complete": true,
+      "pages": 1,
+      "reason": "cursor exhausted"
+    },
+    "trades": {
+      "rows": 15,
+      "distinct_diagnostic_keys": 15,
+      "transactions": 15,
+      "wrong_wallet": 0,
+      "oldest": 1789299202,
+      "newest": 1789585473,
+      "outside_requested_window": 0,
+      "descending": true,
+      "span_hours": 79.51972222222223,
+      "daily_fills": {
+        "2026-09-13": 8,
+        "2026-09-14": 6,
+        "2026-09-16": 1
+      }
+    },
+    "weekly_fill_band": true
+  },
+  {
+    "address": "0x05f6cb63d4ffdfaecd7ad8acd0765b6f6a5a25a1",
+    "name": "ethBELIVER",
+    "source_period": "MONTH",
+    "source_pnl": 191448.47046000583,
+    "coverage": {
+      "complete": true,
+      "pages": 1,
+      "reason": "cursor exhausted"
+    },
+    "trades": {
+      "rows": 168,
+      "distinct_diagnostic_keys": 168,
+      "transactions": 167,
+      "wrong_wallet": 0,
+      "oldest": 1789042347,
+      "newest": 1789587178,
+      "outside_requested_window": 0,
+      "descending": true,
+      "span_hours": 151.34194444444444,
+      "daily_fills": {
+        "2026-09-10": 17,
+        "2026-09-11": 32,
+        "2026-09-13": 1,
+        "2026-09-14": 30,
+        "2026-09-15": 6,
+        "2026-09-16": 82
+      }
+    },
+    "weekly_fill_band": true
+  },
+  {
+    "address": "0xabb89972b21b304c1bed2bf26f35c8741ac9bba3",
+    "name": "Feromont",
+    "source_period": "MONTH",
+    "source_pnl": 190059.25288206927,
+    "coverage": {
+      "complete": false,
+      "pages": 1,
+      "reason": "audit page budget reached"
+    },
+    "trades": {
+      "rows": 211,
+      "distinct_diagnostic_keys": 211,
+      "transactions": 211,
+      "wrong_wallet": 0,
+      "oldest": 1789581738,
+      "newest": 1789600170,
+      "outside_requested_window": 0,
+      "descending": true,
+      "span_hours": 5.12,
+      "daily_fills": {
+        "2026-09-16": 211
+      }
+    },
+    "weekly_fill_band": false
+  },
+  {
+    "address": "0xc3daa1bb9ce85866fb1a7c3a5d02816798e641fe",
+    "name": "aghy",
+    "source_period": "MONTH",
+    "source_pnl": 189503.41572441108,
+    "coverage": {
+      "complete": true,
+      "pages": 1,
+      "reason": "cursor exhausted"
+    },
+    "trades": {
+      "rows": 19,
+      "distinct_diagnostic_keys": 19,
+      "transactions": 19,
+      "wrong_wallet": 0,
+      "oldest": 1789094547,
+      "newest": 1789600606,
+      "outside_requested_window": 0,
+      "descending": true,
+      "span_hours": 140.57194444444445,
+      "daily_fills": {
+        "2026-09-11": 3,
+        "2026-09-14": 9,
+        "2026-09-15": 4,
+        "2026-09-16": 3
+      }
+    },
+    "weekly_fill_band": true
+  },
+  {
+    "address": "0x511f9c771449162349795d17becf8b37031acbe1",
+    "name": "Bigggggggg",
+    "source_period": "MONTH",
+    "source_pnl": 189423.25011086013,
+    "coverage": {
+      "complete": false,
+      "pages": 1,
+      "reason": "audit page budget reached"
+    },
+    "trades": {
+      "rows": 211,
+      "distinct_diagnostic_keys": 211,
+      "transactions": 187,
+      "wrong_wallet": 0,
+      "oldest": 1789525171,
+      "newest": 1789601167,
+      "outside_requested_window": 0,
+      "descending": true,
+      "span_hours": 21.11,
+      "daily_fills": {
+        "2026-09-16": 211
+      }
+    },
+    "weekly_fill_band": false
+  },
+  {
+    "address": "0xf28e42d20e4826f2b10a24bc952001697947cab2",
+    "name": "ethanaz",
+    "source_period": "WEEK",
+    "source_pnl": 260055.039795,
+    "coverage": {
+      "complete": true,
+      "pages": 1,
+      "reason": "cursor exhausted"
+    },
+    "trades": {
+      "rows": 32,
+      "distinct_diagnostic_keys": 32,
+      "transactions": 32,
+      "wrong_wallet": 0,
+      "oldest": 1788998779,
+      "newest": 1789589800,
+      "outside_requested_window": 0,
+      "descending": true,
+      "span_hours": 164.1725,
+      "daily_fills": {
+        "2026-09-10": 1,
+        "2026-09-11": 5,
+        "2026-09-12": 12,
+        "2026-09-13": 11,
+        "2026-09-15": 2,
+        "2026-09-16": 1
+      }
+    },
+    "weekly_fill_band": true
+  },
+  {
+    "address": "0x3dfb153c197d4c19d3b31c1ecd2c7b6860eeabaf",
+    "name": "0x3DFb153c197D4C19D3B31c1ecD2c7B6860eeabAf-1722957908185",
+    "source_period": "WEEK",
+    "source_pnl": 226346.5492646289,
+    "coverage": {
+      "complete": false,
+      "pages": 1,
+      "reason": "audit page budget reached"
+    },
+    "trades": {
+      "rows": 211,
+      "distinct_diagnostic_keys": 211,
+      "transactions": 211,
+      "wrong_wallet": 0,
+      "oldest": 1789595821,
+      "newest": 1789601110,
+      "outside_requested_window": 0,
+      "descending": true,
+      "span_hours": 1.4691666666666667,
+      "daily_fills": {
+        "2026-09-16": 211
+      }
+    },
+    "weekly_fill_band": false
+  },
+  {
+    "address": "0x2a69660046d7acc4ab204d7cc5ba78b0776cd2f7",
+    "name": "UpTheBlues",
+    "source_period": "WEEK",
+    "source_pnl": 204961.69888942293,
+    "coverage": {
+      "complete": false,
+      "pages": 1,
+      "reason": "audit page budget reached"
+    },
+    "trades": {
+      "rows": 211,
+      "distinct_diagnostic_keys": 211,
+      "transactions": 211,
+      "wrong_wallet": 0,
+      "oldest": 1789600044,
+      "newest": 1789601271,
+      "outside_requested_window": 0,
+      "descending": true,
+      "span_hours": 0.3408333333333333,
+      "daily_fills": {
+        "2026-09-16": 211
+      }
+    },
+    "weekly_fill_band": false
+  },
+  {
+    "address": "0x1610db79f753a80207e1d66716be9e91e627ae49",
+    "name": "HMLSF",
+    "source_period": "WEEK",
+    "source_pnl": 180204.56253097526,
+    "coverage": {
+      "complete": false,
+      "pages": 1,
+      "reason": "audit page budget reached"
+    },
+    "trades": {
+      "rows": 211,
+      "distinct_diagnostic_keys": 211,
+      "transactions": 211,
+      "wrong_wallet": 0,
+      "oldest": 1789576905,
+      "newest": 1789601023,
+      "outside_requested_window": 0,
+      "descending": true,
+      "span_hours": 6.6994444444444445,
+      "daily_fills": {
+        "2026-09-16": 211
+      }
+    },
+    "weekly_fill_band": false
+  },
+  {
+    "address": "0xf53e7cc2894cba22dcdc40de936513a502ef16e3",
+    "name": "VelvetNova27",
+    "source_period": "WEEK",
+    "source_pnl": 157404.6375849999,
+    "coverage": {
+      "complete": true,
+      "pages": 1,
+      "reason": "cursor exhausted"
+    },
+    "trades": {
+      "rows": 0,
+      "distinct_diagnostic_keys": 0,
+      "transactions": 0,
+      "wrong_wallet": 0,
+      "oldest": null,
+      "newest": null,
+      "outside_requested_window": 0,
+      "descending": true,
+      "span_hours": null,
+      "daily_fills": {}
+    },
+    "weekly_fill_band": false
+  },
+  {
+    "address": "0xe609d476ebecc64e55788b4595fc53c343a1d4d4",
+    "name": "TahitiBob",
+    "source_period": "WEEK",
+    "source_pnl": 154615.1609376854,
+    "coverage": {
+      "complete": true,
+      "pages": 1,
+      "reason": "cursor exhausted"
+    },
+    "trades": {
+      "rows": 0,
+      "distinct_diagnostic_keys": 0,
+      "transactions": 0,
+      "wrong_wallet": 0,
+      "oldest": null,
+      "newest": null,
+      "outside_requested_window": 0,
+      "descending": true,
+      "span_hours": null,
+      "daily_fills": {}
+    },
+    "weekly_fill_band": false
+  },
+  {
+    "address": "0x0af037c59ede5b3b2a6625f23923057d8296d425",
+    "name": "Protruder",
+    "source_period": "WEEK",
+    "source_pnl": 143064.02264082502,
+    "coverage": {
+      "complete": false,
+      "pages": 1,
+      "reason": "audit page budget reached"
+    },
+    "trades": {
+      "rows": 211,
+      "distinct_diagnostic_keys": 211,
+      "transactions": 211,
+      "wrong_wallet": 0,
+      "oldest": 1789423120,
+      "newest": 1789469652,
+      "outside_requested_window": 0,
+      "descending": true,
+      "span_hours": 12.925555555555556,
+      "daily_fills": {
+        "2026-09-14": 108,
+        "2026-09-15": 103
+      }
+    },
+    "weekly_fill_band": false
+  },
+  {
+    "address": "0x19c3b385be5667154fc69c87d8f7914be84087c1",
+    "name": "KatsuManager87",
+    "source_period": "WEEK",
+    "source_pnl": 120989.73555500002,
+    "coverage": {
+      "complete": true,
+      "pages": 1,
+      "reason": "cursor exhausted"
+    },
+    "trades": {
+      "rows": 0,
+      "distinct_diagnostic_keys": 0,
+      "transactions": 0,
+      "wrong_wallet": 0,
+      "oldest": null,
+      "newest": null,
+      "outside_requested_window": 0,
+      "descending": true,
+      "span_hours": null,
+      "daily_fills": {}
+    },
+    "weekly_fill_band": false
+  },
+  {
+    "address": "0x9f2fe025f84839ca81dd8e0338892605702d2ca8",
+    "name": "surfandturf",
+    "source_period": "WEEK",
+    "source_pnl": 115214.49278028408,
+    "coverage": {
+      "complete": false,
+      "pages": 1,
+      "reason": "audit page budget reached"
+    },
+    "trades": {
+      "rows": 211,
+      "distinct_diagnostic_keys": 211,
+      "transactions": 207,
+      "wrong_wallet": 0,
+      "oldest": 1789575027,
+      "newest": 1789589056,
+      "outside_requested_window": 0,
+      "descending": true,
+      "span_hours": 3.8969444444444443,
+      "daily_fills": {
+        "2026-09-16": 211
+      }
+    },
+    "weekly_fill_band": false
+  },
+  {
+    "address": "0xcd84d7f9262516865553555751609fb6f52abec6",
+    "name": "Donkey14",
+    "source_period": "WEEK",
+    "source_pnl": 114598.65246296399,
+    "coverage": {
+      "complete": false,
+      "pages": 1,
+      "reason": "audit page budget reached"
+    },
+    "trades": {
+      "rows": 211,
+      "distinct_diagnostic_keys": 211,
+      "transactions": 211,
+      "wrong_wallet": 0,
+      "oldest": 1789587876,
+      "newest": 1789598365,
+      "outside_requested_window": 0,
+      "descending": true,
+      "span_hours": 2.913611111111111,
+      "daily_fills": {
+        "2026-09-16": 211
+      }
+    },
+    "weekly_fill_band": false
+  },
+  {
+    "address": "0x16bb9951a36fce71e2ef57890b786145e0ba8492",
+    "name": "SDTrading",
+    "source_period": "WEEK",
+    "source_pnl": 102551.01590167682,
+    "coverage": {
+      "complete": false,
+      "pages": 1,
+      "reason": "audit page budget reached"
+    },
+    "trades": {
+      "rows": 211,
+      "distinct_diagnostic_keys": 211,
+      "transactions": 210,
+      "wrong_wallet": 0,
+      "oldest": 1789134397,
+      "newest": 1789599841,
+      "outside_requested_window": 0,
+      "descending": true,
+      "span_hours": 129.29,
+      "daily_fills": {
+        "2026-09-11": 77,
+        "2026-09-12": 39,
+        "2026-09-13": 51,
+        "2026-09-14": 6,
+        "2026-09-15": 20,
+        "2026-09-16": 18
+      }
+    },
+    "weekly_fill_band": false
+  },
+  {
+    "address": "0x2117ae94a97d69b78cbc81b6680a62deb1955c26",
+    "name": "Zzzz87",
+    "source_period": "WEEK",
+    "source_pnl": 99511.6015984529,
+    "coverage": {
+      "complete": false,
+      "pages": 1,
+      "reason": "audit page budget reached"
+    },
+    "trades": {
+      "rows": 211,
+      "distinct_diagnostic_keys": 211,
+      "transactions": 211,
+      "wrong_wallet": 0,
+      "oldest": 1789408306,
+      "newest": 1789600497,
+      "outside_requested_window": 0,
+      "descending": true,
+      "span_hours": 53.38638888888889,
+      "daily_fills": {
+        "2026-09-14": 38,
+        "2026-09-15": 100,
+        "2026-09-16": 73
+      }
+    },
+    "weekly_fill_band": false
+  },
+  {
+    "address": "0xa2c908ce8b8386bc8c5471120c5a662551332c23",
+    "name": "jaytee158",
+    "source_period": "WEEK",
+    "source_pnl": 98101.42793443448,
+    "coverage": {
+      "complete": false,
+      "pages": 1,
+      "reason": "audit page budget reached"
+    },
+    "trades": {
+      "rows": 211,
+      "distinct_diagnostic_keys": 211,
+      "transactions": 209,
+      "wrong_wallet": 0,
+      "oldest": 1789430136,
+      "newest": 1789594317,
+      "outside_requested_window": 0,
+      "descending": true,
+      "span_hours": 45.60583333333334,
+      "daily_fills": {
+        "2026-09-14": 17,
+        "2026-09-15": 118,
+        "2026-09-16": 76
+      }
+    },
+    "weekly_fill_band": false
+  },
+  {
+    "address": "0x5ecde7348ea5100af4360dd7a6e0a3fb1d420787",
+    "name": "0xdc3E831cad",
+    "source_period": "WEEK",
+    "source_pnl": 95790.51166177256,
+    "coverage": {
+      "complete": true,
+      "pages": 1,
+      "reason": "cursor exhausted"
+    },
+    "trades": {
+      "rows": 127,
+      "distinct_diagnostic_keys": 127,
+      "transactions": 125,
+      "wrong_wallet": 0,
+      "oldest": 1789289754,
+      "newest": 1789601178,
+      "outside_requested_window": 0,
+      "descending": true,
+      "span_hours": 86.50666666666666,
+      "daily_fills": {
+        "2026-09-13": 23,
+        "2026-09-14": 13,
+        "2026-09-15": 65,
+        "2026-09-16": 26
+      }
+    },
+    "weekly_fill_band": true
+  },
+  {
+    "address": "0xb7271c112cbd83eb4c1ef1b554ff963604ae2a9d",
+    "name": "Elaran1993",
+    "source_period": "WEEK",
+    "source_pnl": 92852.3474977197,
+    "coverage": {
+      "complete": false,
+      "pages": 1,
+      "reason": "audit page budget reached"
+    },
+    "trades": {
+      "rows": 211,
+      "distinct_diagnostic_keys": 211,
+      "transactions": 211,
+      "wrong_wallet": 0,
+      "oldest": 1789138668,
+      "newest": 1789601263,
+      "outside_requested_window": 0,
+      "descending": true,
+      "span_hours": 128.4986111111111,
+      "daily_fills": {
+        "2026-09-11": 102,
+        "2026-09-12": 35,
+        "2026-09-14": 11,
+        "2026-09-15": 39,
+        "2026-09-16": 24
+      }
+    },
+    "weekly_fill_band": false
+  },
+  {
+    "address": "0x032eb1bc893940263ad0b01889f262fc232f2a9e",
+    "name": "purplegatto",
+    "source_period": "WEEK",
+    "source_pnl": 89160.73025881649,
+    "coverage": {
+      "complete": false,
+      "pages": 1,
+      "reason": "audit page budget reached"
+    },
+    "trades": {
+      "rows": 211,
+      "distinct_diagnostic_keys": 211,
+      "transactions": 211,
+      "wrong_wallet": 0,
+      "oldest": 1789581208,
+      "newest": 1789600162,
+      "outside_requested_window": 0,
+      "descending": true,
+      "span_hours": 5.265,
+      "daily_fills": {
+        "2026-09-16": 211
+      }
+    },
+    "weekly_fill_band": false
+  },
+  {
+    "address": "0x07046535ff9a910d7343a2c319a3e62234621858",
+    "name": "HH168",
+    "source_period": "WEEK",
+    "source_pnl": 87960.89169684045,
+    "coverage": {
+      "complete": false,
+      "pages": 1,
+      "reason": "audit page budget reached"
+    },
+    "trades": {
+      "rows": 211,
+      "distinct_diagnostic_keys": 211,
+      "transactions": 207,
+      "wrong_wallet": 0,
+      "oldest": 1789296402,
+      "newest": 1789578460,
+      "outside_requested_window": 0,
+      "descending": true,
+      "span_hours": 78.34944444444444,
+      "daily_fills": {
+        "2026-09-13": 43,
+        "2026-09-14": 111,
+        "2026-09-15": 35,
+        "2026-09-16": 22
+      }
+    },
+    "weekly_fill_band": false
+  },
+  {
+    "address": "0x9db82de5a71ae539bc82f4d9ac3a007c7d742eff",
+    "name": "sulumos",
+    "source_period": "WEEK",
+    "source_pnl": 87889.91379026325,
+    "coverage": {
+      "complete": true,
+      "pages": 1,
+      "reason": "cursor exhausted"
+    },
+    "trades": {
+      "rows": 204,
+      "distinct_diagnostic_keys": 204,
+      "transactions": 201,
+      "wrong_wallet": 0,
+      "oldest": 1789054668,
+      "newest": 1789601175,
+      "outside_requested_window": 0,
+      "descending": true,
+      "span_hours": 151.8075,
+      "daily_fills": {
+        "2026-09-10": 107,
+        "2026-09-14": 8,
+        "2026-09-15": 28,
+        "2026-09-16": 61
+      }
+    },
+    "weekly_fill_band": true
+  },
+  {
+    "address": "0x2759769cd371bee44ec5bfc5e72c7f1f092b2b38",
+    "name": "SharkbetX-com",
+    "source_period": "WEEK",
+    "source_pnl": 87755.48783139286,
+    "coverage": {
+      "complete": false,
+      "pages": 1,
+      "reason": "audit page budget reached"
+    },
+    "trades": {
+      "rows": 211,
+      "distinct_diagnostic_keys": 208,
+      "transactions": 206,
+      "wrong_wallet": 0,
+      "oldest": 1789574244,
+      "newest": 1789600056,
+      "outside_requested_window": 0,
+      "descending": true,
+      "span_hours": 7.17,
+      "daily_fills": {
+        "2026-09-16": 211
+      }
+    },
+    "weekly_fill_band": false
+  },
+  {
+    "address": "0x091ccc435273c422260279c8a8277170b2dc182e",
+    "name": "blahblah344",
+    "source_period": "WEEK",
+    "source_pnl": 81752.29146499996,
+    "coverage": {
+      "complete": true,
+      "pages": 1,
+      "reason": "cursor exhausted"
+    },
+    "trades": {
+      "rows": 0,
+      "distinct_diagnostic_keys": 0,
+      "transactions": 0,
+      "wrong_wallet": 0,
+      "oldest": null,
+      "newest": null,
+      "outside_requested_window": 0,
+      "descending": true,
+      "span_hours": null,
+      "daily_fills": {}
+    },
+    "weekly_fill_band": false
+  },
+  {
+    "address": "0x9b11866433281ade9f2811dbde8acdefc45f5375",
+    "name": "",
+    "source_period": "WEEK",
+    "source_pnl": 81497.82410913584,
+    "coverage": {
+      "complete": false,
+      "pages": 1,
+      "reason": "audit page budget reached"
+    },
+    "trades": {
+      "rows": 211,
+      "distinct_diagnostic_keys": 207,
+      "transactions": 204,
+      "wrong_wallet": 0,
+      "oldest": 1789598767,
+      "newest": 1789601265,
+      "outside_requested_window": 0,
+      "descending": true,
+      "span_hours": 0.6938888888888889,
+      "daily_fills": {
+        "2026-09-16": 211
+      }
+    },
+    "weekly_fill_band": false
+  },
+  {
+    "address": "0xe40ecff63ec661d218a86c048186ac83389a9770",
+    "name": "lllllllIlll",
+    "source_period": "WEEK",
+    "source_pnl": 79492.52483999994,
+    "coverage": {
+      "complete": false,
+      "pages": 1,
+      "reason": "audit page budget reached"
+    },
+    "trades": {
+      "rows": 211,
+      "distinct_diagnostic_keys": 211,
+      "transactions": 211,
+      "wrong_wallet": 0,
+      "oldest": 1789358055,
+      "newest": 1789485979,
+      "outside_requested_window": 0,
+      "descending": true,
+      "span_hours": 35.534444444444446,
+      "daily_fills": {
+        "2026-09-14": 137,
+        "2026-09-15": 74
+      }
+    },
+    "weekly_fill_band": false
+  },
+  {
+    "address": "0xde7be6d489bce070a959e0cb813128ae659b5f4b",
+    "name": "wan123",
+    "source_period": "WEEK",
+    "source_pnl": 79268.7764157911,
+    "coverage": {
+      "complete": false,
+      "pages": 1,
+      "reason": "audit page budget reached"
+    },
+    "trades": {
+      "rows": 211,
+      "distinct_diagnostic_keys": 209,
+      "transactions": 206,
+      "wrong_wallet": 0,
+      "oldest": 1789396204,
+      "newest": 1789589694,
+      "outside_requested_window": 0,
+      "descending": true,
+      "span_hours": 53.74722222222222,
+      "daily_fills": {
+        "2026-09-14": 155,
+        "2026-09-15": 35,
+        "2026-09-16": 21
+      }
+    },
+    "weekly_fill_band": false
+  },
+  {
+    "address": "0xa19cbababc312f9df185e49d7004c249ed1ade6b",
+    "name": "Tokor",
+    "source_period": "WEEK",
+    "source_pnl": 77458.44071583511,
+    "coverage": {
+      "complete": false,
+      "pages": 1,
+      "reason": "audit page budget reached"
+    },
+    "trades": {
+      "rows": 211,
+      "distinct_diagnostic_keys": 211,
+      "transactions": 207,
+      "wrong_wallet": 0,
+      "oldest": 1789510812,
+      "newest": 1789601076,
+      "outside_requested_window": 0,
+      "descending": true,
+      "span_hours": 25.073333333333334,
+      "daily_fills": {
+        "2026-09-15": 20,
+        "2026-09-16": 191
+      }
+    },
+    "weekly_fill_band": false
+  },
+  {
+    "address": "0xc3acf5878a03523d09a3ac859943445d7baeb964",
+    "name": "mentionmarket",
+    "source_period": "WEEK",
+    "source_pnl": 77132.24200000055,
+    "coverage": {
+      "complete": true,
+      "pages": 1,
+      "reason": "cursor exhausted"
+    },
+    "trades": {
+      "rows": 3,
+      "distinct_diagnostic_keys": 3,
+      "transactions": 3,
+      "wrong_wallet": 0,
+      "oldest": 1789245697,
+      "newest": 1789590319,
+      "outside_requested_window": 0,
+      "descending": true,
+      "span_hours": 95.72833333333334,
+      "daily_fills": {
+        "2026-09-12": 2,
+        "2026-09-16": 1
+      }
+    },
+    "weekly_fill_band": false
+  }
+]

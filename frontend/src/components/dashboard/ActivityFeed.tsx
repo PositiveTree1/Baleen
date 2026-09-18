@@ -129,7 +129,7 @@ export function ActivityFeed({ isOpen, onClose }: ActivityFeedProps) {
               onClick={() => setFilter(f.key)}
               className={`px-3 py-1 rounded-full text-[11px] font-semibold transition-all cursor-pointer whitespace-nowrap ${
                 filter === f.key
-                  ? 'bg-slate-950 text-white font-bold shadow-xs'
+                  ? 'bg-white text-slate-900 font-bold shadow-xs border border-slate-200/80'
                   : 'text-slate-600 hover:text-slate-950 hover:bg-slate-100'
               }`}
             >

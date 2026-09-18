@@ -44,6 +44,24 @@ const API_BASE_URL = rawBackendUrl;
 
 // Global In-Memory Cache (persists across Next.js page navigations in browser)
 const memoryCache = new Map<string, { data: unknown; ts: number }>();
+const CACHE_PREFIX = 'baleen_cache_evidence_v2_';
+let walletGeneration: string | null = null;
+
+function observeWalletGeneration(response: Response): boolean {
+  const generation = response.headers.get('X-Wallet-Generation');
+  if (!generation) return false;
+  let previous = walletGeneration;
+  if (typeof window !== 'undefined' && previous === null) {
+    try { previous = sessionStorage.getItem('baleen_wallet_generation'); } catch {}
+  }
+  const changed = previous !== generation;
+  if (changed) clearAllCache();
+  walletGeneration = generation;
+  if (typeof window !== 'undefined') {
+    try { sessionStorage.setItem('baleen_wallet_generation', generation); } catch {}
+  }
+  return changed;
+}
 
 function getCached<T>(key: string, maxAgeMs: number = 60000): T | null {
   const entry = memoryCache.get(key);
@@ -52,7 +70,7 @@ function getCached<T>(key: string, maxAgeMs: number = 60000): T | null {
   }
   if (typeof window !== 'undefined') {
     try {
-      const raw = sessionStorage.getItem(`baleen_cache_${key}`);
+      const raw = sessionStorage.getItem(`${CACHE_PREFIX}${key}`);
       if (raw) {
         const parsed = JSON.parse(raw);
         if (Date.now() - parsed.ts < maxAgeMs) {
@@ -70,7 +88,7 @@ function setCached<T>(key: string, data: T) {
   memoryCache.set(key, entry);
   if (typeof window !== 'undefined') {
     try {
-      sessionStorage.setItem(`baleen_cache_${key}`, JSON.stringify(entry));
+      sessionStorage.setItem(`${CACHE_PREFIX}${key}`, JSON.stringify(entry));
     } catch {}
   }
 }
@@ -264,7 +282,8 @@ export async function fetchWallets(params?: Record<string, string>): Promise<Wal
     } else {
       url.searchParams.append('limit', '250');
     }
-    const res = await fetch(url.toString(), { next: { revalidate: 60 } });
+    const res = await fetch(url.toString(), { cache: 'no-store' });
+    observeWalletGeneration(res);
     if (!res.ok) return getCachedWallets() || [];
     const data = await res.json();
     const result = data.map((w: RawWalletApi) => ({
@@ -411,9 +430,11 @@ export async function fetchWallet(address: string): Promise<WalletDetail | null>
   const cached = getCachedWalletDetail(address);
   try {
     const res = await fetch(`${API_BASE_URL}/api/wallets/${address}`, {
+      cache: 'no-store',
       signal: AbortSignal.timeout(15000)
     });
-    if (!res.ok) return cached || null;
+    const generationChanged = observeWalletGeneration(res);
+    if (!res.ok) return generationChanged ? null : cached || null;
     const data = await res.json();
     const w = data.wallet || data;
     const detail: WalletDetail = {
@@ -440,11 +461,14 @@ export async function fetchWallet(address: string): Promise<WalletDetail | null>
       medianInterTradeGapHours: w.median_inter_trade_gap_hours ?? null,
       totalTradesAnalyzed: w.total_trades_analyzed ?? null,
       maxDrawdown: w.max_drawdown_pct ?? null,
+      pnlMetadata: data.pnl_metadata,
+      research: data.research ?? null,
       scoreHistory: (data.score_history || []).map((s: RawScoreHistory) => ({
         date: s.snapshot_at || s.date || new Date().toISOString(),
         score: s.baleen_score ?? s.score ?? 0
       })),
       dailyPnLHistory: (data.daily_pnl_history || []).map((d: RawDailyPnL) => ({
+        dailyChangeKnown: d.daily_pnl != null,
         date: d.date,
         wonUsd: d.won_usd ?? Math.max(0, d.daily_pnl ?? 0),
         lostUsd: d.lost_usd ?? ((d.daily_pnl ?? 0) < 0 ? (d.daily_pnl ?? 0) : 0),

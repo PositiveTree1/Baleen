@@ -1,0 +1,23 @@
+[
+  {
+    "url": "https://data-api.polymarket.com/v2/approvals?user=0x2dc13c6bda81b202281e796953a7323de675b33c&limit=2",
+    "received_at": "2026-09-16T23:32:45.062235+00:00",
+    "status": 200,
+    "sha256": "942de8c071b6d6285c71ebb7deee4423f039a2106538dfc5e0bc597086b49a8c",
+    "attempts": 1
+  },
+  {
+    "url": "https://data-api.polymarket.com/v2/activity/combos?user=0x2dc13c6bda81b202281e796953a7323de675b33c&limit=2",
+    "received_at": "2026-09-16T23:32:45.166007+00:00",
+    "status": 200,
+    "sha256": "587969336f5e861def16bfb3ff5105d97ce7d0901f2bf737472a0fd312c7f9df",
+    "attempts": 1
+  },
+  {
+    "url": "https://data-api.polymarket.com/v2/positions/combos?user=0x2dc13c6bda81b202281e796953a7323de675b33c&limit=2",
+    "received_at": "2026-09-16T23:32:45.247413+00:00",
+    "status": 200,
+    "sha256": "587969336f5e861def16bfb3ff5105d97ce7d0901f2bf737472a0fd312c7f9df",
+    "attempts": 1
+  }
+]

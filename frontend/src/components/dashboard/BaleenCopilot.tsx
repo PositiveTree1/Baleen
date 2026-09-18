@@ -303,7 +303,7 @@ export function BaleenCopilot() {
                     <div
                       className={`w-7 h-7 rounded-xl flex items-center justify-center shrink-0 text-xs font-bold ${
                         m.role === 'user'
-                          ? 'bg-slate-900 text-white'
+                          ? 'bg-[#0284C7] text-white shadow-2xs'
                           : 'bg-indigo-50 text-indigo-600 border border-indigo-200 shadow-2xs'
                       }`}
                     >
@@ -329,7 +329,7 @@ export function BaleenCopilot() {
                       <div
                         className={`p-3.5 rounded-2xl shadow-2xs ${
                           m.role === 'user'
-                            ? 'bg-slate-900 text-white rounded-tr-xs'
+                            ? 'bg-[#0284C7] text-white rounded-tr-xs'
                             : 'bg-white text-slate-800 border border-black/[0.06] rounded-tl-xs'
                         }`}
                       >
@@ -416,7 +416,7 @@ export function BaleenCopilot() {
                     type="submit"
                     disabled={!input.trim() || loading}
                     aria-label="Send message"
-                    className="p-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 disabled:opacity-40 text-white transition-all cursor-pointer shrink-0 shadow-xs"
+                    className="p-2.5 rounded-xl bg-[#0284C7] hover:bg-sky-600 disabled:opacity-40 text-white transition-all cursor-pointer shrink-0 shadow-xs"
                     title="Send message (Enter)"
                   >
                     <Send size={15} />

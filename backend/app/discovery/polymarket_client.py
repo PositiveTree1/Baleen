@@ -4,7 +4,7 @@ import json
 import logging
 import math
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import List, Dict, Any, Optional, Set
 from app.config import settings
@@ -153,7 +153,7 @@ class PolymarketClient:
                             "address": w,
                             "source": "large_trade",
                             "trade_cash": trade_cash,
-                            "volume": trade_cash * 10
+                            "volume": None
                         }
         except Exception as e:
             logger.debug(f"Large trades discovery error: {e}")
@@ -174,20 +174,20 @@ class PolymarketClient:
                                 "address": w,
                                 "source": "live_stream_trade",
                                 "trade_cash": trade_cash,
-                                "volume": trade_cash * 10
+                                "volume": None
                             }
             except Exception as e:
                 logger.debug(f"Live trades stream discovery error at offset {trade_offset}: {e}")
 
         # 2. Paginated Multi-Period Leaderboards (ALL, MONTH, WEEK) via documented /v1/leaderboard
         for period in ["ALL", "MONTH", "WEEK"]:
-            for offset in [0, 100, 200]:
+            for offset in range(0, 300, 50):
                 try:
                     lb_data = await self._fetch_with_retry(f"{self.data_api_url}/v1/leaderboard", {
                         "timePeriod": period,
                         "category": "OVERALL",
                         "orderBy": "PNL",
-                        "limit": 100,
+                        "limit": 50,
                         "offset": offset
                     })
                     rows = lb_data if isinstance(lb_data, list) else (lb_data.get("data") or lb_data.get("results") or []) if isinstance(lb_data, dict) else []
@@ -203,7 +203,8 @@ class PolymarketClient:
                                         "address": w,
                                         "source": f"leaderboard_{period.lower()}",
                                         "profit": pnl,
-                                        "volume": vol if vol > 0 else pnl * 5,
+                                        "volume": vol,
+                                        "reported_period": period,
                                         "name": name,
                                         "rank": entry.get("rank")
                                     }
@@ -229,7 +230,7 @@ class PolymarketClient:
                             "source": "large_trade",
                             "trade_cash": cash,
                             "profit": 0.0,
-                            "volume": cash * 5
+                            "volume": None
                         }
         except Exception as e:
             logger.debug(f"Large trades discovery error: {e}")
@@ -262,12 +263,12 @@ class PolymarketClient:
                                 continue
                             w = (t.get("proxyWallet") or t.get("user") or "").lower().strip()
                             if w and len(w) == 42 and w.startswith("0x") and w not in candidates:
-                                cash = float(t.get("usdcSize") or 5000)
+                                cash = float(t.get("usdcSize") or (float(t.get("size", 0)) * float(t.get("price", 0))))
                                 candidates[w] = {
                                     "address": w,
                                     "source": "market_scan",
                                     "profit": 0.0,
-                                    "volume": cash * 5
+                                    "volume": None
                                 }
                     await asyncio.sleep(0.04)
         except Exception as e:
@@ -284,6 +285,7 @@ class PolymarketClient:
             data = await self._fetch_with_retry(url, params={
                 "user": norm_addr,
                 "limit": 500,
+                "sizeThreshold": 0,
                 "sortBy": "CASHPNL",
                 "sortDirection": "DESC"
             })
@@ -320,7 +322,7 @@ class PolymarketClient:
                 "user": norm_addr,
                 "limit": batch_size,
                 "offset": offset,
-                "sortBy": "timestamp",
+                "sortBy": "TIMESTAMP",
                 "sortDirection": "DESC"
             })
             page_count += 1
@@ -365,7 +367,8 @@ class PolymarketClient:
 
         async def _get_leaderboard():
             try:
-                for period in ["ALL", "MONTH"]:
+                # A monthly result must never masquerade as lifetime P&L.
+                for period in ["ALL"]:
                     lb_data = await self._fetch_with_retry(f"{self.data_api_url}/v1/leaderboard", {
                         "user": norm_addr,
                         "timePeriod": period
@@ -432,25 +435,22 @@ class PolymarketClient:
         return profile_data
 
     async def fetch_wallet_profile_pnl(self, address: str) -> Optional[float]:
-        """Queries Polymarket Data API directly to verify true realized PnL, preserving valid 0.0."""
+        """Return reported ALL-period profile P&L, preserving zero and unknown.
+
+        The provider value is not necessarily realized-only. Current positions
+        and monthly results cannot substitute for a missing lifetime value.
+        """
         prof = await self.fetch_wallet_profile(address)
-        if prof:
+        if prof and prof.get("reported_period") == "ALL":
             pnl = prof.get("pnl") if prof.get("pnl") is not None else (prof.get("profit") if prof.get("profit") is not None else prof.get("profile_profit"))
             if pnl is not None:
                 try:
                     parsed = _finite_float(pnl)
                     if parsed is not None:
-                        return round(parsed, 2)
+                        # Preserve precision for the strict discovery boundary.
+                        return parsed
                 except (ValueError, TypeError):
                     pass
-        positions = await self.fetch_wallet_positions(address)
-        if positions:
-            pnl_values = [_finite_float(p.get("cashPnl")) for p in positions]
-            if any(value is None for value in pnl_values):
-                return None
-            pnl_sum = sum(value for value in pnl_values if value is not None)
-            if abs(pnl_sum) > 0.01:
-                return round(pnl_sum, 2)
         return None
 
     async def fetch_wallet_pnl_timeseries(self, address: str, interval: str = "all", fidelity: str = "1d") -> List[Dict]:
@@ -471,13 +471,15 @@ class PolymarketClient:
             return []
 
     async def fetch_wallet_user_stats(self, address: str) -> Optional[Dict]:
-        """Pulls user prediction stats (trades, biggest_win, views, all_time_pnl) from Polymarket data API v2."""
+        """Return V2 profile stats. `trades` counts markets, not trade fills."""
         norm_addr = address.lower().strip()
         try:
             url = f"{self.data_api_url}/v2/user-stats"
             data = await self._fetch_with_retry(url, params={"user": norm_addr})
             if isinstance(data, dict):
-                return data.get("data") or data
+                payload = data.get("data")
+                if isinstance(payload, dict) and str(payload.get("proxy_wallet") or "").lower() == norm_addr:
+                    return payload
             return None
         except Exception as e:
             logger.debug(f"Error fetching user stats for {norm_addr}: {e}")
@@ -491,10 +493,14 @@ class PolymarketClient:
         page_count = 0
         batch_size = 500
         offset = 0
+        cutoff = int(datetime.now(timezone.utc).timestamp())
 
         while len(all_trades) < max_trades:
             url = f"{self.data_api_url}/trades"
-            data = await self._fetch_with_retry(url, params={"user": norm_addr, "limit": batch_size, "offset": offset})
+            data = await self._fetch_with_retry(url, params={
+                "user": norm_addr, "limit": batch_size, "offset": offset,
+                "takerOnly": "false", "end": cutoff,
+            })
             page_count += 1
             trades_batch = data if isinstance(data, list) else (data.get("data") or data.get("results") or []) if isinstance(data, dict) else []
             if data is None:
@@ -534,6 +540,7 @@ class PolymarketClient:
         page_count = 0
         batch_size = 500
         offset = 0
+        cutoff = int(datetime.now(timezone.utc).timestamp())
         while len(all_activity) < max_items:
             url = f"{self.data_api_url}/activity"
             data = await self._fetch_with_retry(url, params={
@@ -541,7 +548,8 @@ class PolymarketClient:
                 "limit": batch_size,
                 "offset": offset,
                 "sortBy": "TIMESTAMP",
-                "sortDirection": "DESC"
+                "sortDirection": "DESC",
+                "end": cutoff,
             })
             page_count += 1
             batch = data if isinstance(data, list) else (data.get("data") or data.get("results") or []) if isinstance(data, dict) else []

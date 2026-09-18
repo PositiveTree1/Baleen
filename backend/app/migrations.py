@@ -277,6 +277,32 @@ MIGRATIONS.append((18, 'verified_live_wallet_baseline', [
     "CREATE TABLE IF NOT EXISTS live_wallet_baselines (user_id UUID PRIMARY KEY REFERENCES live_execution_accounts(user_id), run_id UUID NOT NULL, block_number BIGINT NOT NULL, block_hash VARCHAR(66) NOT NULL, block_time TIMESTAMP NOT NULL, starting_cash NUMERIC(38,18) NOT NULL, observed_tokens JSON NOT NULL, created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP)",
 ]))
 
+MIGRATIONS.append((19, 'wallet_evidence', [
+    "CREATE TABLE IF NOT EXISTS wallet_evidence (wallet_address VARCHAR PRIMARY KEY REFERENCES wallets(address), observed_at TIMESTAMP NOT NULL, payload JSON NOT NULL)"
+], [
+    "CREATE TABLE IF NOT EXISTS wallet_evidence (wallet_address VARCHAR PRIMARY KEY REFERENCES wallets(address), observed_at TIMESTAMP NOT NULL, payload JSON NOT NULL)"
+]))
+
+MIGRATIONS.append((20, 'wallet_research_reset_archives', [
+    "CREATE TABLE IF NOT EXISTS wallet_reset_batches (reset_id VARCHAR PRIMARY KEY, created_at TIMESTAMP NOT NULL, wallet_count INTEGER NOT NULL)",
+    "CREATE TABLE IF NOT EXISTS wallet_evidence_archives (reset_id VARCHAR REFERENCES wallet_reset_batches(reset_id), wallet_address VARCHAR REFERENCES wallets(address), payload JSON NOT NULL, PRIMARY KEY (reset_id, wallet_address))"
+], [
+    "CREATE TABLE IF NOT EXISTS wallet_reset_batches (reset_id VARCHAR PRIMARY KEY, created_at TIMESTAMP NOT NULL, wallet_count INTEGER NOT NULL)",
+    "CREATE TABLE IF NOT EXISTS wallet_evidence_archives (reset_id VARCHAR REFERENCES wallet_reset_batches(reset_id), wallet_address VARCHAR REFERENCES wallets(address), payload JSON NOT NULL, PRIMARY KEY (reset_id, wallet_address))"
+]))
+
+MIGRATIONS.append((21, 'point_in_time_wallet_observations', [
+    "CREATE TABLE IF NOT EXISTS wallet_evidence_observations (id VARCHAR PRIMARY KEY, wallet_address VARCHAR NOT NULL REFERENCES wallets(address), generation VARCHAR NOT NULL, observed_at TIMESTAMP NOT NULL, payload JSON NOT NULL)"
+], [
+    "CREATE TABLE IF NOT EXISTS wallet_evidence_observations (id VARCHAR PRIMARY KEY, wallet_address VARCHAR NOT NULL REFERENCES wallets(address), generation VARCHAR NOT NULL, observed_at TIMESTAMP NOT NULL, payload JSON NOT NULL)"
+]))
+
+MIGRATIONS.append((22, 'forward_wallet_book_observations', [
+    "CREATE TABLE IF NOT EXISTS wallet_shadow_observations (id VARCHAR PRIMARY KEY, wallet_address VARCHAR NOT NULL REFERENCES wallets(address), generation VARCHAR NOT NULL, observed_at TIMESTAMP NOT NULL, payload JSON NOT NULL)"
+], [
+    "CREATE TABLE IF NOT EXISTS wallet_shadow_observations (id VARCHAR PRIMARY KEY, wallet_address VARCHAR NOT NULL REFERENCES wallets(address), generation VARCHAR NOT NULL, observed_at TIMESTAMP NOT NULL, payload JSON NOT NULL)"
+]))
+
 LATEST_SCHEMA_VERSION = max(v for v, _, _, _ in MIGRATIONS) if MIGRATIONS else 0
 
 

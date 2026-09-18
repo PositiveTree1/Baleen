@@ -61,7 +61,8 @@ async def test_public_wallet_detail_never_exposes_private_copies_or_invents_hist
         db.add(ExecutionLog(user_id=uid, source_wallet_address=address, side='BUY',
             status='FILLED', is_sandbox=True, notional_usd=100, market_question='PRIVATE FIXTURE'))
         await db.commit()
-        response = await get_wallet(address, db=db)
+        from fastapi import Response
+        response = await get_wallet(address, response=Response(), db=db)
         assert 'PRIVATE FIXTURE' not in str(response)
         assert response['score_history'] == []
         assert response.get('ai_summary') is None

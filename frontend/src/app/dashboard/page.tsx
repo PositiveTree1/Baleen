@@ -229,7 +229,7 @@ export default function DashboardPage() {
                 onClick={() => setViewMode('sandbox')}
                 className={`px-2.5 sm:px-3.5 py-1 sm:py-1.5 rounded-full text-[11px] sm:text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
                   viewMode === 'sandbox'
-                    ? 'bg-slate-950 text-white shadow-xs'
+                    ? 'bg-white text-slate-900 shadow-xs border border-slate-200/70 font-extrabold'
                     : 'text-slate-600 hover:text-slate-950'
                 }`}
               >
@@ -240,11 +240,11 @@ export default function DashboardPage() {
                 onClick={() => setViewMode('live')}
                 className={`px-2.5 sm:px-3.5 py-1 sm:py-1.5 rounded-full text-[11px] sm:text-xs font-bold transition-all flex items-center gap-1 sm:gap-1.5 cursor-pointer whitespace-nowrap ${
                   viewMode === 'live'
-                    ? 'bg-gradient-to-r from-sky-600 to-cyan-600 text-white shadow-xs font-extrabold'
+                    ? 'bg-white text-slate-900 shadow-xs border border-slate-200/70 font-extrabold'
                     : 'text-slate-600 hover:text-slate-950'
                 }`}
               >
-                <span className={`w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full shrink-0 ${liveDashboard?.is_live_active ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'}`} />
+                <span className={`w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full shrink-0 ${liveDashboard?.is_live_active ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'}`} />
                 <span>Live</span>
                 <span className="hidden md:inline"> · Gated</span>
               </button>

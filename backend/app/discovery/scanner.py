@@ -16,6 +16,7 @@ from app.scoring.engine import score_wallet
 from app.scoring.basket import compute_baleen_score
 from app.analysis.ai_summary import generate_summary
 from app.services.event_logger import log_event
+from app.services.wallet_research import refresh_wallet_evidence
 
 logger = logging.getLogger(__name__)
 
@@ -1018,7 +1019,9 @@ async def evaluate_pending_wallets(db: AsyncSession, client: Optional[Polymarket
 
     processed_count = 0
     try:
-        for idx, wallet in enumerate(pending_wallets, 1):
+        pending_addresses = [wallet.address for wallet in pending_wallets]
+        for idx, pending_address in enumerate(pending_addresses, 1):
+            wallet = await db.get(Wallet, pending_address)
             addr = wallet.address.lower()
             discovery_state["wallets_scanned"] = idx
             discovery_state["progress_pct"] = int((idx / total_pending) * 100)
@@ -1253,6 +1256,10 @@ async def evaluate_pending_wallets(db: AsyncSession, client: Optional[Polymarket
                 
                 # Event logging for wallet promotion / rejection
                 if wallet.status == 'active':
+                    # Legacy heuristics are not approval for the new policy.
+                    wallet.status = 'tracked'
+                    wallet.rejection_reason = 'ACCOUNT_REPLAY_AND_FORWARD_VALIDATION_REQUIRED'
+                if wallet.status == 'active':
                     asyncio.create_task(log_event(
                         "WALLET_PROMOTED",
                         f"Wallet promoted: {wallet.name or wallet.pseudonym or wallet.address[:12]}",
@@ -1330,6 +1337,12 @@ async def scan_for_wallets(db: AsyncSession, full_refresh: bool = False):
                     "source": "curated_seed"
                 }
 
+        # Revisit retained addresses even when absent from the current tape or
+        # leaderboards. Discovery silence is not evidence of poor performance.
+        retained = (await db.execute(select(Wallet.address))).scalars().all()
+        for retained_address in retained:
+            candidates.setdefault(retained_address, {"address": retained_address, "source": "retained_registry"})
+
         total_candidates = len(candidates)
         logger.info(f"Discovered {total_candidates} candidate addresses (including {len(CURATED_WHALE_ADDRESSES)} curated seeds).")
         
@@ -1338,7 +1351,7 @@ async def scan_for_wallets(db: AsyncSession, full_refresh: bool = False):
             discovery_state["status"] = "completed"
             return 0
 
-        # STAGE 1: Save all discovered candidates as pending
+        # STAGE 1: Verify lifetime P&L before storing new candidates.
         saved_count = 0
         for idx, (addr, meta) in enumerate(candidates.items(), 1):
             discovery_state["progress_pct"] = min(50, 15 + int((idx / max(1, total_candidates)) * 35))
@@ -1346,10 +1359,18 @@ async def scan_for_wallets(db: AsyncSession, full_refresh: bool = False):
             stmt = select(Wallet).where(Wallet.address == addr)
             wallet = (await db.execute(stmt)).scalar_one_or_none()
             if not wallet:
+                try:
+                    verified_pnl = await client.fetch_wallet_profile_pnl(addr)
+                except Exception:
+                    # Unknown evidence retries on a later discovery pass. Do
+                    # not persist an address-level rejection or deep-fetch it.
+                    continue
+                if verified_pnl is None or not (50000.0 <= verified_pnl < float("inf")):
+                    continue
                 wallet = Wallet(
                     address=addr,
                     status="pending",
-                    all_time_pnl_usd=None,
+                    all_time_pnl_usd=verified_pnl,
                     first_seen_at=datetime.utcnow()
                 )
                 db.add(wallet)
@@ -1373,7 +1394,7 @@ async def scan_for_wallets(db: AsyncSession, full_refresh: bool = False):
     if discovery_state["status"] != "error":
         try:
             discovery_state["step_description"] = "Stage 2: Deep multi-page trade audit..."
-            processed_count = await evaluate_pending_wallets(db)
+            processed_count = await refresh_wallet_evidence(db)
             
             # Post-Evaluation: Deduplicated Live Tape Sync
             stmt = select(Wallet).where(Wallet.status == 'active').order_by(Wallet.last_scored_at.desc()).limit(10)

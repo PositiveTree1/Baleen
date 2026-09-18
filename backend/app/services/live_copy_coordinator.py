@@ -35,6 +35,8 @@ from app.models import (CanonicalSourceEvent, LiveCopyPolicy, LiveSigningSession
 from app.services.live_order_journal import LiveOrderJournal, number
 from app.services.live_risk import RiskLimits, RiskRejected, check_live_order
 from app.services.scoped_signer import verify_session_order, EXCHANGES
+from app.sizing.proportional import proportional_quantity
+from app.services.wallet_eligibility import require_research_approval
 
 PENDING = ['PREPARED','SUBMITTING','UNKNOWN','ACKNOWLEDGED','PARTIAL']
 INTEGER_LIMITS = {'max_open_orders','max_quote_age_ms','max_source_age_ms'}
@@ -86,8 +88,8 @@ class LiveCopyCoordinator:
         if source.block_time < policy.updated_at:
             raise RiskRejected('Source predates the approved copy policy')
         proof = await self.market_evidence.source(source)
-        approved_quantity = (number(proof['quantity'], positive=True)*number(policy.copy_ratio, positive=True)).quantize(
-            Decimal('.01'), rounding=ROUND_DOWN)
+        await require_research_approval(db, source.source_wallet_address, source.side)
+        approved_quantity = proportional_quantity(proof['quantity'], policy.copy_ratio)
         if order.quantity > approved_quantity:
             raise RiskRejected('Order exceeds verified source allocation')
         limits = policy_limits(policy)
@@ -160,6 +162,7 @@ class LiveCopyCoordinator:
                 source, policy = await db.get(CanonicalSourceEvent, source_id), await db.get(LiveCopyPolicy, user_id)
                 if source is None or policy is None:
                     raise RiskRejected('Source or policy missing')
+                await require_research_approval(db, source.source_wallet_address, source.side)
                 if source.block_time is None or source.block_time < max(policy.updated_at, baseline.created_at):
                     raise RiskRejected('Source predates the approved copy policy')
                 intent_key = 'source:' + str(source_id)
@@ -178,7 +181,8 @@ class LiveCopyCoordinator:
                     raise RiskRejected('No current liquidity')
                 price = min(prices) if source.side == 'BUY' else max(prices)
                 proof = await self.market_evidence.source(source)
-                quantity = (number(proof['quantity'], positive=True)*number(policy.copy_ratio, positive=True)).quantize(Decimal('.01'), rounding=ROUND_DOWN)
+                quantity = proportional_quantity(proof['quantity'], policy.copy_ratio)
+                proportional_target = quantity
                 if source.side == 'SELL':
                     allocation = await db.get(LiveSourcePosition, (user_id, source.source_wallet_address.lower(), source.token_id))
                     quantity = min(quantity, allocation.quantity if allocation else Decimal(0))
@@ -187,7 +191,9 @@ class LiveCopyCoordinator:
                 cash_bound = quantity*(price if source.side == 'BUY' else Decimal(1))
                 fee = (cash_bound*number(observed['fee_cap_bps'])/10000).quantize(Decimal('.000001'), rounding=ROUND_CEILING)
                 context = {'source_event_id': str(source.id), 'source_wallet': source.source_wallet_address.lower(),
-                           'policy_revision': policy.revision}
+                           'policy_revision': policy.revision, 'copy_ratio': str(policy.copy_ratio),
+                           'proportional_target': str(proportional_target),
+                           'allocation_limited_exit': quantity != proportional_target}
                 run_id = account.run_id
             signed = await self.runtime.signer.sign_limit(token_id=source.token_id, side=source.side,
                 quantity=quantity, price=price, exchange_address=observed['exchange'])

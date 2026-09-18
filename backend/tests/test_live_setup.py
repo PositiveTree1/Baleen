@@ -139,3 +139,24 @@ def test_session_material_cannot_be_rebound_or_used_after_revocation(monkeypatch
     if fault == 'identity': row.session_address = '0x'+'5'*40
     with pytest.raises(PermissionError):
         decode_session_key(row)
+
+
+@pytest.mark.asyncio
+async def test_copy_ratio_cannot_change_while_source_inventory_remains(api):
+    client, sessions, user = api
+    from app.models import LiveSourcePosition
+    from tests.test_live_copy_coordinator import LIMITS
+    from decimal import Decimal
+    source = '0x'+'3'*40
+    payload = {**LIMITS, 'source_wallets':[source], 'copy_ratio':'.5'}
+    async with sessions() as db, db.begin():
+        db.add(LiveExecutionAccount(user_id=user.id, run_id=uuid.uuid4(), wallet_address=WALLET,
+            cash=35, reserved_cash=0, enabled=True))
+    assert (await client.put('/api/live-trading/copy-policy', json=payload)).status_code == 200
+    async with sessions() as db, db.begin():
+        db.add(LiveSourcePosition(user_id=user.id, source_wallet_address=source, token_id='123', quantity=10))
+    changed = await client.put('/api/live-trading/copy-policy', json={**payload, 'copy_ratio':'.2'})
+    assert changed.status_code == 409
+    async with sessions() as db:
+        assert (await db.get(LiveCopyPolicy, user.id)).copy_ratio == Decimal('.5')
+    assert (await client.put('/api/live-trading/copy-policy', json=payload)).status_code == 200

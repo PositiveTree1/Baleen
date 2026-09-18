@@ -21,6 +21,13 @@ async def test_full_refresh_preserves_tracked_wallets_and_snapshots(monkeypatch)
 
     monkeypatch.setattr(scanner, "PolymarketClient", EmptyClient)
     monkeypatch.setattr("app.discovery.curated_whales.CURATED_WHALE_ADDRESSES", [])
+    # The retained registry is now revisited even when discovery returns nothing.
+    # This test isolates identity preservation from provider evaluation.
+    revisited = []
+    async def evaluate(db):
+        revisited.extend((await db.execute(select(Wallet.address).where(Wallet.status == "pending"))).scalars().all())
+        return 0
+    monkeypatch.setattr(scanner, "refresh_wallet_evidence", evaluate)
 
     try:
         async with engine.begin() as conn:
@@ -32,6 +39,7 @@ async def test_full_refresh_preserves_tracked_wallets_and_snapshots(monkeypatch)
             await db.commit()
 
             await scanner.scan_for_wallets(db, full_refresh=True)
+            assert revisited == ["0xtracked"]
 
             assert await db.get(Wallet, wallet.address) is not None
             assert (await db.execute(

@@ -4,6 +4,7 @@ from sqlalchemy import select
 from app.database import SessionLocal
 from app.models import Wallet, WalletSnapshot
 from app.scoring.basket import refresh_basket
+from app.services.wallet_research import refresh_wallet_evidence
 from datetime import datetime
 
 logger = logging.getLogger(__name__)
@@ -13,8 +14,7 @@ async def run_rescoring():
     logger.info("Starting scoring worker...")
     try:
         async with SessionLocal() as db:
-            # 1. Update wallet stats from Polymarket API (Mocked step here as per instruction to not use mock data, but we don't have the API logic to compute all stats)
-            # In a full implementation we would fetch trades and recalculate stats.
+            await refresh_wallet_evidence(db)
             
             # 2. Rescore and refresh basket
             await refresh_basket(db)

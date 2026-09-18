@@ -42,11 +42,43 @@ async def test_get_wallet_detail_and_snapshots():
             assert data["wallet"]["address"] == test_addr
             assert data["wallet"]["tier"] == "gold_sniper"
             assert len(data["score_history"]) >= 1
-            assert len(data["daily_pnl_history"]) == 3
+            # An unproven legacy cache is not a provider account P&L series.
+            assert data["daily_pnl_history"] == []
+            assert data["pnl_metadata"]["status"] == "unavailable"
+            assert data["wallet"]["max_drawdown_pct"] is None
             assert data["wallet"]["ai_summary"] is not None
     finally:
         async with SessionLocal() as db:
             from sqlalchemy import delete
             await db.execute(delete(WalletSnapshot).where(WalletSnapshot.wallet_address == test_addr))
             await db.execute(delete(Wallet).where(Wallet.address == test_addr))
+            await db.commit()
+
+
+@pytest.mark.asyncio
+async def test_metadata_refresh_does_not_repopulate_reset_statistics(monkeypatch):
+    import uuid
+    from unittest.mock import AsyncMock
+    from sqlalchemy import delete
+    await init_db()
+    address = '0x' + uuid.uuid4().hex + '0'*8
+    client = AsyncMock()
+    client.fetch_wallet_profile.return_value = {'name':'Fresh name', 'pnl':999999, 'reported_period':'ALL'}
+    monkeypatch.setattr('app.discovery.polymarket_client.PolymarketClient', lambda: client)
+    monkeypatch.setattr('app.discovery.wallet_evidence.pnl_series', AsyncMock(return_value=None))
+    async with SessionLocal() as db:
+        db.add(Wallet(address=address, status='tracked'))
+        await db.commit()
+    try:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url='http://test') as ac:
+            response = await ac.get('/api/wallets/' + address)
+            assert response.status_code == 200
+            assert response.json()['wallet']['all_time_pnl_usd'] is None
+        async with SessionLocal() as db:
+            wallet = await db.get(Wallet, address)
+            assert wallet.name == 'Fresh name'
+            assert wallet.all_time_pnl_usd is None and wallet.last_scored_at is None
+    finally:
+        async with SessionLocal() as db:
+            await db.execute(delete(Wallet).where(Wallet.address == address))
             await db.commit()

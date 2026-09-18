@@ -352,7 +352,8 @@ async def test_scanner_evaluate_pending_wallets_computes_baleen_score():
         async with SessionLocal() as db:
             wallet = (await db.execute(select(Wallet).where(Wallet.address == test_addr))).scalar_one_or_none()
             assert wallet is not None
-            assert wallet.status == "active"
+            assert wallet.status == "tracked"
+            assert wallet.rejection_reason == "ACCOUNT_REPLAY_AND_FORWARD_VALIDATION_REQUIRED"
             assert wallet.baleen_score is not None
             assert isinstance(wallet.baleen_score, float)
             assert wallet.baleen_score >= 0.0

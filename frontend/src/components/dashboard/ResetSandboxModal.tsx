@@ -97,8 +97,8 @@ export function ResetSandboxModal({
                   onClick={() => handlePreset(amount)}
                   className={`p-2.5 rounded-xl font-mono text-xs font-bold transition-all border cursor-pointer ${
                     isSelected
-                      ? 'glass-button text-white shadow-xs'
-                      : 'bg-white/[0.06] text-slate-300 hover:text-white border-white/10 hover:bg-white/10'
+                      ? 'bg-sky-50 text-sky-700 border-sky-300 shadow-xs'
+                      : 'bg-slate-50 text-slate-600 hover:text-slate-900 border-slate-200 hover:bg-slate-100'
                   }`}
                 >
                   ${amount.toLocaleString()}

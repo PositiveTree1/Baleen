@@ -26,6 +26,7 @@ export interface Wallet {
 }
 
 export interface DailyPnLPoint {
+  dailyChangeKnown?: boolean;
   date: string;
   wonUsd?: number;
   lostUsd?: number;
@@ -36,6 +37,8 @@ export interface DailyPnLPoint {
 }
 
 export interface WalletDetail extends Wallet {
+  pnlMetadata?: { metric: string; status: string; source_fidelity: string | null };
+  research?: { classification: string; reasons: string[]; observed_at: number; metrics: { fills_per_day_7d: number; fills_per_day_30d: number; max_daily_fills: number; distinct_markets_lifetime: number | null } } | null;
   aiSummary: string | null;
   maxDrawdown: number | null;
   scoreHistory: { date: string; score: number }[];

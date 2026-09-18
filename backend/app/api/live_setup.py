@@ -13,7 +13,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from app.auth import get_current_user, encrypt_secret
 from app.database import get_db, SessionLocal
-from app.models import User, LiveSigningSession, LiveWalletLink, LiveCopyPolicy, LiveSessionOperation
+from app.models import User, LiveSigningSession, LiveWalletLink, LiveCopyPolicy, LiveSessionOperation, LiveSourcePosition, LiveOrderIntent, LiveExecutionAccount
 from app.services.live_copy_coordinator import policy_limits
 from app.services.live_runtime import live_runtime, verify_owner_wallet
 from app.api.live_trading import _disable_order_account
@@ -137,8 +137,17 @@ async def save_policy(req: CopyPolicyRequest, user: User = Depends(get_current_u
     values.pop('copy_ratio')
     policy_limits(SimpleNamespace(limits=values))
     await db.execute(select(User).where(User.id == user.id).with_for_update())
-    await _disable_order_account(db, user.id)
+    await db.execute(select(LiveExecutionAccount.user_id).where(LiveExecutionAccount.user_id == user.id).with_for_update())
     row = await db.get(LiveCopyPolicy, user.id)
+    if row is not None and row.copy_ratio != req.copy_ratio:
+        holdings = (await db.execute(select(LiveSourcePosition.token_id).where(
+            LiveSourcePosition.user_id == user.id, LiveSourcePosition.quantity > 0).limit(1))).first()
+        pending = (await db.execute(select(LiveOrderIntent.id).where(
+            LiveOrderIntent.user_id == user.id,
+            LiveOrderIntent.state.in_(['PREPARED', 'SUBMITTING', 'UNKNOWN', 'ACKNOWLEDGED', 'PARTIAL'])).limit(1))).first()
+        if holdings or pending:
+            raise HTTPException(409, 'Copy ratio is fixed while source holdings or unresolved orders remain')
+    await _disable_order_account(db, user.id)
     if row is None:
         row = LiveCopyPolicy(user_id=user.id, revision=0)
         db.add(row)

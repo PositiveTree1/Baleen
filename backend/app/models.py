@@ -81,6 +81,45 @@ class Wallet(Base):
     first_seen_at = Column(DateTime, default=datetime.utcnow)
     last_scored_at = Column(DateTime, nullable=True)
 
+class WalletEvidence(Base):
+    __tablename__ = "wallet_evidence"
+    wallet_address = Column(String, ForeignKey("wallets.address"), primary_key=True)
+    observed_at = Column(DateTime, nullable=False)
+    payload = Column(JSON, nullable=False)
+
+
+class WalletResetBatch(Base):
+    __tablename__ = "wallet_reset_batches"
+    reset_id = Column(String, primary_key=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    wallet_count = Column(Integer, nullable=False)
+
+
+class WalletEvidenceObservation(Base):
+    __tablename__ = "wallet_evidence_observations"
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    wallet_address = Column(String, ForeignKey("wallets.address"), nullable=False)
+    generation = Column(String, nullable=False)
+    observed_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    payload = Column(JSON, nullable=False)
+
+
+class WalletShadowObservation(Base):
+    __tablename__ = "wallet_shadow_observations"
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    wallet_address = Column(String, ForeignKey("wallets.address"), nullable=False)
+    generation = Column(String, nullable=False)
+    observed_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    payload = Column(JSON, nullable=False)
+
+
+class WalletEvidenceArchive(Base):
+    __tablename__ = "wallet_evidence_archives"
+    reset_id = Column(String, ForeignKey("wallet_reset_batches.reset_id"), primary_key=True)
+    wallet_address = Column(String, ForeignKey("wallets.address"), primary_key=True)
+    payload = Column(JSON, nullable=False)
+
+
 class WalletSnapshot(Base):
     __tablename__ = "wallet_snapshots"
 

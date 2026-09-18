@@ -6,6 +6,10 @@ A consumer web app that runs a single, curated, auto-updating basket ("index") o
 
 ## Architecture
 
+Current wallet strategy: [selection, accounting, copying and capital logic](docs/WALLET_STRATEGY_LOGIC.md), with the [original request preserved verbatim](docs/WALLET_STRATEGY_ORIGINAL_REQUEST.md). See the [API audit, curves and test results](docs/research/WALLET_DATA_AUDIT.md) for implemented small fixes and remaining validation. Historical specifications are archived and do not override this strategy.
+
+Wallet data cutover: [implementation review](docs/WALLET_IMPLEMENTATION_REVIEW.md) and [Gemini deployment/reset instructions](docs/GEMINI_WALLET_CUTOVER.md). This cutover rebuilds wallet statistics while preserving financial records; it does not approve the proposed strategy for new allocations.
+
 Current status and handoff: [live-readiness review](LIVE_READINESS_REVIEW.md), [Gemini finishing work](GEMINI_FINISHING_WORK.md), [scoped wallet setup](docs/SCOPED_WALLET_SETUP.md). Earlier reports are retained in [the archive](docs/archive/gemini/README.md). Live copying remains gated pending the work and evidence listed in the review.
 
 ```
@@ -18,7 +22,7 @@ Signal Listener (Node.js)  →  Envio HyperSync (Polygon)
 
 ### Prerequisites
 - Node.js >= 18
-- Python >= 3.11
+- Python 3.12 (matching `backend/pyproject.toml`)
 - npm
 
 ### Setup

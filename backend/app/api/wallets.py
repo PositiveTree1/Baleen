@@ -3,7 +3,7 @@ import json
 import logging
 from datetime import datetime, timedelta, timezone
 from typing import List, Optional
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.analysis.ai_summary import generate_summary
@@ -51,6 +51,7 @@ def wallet_to_response(w: Wallet) -> dict:
 
 @router.get("")
 async def list_wallets(
+    response: Response,
     tier: Optional[str] = None,
     dormant: Optional[bool] = None,
     status: Optional[str] = None,
@@ -58,6 +59,9 @@ async def list_wallets(
     offset: int = 0,
     db: AsyncSession = Depends(get_db)
 ):
+    from app.services.wallet_reset import current_generation
+    response.headers["X-Wallet-Generation"] = await current_generation(db)
+    response.headers["Cache-Control"] = "no-store"
     stmt = select(Wallet).where(Wallet.is_hft == False)
     
     if status:
@@ -213,8 +217,32 @@ async def get_copied_wallet_stats(
     results.sort(key=lambda r: (r["netPnl"] is not None, r["netPnl"] or 0), reverse=True)
     return results
 
+@router.get("/{address}/research")
+async def get_wallet_research(address: str, db: AsyncSession = Depends(get_db)):
+    import re
+    from app.discovery.polymarket_client import PolymarketClient
+    from app.discovery.wallet_evidence import collect_evidence
+    from app.models import WalletEvidence
+    clean = address.lower().strip()
+    if not re.fullmatch(r"0x[0-9a-f]{40}", clean):
+        raise HTTPException(status_code=422, detail="Invalid wallet address")
+    cached = await db.get(WalletEvidence, clean)
+    if cached and datetime.utcnow() - cached.observed_at < timedelta(hours=24):
+        return cached.payload
+    client = PolymarketClient()
+    try:
+        return await asyncio.wait_for(collect_evidence(client, clean), timeout=45)
+    except asyncio.TimeoutError:
+        raise HTTPException(status_code=503, detail="Wallet evidence collection timed out; retry later")
+    finally:
+        await client.close()
+
+
 @router.get("/{address}")
-async def get_wallet(address: str, db: AsyncSession = Depends(get_db)):
+async def get_wallet(address: str, response: Response, db: AsyncSession = Depends(get_db)):
+    from app.services.wallet_reset import current_generation
+    response.headers["X-Wallet-Generation"] = await current_generation(db)
+    response.headers["Cache-Control"] = "no-store"
     clean_addr = address.lower().strip()
     
     # Wallet query (case insensitive)
@@ -236,22 +264,25 @@ async def get_wallet(address: str, db: AsyncSession = Depends(get_db)):
                 p_name = (prof.get("name") or prof.get("userName")) if isinstance(prof, dict) else None
                 p_pseudo = prof.get("pseudonym") if isinstance(prof, dict) else None
                 p_img = prof.get("profileImage") if isinstance(prof, dict) else None
-                p_pnl = round(float(prof.get("pnl") or prof.get("profit") or 0.0), 2) if isinstance(prof, dict) else 0.0
+                from app.discovery.wallet_evidence import finite
+                p_pnl = finite(prof.get("pnl")) if isinstance(prof, dict) and prof.get("reported_period") == "ALL" else None
+                if p_pnl is None or p_pnl < 50000:
+                    raise HTTPException(status_code=404, detail="Wallet is not in the qualified research registry")
 
                 wallet = Wallet(
                     address=clean_addr,
                     name=p_name,
                     pseudonym=p_pseudo,
                     profile_image=p_img,
-                    all_time_pnl_usd=p_pnl,
-                    win_rate_pct=60.0,
-                    baleen_score=70.0,
+                    all_time_pnl_usd=None,  # Threshold proof is not the V2 account curve.
+                    win_rate_pct=None,
+                    baleen_score=None,
                     status="tracked",
                     tier="standard",
                     dormant=False,
                     is_hft=False,
-                    avg_trades_per_day=5.0,
-                    total_trades_analyzed=50
+                    avg_trades_per_day=None,
+                    total_trades_analyzed=None
                 )
                 db.add(wallet)
                 await db.commit()
@@ -276,7 +307,6 @@ async def get_wallet(address: str, db: AsyncSession = Depends(get_db)):
                     p_name = profile.get("name") or profile.get("userName")
                     p_pseudo = profile.get("pseudonym")
                     p_img = profile.get("profileImage")
-                    p_pnl = profile.get("pnl") if profile.get("pnl") is not None else profile.get("profit")
                     
                     updated = False
                     if p_name and wallet.name != p_name:
@@ -288,15 +318,8 @@ async def get_wallet(address: str, db: AsyncSession = Depends(get_db)):
                     if p_img and wallet.profile_image != p_img:
                         wallet.profile_image = str(p_img)
                         updated = True
-                    if p_pnl is not None:
-                        try:
-                            pnl_val = round(float(p_pnl), 2)
-                            if abs((wallet.all_time_pnl_usd or 0.0) - pnl_val) > 0.01:
-                                wallet.all_time_pnl_usd = pnl_val
-                                updated = True
-                        except (ValueError, TypeError):
-                            pass
-                    wallet.last_scored_at = now_utc
+                    # Profile metadata cannot overwrite V2 P&L or advance the
+                    # research evaluation timestamp after a statistics reset.
                     if updated:
                         await db.commit()
                         await db.refresh(wallet)
@@ -314,7 +337,9 @@ async def get_wallet(address: str, db: AsyncSession = Depends(get_db)):
             wallet.ai_summary = None
 
     # Auto-generate clean AI summary on-demand if missing or corrupted
-    if not wallet.ai_summary or not wallet.ai_style_tag or is_corrupted:
+    if (not wallet.ai_summary or not wallet.ai_style_tag or is_corrupted) and all(
+        v is not None for v in (wallet.win_rate_pct, wallet.all_time_pnl_usd, wallet.avg_trades_per_day, wallet.max_drawdown_pct)
+    ):
         try:
             stats_dict = {
                 "win_rate_pct": wallet.win_rate_pct or 0.0,
@@ -380,206 +405,34 @@ async def get_wallet(address: str, db: AsyncSession = Depends(get_db)):
             "pnl_usd": trade_pnl
         })
     
-    # Compute daily P&L curve and dual-column wins/losses
-    total_pnl = wallet.all_time_pnl_usd or 0.0
-    daily_pnl_history = []
-
-    # 1. Primary: Query Polymarket authentic timeseries and user-stats directly
+    # Provider economic P&L is a marked account series, not a sequence of
+    # realized wins/losses. Never substitute partial closed-position history.
+    from app.discovery.wallet_evidence import pnl_series, chart_history
+    from app.models import WalletEvidence
+    evidence = await db.get(WalletEvidence, clean_addr)
     client = PolymarketClient()
+    series = None
     try:
-        raw_pts = []
-        user_stats = None
-        try:
-            pnl_task = client.fetch_wallet_pnl_timeseries(clean_addr, interval="all", fidelity="1d")
-            stats_task = client.fetch_wallet_user_stats(clean_addr)
-            pnl_res, stats_res = await asyncio.wait_for(
-                asyncio.gather(pnl_task, stats_task, return_exceptions=True),
-                timeout=4.0
-            )
-            raw_pts = pnl_res if isinstance(pnl_res, list) else []
-            user_stats = stats_res if isinstance(stats_res, dict) else None
-        except Exception as e:
-            logger.debug(f"Polymarket user-pnl/stats fetch note for {clean_addr}: {e}")
-
-        if raw_pts:
-            date_map = {}
-            for pt in raw_pts:
-                if isinstance(pt, dict) and "t" in pt and "p" in pt:
-                    try:
-                        dt = datetime.utcfromtimestamp(pt["t"]).strftime("%Y-%m-%d")
-                        date_map[dt] = float(pt["p"])
-                    except Exception:
-                        pass
-
-            if date_map:
-                pts_history = []
-                prev_p = 0.0
-                for i, dt in enumerate(sorted(date_map.keys())):
-                    cum = round(date_map[dt], 2)
-                    daily = round(cum - prev_p if i > 0 else cum, 2)
-                    prev_p = cum
-                    pts_history.append({
-                        "date": dt,
-                        "won_usd": max(0.0, daily),
-                        "lost_usd": -abs(daily) if daily < 0 else 0.0,
-                        "net_pnl": daily,
-                        "daily_pnl": daily,
-                        "cumulative_pnl": cum,
-                        "trades_count": 1
-                    })
-
-                if pts_history:
-                    daily_pnl_history = pts_history
-                    wallet.cached_daily_pnl = json.dumps(pts_history)
-                    latest_pnl = round(pts_history[-1]["cumulative_pnl"], 2)
-                    wallet.all_time_pnl_usd = latest_pnl
-
-        if user_stats:
-            trades_cnt = user_stats.get("trades") or (user_stats.get("all_time_pnl") or {}).get("trade_count")
-            if trades_cnt:
-                try:
-                    wallet.total_trades_analyzed = int(trades_cnt)
-                except (ValueError, TypeError):
-                    pass
-
-        if raw_pts or user_stats:
-            await db.commit()
-            await db.refresh(wallet)
-    except Exception as e:
-        logger.debug(f"Error querying Polymarket user-pnl for {clean_addr}: {e}")
+        series = await asyncio.wait_for(pnl_series(client, clean_addr), timeout=8.0)
+    except Exception as exc:
+        logger.debug("Wallet series unavailable: %s", exc)
     finally:
         await client.close()
-
-    # 2. Secondary: Fallback to existing cached on-chain daily PnL curve if user-pnl returned empty
-    if not daily_pnl_history and wallet.cached_daily_pnl:
-        try:
-            cached_pts = json.loads(wallet.cached_daily_pnl)
-            if isinstance(cached_pts, list) and len(cached_pts) >= 1:
-                first_won = float(cached_pts[0].get("won_usd", 0.0))
-                if len(cached_pts) > 10 and abs(first_won - 14272.63) < 0.1:
-                    daily_pnl_history = []
-                elif len(cached_pts) < 15 and getattr(wallet, 'total_trades_analyzed', 0) and (wallet.total_trades_analyzed or 0) > 30:
-                    daily_pnl_history = []
-                else:
-                    daily_pnl_history = cached_pts
-        except Exception as e:
-            logger.debug(f"Error parsing cached_daily_pnl for {clean_addr}: {e}")
-            daily_pnl_history = []
-
-    # 3. Tertiary: Fallback to multi-page closed positions & activity scanner reconstruction
-    if not daily_pnl_history:
-        client = PolymarketClient()
-        try:
-            async def _fetch_deep_history():
-                cp_desc = [
-                    client._fetch_with_retry(
-                        f"{client.data_api_url}/closed-positions",
-                        params={"user": clean_addr, "limit": 50, "offset": i * 50, "sortBy": "timestamp", "sortDirection": "DESC"}
-                    )
-                    for i in range(25)
-                ]
-                cp_asc = [
-                    client._fetch_with_retry(
-                        f"{client.data_api_url}/closed-positions",
-                        params={"user": clean_addr, "limit": 50, "offset": i * 50, "sortBy": "timestamp", "sortDirection": "ASC"}
-                    )
-                    for i in range(15)
-                ]
-                tr_tasks = [
-                    client._fetch_with_retry(
-                        f"{client.data_api_url}/trades",
-                        params={"user": clean_addr, "limit": 500, "offset": i * 500}
-                    )
-                    for i in range(4)
-                ]
-                act_tasks = [
-                    client._fetch_with_retry(
-                        f"{client.data_api_url}/activity",
-                        params={"user": clean_addr, "limit": 500, "offset": i * 500, "sortBy": "TIMESTAMP", "sortDirection": "DESC"}
-                    )
-                    for i in range(4)
-                ]
-                pos_task = client.fetch_wallet_positions(clean_addr)
-                prof_task = client.fetch_wallet_profile(clean_addr)
-
-                all_results = await asyncio.gather(
-                    *cp_desc, *cp_asc, *tr_tasks, *act_tasks, pos_task, prof_task,
-                    return_exceptions=True
-                )
-                
-                # Extract closed positions with deduplication
-                closed_positions = []
-                seen_cp = set()
-                for r in all_results[:40]:
-                    if isinstance(r, list):
-                        for item in r:
-                            if isinstance(item, dict):
-                                k = (str(item.get("conditionId") or ""), str(item.get("asset") or ""), str(item.get("timestamp") or ""))
-                                if k not in seen_cp:
-                                    seen_cp.add(k)
-                                    closed_positions.append(item)
-
-                # Extract trades
-                trades = []
-                for r in all_results[40:44]:
-                    if isinstance(r, list):
-                        trades.extend([t for t in r if isinstance(t, dict)])
-
-                # Extract activity
-                activity = []
-                for r in all_results[44:48]:
-                    if isinstance(r, list):
-                        activity.extend([a for a in r if isinstance(a, dict)])
-
-                positions = all_results[48] if isinstance(all_results[48], list) else []
-                profile = all_results[49] if isinstance(all_results[49], dict) else {"pnl": total_pnl, "vol": getattr(wallet, "volume_usd", 0.0)}
-
-                return closed_positions, trades, activity, positions, profile
-
-            closed_positions, trades, activity, positions, profile = await asyncio.wait_for(
-                _fetch_deep_history(),
-                timeout=8.0
-            )
-
-            if closed_positions or trades or positions or activity:
-                from app.discovery.scanner import calculate_authentic_wallet_stats
-                stats = calculate_authentic_wallet_stats(
-                    address=clean_addr,
-                    positions=positions,
-                    activity=activity,
-                    profile=profile,
-                    trades=trades,
-                    closed_positions=closed_positions
-                )
-                real_hist = stats.get('daily_pnl_history', [])
-                if real_hist:
-                    daily_pnl_history = real_hist
-                    wallet.cached_daily_pnl = json.dumps(real_hist)
-
-                if stats:
-                    if stats.get('all_time_pnl_usd') is not None and (wallet.all_time_pnl_usd is None or wallet.all_time_pnl_usd == 0):
-                        wallet.all_time_pnl_usd = round(float(stats['all_time_pnl_usd']), 2)
-                    if stats.get('win_rate_pct') is not None and wallet.win_rate_pct is None:
-                        wallet.win_rate_pct = round(float(stats['win_rate_pct']), 1)
-                    if stats.get('total_trades_analyzed') is not None and not wallet.total_trades_analyzed:
-                        wallet.total_trades_analyzed = int(stats['total_trades_analyzed'])
-                    if stats.get('max_drawdown_pct') is not None and wallet.max_drawdown_pct is None:
-                        wallet.max_drawdown_pct = round(float(stats['max_drawdown_pct']), 1)
-                    if stats.get('baleen_score') is not None and wallet.baleen_score is None:
-                        wallet.baleen_score = round(float(stats['baleen_score']), 1)
-
-                await db.commit()
-                await db.refresh(wallet)
-        except Exception as e:
-            logger.debug(f"Error computing deep live on-chain history for {clean_addr}: {e}")
-        finally:
-            await client.close()
-
-    # Missing source history stays unavailable. Follower paper performance
-    # cannot substitute for the source wallet's on-chain performance.
+    daily_pnl_history = chart_history(series)
+    curve_status = "observed" if daily_pnl_history else "unavailable"
+    if not daily_pnl_history and evidence:
+        daily_pnl_history = evidence.payload.get("daily_pnl_history", [])
+        curve_status = "cached" if daily_pnl_history else "unavailable"
+    response_wallet = wallet_to_response(wallet)
+    if daily_pnl_history:
+        response_wallet["all_time_pnl_usd"] = daily_pnl_history[-1]["cumulative_pnl"]
+    # Legacy drawdown was calculated on cumulative profits, not equity.
+    response_wallet["max_drawdown_pct"] = None
 
     return {
-        "wallet": wallet_to_response(wallet),
+        "wallet": response_wallet,
+        "pnl_metadata": {"metric": "economic_pnl", "source": "polymarket_v2", "status": curve_status, "source_fidelity": series.get("source_fidelity") if series else None},
+        "research": evidence.payload if evidence else None,
         "score_history": score_history,
         "daily_pnl_history": daily_pnl_history,
         "recent_trades": recent_trades

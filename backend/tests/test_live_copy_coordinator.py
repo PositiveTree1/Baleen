@@ -106,6 +106,19 @@ async def test_source_policy_signature_reservation_and_submission_are_connected_
 
 
 @pytest.mark.asyncio
+async def test_statistics_reset_blocks_new_live_entry_before_signing(pg):
+    from app.models import KeyValue
+    from app.services.wallet_reset import GENERATION_KEY
+    sessions, uid, source_id, gateway, sdk, coordinator = await setup(pg)
+    async with sessions() as db, db.begin():
+        db.add(KeyValue(key=GENERATION_KEY, value='fresh-generation'))
+    with pytest.raises(RiskRejected, match='Fresh wallet research'):
+        await coordinator.copy_source(uid, source_id)
+    sdk.create_limit_order.assert_not_awaited()
+    gateway.submit_signed_order.assert_not_awaited()
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize('fault', ['policy','stop','stale_quote'])
 async def test_changed_conditions_never_post_a_prepared_order(pg, fault):
     sessions, uid, source_id, gateway, sdk, coordinator = await setup(pg, fault)

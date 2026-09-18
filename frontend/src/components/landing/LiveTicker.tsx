@@ -64,7 +64,7 @@ export function LiveTicker() {
               <span className="relative inline-flex size-2 rounded-full bg-emerald-500" />
             </span>
             <span className="text-[10px] sm:text-[11px] font-bold tracking-wider text-slate-900 uppercase">
-              Polymarket Stream · Polygon CTF
+              Polymarket Stream · Polygon CTF · Paper Simulation
             </span>
           </div>
 

@@ -1,0 +1,835 @@
+{
+  "wallets": [
+    {
+      "name": "totoro3miyazaki",
+      "address": "0x0f6f76ced62a911bccef92f50faaff143854d977",
+      "fills_7d": 53,
+      "fills_30d": 462,
+      "fills_per_calendar_day_30d": 15.4,
+      "max_daily_fills_30d": 164,
+      "active_dates_30d": 8,
+      "curve_points": 11,
+      "distinct_curve_source_blocks": 9,
+      "curve_first": 1788652800,
+      "curve_last": 1789516800,
+      "matching_activity_trades": 462,
+      "activity_trade_rows": 462,
+      "activity_types": {
+        "MAKER_REBATE": 7,
+        "TAKER_REBATE": 11,
+        "REDEEM": 11,
+        "TRADE": 462
+      },
+      "curve_source_fidelity": "1d"
+    },
+    {
+      "name": "TheyAreTakingTheHobitsToIsengard",
+      "address": "0x1058f156b207cafe61d102e97bf6796931d301c1",
+      "fills_7d": 106,
+      "fills_30d": 3300,
+      "fills_per_calendar_day_30d": 110.0,
+      "max_daily_fills_30d": 1170,
+      "active_dates_30d": 20,
+      "curve_points": 43,
+      "distinct_curve_source_blocks": 39,
+      "curve_first": 1785888000,
+      "curve_last": 1789516800,
+      "matching_activity_trades": 3300,
+      "activity_trade_rows": 3300,
+      "activity_types": {
+        "REDEEM": 996,
+        "MAKER_REBATE": 17,
+        "REWARD": 6,
+        "TRADE": 3300,
+        "TAKER_REBATE": 7
+      },
+      "curve_source_fidelity": "1d"
+    },
+    {
+      "name": "ripley86alien",
+      "address": "0x168a51f1cac0ad3b166797069382495a8aa10d24",
+      "fills_7d": 74,
+      "fills_30d": 442,
+      "fills_per_calendar_day_30d": 14.733333333333333,
+      "max_daily_fills_30d": 96,
+      "active_dates_30d": 13,
+      "curve_points": 25,
+      "distinct_curve_source_blocks": 21,
+      "curve_first": 1787443200,
+      "curve_last": 1789516800,
+      "matching_activity_trades": 442,
+      "activity_trade_rows": 442,
+      "activity_types": {
+        "MAKER_REBATE": 10,
+        "TAKER_REBATE": 17,
+        "TRADE": 442,
+        "REDEEM": 12
+      },
+      "curve_source_fidelity": "1d"
+    },
+    {
+      "name": "xifutloong3",
+      "address": "0x2dc13c6bda81b202281e796953a7323de675b33c",
+      "fills_7d": 48,
+      "fills_30d": 159,
+      "fills_per_calendar_day_30d": 5.3,
+      "max_daily_fills_30d": 18,
+      "active_dates_30d": 22,
+      "curve_points": 154,
+      "distinct_curve_source_blocks": 139,
+      "curve_first": 1776297600,
+      "curve_last": 1789516800,
+      "matching_activity_trades": 159,
+      "activity_trade_rows": 159,
+      "activity_types": {
+        "REDEEM": 29,
+        "TRADE": 159,
+        "TAKER_REBATE": 22,
+        "MAKER_REBATE": 1
+      },
+      "curve_source_fidelity": "1d"
+    },
+    {
+      "name": "11vsldfdsgfkjgos",
+      "address": "0x397062018dfb77e855608fe23223592bc82c44ce",
+      "fills_7d": 19,
+      "fills_30d": 1343,
+      "fills_per_calendar_day_30d": 44.766666666666666,
+      "max_daily_fills_30d": 273,
+      "active_dates_30d": 15,
+      "curve_points": 29,
+      "distinct_curve_source_blocks": 20,
+      "curve_first": 1787097600,
+      "curve_last": 1789516800,
+      "matching_activity_trades": 1343,
+      "activity_trade_rows": 1343,
+      "activity_types": {
+        "TAKER_REBATE": 14,
+        "TRADE": 1343,
+        "MAKER_REBATE": 12,
+        "REDEEM": 23,
+        "REWARD": 2
+      },
+      "curve_source_fidelity": "1d"
+    },
+    {
+      "name": "0x5966Db1fE50763C9e3C014d756369BAd07E1F804-1777648534241",
+      "address": "0x5966db1fe50763c9e3c014d756369bad07e1f804",
+      "fills_7d": 118,
+      "fills_30d": 118,
+      "fills_per_calendar_day_30d": 3.933333333333333,
+      "max_daily_fills_30d": 118,
+      "active_dates_30d": 1,
+      "curve_points": 138,
+      "distinct_curve_source_blocks": 61,
+      "curve_first": 1777680000,
+      "curve_last": 1789516800,
+      "matching_activity_trades": 118,
+      "activity_trade_rows": 118,
+      "activity_types": {
+        "REDEEM": 1,
+        "TRADE": 118
+      },
+      "curve_source_fidelity": "1d"
+    },
+    {
+      "name": "ratehikes",
+      "address": "0xa309f903dbbd559e87d8d368834b8e41355c4cf2",
+      "fills_7d": 22,
+      "fills_30d": 391,
+      "fills_per_calendar_day_30d": 13.033333333333333,
+      "max_daily_fills_30d": 169,
+      "active_dates_30d": 10,
+      "curve_points": 135,
+      "distinct_curve_source_blocks": 131,
+      "curve_first": 1777939200,
+      "curve_last": 1789516800,
+      "matching_activity_trades": 391,
+      "activity_trade_rows": 391,
+      "activity_types": {
+        "REDEEM": 3,
+        "TRADE": 391,
+        "MAKER_REBATE": 8,
+        "REWARD": 9,
+        "CONVERSION": 30,
+        "TAKER_REBATE": 7
+      },
+      "curve_source_fidelity": "1d"
+    },
+    {
+      "name": "aghy",
+      "address": "0xc3daa1bb9ce85866fb1a7c3a5d02816798e641fe",
+      "fills_7d": 19,
+      "fills_30d": 363,
+      "fills_per_calendar_day_30d": 12.1,
+      "max_daily_fills_30d": 139,
+      "active_dates_30d": 21,
+      "curve_points": 58,
+      "distinct_curve_source_blocks": 56,
+      "curve_first": 1784592000,
+      "curve_last": 1789516800,
+      "matching_activity_trades": 363,
+      "activity_trade_rows": 363,
+      "activity_types": {
+        "TRADE": 363,
+        "REDEEM": 1,
+        "MAKER_REBATE": 11,
+        "TAKER_REBATE": 11,
+        "REWARD": 13
+      },
+      "curve_source_fidelity": "1d"
+    },
+    {
+      "name": "Dreamlawn",
+      "address": "0xeee1b757ce93e076fdb4c1f4ff183dc302c53e28",
+      "fills_7d": 15,
+      "fills_30d": 30,
+      "fills_per_calendar_day_30d": 1.0,
+      "max_daily_fills_30d": 8,
+      "active_dates_30d": 9,
+      "curve_points": 274,
+      "distinct_curve_source_blocks": 111,
+      "curve_first": 1765929600,
+      "curve_last": 1789516800,
+      "matching_activity_trades": 30,
+      "activity_trade_rows": 30,
+      "activity_types": {
+        "REDEEM": 3,
+        "TRADE": 30,
+        "TAKER_REBATE": 5
+      },
+      "curve_source_fidelity": "1d"
+    },
+    {
+      "name": "ethanaz",
+      "address": "0xf28e42d20e4826f2b10a24bc952001697947cab2",
+      "fills_7d": 32,
+      "fills_30d": 96,
+      "fills_per_calendar_day_30d": 3.2,
+      "max_daily_fills_30d": 23,
+      "active_dates_30d": 19,
+      "curve_points": 283,
+      "distinct_curve_source_blocks": 239,
+      "curve_first": 1765152000,
+      "curve_last": 1789516800,
+      "matching_activity_trades": 96,
+      "activity_trade_rows": 96,
+      "activity_types": {
+        "TRADE": 96,
+        "REDEEM": 34,
+        "TAKER_REBATE": 18,
+        "MAKER_REBATE": 3
+      },
+      "curve_source_fidelity": "1d"
+    }
+  ],
+  "checks": [
+    {
+      "check": "totoro3miyazaki trade cursor exhausted",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "check": "totoro3miyazaki activity cursor exhausted",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "check": "totoro3miyazaki trade identity/order/window",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "check": "totoro3miyazaki trade diagnostic uniqueness",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "check": "totoro3miyazaki curve timestamps ordered and unique",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "check": "totoro3miyazaki P&L component identities",
+      "passed": true,
+      "detail": 1.1641532182693481e-10
+    },
+    {
+      "check": "totoro3miyazaki OPEN position cursor exhausted",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "check": "totoro3miyazaki OPEN identity",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "check": "totoro3miyazaki REDEEMABLE position cursor exhausted",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "check": "totoro3miyazaki REDEEMABLE identity",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "check": "totoro3miyazaki CLOSED position cursor exhausted",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "check": "totoro3miyazaki CLOSED identity",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "check": "TheyAreTakingTheHobitsToIsengard trade cursor exhausted",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "check": "TheyAreTakingTheHobitsToIsengard activity cursor exhausted",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "check": "TheyAreTakingTheHobitsToIsengard trade identity/order/window",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "check": "TheyAreTakingTheHobitsToIsengard trade diagnostic uniqueness",
+      "passed": false,
+      "detail": null
+    },
+    {
+      "check": "TheyAreTakingTheHobitsToIsengard curve timestamps ordered and unique",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "check": "TheyAreTakingTheHobitsToIsengard P&L component identities",
+      "passed": true,
+      "detail": 1.4551915228366852e-11
+    },
+    {
+      "check": "TheyAreTakingTheHobitsToIsengard OPEN position cursor exhausted",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "check": "TheyAreTakingTheHobitsToIsengard OPEN identity",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "check": "TheyAreTakingTheHobitsToIsengard REDEEMABLE position cursor exhausted",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "check": "TheyAreTakingTheHobitsToIsengard REDEEMABLE identity",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "check": "TheyAreTakingTheHobitsToIsengard CLOSED position cursor exhausted",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "check": "TheyAreTakingTheHobitsToIsengard CLOSED identity",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "check": "ripley86alien trade cursor exhausted",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "check": "ripley86alien activity cursor exhausted",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "check": "ripley86alien trade identity/order/window",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "check": "ripley86alien trade diagnostic uniqueness",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "check": "ripley86alien curve timestamps ordered and unique",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "check": "ripley86alien P&L component identities",
+      "passed": true,
+      "detail": 2.3283064365386963e-10
+    },
+    {
+      "check": "ripley86alien OPEN position cursor exhausted",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "check": "ripley86alien OPEN identity",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "check": "ripley86alien REDEEMABLE position cursor exhausted",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "check": "ripley86alien REDEEMABLE identity",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "check": "ripley86alien CLOSED position cursor exhausted",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "check": "ripley86alien CLOSED identity",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "check": "xifutloong3 trade cursor exhausted",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "check": "xifutloong3 activity cursor exhausted",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "check": "xifutloong3 trade identity/order/window",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "check": "xifutloong3 trade diagnostic uniqueness",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "check": "xifutloong3 curve timestamps ordered and unique",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "check": "xifutloong3 P&L component identities",
+      "passed": true,
+      "detail": 2.9103830456733704e-11
+    },
+    {
+      "check": "xifutloong3 OPEN position cursor exhausted",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "check": "xifutloong3 OPEN identity",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "check": "xifutloong3 REDEEMABLE position cursor exhausted",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "check": "xifutloong3 REDEEMABLE identity",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "check": "xifutloong3 CLOSED position cursor exhausted",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "check": "xifutloong3 CLOSED identity",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "check": "11vsldfdsgfkjgos trade cursor exhausted",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "check": "11vsldfdsgfkjgos activity cursor exhausted",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "check": "11vsldfdsgfkjgos trade identity/order/window",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "check": "11vsldfdsgfkjgos trade diagnostic uniqueness",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "check": "11vsldfdsgfkjgos curve timestamps ordered and unique",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "check": "11vsldfdsgfkjgos P&L component identities",
+      "passed": true,
+      "detail": 5.820766091346741e-11
+    },
+    {
+      "check": "11vsldfdsgfkjgos OPEN position cursor exhausted",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "check": "11vsldfdsgfkjgos OPEN identity",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "check": "11vsldfdsgfkjgos REDEEMABLE position cursor exhausted",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "check": "11vsldfdsgfkjgos REDEEMABLE identity",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "check": "11vsldfdsgfkjgos CLOSED position cursor exhausted",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "check": "11vsldfdsgfkjgos CLOSED identity",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "check": "0x5966Db1fE50763C9e3C014d756369BAd07E1F804-1777648534241 trade cursor exhausted",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "check": "0x5966Db1fE50763C9e3C014d756369BAd07E1F804-1777648534241 activity cursor exhausted",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "check": "0x5966Db1fE50763C9e3C014d756369BAd07E1F804-1777648534241 trade identity/order/window",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "check": "0x5966Db1fE50763C9e3C014d756369BAd07E1F804-1777648534241 trade diagnostic uniqueness",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "check": "0x5966Db1fE50763C9e3C014d756369BAd07E1F804-1777648534241 curve timestamps ordered and unique",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "check": "0x5966Db1fE50763C9e3C014d756369BAd07E1F804-1777648534241 P&L component identities",
+      "passed": true,
+      "detail": 4.656612873077393e-10
+    },
+    {
+      "check": "0x5966Db1fE50763C9e3C014d756369BAd07E1F804-1777648534241 OPEN position cursor exhausted",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "check": "0x5966Db1fE50763C9e3C014d756369BAd07E1F804-1777648534241 OPEN identity",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "check": "0x5966Db1fE50763C9e3C014d756369BAd07E1F804-1777648534241 REDEEMABLE position cursor exhausted",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "check": "0x5966Db1fE50763C9e3C014d756369BAd07E1F804-1777648534241 REDEEMABLE identity",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "check": "0x5966Db1fE50763C9e3C014d756369BAd07E1F804-1777648534241 CLOSED position cursor exhausted",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "check": "0x5966Db1fE50763C9e3C014d756369BAd07E1F804-1777648534241 CLOSED identity",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "check": "ratehikes trade cursor exhausted",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "check": "ratehikes activity cursor exhausted",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "check": "ratehikes trade identity/order/window",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "check": "ratehikes trade diagnostic uniqueness",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "check": "ratehikes curve timestamps ordered and unique",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "check": "ratehikes P&L component identities",
+      "passed": true,
+      "detail": 2.9103830456733704e-11
+    },
+    {
+      "check": "ratehikes OPEN position cursor exhausted",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "check": "ratehikes OPEN identity",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "check": "ratehikes REDEEMABLE position cursor exhausted",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "check": "ratehikes REDEEMABLE identity",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "check": "ratehikes CLOSED position cursor exhausted",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "check": "ratehikes CLOSED identity",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "check": "aghy trade cursor exhausted",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "check": "aghy activity cursor exhausted",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "check": "aghy trade identity/order/window",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "check": "aghy trade diagnostic uniqueness",
+      "passed": false,
+      "detail": null
+    },
+    {
+      "check": "aghy curve timestamps ordered and unique",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "check": "aghy P&L component identities",
+      "passed": true,
+      "detail": 1.4551915228366852e-11
+    },
+    {
+      "check": "aghy OPEN position cursor exhausted",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "check": "aghy OPEN identity",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "check": "aghy REDEEMABLE position cursor exhausted",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "check": "aghy REDEEMABLE identity",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "check": "aghy CLOSED position cursor exhausted",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "check": "aghy CLOSED identity",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "check": "Dreamlawn trade cursor exhausted",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "check": "Dreamlawn activity cursor exhausted",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "check": "Dreamlawn trade identity/order/window",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "check": "Dreamlawn trade diagnostic uniqueness",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "check": "Dreamlawn curve timestamps ordered and unique",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "check": "Dreamlawn P&L component identities",
+      "passed": true,
+      "detail": 2.9103830456733704e-11
+    },
+    {
+      "check": "Dreamlawn OPEN position cursor exhausted",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "check": "Dreamlawn OPEN identity",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "check": "Dreamlawn REDEEMABLE position cursor exhausted",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "check": "Dreamlawn REDEEMABLE identity",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "check": "Dreamlawn CLOSED position cursor exhausted",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "check": "Dreamlawn CLOSED identity",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "check": "ethanaz trade cursor exhausted",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "check": "ethanaz activity cursor exhausted",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "check": "ethanaz trade identity/order/window",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "check": "ethanaz trade diagnostic uniqueness",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "check": "ethanaz curve timestamps ordered and unique",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "check": "ethanaz P&L component identities",
+      "passed": true,
+      "detail": 2.3283064365386963e-10
+    },
+    {
+      "check": "ethanaz OPEN position cursor exhausted",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "check": "ethanaz OPEN identity",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "check": "ethanaz REDEEMABLE position cursor exhausted",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "check": "ethanaz REDEEMABLE identity",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "check": "ethanaz CLOSED position cursor exhausted",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "check": "ethanaz CLOSED identity",
+      "passed": true,
+      "detail": null
+    }
+  ],
+  "passed": 118,
+  "failed": 2,
+  "recorded_json_requests": 539,
+  "statuses": {
+    "200": 538,
+    "400": 1
+  }
+}

@@ -1,0 +1,51 @@
+[
+  {
+    "url": "https://data-api.polymarket.com/v2/prices-history?token_id=54651659931043297398913629831594522032687596145753262063105457966445353757657&interval=max&limit=10",
+    "received_at": "2026-09-16T23:40:26.983868+00:00",
+    "status": 200,
+    "sha256": "722f1c22e2d5e3901788fc87adb8000184d6c18d3757ad589dfaae768d810b37",
+    "attempts": 1
+  },
+  {
+    "url": "https://data-api.polymarket.com/v2/prices-history?token_id=54651659931043297398913629831594522032687596145753262063105457966445353757657&interval=max&limit=10&cursor=eyJkYXRhIjp7InR5cGUiOiJwcmljZXNfaGlzdG9yeSIsInBhcmFtcyI6eyJsIjoxMCwidHMiOjE3ODk0MzA0MDAsInNxIjoiNDMyMDAiLCJkIjoxMH19LCJzaWciOiJiOTYwYTk1YmRjYzgwYTVlN2I1MGY4OGUxYjM3MmJkNSJ9",
+    "received_at": "2026-09-16T23:40:27.153602+00:00",
+    "status": 200,
+    "sha256": "6ee1c9a569c780feb11bf12b0fd5499e2fd1b98a6de92018aae67a03a23e4994",
+    "attempts": 1
+  },
+  {
+    "url": "https://data-api.polymarket.com/v2/prices-history?token_id=54651659931043297398913629831594522032687596145753262063105457966445353757657&as_of=1789579807",
+    "received_at": "2026-09-16T23:40:27.262358+00:00",
+    "status": 200,
+    "sha256": "b1db85b51812f0a8384b41f154dd440f8017468abc40c5c86b7b43064f61903b",
+    "attempts": 1
+  },
+  {
+    "url": "https://gamma-api.polymarket.com/markets?condition_ids=0xc7cfe6321679b46112548f5490c7da11f1422fd42d4c0d9bb0d316b43d13255d",
+    "received_at": "2026-09-16T23:40:27.991208+00:00",
+    "status": 200,
+    "sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570",
+    "attempts": 1
+  },
+  {
+    "url": "https://gamma-api.polymarket.com/markets?active=true&closed=false&limit=1",
+    "received_at": "2026-09-16T23:40:28.033218+00:00",
+    "status": 200,
+    "sha256": "b7d1f14621765b55d4fa10f2e87b3d1130b951fa77e5aae42cf41c762991e946",
+    "attempts": 1
+  },
+  {
+    "url": "https://clob.polymarket.com/book?token_id=32338220190071351435772801779725302244575775216413325951443816017994629993401",
+    "received_at": "2026-09-16T23:40:28.091483+00:00",
+    "status": 200,
+    "sha256": "7944fd8a7adae91c85f403ec6c9b5609efb9b09ce4e3a5b5fb68873dd71d63d8",
+    "attempts": 1
+  },
+  {
+    "url": "https://clob.polymarket.com/fee-rate?token_id=32338220190071351435772801779725302244575775216413325951443816017994629993401",
+    "received_at": "2026-09-16T23:40:28.156348+00:00",
+    "status": 200,
+    "sha256": "72f0f488905219fa9b2f2c5374dfbf9e83345b1fa38826015b15119ac221a079",
+    "attempts": 1
+  }
+]

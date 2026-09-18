@@ -175,7 +175,12 @@ button, a { -webkit-tap-highlight-color: transparent; }
 
 .min-h-screen.bg-\[\#020b18\] { background: transparent !important; }
 .text-white { color: var(--navy-950); }
-.obsidian-card .text-white, .closing-card .text-white, .button-primary .text-white, .button-primary.text-white { color: white !important; }
+.obsidian-card .text-white, .closing-card .text-white, .button-primary .text-white, .button-primary.text-white,
+.bg-slate-950 .text-white, .bg-slate-900 .text-white, .bg-slate-800 .text-white, .bg-black .text-white,
+[class*="bg-sky-"] .text-white, [class*="bg-emerald-"] .text-white, [class*="bg-rose-"] .text-white, [class*="bg-indigo-"] .text-white, [class*="bg-gradient-"] .text-white,
+[class*="bg-\[#0284C7\]"] .text-white, [class*="bg-\[#0E1015\]"] .text-white {
+  color: white !important;
+}
 .text-white\/90, .text-white\/80, .text-white\/70 { color: #40556d !important; }
 .text-white\/60, .text-white\/50 { color: #657a91 !important; }
 .text-white\/40, .text-white\/30, .text-white\/20 { color: #8497aa !important; }

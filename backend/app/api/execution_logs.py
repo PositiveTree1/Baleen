@@ -300,28 +300,13 @@ async def get_portfolio_summary(
 
     values = {r.id: execution_valuation(r) for r in positions}
 
-    # For open positions pending tick where mark is not observed, fallback to entry fill mark:
-    for r in positions:
-        val = values[r.id]
-        if val['pnl'] is None and r.status == "FILLED":
-            fee = finite(r.fee_usd) or 0.0
-            fill_p = finite(r.user_fill_price)
-            values[r.id] = {
-                'pnl': -fee,
-                'grossPnl': 0.0,
-                'pnlPct': round(-fee / float(r.notional_usd) * 100, 2) if r.notional_usd and float(r.notional_usd) > 0 else 0.0,
-                'currentPrice': fill_p,
-                'fillPrice': fill_p,
-                'feeUsd': fee,
-                'markStatus': 'AT_FILL',
-                'markObservedAt': r.executed_at.isoformat() if r.executed_at else None,
-            }
-
+    # Entry prices do not establish current marks. Preserve unknown valuations
+    # and expose the known subtotal separately instead of inventing flat P&L.
     unvalued = sum(values[r.id]['pnl'] is None for r in positions)
     known_pnl = sum(values[r.id]['pnl'] for r in positions if values[r.id]['pnl'] is not None)
     total_pnl = None if unvalued else round(known_pnl, 2)
-    effective_pnl = total_pnl if total_pnl is not None else round(known_pnl, 2)
-    current_balance = round(starting_balance + effective_pnl, 2) if starting_balance is not None else None
+    current_balance = (round(starting_balance + total_pnl, 2)
+                       if starting_balance is not None and total_pnl is not None else None)
     now = datetime.utcnow()
     windows = {'1h': timedelta(hours=1), '6h': timedelta(hours=6), '1d': timedelta(days=1),
                '1w': timedelta(days=7), '1m': timedelta(days=30)}

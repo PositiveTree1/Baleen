@@ -11,7 +11,7 @@ interface DailyWinLossBarChartProps {
 export function DailyWinLossBarChart({ data }: DailyWinLossBarChartProps) {
   const chartData = useMemo(() => {
     if (!data || data.length === 0) return [];
-    return data.map(pt => {
+    return data.filter(pt => pt.dailyChangeKnown !== false).map(pt => {
       const daily = pt.dailyPnL ?? pt.netPnL ?? 0;
       const won = pt.wonUsd != null ? pt.wonUsd : Math.max(0, daily);
       const lost = pt.lostUsd != null ? (pt.lostUsd > 0 ? -pt.lostUsd : pt.lostUsd) : Math.min(0, daily);
@@ -91,11 +91,11 @@ export function DailyWinLossBarChart({ data }: DailyWinLossBarChartProps) {
 
                     <div className="space-y-1.5 font-mono text-xs">
                       <div className="flex items-center justify-between text-[#00D09C] font-bold">
-                        <span className="font-sans text-white/60 font-medium">Won:</span>
+                        <span className="font-sans text-white/60 font-medium">Increase:</span>
                         <span>+${won.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                       </div>
                       <div className="flex items-center justify-between text-[#FF453A] font-bold">
-                        <span className="font-sans text-white/60 font-medium">Lost:</span>
+                        <span className="font-sans text-white/60 font-medium">Decrease:</span>
                         <span>-${Math.abs(lost).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                       </div>
                       <div className="pt-1.5 border-t border-white/10 flex items-center justify-between font-extrabold text-sm">
@@ -113,7 +113,7 @@ export function DailyWinLossBarChart({ data }: DailyWinLossBarChartProps) {
           />
           <Bar 
             dataKey="wonUsd" 
-            name="Gross Won"
+            name="P&L increase"
             fill="#00D09C" 
             maxBarSize={calculatedMaxBar}
             radius={[3, 3, 0, 0]}
@@ -121,7 +121,7 @@ export function DailyWinLossBarChart({ data }: DailyWinLossBarChartProps) {
           />
           <Bar 
             dataKey="lostUsd" 
-            name="Gross Lost"
+            name="P&L decrease"
             fill="#FF453A" 
             maxBarSize={calculatedMaxBar}
             radius={[0, 0, 3, 3]}

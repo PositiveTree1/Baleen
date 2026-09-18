@@ -1,0 +1,141 @@
+{
+  "v2": {
+    "rows": 4000,
+    "distinct_diagnostic_keys": 4000,
+    "transactions": 3983,
+    "wrong_wallet": 0,
+    "oldest": 1787697300,
+    "newest": 1787735869,
+    "outside_requested_window": 0,
+    "descending": true,
+    "span_hours": 10.713611111111112,
+    "daily_fills": {
+      "2026-08-25": 1126,
+      "2026-08-26": 2874
+    }
+  },
+  "v1": {
+    "rows": 4000,
+    "distinct_diagnostic_keys": 4000,
+    "transactions": 3983,
+    "wrong_wallet": 0,
+    "oldest": 1787697300,
+    "newest": 1787735869,
+    "outside_requested_window": 0,
+    "descending": true,
+    "span_hours": 10.713611111111112,
+    "daily_fills": {
+      "2026-08-25": 1126,
+      "2026-08-26": 2874
+    }
+  },
+  "coverage": {
+    "complete": false,
+    "pages": 8,
+    "reason": "audit page budget reached"
+  },
+  "matching_keys": 4000,
+  "sample_rows": [
+    {
+      "proxy_wallet": "0x204f72f35326db932158cba6adff0b9a1da95e14",
+      "side": "BUY",
+      "token_id": "62467806598143189265573444239316761660699342259897174706670402593499902713936",
+      "condition_id": "0xa5c0fcd33c5a5cfdf54f9f5e62f562f4ee5fe7d6969a6ff40a1c54720b31bb06",
+      "size": 12.5,
+      "price": 0.6,
+      "timestamp": 1787735869,
+      "title": "Spread: Everton FC (-1.5)",
+      "slug": "efl-pne-eve-2026-08-26-spread-away-1pt5",
+      "icon": "https://polymarket-upload.s3.us-east-2.amazonaws.com/carabao-cup-logo-3ea964b550.png",
+      "event_slug": "efl-pne-eve-2026-08-26-more-markets",
+      "outcome": "Preston North End FC",
+      "outcome_index": 1,
+      "name": "swisstony",
+      "pseudonym": "Frail-Possible",
+      "bio": "So long, and thanks for all the fish",
+      "profile_image": "",
+      "profile_image_optimized": "",
+      "transaction_hash": "0xd597425358868f384612509547e568bc1b9d50add1fa658ff996a4d3bb97366f"
+    },
+    {
+      "proxy_wallet": "0x204f72f35326db932158cba6adff0b9a1da95e14",
+      "side": "BUY",
+      "token_id": "94362420319374005423186677508133375111177341623484264811493476603459562196897",
+      "condition_id": "0xd5c5ee4550befc8a02ff014267244cb2d34325537d9279e22a324df256249f0c",
+      "size": 100.0,
+      "price": 0.92,
+      "timestamp": 1787735862,
+      "title": "ITF W50 Kursumlijska Banja Women: Lea Boskovic vs Tahlia Kokkinis",
+      "slug": "itf-boskovi-kokkini-2026-08-26",
+      "icon": "https://polymarket-upload.s3.us-east-2.amazonaws.com/itf-5206dc6c54.png",
+      "event_slug": "itf-boskovi-kokkini-2026-08-26",
+      "outcome": "Lea Boskovic",
+      "outcome_index": 0,
+      "name": "swisstony",
+      "pseudonym": "Frail-Possible",
+      "bio": "So long, and thanks for all the fish",
+      "profile_image": "",
+      "profile_image_optimized": "",
+      "transaction_hash": "0x9c3038526361a5d67e9409d355672c3b005f4fcbdfa28861f7d5427a1a1146c8"
+    },
+    {
+      "proxy_wallet": "0x204f72f35326db932158cba6adff0b9a1da95e14",
+      "side": "BUY",
+      "token_id": "98214731993714531975745462327747402917489992365915631898139745751773438432586",
+      "condition_id": "0x967443ef32d7e62b0aac8e51991d059498d8152ac044a27ba1878b09d055f7e6",
+      "size": 23.21212,
+      "price": 0.3299999742,
+      "timestamp": 1787735860,
+      "title": "Daejeon Hana Citizen FC vs. Ulsan HD FC: O/U 3.5",
+      "slug": "kor-dae1-uls-2026-08-26-total-3pt5",
+      "icon": "https://polymarket-upload.s3.us-east-2.amazonaws.com/k-league-87b53492f4.png",
+      "event_slug": "kor-dae1-uls-2026-08-26-more-markets",
+      "outcome": "Over",
+      "outcome_index": 0,
+      "name": "swisstony",
+      "pseudonym": "Frail-Possible",
+      "bio": "So long, and thanks for all the fish",
+      "profile_image": "",
+      "profile_image_optimized": "",
+      "transaction_hash": "0x44ad29697a734b1224ad227f43a3fe55b0f1c7ee9a0bc5cca13cbd79334300d8"
+    }
+  ],
+  "stats": {
+    "data": {
+      "proxy_wallet": "0x204f72f35326db932158cba6adff0b9a1da95e14",
+      "trades": 203104,
+      "biggest_win": 1188300.188282,
+      "views": 1385206,
+      "join_date": 1753800366,
+      "all_time_pnl": {
+        "timestamp": 1789415370,
+        "source_block": 93806891,
+        "realized_market_pnl": 18419249.397111,
+        "realized_lp_pnl": 0.0,
+        "realized_combo_pnl": 0.0,
+        "unrealized_pnl": 54868.021187,
+        "fees_refunded": 2220210.393429,
+        "maker_rebate": 363418.4483,
+        "taker_rebate": 2084513.3073,
+        "reward_income": 111208.0385,
+        "yield_income": 0.0,
+        "referral_income": 0.0,
+        "deposits": null,
+        "withdrawals": null,
+        "realized_pnl": 18419249.397111,
+        "wallet_income": 2559139.7941,
+        "position_pnl": 18474117.418298,
+        "settled_pnl": 20978389.191211,
+        "economic_pnl": 21033257.212398,
+        "trade_pnl": 23526225.357273,
+        "sponsored_income": 111208.0385,
+        "fees": -7272318.332404,
+        "fees_paid": -5052107.938975,
+        "cashflow_net": null,
+        "volume": 1848848363.156314,
+        "volume_usdc": 1005948824.406403,
+        "trade_count": 6044066
+      }
+    }
+  }
+}

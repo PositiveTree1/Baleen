@@ -126,11 +126,13 @@ export function TradeLog({
 
           <div className="flex items-center gap-2">
             {/* Arctic Glass Segmented Pill Filter */}
-            <div className="flex rounded-full bg-white/5 p-1 border border-white/10 text-xs font-bold">
+            <div className="flex rounded-full bg-slate-100/90 p-1 border border-slate-200/80 text-xs font-bold">
               <button
                 onClick={() => setTab('holding')}
                 className={`px-3.5 py-1.5 rounded-full transition-all cursor-pointer ${
-                  tab === 'holding' ? 'glass-button text-white shadow-xs' : 'text-slate-400 hover:text-white'
+                  tab === 'holding'
+                    ? 'bg-white text-slate-900 font-bold shadow-xs border border-slate-200/70'
+                    : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
                 Holding ({totalHoldingCount ?? holdingLogs.length})
@@ -138,7 +140,9 @@ export function TradeLog({
               <button
                 onClick={() => setTab('closed')}
                 className={`px-3.5 py-1.5 rounded-full transition-all cursor-pointer ${
-                  tab === 'closed' ? 'glass-button text-white shadow-xs' : 'text-slate-400 hover:text-white'
+                  tab === 'closed'
+                    ? 'bg-white text-slate-900 font-bold shadow-xs border border-slate-200/70'
+                    : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
                 Closed ({totalClosedCount ?? closedLogs.length})

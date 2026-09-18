@@ -1,10 +1,10 @@
 import math
 import logging
 from typing import List, Dict, Set, Optional
-from datetime import datetime
+from datetime import datetime, timedelta
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, update
-from app.models import Wallet
+from app.models import Wallet, WalletEvidence
 from app.scoring.engine import score_wallet
 
 logger = logging.getLogger(__name__)
@@ -289,6 +289,14 @@ async def refresh_basket(db: AsyncSession, trigger_type: str = "SCHEDULED_CRON")
     candidate_stats_list = []
 
     for wallet in wallets:
+        evidence = await db.get(WalletEvidence, wallet.address)
+        from app.discovery.wallet_evidence import POLICY_VERSION
+        if (evidence is None or not evidence.payload.get("execution_approved", False)
+                or evidence.payload.get("policy_version") != POLICY_VERSION
+                or evidence.observed_at < datetime.utcnow() - timedelta(hours=24)):
+            wallet.status = "tracked"
+            wallet.rejection_reason = "; ".join(evidence.payload.get("reasons", [])) if evidence else "ACCOUNT_REPLAY_AND_FORWARD_VALIDATION_REQUIRED"
+            continue
         daily_hist = []
         if wallet.cached_daily_pnl:
             try:

@@ -311,24 +311,48 @@ export function WalletDrawer({ address, onClose }: WalletDrawerProps) {
 
                   {/* Chart Container Card */}
                   <div className="p-5 glass-card border border-sky-100/80 rounded-3xl space-y-4">
+                    <p className="text-xs text-slate-500">
+                      Economic P&L includes marked positions and wallet income. Daily bars show changes in P&L.
+                      {wallet.pnlMetadata?.status === 'cached' && ' Showing the last recorded provider curve.'}
+                      {wallet.pnlMetadata?.status === 'unavailable' && ' Provider curve currently unavailable.'}
+                    </p>
+                    {wallet.research && (
+                      <p className="text-xs text-slate-500">
+                        Research: {wallet.research.classification.replaceAll('_', ' ')} ·
+                        {' '}{wallet.research.metrics.fills_per_day_30d.toFixed(1)} fills/day over 30 full UTC days ·
+                        {' '}peak {wallet.research.metrics.max_daily_fills} fills/day. Copying has not been validated.
+                      </p>
+                    )}
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200 pb-3">
                       {/* Sub-tabs */}
                       <div className="flex rounded-full bg-slate-100/90 p-1 border border-slate-200/80 text-xs font-bold">
                         <button
                           onClick={() => setActiveChartTab('winloss')}
-                          className={`px-3 py-1.5 rounded-full transition-all cursor-pointer ${activeChartTab === 'winloss' ? 'bg-slate-950 text-white font-bold shadow-xs' : 'text-slate-600 hover:text-slate-950'}`}
+                          className={`px-3 py-1.5 rounded-full transition-all cursor-pointer ${
+                            activeChartTab === 'winloss'
+                              ? 'bg-white text-slate-900 font-bold shadow-xs border border-slate-200/70'
+                              : 'text-slate-600 hover:text-slate-950'
+                          }`}
                         >
-                          Daily Wins / Losses
+                          Daily P&L Changes
                         </button>
                         <button
                           onClick={() => setActiveChartTab('pnl')}
-                          className={`px-3 py-1.5 rounded-full transition-all cursor-pointer ${activeChartTab === 'pnl' ? 'bg-slate-950 text-white font-bold shadow-xs' : 'text-slate-600 hover:text-slate-950'}`}
+                          className={`px-3 py-1.5 rounded-full transition-all cursor-pointer ${
+                            activeChartTab === 'pnl'
+                              ? 'bg-white text-slate-900 font-bold shadow-xs border border-slate-200/70'
+                              : 'text-slate-600 hover:text-slate-950'
+                          }`}
                         >
                           Cumulative PnL
                         </button>
                         <button
                           onClick={() => setActiveChartTab('score')}
-                          className={`px-3 py-1.5 rounded-full transition-all cursor-pointer ${activeChartTab === 'score' ? 'bg-slate-950 text-white font-bold shadow-xs' : 'text-slate-600 hover:text-slate-950'}`}
+                          className={`px-3 py-1.5 rounded-full transition-all cursor-pointer ${
+                            activeChartTab === 'score'
+                              ? 'bg-white text-slate-900 font-bold shadow-xs border border-slate-200/70'
+                              : 'text-slate-600 hover:text-slate-950'
+                          }`}
                         >
                           Score History
                         </button>
@@ -340,7 +364,11 @@ export function WalletDrawer({ address, onClose }: WalletDrawerProps) {
                           <button
                             key={tf}
                             onClick={() => setTimeframe(tf)}
-                            className={`px-2.5 py-1 rounded-full transition-all cursor-pointer ${timeframe === tf ? 'bg-slate-950 text-white font-bold shadow-2xs' : 'text-slate-600 hover:text-slate-950'}`}
+                            className={`px-2.5 py-1 rounded-full transition-all cursor-pointer ${
+                              timeframe === tf
+                                ? 'bg-white text-slate-900 font-bold shadow-2xs border border-slate-200/70'
+                                : 'text-slate-600 hover:text-slate-950'
+                            }`}
                           >
                             {tf}
                           </button>

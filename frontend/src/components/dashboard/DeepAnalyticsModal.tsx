@@ -110,7 +110,7 @@ export function DeepAnalyticsModal({ isOpen, onClose, portfolio, logs }: DeepAna
           <button
             type="button"
             onClick={onClose}
-            className="px-6 py-2.5 rounded-xl bg-slate-950 dark:bg-white text-white dark:text-black text-xs font-bold hover:bg-slate-800 dark:hover:bg-slate-200 transition-all cursor-pointer shadow-sm"
+            className="px-6 py-2.5 rounded-xl glass-button text-xs font-bold cursor-pointer"
           >
             Close Analytics
           </button>

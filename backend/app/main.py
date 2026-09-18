@@ -56,6 +56,7 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["X-Wallet-Generation"],
 )
 
 app.include_router(wallets.router)
@@ -136,6 +137,9 @@ async def startup_event():
     
     # Schedule workers (Discovery runs every 20 minutes for continuous whale pipeline growth)
     scheduler.add_job(run_discovery, 'interval', minutes=20, id='discovery_job')
+    from app.workers.shadow_worker import run_shadow_observations
+    scheduler.add_job(run_shadow_observations, 'interval', seconds=30,
+                      id='wallet_shadow_observations', max_instances=1, coalesce=True)
     
     # Rescoring runs every 24 hours
     async def nightly_job():
