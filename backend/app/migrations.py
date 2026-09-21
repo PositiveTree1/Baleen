@@ -303,6 +303,32 @@ MIGRATIONS.append((22, 'forward_wallet_book_observations', [
     "CREATE TABLE IF NOT EXISTS wallet_shadow_observations (id VARCHAR PRIMARY KEY, wallet_address VARCHAR NOT NULL REFERENCES wallets(address), generation VARCHAR NOT NULL, observed_at TIMESTAMP NOT NULL, payload JSON NOT NULL)"
 ]))
 
+MIGRATIONS.append((23, 'durable_paper_research_journal', [
+    "CREATE TABLE IF NOT EXISTS paper_copy_research_runs (id VARCHAR PRIMARY KEY, user_id CHAR(32) NOT NULL REFERENCES users(id), source_wallet VARCHAR NOT NULL, created_at TIMESTAMP NOT NULL, policy JSON NOT NULL, revision INTEGER NOT NULL, report JSON NOT NULL)",
+    "CREATE TABLE IF NOT EXISTS paper_copy_research_events (run_id VARCHAR NOT NULL REFERENCES paper_copy_research_runs(id), source_id VARCHAR NOT NULL, sequence INTEGER NOT NULL, payload JSON NOT NULL, valuation_marks JSON NOT NULL, PRIMARY KEY (run_id, source_id), CONSTRAINT uq_paper_research_sequence UNIQUE (run_id, sequence))"
+], [
+    "CREATE TABLE IF NOT EXISTS paper_copy_research_runs (id VARCHAR PRIMARY KEY, user_id UUID NOT NULL REFERENCES users(id), source_wallet VARCHAR NOT NULL, created_at TIMESTAMP NOT NULL, policy JSON NOT NULL, revision INTEGER NOT NULL, report JSON NOT NULL)",
+    "CREATE TABLE IF NOT EXISTS paper_copy_research_events (run_id VARCHAR NOT NULL REFERENCES paper_copy_research_runs(id), source_id VARCHAR NOT NULL, sequence INTEGER NOT NULL, payload JSON NOT NULL, valuation_marks JSON NOT NULL, PRIMARY KEY (run_id, source_id), CONSTRAINT uq_paper_research_sequence UNIQUE (run_id, sequence))"
+]))
+
+MIGRATIONS.append((24, 'paper_copy_accounts', [
+    "CREATE TABLE IF NOT EXISTS paper_copy_accounts (user_id CHAR(32) PRIMARY KEY REFERENCES users(id), sandbox_run_id CHAR(32) NOT NULL REFERENCES sandbox_runs(id), status VARCHAR NOT NULL, run_ids JSON NOT NULL, updated_at TIMESTAMP NOT NULL, last_error VARCHAR)"
+], [
+    "CREATE TABLE IF NOT EXISTS paper_copy_accounts (user_id UUID PRIMARY KEY REFERENCES users(id), sandbox_run_id UUID NOT NULL REFERENCES sandbox_runs(id), status VARCHAR NOT NULL, run_ids JSON NOT NULL, updated_at TIMESTAMP NOT NULL, last_error VARCHAR)"
+]))
+
+MIGRATIONS.append((25, 'paper_copy_sniper_allocations', [
+    "CREATE TABLE IF NOT EXISTS paper_copy_sniper_allocations (id CHAR(32) PRIMARY KEY, user_id CHAR(32) NOT NULL REFERENCES users(id), source_event_id VARCHAR NOT NULL, source_wallet VARCHAR NOT NULL, donor_run_id VARCHAR REFERENCES paper_copy_research_runs(id), sniper_run_id VARCHAR REFERENCES paper_copy_research_runs(id), allocated_cash_usd VARCHAR, source_commitment_fraction VARCHAR, status VARCHAR NOT NULL, reason VARCHAR, payload JSON NOT NULL, created_at TIMESTAMP NOT NULL, CONSTRAINT uq_paper_sniper_allocation_source UNIQUE (user_id, source_event_id))"
+], [
+    "CREATE TABLE IF NOT EXISTS paper_copy_sniper_allocations (id UUID PRIMARY KEY, user_id UUID NOT NULL REFERENCES users(id), source_event_id VARCHAR NOT NULL, source_wallet VARCHAR NOT NULL, donor_run_id VARCHAR REFERENCES paper_copy_research_runs(id), sniper_run_id VARCHAR REFERENCES paper_copy_research_runs(id), allocated_cash_usd VARCHAR, source_commitment_fraction VARCHAR, status VARCHAR NOT NULL, reason VARCHAR, payload JSON NOT NULL, created_at TIMESTAMP NOT NULL, CONSTRAINT uq_paper_sniper_allocation_source UNIQUE (user_id, source_event_id))"
+]))
+
+MIGRATIONS.append((26, 'paper_copy_roster_rotations', [
+    "CREATE TABLE IF NOT EXISTS paper_copy_roster_rotations (id CHAR(32) PRIMARY KEY, user_id CHAR(32) NOT NULL REFERENCES users(id), promoted JSON NOT NULL, retired JSON NOT NULL, skipped JSON NOT NULL, created_at TIMESTAMP NOT NULL)"
+], [
+    "CREATE TABLE IF NOT EXISTS paper_copy_roster_rotations (id UUID PRIMARY KEY, user_id UUID NOT NULL REFERENCES users(id), promoted JSON NOT NULL, retired JSON NOT NULL, skipped JSON NOT NULL, created_at TIMESTAMP NOT NULL)"
+]))
+
 LATEST_SCHEMA_VERSION = max(v for v, _, _, _ in MIGRATIONS) if MIGRATIONS else 0
 
 

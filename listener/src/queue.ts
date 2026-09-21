@@ -66,10 +66,12 @@ export async function postSignalToBackend(signal: WhaleTradeSignal): Promise<boo
 export async function drainQueue(): Promise<{ delivered: number; remaining: number }> {
   return serialized(async () => {
     const file = queueFile();
+    let quarantined = 0;
+    try { quarantined = (await fs.promises.readFile(quarantineFile(file), 'utf8')).split('\n').filter(Boolean).length; } catch {}
     let content: string;
-    try { content = await fs.promises.readFile(file, 'utf-8'); } catch { return { delivered: 0, remaining: 0 }; }
+    try { content = await fs.promises.readFile(file, 'utf-8'); } catch { return { delivered: 0, remaining: quarantined }; }
     const lines = content.split('\n').filter(Boolean);
-    if (lines.length === 0) return { delivered: 0, remaining: 0 };
+    if (lines.length === 0) return { delivered: 0, remaining: quarantined };
     const remainingLines: string[] = [];
     const malformedLines: string[] = [];
     let deliveredCount = 0;
@@ -81,6 +83,6 @@ export async function drainQueue(): Promise<{ delivered: number; remaining: numb
     if (malformedLines.length) await appendDurably(quarantineFile(file), malformedLines.join('\n') + '\n');
     await syncFile(tempFile(file), remainingLines.length ? remainingLines.join('\n') + '\n' : '');
     await fs.promises.rename(tempFile(file), file);
-    return { delivered: deliveredCount, remaining: remainingLines.length };
+    return { delivered: deliveredCount, remaining: remainingLines.length + malformedLines.length + quarantined };
   });
 }

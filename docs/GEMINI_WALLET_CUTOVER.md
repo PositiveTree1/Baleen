@@ -1,63 +1,63 @@
-# Gemini operational handoff — September 18, 2026
+# Gemini deployment and reset handoff — September 21, 2026
 
-## What is ready, and what this deployment does
+## Release status and scope
 
-This is a **research/data cutover**, not approval to activate the proposed trading strategy. The implementation adds a fresh wallet registry evaluation path, archived statistics reset, current accounting snapshots, fixed-share sizing checks, independent accounting/replay tools and forward book observation. It does not establish profitable future copying.
+The paper pipeline is implemented locally: automatic capital-tier roster selection, visible monitored standby snipers, receipt-verified proportional paper copying, observed book fills/fees, durable journals, confirmed payouts, safe roster rotation, and dashboard audit reports. Schema **26** adds the roster-rotation audit after migrations 24–25 add account selection and sniper-allocation audits. This supersedes the September 18 research-only handoff.
 
-New roster allocations remain gated. After the statistics reset, the account-owned live coordinator also rejects new BUY entries without fresh generation-matching research approval, checked before signing and again before submission. Existing SELL eligibility, holdings, balances and executions are preserved. Do not set `execution_approved=true` to make the roster start trading.
+Production repair is not yet confirmed. September 20 public checks showed zero active basket wallets and an unknown listener; the five UI selections were browser-only settings. Private Railway logs remain unavailable because Railway is signed out. Read [the incident report](TRADE_INGESTION_INCIDENT_2026-09-20.md).
 
-The legacy paper simulator still contains P&L-as-capital estimates and synthetic fill assumptions. It is not the new validated copying implementation. Its old reports must not be represented as validation of the new strategy. The new replay explicitly consumes supplied venue observations and never submits orders.
+## 1. Commit and deploy the complete release
 
-## GitHub scope
+Verify the GitHub origin, Railway/Vercel projects and deployment branches. Review and commit the relevant backend, frontend, listener, startup, migrations, tests and docs together. Do not deploy only the Procfile fix or blindly stage everything.
 
-Inspected local checkout: branch `master`, origin `https://github.com/PositiveTree1/Baleen.git`. Verify the actual Railway and Vercel linked branches/projects before pushing; local branch names do not prove deployment settings.
-
-Review and commit the relevant application, tests, migrations, README and strategy/research documentation changes from the recent sessions. Preserve the existing frontend edits. Do not use a blind `git add .`.
-
-**Exclude these existing, unrelated modified financial backups:**
+Exclude secrets, environment files, local databases, dependencies/build output, and unrelated modified backups:
 
 - `backend/data/backups/baleen_all_trades_backup.csv`
 - `backend/data/backups/baleen_all_trades_backup.json`
 
-Also exclude credentials, `.env` files, local databases, dependency directories and build output. The recorded wallet API research is public data, but inspect staged files before publishing. Keep the exact original request and the archived strategy documents; they explain superseded behavior. `docs/WALLET_STRATEGY_LOGIC.md` is the main strategy document.
+Preserve unrelated `BalanceCounter.tsx` edits for their owner to review separately. Keep `docs/WALLET_STRATEGY_LOGIC.md` as the current strategy authority and retain dated evidence/archives.
 
-## Controlled Supabase cutover
+Local checks: 2,829 backend tests previously passed with isolated PostgreSQL; the current focused regression suite has 55 passing tests covering automatic ranking, standby monitoring, sniper allocations, retirement/exit handling, receipt-to-dashboard accounting and reset isolation. All 13 listener tests and the frontend production build pass. Review dated logs in `docs/research/` before pushing.
 
-1. Confirm the intended production Supabase project and schema. Take a database backup/snapshot and verify it is accessible. Do not print database credentials in logs or commit them.
-2. Review the diff and prepare the commit locally before changing production. Do not push yet if that starts deployment automatically.
-3. Quiesce the old application writers: discovery/scoring jobs, API writers, listener and trading workers. Stop new submissions and reconcile outstanding/uncertain orders first. Do not delete or relabel pending orders to make this step pass. Plan a short maintenance window and resume exit monitoring promptly afterward.
-4. Run the **new checkout's** migrations against the intended database with the existing approved production environment. Do not start the API/background workers yet. From `backend`, using Python 3.12:
+## 2. Verify production before any reset
+
+1. Deploy the reviewed commit to Railway and Vercel; verify both deployed versions. Confirm Railway starts both Node and Python through `bash start.sh` (also the Dockerfile entrypoint).
+2. Confirm the intended database, complete schema **26**, background workers, listener service authentication, Envio configuration and receipt RPC. Do not print secrets. Keep real-money execution gated.
+3. Run `python -m app.paper_preflight` from `backend` in the deployed environment. Inspect `/ready`, private startup/error logs and failed inbox entries. Passing preflight alone does not prove copying or profitability.
+4. Verify persisted listener health ONLINE, advancing delivered-block cursor and restart recovery. Investigate quarantined/failed signals; do not delete them to make health checks pass.
+5. Start automatic paper copying with only a paper-cash amount. The server selects the capital-tier roster from fresh eligible candidates; there is no manual wallet selection. Verify active sources, standby snipers and their listener inclusion using service authentication.
+6. Trace a **new post-start** active-wallet fill through listener → inbox → canonical event → receipt proof → journal → dashboard. Use am100 (`0x6e32312760e4604d45a8ae69cede9ef9a0b8ab65`) if current screening permits. Earlier fills are outside the new run cutoff. Do not bypass a fresh exclusion to force activity.
+7. Verify ratio, book/depth, estimated fee, shares and cash. Also trace a standby sniper BUY: it must either move only free cash from the lowest current-P&L active sleeve or visibly record why no allocation was safe. Confirm roster rotation never closes existing positions and leaves retired wallets exit-only.
+
+## 3. Optional global wallet-statistics reset
+
+This archives statistics and preserves addresses. It does not clear balances, positions, executions or paper account history. Do it only after the release is verified and the user is ready.
+
+1. Confirm the Supabase project, take a backup and verify access to it.
+2. Stop all writers during maintenance: APIs, discovery/evaluation, listener and trading workers. Reconcile outstanding/uncertain real orders first; do not discard them. Resume exit monitoring promptly afterward.
+3. With Python 3.12 and the new environment, confirm migrations, then preview using one stable reset ID:
 
    ```powershell
-   python -c "import asyncio; import app.models; from app.database import init_db; asyncio.run(init_db())"
+   python -m app.reset_wallet_statistics --reset-id wallet-evidence-2026-09-21
    ```
 
-   Confirm schema version 22. Migrations 20–22 add reset archives, immutable research observations and forward book observations. Migration 19 adds current wallet evidence.
-
-5. Use one stable reset ID. Preview first:
+4. Check target/counts and apply with writers stopped:
 
    ```powershell
-   python -m app.reset_wallet_statistics --reset-id wallet-evidence-2026-09-18
+   python -m app.reset_wallet_statistics --reset-id wallet-evidence-2026-09-21 --apply --workers-stopped
    ```
 
-   Verify the wallet count and target database, then apply while writers are stopped:
+5. Reusing the same ID is idempotent. Do not substitute TRUNCATE or a SQL wipe. Current statistics/evidence/scores are archived; addresses and first-seen dates remain. Derived statistics/identity metadata are cleared; retained wallets await fresh collection. Historical observations retain their generation. Financial records remain intact.
+6. Resume only new binaries. Check retained addresses remain searchable, old cached scores/curves are invalidated, and new evidence uses the new generation. Re-evaluation handles 25 due wallets per batch. Do not force `execution_approved=true`.
 
-   ```powershell
-   python -m app.reset_wallet_statistics --reset-id wallet-evidence-2026-09-18 --apply --workers-stopped
-   ```
+## 4. Start a clean personal paper run
 
-   Repeating the same ID is idempotent and does not clear newly collected statistics. The transaction archives wallet rows, current evidence and score snapshots; retains addresses and first-seen dates; clears current derived statistics, identity metadata, cached curves, scores, summaries and qualification; removes old current evidence and score snapshots; and marks wallets tracked for fresh collection. Historical observation tables stay available under their original generation. **No user, balance, position, trade, execution, settlement or account policy table is deleted/reset.** Do not substitute `TRUNCATE`, a SQL editor wipe, or the existing full sandbox reset.
+Use **Start fresh**, enter starting paper cash, then **Archive current run and start automatic paper copying**. Fresh equity baselines must succeed before archival. The server chooses the active roster and sets fixed ratios; standby snipers stay visible and monitored without idle sleeves. This is separate from the global statistics reset.
 
-6. Push the reviewed commit and allow Railway/Vercel to deploy the new code. Resume workers only on the new version. Old binaries do not understand the generation fence and must not write after reset.
-7. Verify startup health and schema version; the generation response header; frontend cache invalidation; no old scores/curves returning; preserved account/position counts; active exit monitoring; new `wallet_evidence` and `wallet_evidence_observations` rows; and blocked unapproved BUYs. Re-evaluation processes 25 due wallets per batch, so rebuilding is gradual, not immediate.
-8. After eligible research candidates/watchlist wallets receive fresh evidence, the 30-second observation job rotates through five wallets per batch. It records observed books/fee responses and partial-window errors, not invented fills or profits. Empty complete windows advance monitoring checkpoints without generating observation rows.
+Verify server-saved selections and repeat the new-fill trace. Retain old audit records. The collapsed earlier simulator panels display separate results and are not the new journal's performance.
 
-If cutover fails, keep new allocations paused and preserve the archives. Do not roll back to old writer binaries against the reset database without a reviewed recovery plan. Existing financial accounting was intentionally not modified by the reset.
+## Remaining research boundary
 
-## Validation and remaining work
+Forward paper copying supports trade fills and confirmed payouts, not arbitrary source transfers/splits/merges/conversions. Historical funding/inventory reconstruction, held-out comparisons and prospective profitability results remain unverified. Current equity snapshots are not historical capital. There is no automatic live approval or demonstrated profit guarantee.
 
-Read `docs/WALLET_IMPLEMENTATION_REVIEW.md` and the latest test logs before deployment. Passing tests establish software behavior, not profitable copying.
-
-Still required for strategy activation: receipt-level mapping of provider history to the independent ledger, historical funding/inventory and marks, independently verified account-specific capital/allocation baselines, prospective resolved outcomes, held-out comparison against cash/simpler policies, and replacement of the legacy paper simulation with the verified replay/execution path. A current accounting ZIP is not historical strategy capital. The forward recorder is the start of observation, not a completed experiment.
-
-Report the commit hash, deployment URLs/versions, reset ID, archived/retained wallet counts, preserved financial-record checks and fresh-evidence progress. State plainly that new strategy allocations remain paused.
+Report commit/deployment versions, schema, listener/cursor evidence, source transaction and journal result, reset ID/counts if applied, preserved financial records and fresh evaluation progress. A reset is not an ingestion repair.

@@ -17,7 +17,7 @@ from app.auth import require_admin
 from app.models import User
 from app.services import paper_runs  # Register default operational run isolation.
 from app.api import wallets, execution_logs, users, admin, signals, events, copilot, live_trading
-from app.api import live_setup
+from app.api import live_setup, paper_copy
 from app.workers.discovery_worker import run_discovery
 from app.workers.scoring_worker import run_rescoring
 from app.workers.analysis_worker import run_analysis
@@ -27,6 +27,7 @@ logger = logging.getLogger(__name__)
 
 app = FastAPI(title="Baleen Backend", version="0.1.0")
 app.include_router(live_setup.router)
+app.include_router(paper_copy.router)
 
 # Enable Gzip compression (compresses responses > 500 bytes by ~85%)
 app.add_middleware(GZipMiddleware, minimum_size=500)
@@ -138,6 +139,12 @@ async def startup_event():
     # Schedule workers (Discovery runs every 20 minutes for continuous whale pipeline growth)
     scheduler.add_job(run_discovery, 'interval', minutes=20, id='discovery_job')
     from app.workers.shadow_worker import run_shadow_observations
+    from app.services.paper_copy_worker import run_paper_copy
+    from app.services.roster_rotation import run_automatic_roster_rotation
+    scheduler.add_job(run_paper_copy, 'interval', seconds=15,
+                      id='verified_paper_copy', max_instances=1, coalesce=True)
+    scheduler.add_job(run_automatic_roster_rotation, 'interval', minutes=20,
+                      id='automatic_paper_roster_rotation', max_instances=1, coalesce=True)
     scheduler.add_job(run_shadow_observations, 'interval', seconds=30,
                       id='wallet_shadow_observations', max_instances=1, coalesce=True)
     
@@ -266,14 +273,9 @@ async def readiness_check(db: AsyncSession = Depends(get_db)):
             content={"status": "not_ready", "error": "PostgreSQL required in production environment"}
         )
 
-    # 4. Dynamic listener status
-    now = time.time()
-    if last_listener_heartbeat == 0.0:
-        listener_status = "UNKNOWN"
-    elif (now - last_listener_heartbeat) < 60:
-        listener_status = "ONLINE"
-    else:
-        listener_status = "OFFLINE"
+    # Read durable heartbeat state so replicas agree about the listener.
+    from app.services.listener_health import listener_health
+    listener_status = (await listener_health(db))['status']
 
     return {
         "status": "ready",
@@ -297,13 +299,8 @@ async def get_stats(db: AsyncSession = Depends(get_db)):
         select(func.coalesce(func.sum(ExecutionLog.notional_usd), 0))
     )).scalar() or 0
 
-    now = time.time()
-    if last_listener_heartbeat == 0.0:
-        indexer_status = "UNKNOWN"
-    elif (now - last_listener_heartbeat) < 60:
-        indexer_status = "ONLINE"
-    else:
-        indexer_status = "OFFLINE"
+    from app.services.listener_health import listener_health
+    indexer_status = (await listener_health(db))['status']
     
     return {
         "totalVolumeMirrored": round(total_volume, 2),

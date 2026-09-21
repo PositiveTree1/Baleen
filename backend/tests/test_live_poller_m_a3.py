@@ -69,6 +69,23 @@ async def setup_test_db():
 # ============================================================================
 
 @pytest.mark.asyncio
+async def test_detected_source_survives_ineligible_copy_roster():
+    service = LiveTradeMirrorService()
+    observed_at = datetime.utcnow()
+    await service.process_trade_fill(
+        wallet_address="0xtest_whale_not_active", condition_id="0xdetected_condition",
+        title="Detected but not approved", side="BUY", price=.5, cash_usd=100,
+        dt=observed_at, outcome="Yes", tx_hash="0xdetected_ineligible", log_index=7,
+        block_number=123, block_hash="0xblock", shares=200)
+    async with SessionLocal() as db:
+        source = (await db.execute(select(CanonicalSourceEvent).where(
+            CanonicalSourceEvent.tx_hash == "0xdetected_ineligible"))).scalars().one()
+        assert source.block_time == observed_at
+        assert source.status == "CONFIRMED"
+        assert (await db.execute(select(func.count()).select_from(ExecutionLog).where(
+            ExecutionLog.onchain_tx_hash == "0xdetected_ineligible"))).scalar() == 0
+
+@pytest.mark.asyncio
 async def test_platform_log_database_deduplication():
     """
     Verifies that dual-ingestion duplicate signals with matching

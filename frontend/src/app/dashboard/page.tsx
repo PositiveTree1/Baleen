@@ -2,6 +2,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { useSession } from 'next-auth/react';
+import { PaperCopyPanel } from '@/components/dashboard/PaperCopyPanel';
 import { BalanceCounter } from '@/components/dashboard/BalanceCounter';
 import { LiveTape } from '@/components/dashboard/LiveTape';
 import { WalletLeaderboard } from '@/components/dashboard/WalletLeaderboard';
@@ -75,6 +76,7 @@ export default function DashboardPage() {
 
   // View Mode: 'sandbox' | 'live'
   const [viewMode, setViewMode] = useState<'sandbox' | 'live'>('sandbox');
+  const [legacyOpen, setLegacyOpen] = useState(false);
   const [liveDashboard, setLiveDashboard] = useState<LiveTradingDashboard | null>(null);
 
   // 4 Action Modals
@@ -93,23 +95,27 @@ export default function DashboardPage() {
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const accessToken = session?.user?.accessToken || (session as { accessToken?: string })?.accessToken;
 
   const handleDataRefresh = useCallback(() => {
     setRefreshTrigger((prev) => prev + 1);
   }, []);
 
   useEffect(() => {
-    if (session?.user?.accessToken) {
-      setAuthToken(session.user.accessToken);
+    if (accessToken) {
+      setAuthToken(accessToken);
     }
-  }, [session]);
+  }, [accessToken]);
 
   useEffect(() => {
     let isMounted = true;
+    let loading = false;
 
     const loadData = async () => {
       if (typeof document !== 'undefined' && document.hidden) return;
-      const token = session?.user?.accessToken || (session as { accessToken?: string })?.accessToken || getAuthToken();
+      if (loading) return;
+      loading = true;
+      const token = accessToken || getAuthToken();
       if (token) {
         setAuthToken(token);
       }
@@ -118,10 +124,10 @@ export default function DashboardPage() {
       try {
         const [userData, portfolioData, logsData, liveData, walletsData] = await Promise.all([
           canFetchPrivate ? fetchUserSettings(targetUserId!) : null,
-          canFetchPrivate ? fetchPortfolioSummary(targetUserId!) : null,
-          canFetchPrivate ? fetchExecutionLogs(targetUserId!, { limit: '500' }) : [],
-          canFetchPrivate ? fetchLiveDashboard(targetUserId!) : null,
-          fetchWallets()
+          canFetchPrivate && legacyOpen ? fetchPortfolioSummary(targetUserId!) : null,
+          canFetchPrivate && legacyOpen ? fetchExecutionLogs(targetUserId!, { limit: '500' }) : [],
+          canFetchPrivate && viewMode === 'live' ? fetchLiveDashboard(targetUserId!) : null,
+          legacyOpen ? fetchWallets() : []
         ]);
         if (!isMounted) return;
         if (userData) setUser(userData);
@@ -138,6 +144,8 @@ export default function DashboardPage() {
         if (isMounted) {
           setLoadError("Unable to reach backend control plane. Retrying automatically...");
         }
+      } finally {
+        loading = false;
       }
     };
 
@@ -147,7 +155,7 @@ export default function DashboardPage() {
       isMounted = false;
       clearInterval(interval);
     };
-  }, [session, refreshTrigger]);
+  }, [accessToken, effectiveUserId, refreshTrigger, legacyOpen, viewMode]);
 
   const toggleSound = () => {
     const next = soundFx.toggleSound();
@@ -468,6 +476,9 @@ export default function DashboardPage() {
         {/* VIEW 1: SANDBOX (PAPER TRADING) */}
         {viewMode === 'sandbox' && (
           <>
+            <PaperCopyPanel onConfigure={() => setIsMirrorOpen(true)} />
+            <details open={legacyOpen} onToggle={e => setLegacyOpen(e.currentTarget.open)}><summary className="cursor-pointer text-sm text-slate-500">Earlier simulator panels (separate results)</summary>
+            {legacyOpen && <>
             {/* Hero Section: Balance & 4-Action Row */}
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-5 sm:gap-6 pt-1 sm:pt-2">
               <BalanceCounter
@@ -526,6 +537,8 @@ export default function DashboardPage() {
               totalFillsCount={portfolio?.filledTradesCount}
               onSelectTrade={setSelectedTrade}
             />
+            </>}
+            </details>
           </>
         )}
 

@@ -23,7 +23,25 @@ async def capture_window(client, address, start, end):
                 fresh = fresh and 0 <= now_ms-int(book["timestamp"]) <= 30000
             except (ValueError, TypeError, KeyError):
                 fresh = False
-            return token, {"observed_at_ms": now_ms, "book": book, "fee_response": fee, "fresh_book": bool(fresh)}
+            # Keep raw market fee rules with the book. The fee-rate endpoint
+            # alone does not establish the actual charged fee for a fill.
+            market = None
+            market_error = None
+            condition = book.get("market") if isinstance(book, dict) else None
+            if isinstance(condition, str) and condition:
+                try:
+                    market = await client.fetch_market_info(condition)
+                    if not isinstance(market, dict):
+                        market = None
+                        market_error = "MarketMetadataUnavailable"
+                except Exception as exc:
+                    market_error = type(exc).__name__
+            else:
+                market_error = "BookMarketIdentityUnavailable"
+            return token, {"observed_at_ms": now_ms, "book": book, "fee_response": fee,
+                           "fresh_book": bool(fresh), "market_metadata": market,
+                           "market_metadata_error": market_error,
+                           "market_observed_at_ms": int(datetime.now(timezone.utc).timestamp()*1000)}
     books = dict(await asyncio.gather(*(observe(t) for t in tokens[:20])))
     return {"source_window": trades, "venue_observations": books, "token_budget_exhausted": len(tokens) > 20,
             "mode": "forward_observation_only", "execution_approved": False,

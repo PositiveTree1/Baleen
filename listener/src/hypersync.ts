@@ -163,7 +163,8 @@ export function buildQuery(fromBlock: number) {
 export async function streamEvents(
   client: IHyperSyncClient,
   fromBlock: number,
-  onEvent: (event: OrderFilledEvent) => Promise<void>
+  onEvent: (event: OrderFilledEvent) => Promise<void>,
+  beforeBatch?: () => Promise<void>
 ) {
   let currentBlock = fromBlock;
   let isRunning = true;
@@ -173,6 +174,8 @@ export async function streamEvents(
 
   while (isRunning) {
     try {
+      // Never advance a cursor against an unavailable or stale follow list.
+      if (beforeBatch) await beforeBatch();
       const query = buildQuery(currentBlock);
       // Delay execution until a configurable confirmation depth. Deep reorg
       // reconciliation still requires explicit operational handling.

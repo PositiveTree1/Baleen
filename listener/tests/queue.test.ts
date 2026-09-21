@@ -44,9 +44,10 @@ describe('durable signal queue', () => {
   it('quarantines malformed lines instead of dropping them', async () => {
     await fs.promises.writeFile(file, '{malformed}\n' + JSON.stringify(signal('4')) + '\n');
     fetchMock.mockResolvedValueOnce(new Response(JSON.stringify({ accepted: true }), { status: 201 }));
-    await drainQueue();
+    expect((await drainQueue()).remaining).toBe(1);
     expect(await fs.promises.readFile(path.join(dir, 'queue.jsonl.invalid'), 'utf8')).toContain('{malformed}');
     expect((await fs.promises.readFile(file, 'utf8')).trim()).toBe('');
+    expect((await drainQueue()).remaining).toBe(1); // Never checkpoint beyond unresolved corrupt work.
   });
 
   it('serializes append with drain so an in-flight append is preserved', async () => {

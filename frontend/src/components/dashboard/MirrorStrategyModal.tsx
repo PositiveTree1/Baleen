@@ -1,193 +1,36 @@
 'use client';
-import { useState, useEffect } from 'react';
-import { ShieldCheck, Zap, Sliders, CheckCircle2, UserCheck, Plus, ExternalLink, ArrowRight } from 'lucide-react';
-import { fetchWallets, getCachedWallets } from '@/lib/api-client';
-import { Wallet } from '@/types';
+import { useEffect, useState } from 'react';
+import { startAutomaticPaperCopy } from '@/lib/api-client';
 import { Modal } from '../ui/Modal';
-
 export interface MirrorStrategyModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  onSelectWallet?: (address: string) => void;
-  targetSleeveCount?: number;
-  bankroll?: number;
+  isOpen: boolean; onClose: () => void; onSelectWallet?: (address: string) => void;
+  targetSleeveCount?: number; bankroll?: number;
 }
-
-export function MirrorStrategyModal({ isOpen, onClose, onSelectWallet, targetSleeveCount, bankroll }: MirrorStrategyModalProps) {
-  const [wallets, setWallets] = useState<Wallet[]>(() => getCachedWallets() || []);
-  const [multipliers, setMultipliers] = useState<Record<string, number>>({});
-  const [activeWhales, setActiveWhales] = useState<Record<string, boolean>>({});
-
-  const effectiveTargetSleeveCount = targetSleeveCount ?? (bankroll !== undefined ? (bankroll < 250 ? 1 : bankroll < 1000 ? 2 : bankroll < 3000 ? 4 : bankroll < 15000 ? 5 : 10) : 5);
-
+export function MirrorStrategyModal({ isOpen, onClose, bankroll }: MirrorStrategyModalProps) {
+  const [cash, setCash] = useState('10000');
+  const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
   useEffect(() => {
-    if (isOpen) {
-      let savedMults: Record<string, number> = {};
-      let savedActive: Record<string, boolean> = {};
-      if (typeof window !== 'undefined') {
-        try {
-          savedMults = JSON.parse(localStorage.getItem('baleen_whale_multipliers') || '{}');
-          savedActive = JSON.parse(localStorage.getItem('baleen_active_whales') || '{}');
-        } catch {}
-      }
-
-      fetchWallets({ limit: '150' }).then((data) => {
-        if (data && data.length > 0) {
-          setWallets(data);
-          const sorted = [...data]
-            .filter((w) => !w.dormant && w.tier !== 'dormant')
-            .sort((a, b) => (b.score ?? -Infinity) - (a.score ?? -Infinity));
-          const topAddrs = new Set(sorted.slice(0, effectiveTargetSleeveCount).map((w) => (w.address || '').toLowerCase()));
-
-          setActiveWhales((prev) => {
-            const next = { ...prev, ...savedActive };
-            data.forEach((w) => {
-              if (next[w.address] === undefined) {
-                next[w.address] = topAddrs.has((w.address || '').toLowerCase());
-              }
-            });
-            return next;
-          });
-          setMultipliers((prev) => {
-            const next = { ...prev, ...savedMults };
-            data.forEach((w) => {
-              if (next[w.address] === undefined) {
-                next[w.address] = w.tier === 'gold_sniper' ? 1.5 : 1.0;
-              }
-            });
-            return next;
-          });
-        }
-      });
-    }
-  }, [isOpen, effectiveTargetSleeveCount]);
-
-  const toggleWhale = (addr: string) => {
-    setActiveWhales((prev) => {
-      const updated = { ...prev, [addr]: !prev[addr] };
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('baleen_active_whales', JSON.stringify(updated));
-      }
-      return updated;
-    });
-  };
-
-  const setMultiplier = (addr: string, val: number) => {
-    setMultipliers((prev) => {
-      const updated = { ...prev, [addr]: val };
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('baleen_whale_multipliers', JSON.stringify(updated));
-      }
-      return updated;
-    });
-  };
-
-  const activeCount = Object.values(activeWhales).filter(Boolean).length;
-
-  return (
-    <Modal
-      isOpen={isOpen}
-      onClose={onClose}
-      title="Whale Copy Strategy & Multipliers"
-      subtitle={`Adaptive paper copy weights across candidate Polymarket indexers (${effectiveTargetSleeveCount} active sleeves target)`}
-      maxWidth="max-w-2xl"
-    >
-      <div className="space-y-4 sm:space-y-6">
-        {/* Strategy Overview */}
-        <div className="grid grid-cols-3 gap-3 text-center">
-          <div className="p-3 rounded-2xl glass-card">
-            <span className="text-[10px] font-semibold text-slate-500 dark:text-[#8E8F99] uppercase">Index Whales</span>
-            <div className="text-lg font-bold text-slate-950 dark:text-white font-mono mt-0.5">
-              {activeCount > 0 ? activeCount : effectiveTargetSleeveCount} Active
-            </div>
-          </div>
-          <div className="p-3 rounded-2xl glass-card">
-            <span className="text-[10px] font-semibold text-slate-500 dark:text-[#8E8F99] uppercase">Execution Mode</span>
-            <div className="text-lg font-bold text-emerald-600 dark:text-[#00D09C] font-mono mt-0.5">Paper Autopilot</div>
-          </div>
-          <div className="p-3 rounded-2xl glass-card">
-            <span className="text-[10px] font-semibold text-slate-500 dark:text-[#8E8F99] uppercase">Slippage Tolerance</span>
-            <div className="text-lg font-bold text-slate-950 dark:text-white font-mono mt-0.5">1.5 Cents</div>
-          </div>
-        </div>
-
-        {/* Whales Multipliers List */}
-        <div className="max-h-[50vh] overflow-y-auto space-y-2 pr-1 divide-y divide-black/[0.04] dark:divide-white/5">
-          {wallets.map((w) => {
-            const name = w.name || w.pseudonym || `${w.address.slice(0, 6)}...${w.address.slice(-4)}`;
-            const isEnabled = activeWhales[w.address] ?? true;
-            const mult = multipliers[w.address] ?? 1.0;
-
-            return (
-              <div key={w.address} className="pt-2.5 flex items-center justify-between p-2 rounded-2xl hover:bg-white/60 dark:hover:bg-white/[0.04] transition-colors">
-                <div className="flex items-center gap-3 min-w-0">
-                  <button
-                    type="button"
-                    onClick={() => toggleWhale(w.address)}
-                    aria-label={`Toggle paper copy for ${name}`}
-                    className={`w-6 h-6 rounded-full flex items-center justify-center transition-all cursor-pointer ${
-                      isEnabled ? 'bg-[#00D09C] text-black' : 'bg-slate-200 dark:bg-white/10 text-slate-400'
-                    }`}
-                  >
-                    {isEnabled ? <CheckCircle2 size={14} /> : <div className="w-2 h-2 rounded-full bg-slate-400 dark:bg-slate-600" />}
-                  </button>
-                  <div className="truncate">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-bold text-slate-900 dark:text-white truncate">{name}</span>
-                      {w.tier === 'gold_sniper' && (
-                        <span className="text-[9px] px-1.5 py-0.2 rounded-full bg-amber-500/10 text-amber-500 font-bold border border-amber-500/20">
-                          Gold
-                        </span>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-2 text-[10px] text-slate-500 dark:text-[#8E8F99] font-mono">
-                      <span>WR: {w.winRate !== undefined && w.winRate !== null ? `${(w.winRate * 100).toFixed(0)}%` : '—'}</span>
-                      <span>•</span>
-                      <span>PnL: {w.pnl !== undefined && w.pnl !== null ? `${w.pnl >= 0 ? '+' : ''}${(w.pnl / 1000).toFixed(1)}k` : '—'}</span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-3">
-                  <div className="flex rounded-full bg-white/[0.06] p-0.5 border border-white/10 text-[10px] font-bold backdrop-blur-md">
-                    {[1.0, 1.5, 2.0].map((v) => (
-                      <button
-                        key={v}
-                        type="button"
-                        onClick={() => setMultiplier(w.address, v)}
-                        aria-label={`Set multiplier ${v}x for ${name}`}
-                        className={`px-2.5 py-0.5 rounded-full transition-all cursor-pointer ${
-                          mult === v ? 'glass-button text-white shadow-2xs' : 'text-slate-400 hover:text-white'
-                        }`}
-                      >
-                        {v}x
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-
-        {/* Footer Actions */}
-        <div className="pt-3 border-t border-white/10 flex justify-between items-center">
-          <span className="text-xs text-slate-400 font-mono">All paper orders simulated via CLOB taker limit</span>
-          <button
-            type="button"
-            onClick={() => {
-              if (typeof window !== 'undefined') {
-                localStorage.setItem('baleen_whale_multipliers', JSON.stringify(multipliers));
-                localStorage.setItem('baleen_active_whales', JSON.stringify(activeWhales));
-              }
-              onClose();
-            }}
-            className="px-6 py-2.5 rounded-xl glass-button text-white text-xs font-bold transition-all cursor-pointer shadow-sm"
-          >
-            Save Strategy
-          </button>
-        </div>
-      </div>
-    </Modal>
-  );
+    if (!isOpen) return;
+    setError(''); setCash(String(Math.max(20, bankroll ?? 10000)));
+  }, [isOpen, bankroll]);
+  async function save() {
+    setBusy(true); setError('');
+    try {
+      await startAutomaticPaperCopy(cash);
+      window.dispatchEvent(new Event('paper-copy-updated'));
+      onClose();
+    } catch (e) { setError(e instanceof Error ? e.message : 'Could not start paper copying'); }
+    finally { setBusy(false); }
+  }
+  return <Modal isOpen={isOpen} onClose={onClose} title="Start automatic paper copying" subtitle="The server selects the roster" maxWidth="max-w-2xl">
+    <div className="space-y-4">
+      <p className="text-sm">Starting fresh archives your current paper run. Baleen selects the capital-appropriate active roster from fresh eligible research candidates, then divides paper cash equally. Only future fills are copied.</p>
+      <label className="block">Starting paper cash ($)<input className="ml-3 rounded-lg border p-2 bg-transparent" type="number" min="20" max="10000000" value={cash} onChange={e => setCash(e.target.value)} /></label>
+      <p className="text-sm">Automatic roster · standby snipers remain monitored · paper research only · no real-money approval</p>
+      {error && <p role="alert" className="text-red-500">{error}</p>}
+      <p className="text-xs text-slate-500">The active roster uses fresh, non-HFT research candidates ranked by recent and all-time verified P&amp;L. If no qualified wallets exist yet, the existing run is kept intact.</p>
+      <button disabled={busy || Number(cash) < 20} onClick={save} className="glass-button rounded-xl px-5 py-3 disabled:opacity-40">{busy ? 'Building automatic roster…' : 'Archive current run and start automatic paper copying'}</button>
+    </div>
+  </Modal>;
 }

@@ -1,5 +1,5 @@
 import { config } from './config';
-import { getResumeBlock } from './checkpoint';
+import { getResumeBlock, saveCheckpoint } from './checkpoint';
 import { createHyperSyncClient, streamEvents } from './hypersync';
 import { matchesBasketWallets } from './event-processor';
 import { enqueueSignal, drainQueue } from './queue';
@@ -14,9 +14,9 @@ async function fetchBasketWallets(retries = 5, backoffMs = 2000): Promise<Set<st
       if (res.ok) {
         const wallets: any[] = await res.json();
         const set = new Set<string>(wallets.map(w => (w.address || w).toLowerCase()));
-        if (set.size > 0) {
-          return set;
-        }
+        return set;
+      } else {
+        throw new Error(`Watched-wallet request failed: HTTP ${res.status}`);
       }
     } catch (e: any) {
       if (attempt === retries) {
@@ -28,7 +28,7 @@ async function fetchBasketWallets(retries = 5, backoffMs = 2000): Promise<Set<st
       }
     }
   }
-  return new Set();
+  throw new Error('Cannot load the server-owned watched-wallet list');
 }
 
 async function main() {
@@ -40,6 +40,13 @@ async function main() {
 
   const client = createHyperSyncClient();
   let startBlock = getResumeBlock();
+  const checkpointResponse = await fetch(`${config.BACKEND_URL}/api/signals/checkpoint`, {
+    headers: { 'X-Service-Key': config.LISTENER_SERVICE_KEY }, signal: AbortSignal.timeout(8000)
+  });
+  if (!checkpointResponse.ok) throw new Error(`Cannot read durable cursor: HTTP ${checkpointResponse.status}`);
+  const checkpoint: any = await checkpointResponse.json();
+  if (!Number.isSafeInteger(checkpoint.deliveredBlock) || checkpoint.deliveredBlock < 0) throw new Error('Invalid durable cursor');
+  if (checkpoint.deliveredBlock > 0) startBlock = startBlock ? Math.min(startBlock, checkpoint.deliveredBlock) : checkpoint.deliveredBlock;
   try {
     const currentHeight = await client.getHeight();
     if (!startBlock) {
@@ -56,21 +63,23 @@ async function main() {
   }
 
   let eventsProcessed = 0;
+  // Local state may be ahead of the backend after an ephemeral queue loss.
+  // Never advertise that abandoned cursor as delivered before replaying it.
+  saveCheckpoint(startBlock);
   let matchesFound = 0;
   let draining = false;
+  let deliveredBlock = checkpoint.deliveredBlock;
   const deliver = async () => {
     if (draining) return;
     draining = true;
-    try { await drainQueue(); } finally { draining = false; }
+    const candidate = getResumeBlock();
+    try {
+      const result = await drainQueue();
+      if (result.remaining === 0) deliveredBlock = Math.max(deliveredBlock, candidate);
+    } finally { draining = false; }
   };
   await deliver();
   setInterval(() => { void deliver().catch(console.error); }, 5000);
-
-  setInterval(async () => {
-    const updated = await fetchBasketWallets();
-    // Retain monitored wallets for exits until a holdings-aware roster exists.
-    for (const wallet of updated) basketWallets.add(wallet);
-  }, 60000);
 
   setInterval(() => {
     console.log(`Stats - Events: ${eventsProcessed}, Matches: ${matchesFound}, Block: ${getResumeBlock()}`);
@@ -86,9 +95,12 @@ async function main() {
         eventsProcessed,
         matchesFound,
         block: getResumeBlock(),
+        deliveredBlock,
         timestamp: Date.now()
       })
-    }).catch(() => {});
+    }).then(res => {
+      if (!res.ok) console.error(`Listener heartbeat rejected: HTTP ${res.status}`);
+    }).catch(error => console.error('Listener heartbeat failed:', error.message));
   }, 15000);
 
   await streamEvents(client, startBlock, async (event) => {
@@ -100,11 +112,14 @@ async function main() {
       console.log('Match found!', signal);
       await enqueueSignal(signal);
     }
-  });
+  }, async () => { basketWallets = await fetchBasketWallets(1, 0); });
 
   console.log('Listener shut down.');
 }
 
 if (require.main === module) {
-  main().catch(console.error);
+  main().catch(error => {
+    console.error('Fatal listener failure:', error);
+    process.exit(1);
+  });
 }

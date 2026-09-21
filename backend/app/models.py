@@ -457,6 +457,67 @@ class SandboxReevaluation(Base):
     demotions = Column(JSON, nullable=True) # Native JSON / JSONB
     execution_duration_ms = Column(Float, default=0.0)
 
+class PaperCopyAccount(Base):
+    __tablename__ = "paper_copy_accounts"
+    user_id = Column(GUID(), ForeignKey("users.id"), primary_key=True)
+    sandbox_run_id = Column(GUID(), ForeignKey("sandbox_runs.id"), nullable=False)
+    status = Column(String, nullable=False, default="ACTIVE")
+    run_ids = Column(JSON, nullable=False)
+    updated_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    last_error = Column(String, nullable=True)
+
+
+class PaperCopyResearchRun(Base):
+    """One immutable source allocation; separate from legacy simulated trades."""
+    __tablename__ = "paper_copy_research_runs"
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    user_id = Column(GUID(), ForeignKey("users.id"), nullable=False)
+    source_wallet = Column(String, nullable=False)
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    policy = Column(JSON, nullable=False)
+    revision = Column(Integer, nullable=False, default=0)
+    report = Column(JSON, nullable=False)
+
+
+class PaperCopyResearchEvent(Base):
+    __tablename__ = "paper_copy_research_events"
+    run_id = Column(String, ForeignKey("paper_copy_research_runs.id"), primary_key=True)
+    source_id = Column(String, primary_key=True)
+    sequence = Column(Integer, nullable=False)
+    payload = Column(JSON, nullable=False)
+    valuation_marks = Column(JSON, nullable=False)
+    __table_args__ = (UniqueConstraint("run_id", "sequence", name="uq_paper_research_sequence"),)
+
+
+class PaperCopySniperAllocation(Base):
+    """Auditable paper-only transfer from an idle active sleeve to a sniper."""
+    __tablename__ = "paper_copy_sniper_allocations"
+    id = Column(GUID(), primary_key=True, default=uuid.uuid4)
+    user_id = Column(GUID(), ForeignKey("users.id"), nullable=False, index=True)
+    source_event_id = Column(String, nullable=False)
+    source_wallet = Column(String, nullable=False)
+    donor_run_id = Column(String, ForeignKey("paper_copy_research_runs.id"), nullable=True)
+    sniper_run_id = Column(String, ForeignKey("paper_copy_research_runs.id"), nullable=True)
+    allocated_cash_usd = Column(String, nullable=True)
+    source_commitment_fraction = Column(String, nullable=True)
+    status = Column(String, nullable=False)
+    reason = Column(String, nullable=True)
+    payload = Column(JSON, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    __table_args__ = (UniqueConstraint("user_id", "source_event_id", name="uq_paper_sniper_allocation_source"),)
+
+
+class PaperCopyRosterRotation(Base):
+    """History of autonomous active-roster promotions and safe retirements."""
+    __tablename__ = "paper_copy_roster_rotations"
+    id = Column(GUID(), primary_key=True, default=uuid.uuid4)
+    user_id = Column(GUID(), ForeignKey("users.id"), nullable=False, index=True)
+    promoted = Column(JSON, nullable=False)
+    retired = Column(JSON, nullable=False)
+    skipped = Column(JSON, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+
 class ExposureLedger(Base):
     __tablename__ = "exposure_ledger"
 

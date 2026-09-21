@@ -57,3 +57,29 @@ async def test_shadow_records_actual_book_times_without_inventing_fills(monkeypa
     assert not result["venue_observations"]["123"]["fresh_book"]
     assert result["mode"] == "forward_observation_only" and not result["execution_approved"]
     assert "fill_price" not in result["venue_observations"]["123"]
+
+
+@pytest.mark.asyncio
+async def test_shadow_retains_fee_schedule_and_preserves_books_when_metadata_fails(monkeypatch):
+    monkeypatch.setattr("app.services.wallet_shadow.cursor_history", AsyncMock(
+        return_value={"rows": [{"token_id": "123"}], "complete": True}))
+    client = AsyncMock()
+    client.clob_api_url = "https://example.test"
+    client.fetch_order_book.return_value = {"asset_id": "123", "market": "0xcondition",
+        "timestamp": str(int(datetime.now(timezone.utc).timestamp()*1000)), "bids": [], "asks": []}
+    client._fetch_with_retry.return_value = {"base_fee": 1000}
+    metadata = {"conditionId": "0xcondition", "feesEnabled": True,
+                "feeSchedule": {"rate": .04, "exponent": 1, "takerOnly": True}}
+    client.fetch_market_info.return_value = metadata
+    result = await capture_window(client, "0xa", 10, 20)
+    observed = result["venue_observations"]["123"]
+    assert observed["market_metadata"] == metadata
+    assert observed["market_metadata_error"] is None
+    assert observed["market_observed_at_ms"] >= observed["observed_at_ms"]
+    client.fetch_market_info.assert_awaited_once_with("0xcondition")
+    client.fetch_market_info.side_effect = TimeoutError
+    result = await capture_window(client, "0xa", 10, 20)
+    observed = result["venue_observations"]["123"]
+    assert observed["market_metadata"] is None
+    assert observed["market_metadata_error"] == "TimeoutError"
+    assert observed["book"] == client.fetch_order_book.return_value

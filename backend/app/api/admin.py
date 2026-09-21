@@ -23,11 +23,33 @@ last_listener_heartbeat = 0.0
 @router.post("/heartbeat")
 async def listener_heartbeat(
     payload: dict = Body(default={}),
-    _service_ok: bool = Depends(verify_listener_service_key)
+    _service_ok: bool = Depends(verify_listener_service_key),
+    db: AsyncSession = Depends(get_db)
 ):
     """Heartbeat reported by listener ingestion service."""
     global last_listener_heartbeat
     last_listener_heartbeat = time.time()
+    import json
+    from app.models import KeyValue
+    from app.services.paper_runs import financial_lock
+    await financial_lock(db)
+    row = await db.get(KeyValue, 'listener_heartbeat')
+    try: previous = json.loads(row.value) if row else {}
+    except (ValueError, TypeError): previous = {}
+    progress_at = previous.get('last_progress_at', last_listener_heartbeat)
+    if isinstance(payload.get('block'), int) and payload['block'] > (previous.get('block') or 0):
+        progress_at = last_listener_heartbeat
+    data = json.dumps({'received_at': last_listener_heartbeat,
+                      'last_progress_at': progress_at,
+                      **{k: payload.get(k) for k in ('block', 'deliveredBlock', 'eventsProcessed', 'matchesFound')}})
+    if row is None: db.add(KeyValue(key='listener_heartbeat', value=data))
+    else: row.value = data
+    cursor = payload.get('deliveredBlock')
+    if isinstance(cursor, int) and not isinstance(cursor, bool) and cursor > 0:
+        checkpoint = await db.get(KeyValue, 'listener_delivered_block')
+        if checkpoint is None: db.add(KeyValue(key='listener_delivered_block', value=str(cursor)))
+        elif cursor > int(checkpoint.value): checkpoint.value = str(cursor)
+    await db.commit()
     return {"status": "ok", "received_at": last_listener_heartbeat}
 
 

@@ -1,0 +1,35 @@
+
+> baleen-listener@0.1.0 test
+> jest --runInBand
+
+ts-jest[config] (WARN) message TS151002: Using hybrid module kind (Node16/18/Next) is only supported in "isolatedModules: true". Please set "isolatedModules: true" in your tsconfig.json. To disable this message, you can set "diagnostics.ignoreCodes" to include 151002 in your ts-jest config. See more at https://kulshekhar.github.io/ts-jest/docs/getting-started/options/diagnostics
+PASS tests/roster.test.ts
+PASS tests/envio.test.ts
+PASS tests/v1_v2_processor.test.ts
+PASS tests/queue.test.ts
+  ● Console
+
+    console.error
+      [ERROR] Failed to post signal 0x0000000000000000000000000000000000000000000000000000000000000003:0:0x1111111111111111111111111111111111111111 to backend: HTTP 409
+
+      52 |
+      53 |     if (!response.ok) {
+    > 54 |       console.error(`[ERROR] Failed to post signal ${signalIdentityKey(signal)} to backend: HTTP ${response.status} ${response.statusText}`);
+         |               ^
+      55 |       return false;
+      56 |     }
+      57 |     let body: unknown;
+
+      at postSignalToBackend (src/queue.ts:54:15)
+      at src/queue.ts:81:11
+
+
+Test Suites: 4 passed, 4 total
+Tests:       13 passed, 13 total
+Snapshots:   0 total
+Time:        2.931 s, estimated 3 s
+Ran all test suites.
+
+> baleen-listener@0.1.0 build
+> tsc
+

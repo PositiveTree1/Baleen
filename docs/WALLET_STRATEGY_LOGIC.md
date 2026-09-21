@@ -1,6 +1,20 @@
 # Baleen wallet selection and copy logic
 
-Updated: 2026-09-17. This is the single current strategy document. Overall direction accepted; detailed policy remains under validation. Only the small provider/discovery fixes listed below are implemented. This is not a validated profit claim.
+Updated: 2026-09-21. This is the single current strategy document. The dated audit sections below preserve the original findings; this implementation summary supersedes their older implementation-status statements. This is not a validated profit claim.
+
+## Current implementation and activation boundary
+
+The paper application now has one server-owned selection per account. The former browser-only switches did not control copying; they have been replaced. Starting a paper run explicitly archives its predecessor, saves the selected admitted wallet addresses, observes current leader equity, and fixes each allocation ratio for that run. This is a forward research trial, not automatic real-money qualification. Fresh exclusion evidence blocks new starts/entries; existing exits remain supported. Quiet research/watchlist wallets are monitored independently of active allocations.
+
+The scheduled paper worker consumes durable source detections, verifies the exact V1/V2 Polygon receipt and confirmation depth, observes book depth and market fee metadata, and writes a unique account decision. Copying rejection cannot erase source detection. Complete legs must meet minimum size/notional, depth, slippage, cash and inventory constraints. Missed in-scope legs pause subsequent entries, preserving visible fidelity failure rather than changing sizes. Exits of leader inventory predating the run are labelled outside its scope. The ratio never uses lifetime P&L.
+
+Cash, inventory, fees, partial exits and paper settlement use the independent Decimal ledger. Missing/stale marks make current equity and P&L unavailable. Binary paper settlement reads confirmed CTF payouts and waits until source delivery/processing has caught up; it is not an on-chain redemption transaction. Old simulator records are separate from these results. The dashboard reads saved selections and journal outcomes rather than inventing a followed count.
+
+Listener supervision restarts both required processes if either exits. A server-stored delivery checkpoint permits restart/redeployment replay; it advances only after acknowledged delivery. Each ingestion batch refreshes the watched roster before advancing. Durable heartbeat/progress state distinguishes unknown, online, stalled and offline across replicas. `python -m app.paper_preflight` provides read-only deployment checks.
+
+**Required before calling production repaired:** deploy the complete backend/listener/frontend release through migration 24, verify the listener and worker in the target environment, start the desired fresh paper configuration, and observe a real new source fill through the deployed journal and UI. Local passing tests alone do not establish this.
+
+**Still empirical, not granted by code:** historical independent reconciliation where external funding/basis is unavailable, adequate prospective resolved outcomes, untouched cohort comparisons, and demonstrable profitable copying. The application does not issue real-money approval. Arbitrary source transfers, splits, merges and conversions are not replicated by the trade-only follower; their absence prevents representing it as a full wallet clone. The independent offline ledger supports those events only when valuation/basis evidence is supplied.
 
 The [original request](WALLET_STRATEGY_ORIGINAL_REQUEST.md) is preserved verbatim. This document separates requested behavior, observed evidence, and proposed decisions. Numerical defaults below are research hypotheses unless explicitly identified as user requirements. Historical build specifications in `archive/` are not current strategy instructions. See the [wallet data audit](research/WALLET_DATA_AUDIT.md) for tests, results, limitations and cleanup details.
 

@@ -1,5 +1,29 @@
 # Wallet implementation and independent review — September 17, 2026
 
+## September 21 paper integration
+
+The previously disconnected research journal is now called by an authenticated configuration API and a scheduled worker. The dashboard's browser-only selections have been replaced with server-owned selections. Read [the current implementation summary](WALLET_STRATEGY_LOGIC.md#current-implementation-and-activation-boundary) before the older review notes below.
+
+Added receipt verification for both monitored exchange versions, observed-depth fee estimates, partial-exit accounting, confirmed binary payouts, durable delivery checkpoints, cross-replica listener health, process supervision, owner-scoped reset isolation, and explicit missing-evidence/fidelity states. A fresh paper run supports $20 and above; small trades are never rounded up to force fills.
+
+Validation: **2,829 backend tests passed**, including PostgreSQL, and the frontend production build passed. Listener tests/build and final browser checks are recorded alongside `research/backend-tests-paper-integration-2026-09-21.txt` and `research/frontend-build-paper-integration-2026-09-21.txt`. The paper integration tests include the actual receipt verifier, duplicate workers, partial exits, baseline-fetch failure, reset isolation and win/loss/void payouts.
+
+No production deployment or database reset has been performed. Railway requires authentication in the available browser; private runtime logs have not been inspected. Future empirical validation and unsupported source lifecycle operations remain the limits stated in the main document.
+
+Final September 21 checks: 18 focused integration tests passed after adding the registry selection endpoint, and the frontend production build passed again. Browser checks with a disposable local fixture confirmed server-saved selection, a checked searchable wallet with no statistics, journal shares/fees, and unavailable valuation when the worker is stale. These synthetic checks are not production trades. Collapsed legacy panels now stay unmounted and dashboard polling uses stable authentication dependencies with an overlap guard. The deployment handoff now requires schema 24 and a deployed receipt-to-journal trace before reset.
+
+## September 20 durable research journal
+
+Migration 23 adds owner-scoped paper research runs and source-event journals, separate from legacy paper trading records. The service persists an explicit fixed ratio and source cutoff, reconstructs Decimal accounting from retained observations, and atomically stores each event and resulting report. Exact retries return the stored result; conflicting evidence and missing journal sequences are rejected. PostgreSQL row locking serializes concurrent workers. Valuation marks are retained with each event.
+
+A missed source leg pauses later entries while allowing inventory-backed exits. Unknown marks produce unavailable P&L. Runs explicitly cover new source fills only, with no assumed starting leader inventory. Caller-supplied receipt identities, venue observations and marks are labelled as requiring upstream verification; the journal itself does not establish their authenticity or freshness.
+
+The forward recorder also retains market metadata, including the observed fee schedule, alongside the raw fee-rate response and book. Metadata failure preserves the book with an explicit error. This supplies inputs for later fee conversion; it does not manufacture fee amounts. Provider references: [fees](https://docs.polymarket.com/trading/fees) and [market details](https://docs.polymarket.com/market-data/market-details), checked September 20.
+
+Validation: **2,811 backend tests passed**, including PostgreSQL migration and concurrent duplicate delivery. After adding retained valuation marks, incomplete-history rejection and fee metadata capture, **20 targeted regression tests passed** (`research/paper-journal-final-2026-09-20.txt`). The full-suite log is `research/backend-tests-paper-journal-2026-09-20.txt`.
+
+**This is persisted research infrastructure, not the production simulator replacement.** No API, scheduler or live order path invokes this journal yet. Receipt verification, observed book-depth/fee conversion, authenticated run controls and dashboard integration remain required before switching the running paper simulator. No production migration, reset, deployment or trading activation was performed.
+
 ## September 18 engineering follow-up
 
 Implemented and verified locally; GitHub push, production migrations and the Supabase cutover are left to Gemini. Use [the operational handoff](GEMINI_WALLET_CUTOVER.md).

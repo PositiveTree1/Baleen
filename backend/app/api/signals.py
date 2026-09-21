@@ -2,6 +2,7 @@ import uuid
 import json
 import logging
 from datetime import datetime
+from datetime import timedelta
 from typing import Optional
 from decimal import Decimal, InvalidOperation
 import re
@@ -21,6 +22,14 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/signals", tags=["signals"])
 
 
+@router.get('/checkpoint')
+async def listener_checkpoint(db: AsyncSession = Depends(get_db),
+                              _authenticated: bool = Depends(verify_listener_service_key)):
+    from app.models import KeyValue
+    row = await db.get(KeyValue, 'listener_delivered_block')
+    return {'deliveredBlock': int(row.value) if row else 0}
+
+
 @router.get('/watched-wallets')
 async def watched_wallets(db: AsyncSession = Depends(get_db),
                           _authenticated: bool = Depends(verify_listener_service_key)):
@@ -31,7 +40,23 @@ async def watched_wallets(db: AsyncSession = Depends(get_db),
         LiveExecutionAccount.user_id == LiveCopyPolicy.user_id).where(LiveExecutionAccount.enabled.is_(True)))).scalars().all()
     live_held = (await db.execute(select(LiveSourcePosition.source_wallet_address).where(
         LiveSourcePosition.quantity > 0))).scalars().all()
-    return sorted({a.lower() for a in [*active, *held, *live_held, *(a for sources in policies for a in sources)] if a})
+    from app.models import PaperCopyAccount, PaperCopyResearchRun
+    accounts = (await db.execute(select(PaperCopyAccount).where(PaperCopyAccount.status == 'ACTIVE'))).scalars().all()
+    run_ids = [rid for account in accounts for rid in account.run_ids]
+    paper_sources = (await db.execute(select(PaperCopyResearchRun.source_wallet).where(
+        PaperCopyResearchRun.id.in_(run_ids)))).scalars().all() if run_ids else []
+    from app.models import WalletEvidence
+    from app.discovery.wallet_evidence import POLICY_VERSION
+    from app.services.wallet_reset import current_generation
+    generation = await current_generation(db)
+    research_sources = (await db.execute(select(WalletEvidence.wallet_address).where(
+        WalletEvidence.observed_at >= datetime.utcnow()-timedelta(hours=24),
+        WalletEvidence.payload['generation'].as_string() == generation,
+        WalletEvidence.payload['policy_version'].as_string() == POLICY_VERSION,
+        WalletEvidence.payload['classification'].as_string().in_(['watchlist', 'research_candidate'])
+    ))).scalars().all()
+    return sorted({a.lower() for a in [*active, *held, *live_held, *paper_sources, *research_sources,
+                                     *(a for sources in policies for a in sources)] if a})
 
 
 class WhaleTradeSignalPayload(BaseModel):

@@ -54,7 +54,9 @@ async def drain_signal_inbox(limit=25):
                         CanonicalSourceEvent.tx_hash == p['transactionHash'],
                         CanonicalSourceEvent.log_index == p['logIndex'],
                         CanonicalSourceEvent.source_wallet_address == p['walletAddress']).limit(1))).scalar_one_or_none()
-                    row.status = 'QUARANTINED' if canonical and canonical.status in ('QUARANTINED', 'UNRESOLVED') else 'PROCESSED'
+                    if canonical is None:
+                        raise ValueError('Signal consumer returned without a durable canonical source event')
+                    row.status = 'QUARANTINED' if canonical.status in ('QUARANTINED', 'UNRESOLVED') else 'PROCESSED'
                     row.error_detail = None
                 except Exception as exc:
                     row.attempts = (row.attempts or 0) + 1

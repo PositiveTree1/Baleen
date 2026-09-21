@@ -274,6 +274,55 @@ interface RawWalletApi {
   status?: string | null;
 }
 
+export interface PaperCopyState {
+  status: string; listener?: string; last_error?: string | null; selection_mode?: 'automatic' | 'manual';
+  standby_snipers?: Array<{ address: string; name?: string | null; pseudonym?: string | null;
+    classification: string; reasons: string[]; all_time_pnl_usd: string; recent_pnl_30d: string;
+    fills_per_day_30d: string; observed_at: string }>;
+  sniper_allocations?: Array<{ source_event_id: string; source_wallet: string; donor_run_id?: string | null;
+    sniper_run_id?: string | null; allocated_cash_usd?: string | null; status: string; reason?: string | null;
+    created_at: string }>;
+  roster_rotations?: Array<{ promoted: Array<{ wallet: string; cash?: string; replaced_wallet?: string }>;
+    retired: Array<{ wallet: string; cash_transferred?: string }>; skipped: Array<{ wallet: string; reason: string }>;
+    created_at: string }>;
+  runs: Array<{ id: string; wallet: string; name?: string; revision: number;
+    policy: { ratio: string }; report: {
+      valuation: { equity?: string | null; economic_pnl?: string | null; reason?: string };
+      events: Array<{ source_id: string; status: string; quantity: string; reason?: string; fee_usd?: string }>;
+    } }>;
+}
+
+export interface PaperCopyWallet { address: string; name?: string | null; pseudonym?: string | null; }
+export async function fetchPaperCopyWallets(search = ''): Promise<PaperCopyWallet[]> {
+  const res = await fetchWithAuth(`${API_BASE_URL}/api/paper-copy/wallets?search=${encodeURIComponent(search)}`, { cache: 'no-store' });
+  if (!res.ok) throw new Error('Wallet registry unavailable');
+  return res.json();
+}
+
+export async function fetchPaperCopy(): Promise<PaperCopyState> {
+  const res = await fetchWithAuth(`${API_BASE_URL}/api/paper-copy`, { cache: 'no-store' });
+  if (!res.ok) throw new Error('Paper account unavailable; no saved state assumed');
+  return res.json();
+}
+
+export async function startPaperCopy(wallets: string[], starting_cash: string): Promise<PaperCopyState> {
+  const res = await fetchWithAuth(`${API_BASE_URL}/api/paper-copy/start`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ wallets, starting_cash })
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(typeof data.detail === 'string' ? data.detail : 'Could not start paper copying');
+  return data;
+}
+
+export async function startAutomaticPaperCopy(starting_cash: string): Promise<PaperCopyState> {
+  const res = await fetchWithAuth(`${API_BASE_URL}/api/paper-copy/start-automatic`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ starting_cash })
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(typeof data.detail === 'string' ? data.detail : 'Could not build the automatic roster');
+  return data;
+}
+
 export async function fetchWallets(params?: Record<string, string>): Promise<Wallet[]> {
   try {
     const url = new URL(`${API_BASE_URL}/api/wallets`);

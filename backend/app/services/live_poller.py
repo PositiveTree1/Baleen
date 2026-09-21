@@ -10,7 +10,7 @@ import httpx
 from sqlalchemy import select, func, update, text
 from sqlalchemy.orm import load_only
 from app.database import SessionLocal
-from app.models import Wallet, ExecutionLog, User, LiveWalletLink, CanonicalSourceEvent, SignalInbox, SandboxRun
+from app.models import Wallet, ExecutionLog, User, LiveWalletLink, CanonicalSourceEvent, SignalInbox, SandboxRun, PaperCopyAccount
 from app.config import settings
 from app.services.polymarket_fees import calculate_polymarket_fee
 from app.services.paper_accounting import paper_totals, reconcile_user, affordable_order
@@ -252,6 +252,7 @@ class LiveTradeMirrorService:
                         block_number=block_number,
                         block_hash=block_hash,
                         source_wallet_address=addr,
+                        block_time=dt,
                         maker_address=maker_address.lower() if maker_address else None,
                         taker_address=taker_address.lower() if taker_address else None,
                         condition_id=condition_id,
@@ -266,6 +267,16 @@ class LiveTradeMirrorService:
                     )
                     db.add(canonical_event)
                     await db.flush()
+
+                # Detection must survive a later copy-policy rejection. Without
+                # this boundary, early returns silently rolled back the source
+                # event while the inbox worker reported it as processed.
+                await db.commit()
+                if db.bind.dialect.name == 'postgresql':
+                    await db.execute(text('SELECT pg_advisory_xact_lock(20260909, 1)'))
+                await db.refresh(canonical_event)
+                if canonical_event.status == 'APPLIED':
+                    return
 
 
             # Fetch settled portfolio value to determine capital tier
@@ -393,7 +404,7 @@ class LiveTradeMirrorService:
                     if not pending_list:
                         del self.pending_out_of_order_sells[ooo_key]
 
-            stmt_users = select(User)
+            stmt_users = select(User).where(~User.id.in_(select(PaperCopyAccount.user_id)))
             users = (await db.execute(stmt_users)).scalars().all()
             from app.services.paper_runs import ensure_user_run
             user_runs = {u.id: await ensure_user_run(db, u) for u in users}
@@ -1663,7 +1674,7 @@ class LiveTradeMirrorService:
 
 
             # Update User balances
-            stmt_users = select(User)
+            stmt_users = select(User).where(~User.id.in_(select(PaperCopyAccount.user_id)))
             users = (await db.execute(stmt_users)).scalars().all()
             for u in users:
                 u_settled_lots = [l for l in open_lots if l.user_id == u.id]

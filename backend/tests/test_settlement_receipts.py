@@ -6,11 +6,29 @@ from unittest.mock import AsyncMock
 import httpx
 import pytest
 from eth_abi import encode
-from app.services.settlement_receipts import PolygonSettlementReader, SettlementEvidenceError, TOPIC
+from app.services.settlement_receipts import PolygonSettlementReader, SettlementEvidenceError, TOPIC, V1_TOPIC, V1_EXCHANGES
 
 TX, BLOCK, ORDER = '0x'+'a'*64, '0x'+'b'*64, '0x'+'c'*64
 WALLET = '0x'+'1'*40
 EXCHANGE = '0xe111180000d2663c0091e4f400237545b87b996b'
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize('side', ['BUY', 'SELL'])
+async def test_legacy_source_exchange_receipt_matches_listener(side):
+    receipt = fixture_receipt()
+    contract = sorted(V1_EXCHANGES)[0]
+    receipt['logs'][0]['address'] = contract
+    receipt['logs'][0]['topics'][0] = V1_TOPIC
+    values = [0, 111, 10000000, 20000000, 0] if side == 'BUY' else [111, 0, 20000000, 10000000, 0]
+    receipt['logs'][0]['data'] = '0x'+encode(['uint256']*5, values).hex()
+    source = SimpleNamespace(tx_hash=TX, block_number=100, block_hash=BLOCK, block_time=datetime.utcfromtimestamp(1000),
+        log_index=0, emitting_contract=contract, source_wallet_address=WALLET, side=side, token_id='111', shares=20., price=.5)
+    reader = PolygonSettlementReader(None)
+    reader.receipt = AsyncMock(return_value=(receipt, {'timestamp':hex(1000)}))
+    assert (await reader.source(source))['quantity'] == 20
+    receipt['logs'][0]['topics'][0] = TOPIC
+    with pytest.raises(SettlementEvidenceError): await reader.source(source)
 
 
 def fixture_receipt(side=0, cash=10000000, qty=20000000, fee=250000):

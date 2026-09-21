@@ -30,13 +30,18 @@ async def ensure_user_run(db, user):
     return run
 
 
-async def archive_and_start(db, user, starting_balance):
+async def archive_and_start(db, user, starting_balance, *, minimum_balance=100):
     balance = money(starting_balance)
-    if not 100 <= balance <= 10000000:
-        raise ValueError('Paper starting balance must be between 100 and 10000000')
+    if not minimum_balance <= balance <= 10000000:
+        raise ValueError(f'Paper starting balance must be between {minimum_balance} and 10000000')
     await financial_lock(db)
     # Refresh after acquiring the same lock used by trade effects and MTM.
     await db.refresh(user)
+    from app.models import PaperCopyAccount
+    account = await db.get(PaperCopyAccount, user.id)
+    if account:
+        account.status = 'AWAITING_CONFIGURATION'
+        account.updated_at = datetime.utcnow()
     old = await ensure_user_run(db, user)
     old.status, old.ended_at, old.final_balance_usd = 'ARCHIVED', datetime.utcnow(), user.sandbox_balance_usd
     await db.flush()  # Release the unique active-run slot before inserting its successor.

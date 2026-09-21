@@ -11,6 +11,8 @@ from eth_utils import keccak
 from app.services.scoped_signer import EXCHANGES
 
 TOPIC = '0x' + keccak(text='OrderFilled(bytes32,address,address,uint8,uint256,uint256,uint256,uint256,bytes32,bytes32)').hex()
+V1_TOPIC = '0x' + keccak(text='OrderFilled(bytes32,address,address,uint256,uint256,uint256,uint256,uint256)').hex()
+V1_EXCHANGES = {'0x4bfb41d5b3570defd03c39a9a4d8de6bd8b8982e', '0xc5d563a36ae78145c45a50134d48a1215220f80a'}
 UNIT = Decimal(1000000)
 
 
@@ -116,10 +118,12 @@ class PolygonSettlementReader:
             raise SettlementEvidenceError('Source log missing or repeated')
         log = logs[0]
         topics = log.get('topics', [])
+        contract = str(source.emitting_contract or '').lower()
+        expected_topic = V1_TOPIC if contract in V1_EXCHANGES else TOPIC
         if (str(log.get('address', '')).lower() != source.emitting_contract.lower()
-                or source.emitting_contract.lower() not in EXCHANGES or len(topics) != 4
+                or (contract not in EXCHANGES and contract not in V1_EXCHANGES) or len(topics) != 4
                 or any(not re.fullmatch(r'0x[0-9a-fA-F]{64}', str(t)) for t in topics)
-                or topics[0].lower() != TOPIC or log.get('removed') is True):
+                or topics[0].lower() != expected_topic or log.get('removed') is True):
             raise SettlementEvidenceError('Source exchange log mismatch')
         wallet_topic = '0x' + '0'*24 + source.source_wallet_address.lower().removeprefix('0x')
         maker, taker = topics[2].lower() == wallet_topic, topics[3].lower() == wallet_topic
@@ -129,10 +133,15 @@ class PolygonSettlementReader:
             raise SettlementEvidenceError('Source must own this signed order')
         try:
             raw = bytes.fromhex(log['data'].removeprefix('0x'))
-            if len(raw) != 7*32:
-                raise ValueError('Invalid event length')
-            side, token, making, taking, _, _, _ = decode(
-                ['uint8','uint256','uint256','uint256','uint256','bytes32','bytes32'], raw)
+            if contract in V1_EXCHANGES:
+                if len(raw) != 5*32: raise ValueError('Invalid V1 event length')
+                maker_asset, taker_asset, making, taking, _ = decode(['uint256']*5, raw)
+                if (maker_asset == 0) == (taker_asset == 0): raise ValueError('Expected one collateral asset')
+                side, token = (0, taker_asset) if maker_asset == 0 else (1, maker_asset)
+            else:
+                if len(raw) != 7*32: raise ValueError('Invalid V2 event length')
+                side, token, making, taking, _, _, _ = decode(
+                    ['uint8','uint256','uint256','uint256','uint256','bytes32','bytes32'], raw)
         except Exception as exc:
             raise SettlementEvidenceError('Malformed source fill') from exc
         if side not in (0, 1):
