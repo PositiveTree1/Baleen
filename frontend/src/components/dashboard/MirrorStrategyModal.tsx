@@ -7,13 +7,18 @@ export interface MirrorStrategyModalProps {
   targetSleeveCount?: number; bankroll?: number;
 }
 export function MirrorStrategyModal({ isOpen, onClose, bankroll }: MirrorStrategyModalProps) {
-  const [cash, setCash] = useState('10000');
+  const [cash, setCash] = useState(String(Math.max(20, bankroll ?? 10000)));
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
-  useEffect(() => {
-    if (!isOpen) return;
-    setError(''); setCash(String(Math.max(20, bankroll ?? 10000)));
-  }, [isOpen, bankroll]);
+  const [prevOpen, setPrevOpen] = useState(isOpen);
+
+  if (isOpen !== prevOpen) {
+    setPrevOpen(isOpen);
+    if (isOpen) {
+      setError('');
+      setCash(String(Math.max(20, bankroll ?? 10000)));
+    }
+  }
   async function save() {
     setBusy(true); setError('');
     try {

@@ -5,16 +5,21 @@ import { fetchPaperCopy, PaperCopyState } from '@/lib/api-client';
 export function PaperCopyPanel({ onConfigure }: { onConfigure: () => void }) {
   const [data, setData] = useState<PaperCopyState | null>(null);
   const [error, setError] = useState('');
-  const refresh = useCallback(async () => {
-    try { setData(await fetchPaperCopy()); setError(''); }
-    catch (e) { setError(e instanceof Error ? e.message : 'Paper account unavailable'); }
-  }, []);
   useEffect(() => {
-    void refresh();
-    const timer = setInterval(refresh, 10000);
-    window.addEventListener('paper-copy-updated', refresh);
-    return () => { clearInterval(timer); window.removeEventListener('paper-copy-updated', refresh); };
-  }, [refresh]);
+    let active = true;
+    const fetchLatest = async () => {
+      try {
+        const res = await fetchPaperCopy();
+        if (active) { setData(res); setError(''); }
+      } catch (e) {
+        if (active) setError(e instanceof Error ? e.message : 'Paper account unavailable');
+      }
+    };
+    void fetchLatest();
+    const timer = setInterval(fetchLatest, 10000);
+    window.addEventListener('paper-copy-updated', fetchLatest);
+    return () => { active = false; clearInterval(timer); window.removeEventListener('paper-copy-updated', fetchLatest); };
+  }, []);
   const runs = data?.runs ?? [];
   const known = !error && data?.status === 'ACTIVE' && runs.length > 0 && runs.every(r => r.report.valuation.equity != null);
   const equity = known ? runs.reduce((sum, r) => sum + Number(r.report.valuation.equity), 0) : null;
