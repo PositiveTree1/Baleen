@@ -1,16 +1,17 @@
 'use client';
 import { useEffect, useState, useCallback } from 'react';
-import { fetchPaperCopy, PaperCopyState } from '@/lib/api-client';
+import { fetchPaperCopy, fetchPaperCopyResearch, PaperCopyState, PaperResearchState } from '@/lib/api-client';
 
 export function PaperCopyPanel({ onConfigure }: { onConfigure: () => void }) {
   const [data, setData] = useState<PaperCopyState | null>(null);
+  const [research, setResearch] = useState<PaperResearchState | null>(null);
   const [error, setError] = useState('');
   useEffect(() => {
     let active = true;
     const fetchLatest = async () => {
       try {
-        const res = await fetchPaperCopy();
-        if (active) { setData(res); setError(''); }
+        const [res, registry] = await Promise.all([fetchPaperCopy(), fetchPaperCopyResearch()]);
+        if (active) { setData(res); setResearch(registry); setError(''); }
       } catch (e) {
         if (active) setError(e instanceof Error ? e.message : 'Paper account unavailable');
       }
@@ -25,6 +26,7 @@ export function PaperCopyPanel({ onConfigure }: { onConfigure: () => void }) {
   const equity = known ? runs.reduce((sum, r) => sum + Number(r.report.valuation.equity), 0) : null;
   const pnl = known ? runs.reduce((sum, r) => sum + Number(r.report.valuation.economic_pnl), 0) : null;
   const money = (n: number | null) => n == null ? 'Unavailable' : n.toLocaleString(undefined, { style: 'currency', currency: 'USD' });
+  const moneyText = (n: string) => Number(n).toLocaleString(undefined, { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
   return <section className="glass-card rounded-3xl p-6 space-y-4" aria-label="Server-saved paper copying">
     <div className="flex flex-wrap items-center justify-between gap-3">
       <div><h2 className="text-xl font-bold">Paper copying</h2>
@@ -42,6 +44,7 @@ export function PaperCopyPanel({ onConfigure }: { onConfigure: () => void }) {
     {data?.roster_status && <p className="text-xs text-slate-500" aria-label="Automatic roster evidence counts">
       Eligibility: <strong>{data.roster_status.active_eligible}</strong> active candidates · <strong>{data.roster_status.standby}</strong> standby snipers · <strong>{data.roster_status.needs_data}</strong> awaiting coverage · <strong>{data.roster_status.excluded}</strong> excluded · <strong>{data.roster_status.stale}</strong> awaiting refresh
     </p>}
+    {runs.length === 0 && <p className="text-xs text-slate-500">Net P&amp;L becomes available after an active paper sleeve receives a confirmed source fill and a current order-book valuation.</p>}
     <p className="text-xs text-slate-500">New source fills only. Fixed allocation ratios. The active roster is selected from fresh eligible research candidates; standby snipers remain monitored without an idle sleeve. Paper fills estimate available order-book depth after receipt confirmation; they are not exchange executions.</p>
     {runs.map(r => <div key={r.id} className="border-t border-slate-300/20 pt-3 space-y-2">
       <div className="flex flex-wrap justify-between gap-2"><strong>{r.name || r.wallet}</strong>
@@ -78,5 +81,18 @@ export function PaperCopyPanel({ onConfigure }: { onConfigure: () => void }) {
           {rotation.skipped.map(s => <span key={s.wallet} className="block text-amber-600">Skipped {s.wallet}: {s.reason}</span>)}
         </div>)}
     </div>
+    <details className="border-t border-slate-300/20 pt-4" aria-label="Wallet research registry">
+      <summary className="cursor-pointer font-bold">Wallet research registry {research ? `(${research.registry.displayed} of ${research.registry.total})` : ''}</summary>
+      <p className="mt-2 text-xs text-slate-500">Every retained wallet is shown with the latest automatic decision. This is read-only research; active sleeves are still selected only from fresh eligible candidates.</p>
+      <div className="mt-3 space-y-2">
+        {(research?.registry.wallets ?? []).map(w => <div key={w.address} className="rounded-lg border border-slate-300/20 p-3 text-xs">
+          <div className="flex flex-wrap justify-between gap-2"><strong>{w.name || w.pseudonym || w.address}</strong><span>{w.classification.replace('_', ' ')}{w.is_hft ? ' · HFT excluded' : ''}</span></div>
+          <span className="block text-slate-500 break-all">{w.address}</span>
+          <div className="mt-1 grid grid-cols-2 gap-x-3 gap-y-1 sm:grid-cols-4"><span>All-time {moneyText(w.all_time_pnl_usd)}</span><span>30d {moneyText(w.recent_pnl_30d)}</span><span>7d {moneyText(w.recent_pnl_7d)}</span><span>{Number(w.fills_per_day_30d).toFixed(1)} fills/day</span></div>
+          <p className="mt-1 text-slate-500">{w.reasons.join(', ')} · Coverage: {w.trade_coverage_complete ? 'complete' : (w.trade_coverage_reason || 'awaiting')} · {w.observed_at ? new Date(w.observed_at).toLocaleString() : 'not yet observed'}</p>
+        </div>)}
+        {research && research.registry.wallets.length === 0 && <p className="text-sm text-slate-500">No wallet evidence has been collected yet.</p>}
+      </div>
+    </details>
   </section>;
 }

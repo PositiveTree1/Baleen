@@ -309,6 +309,22 @@ export async function fetchPaperCopy(): Promise<PaperCopyState> {
   return res.json();
 }
 
+export interface PaperResearchWallet {
+  address: string; name?: string | null; pseudonym?: string | null; classification: string; fresh: boolean;
+  is_hft: boolean; reasons: string[]; observed_at?: string | null; all_time_pnl_usd: string;
+  recent_pnl_7d: string; recent_pnl_30d: string; fills_per_day_7d: string; fills_per_day_30d: string;
+  active_days_7d?: number | null; trade_coverage_complete?: boolean | null; trade_coverage_reason?: string | null;
+}
+export interface PaperResearchState {
+  registry: { generation: string; total: number; displayed: number; wallets: PaperResearchWallet[] };
+  discovery: PaperCopyState['discovery'];
+}
+export async function fetchPaperCopyResearch(): Promise<PaperResearchState> {
+  const res = await fetchWithAuth(`${API_BASE_URL}/api/paper-copy/research`, { cache: 'no-store' });
+  if (!res.ok) throw new Error('Wallet research registry unavailable');
+  return res.json();
+}
+
 export async function startPaperCopy(wallets: string[], starting_cash: string): Promise<PaperCopyState> {
   const res = await fetchWithAuth(`${API_BASE_URL}/api/paper-copy/start`, {
     method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ wallets, starting_cash })

@@ -13,7 +13,7 @@ from app.services.paper_runs import archive_and_start
 from app.discovery.accounting_snapshot import accounting_snapshot
 from app.discovery.polymarket_client import PolymarketClient
 from app.sizing.proportional import decimal
-from app.services.automatic_roster import automatic_active_roster, standby_snipers, roster_evidence_status
+from app.services.automatic_roster import automatic_active_roster, standby_snipers, roster_evidence_status, roster_evidence_registry
 
 router = APIRouter(prefix='/api/paper-copy', tags=['paper-copy'])
 
@@ -113,6 +113,22 @@ async def get_paper_copy(user: User = Depends(get_current_user), db=Depends(get_
             'listener_progress': listener_data,
             'discovery': discovery, 'roster_status': roster_status,
             'execution_approved': False, 'mode': 'paper_only'}
+
+
+@router.get('/research')
+async def get_paper_copy_research(user: User = Depends(get_current_user), db=Depends(get_db)):
+    """Authenticated read-only research registry; it never changes selection."""
+    from app.discovery.scanner import discovery_state
+    return {
+        "registry": await roster_evidence_registry(db),
+        "discovery": {
+            'status': discovery_state.get('status'),
+            'progress_pct': discovery_state.get('progress_pct'),
+            'step_description': discovery_state.get('step_description'),
+            'wallets_scanned': discovery_state.get('wallets_scanned'),
+            'error_message': discovery_state.get('error_message'),
+        },
+    }
 
 
 async def _start_paper_copy(wallets, starting_cash, user, db, *, selection_mode):

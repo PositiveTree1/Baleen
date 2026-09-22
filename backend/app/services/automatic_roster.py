@@ -117,3 +117,38 @@ async def roster_evidence_status(db):
         else:
             counts["excluded"] += 1
     return {"generation": generation, **counts}
+
+
+async def roster_evidence_registry(db, limit=250):
+    """Return inspectable current and stale research decisions for the UI."""
+    generation = await current_generation(db)
+    rows = (await db.execute(select(Wallet, WalletEvidence).outerjoin(
+        WalletEvidence, WalletEvidence.wallet_address == Wallet.address))).all()
+    entries = []
+    for wallet, evidence in rows:
+        payload = (evidence.payload if evidence else None) or {}
+        metrics = payload.get("metrics") or {}
+        fresh = _fresh_current(evidence, generation)
+        classification = payload.get("classification") if fresh else "stale"
+        coverage = payload.get("trade_coverage") or {}
+        entries.append({
+            "address": wallet.address,
+            "name": wallet.name,
+            "pseudonym": wallet.pseudonym,
+            "classification": classification or "stale",
+            "fresh": fresh,
+            "is_hft": bool(wallet.is_hft),
+            "reasons": payload.get("reasons") or (["EVIDENCE_NOT_YET_COLLECTED"] if not evidence else ["STALE_EVIDENCE"]),
+            "observed_at": evidence.observed_at.isoformat() if evidence and evidence.observed_at else None,
+            "all_time_pnl_usd": str(_number(metrics.get("economic_pnl", wallet.all_time_pnl_usd))),
+            "recent_pnl_7d": str(_number(metrics.get("trade_pnl_7d"))),
+            "recent_pnl_30d": str(_number(metrics.get("trade_pnl_30d"))),
+            "fills_per_day_7d": str(_number(metrics.get("fills_per_day_7d"))),
+            "fills_per_day_30d": str(_number(metrics.get("fills_per_day_30d"))),
+            "active_days_7d": metrics.get("active_days_7d"),
+            "trade_coverage_complete": coverage.get("complete"),
+            "trade_coverage_reason": coverage.get("reason"),
+        })
+    order = {"research_candidate": 0, "watchlist": 1, "needs_data": 2, "stale": 3, "excluded": 4}
+    entries.sort(key=lambda row: (order.get(row["classification"], 5), -Decimal(row["recent_pnl_30d"]), row["address"]))
+    return {"generation": generation, "total": len(entries), "displayed": min(limit, len(entries)), "wallets": entries[:limit]}
