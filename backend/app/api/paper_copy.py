@@ -13,7 +13,7 @@ from app.services.paper_runs import archive_and_start
 from app.discovery.accounting_snapshot import accounting_snapshot
 from app.discovery.polymarket_client import PolymarketClient
 from app.sizing.proportional import decimal
-from app.services.automatic_roster import automatic_active_roster, standby_snipers
+from app.services.automatic_roster import automatic_active_roster, standby_snipers, roster_evidence_status
 
 router = APIRouter(prefix='/api/paper-copy', tags=['paper-copy'])
 
@@ -57,6 +57,7 @@ class StartAutomaticPaperCopy(BaseModel):
 @router.get('')
 async def get_paper_copy(user: User = Depends(get_current_user), db=Depends(get_db)):
     snipers = await standby_snipers(db)
+    roster_status = await roster_evidence_status(db)
     from app.discovery.scanner import discovery_state
     discovery = {
         'status': discovery_state.get('status'),
@@ -68,7 +69,8 @@ async def get_paper_copy(user: User = Depends(get_current_user), db=Depends(get_
     account = await db.get(PaperCopyAccount, user.id)
     if account is None:
         return {'status': 'NOT_CONFIGURED', 'runs': [], 'standby_snipers': snipers,
-                'discovery': discovery, 'execution_approved': False, 'mode': 'paper_only'}
+                'discovery': discovery, 'roster_status': roster_status,
+                'execution_approved': False, 'mode': 'paper_only'}
     rows = (await db.execute(select(PaperCopyResearchRun).where(
         PaperCopyResearchRun.id.in_(account.run_ids), PaperCopyResearchRun.user_id == user.id))).scalars().all()
     order = {run_id: index for index, run_id in enumerate(account.run_ids)}
@@ -109,7 +111,7 @@ async def get_paper_copy(user: User = Depends(get_current_user), db=Depends(get_
                                           PaperCopyRosterRotation.created_at.desc()).limit(10))).scalars().all()],
             'updated_at': account.updated_at, 'listener': listener_data['status'],
             'listener_progress': listener_data,
-            'discovery': discovery,
+            'discovery': discovery, 'roster_status': roster_status,
             'execution_approved': False, 'mode': 'paper_only'}
 
 

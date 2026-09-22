@@ -1421,6 +1421,7 @@ async def scan_for_wallets(db: AsyncSession, full_refresh: bool = False):
         try:
             discovery_state["step_description"] = "Stage 2: Deep multi-page trade audit..."
             processed_count = await refresh_wallet_evidence(db)
+            discovery_state["wallets_scanned"] = processed_count
             
             # Post-Evaluation: Deduplicated Live Tape Sync
             stmt = select(Wallet).where(Wallet.status == 'active').order_by(Wallet.last_scored_at.desc()).limit(10)
@@ -1432,7 +1433,10 @@ async def scan_for_wallets(db: AsyncSession, full_refresh: bool = False):
                 pass
                     
             discovery_state["progress_pct"] = 100
-            discovery_state["step_description"] = f"Complete: {discovery_state['active_whales_in_basket']} active whales ({discovery_state['gold_snipers']} Gold Snipers) audited."
+            discovery_state["step_description"] = (
+                f"Complete: refreshed evidence for {processed_count} wallets. "
+                "Automatic-roster eligibility is shown in Paper copying."
+            )
             discovery_state["status"] = "completed"
             discovery_state["completed_at"] = time.time()
             await _persist_discovery_state(db)

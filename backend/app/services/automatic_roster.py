@@ -91,3 +91,29 @@ async def standby_snipers(db):
             result.append(_summary(wallet, evidence))
     return sorted(result, key=lambda item: (
         Decimal(item['all_time_pnl_usd']), Decimal(item['recent_pnl_30d']), item['address']), reverse=True)
+
+
+async def roster_evidence_status(db):
+    """Return only current evidence counts for the paper-copy dashboard.
+
+    These are intentionally separate from the legacy basket's ``active``
+    status, which does not decide automatic paper roster eligibility.
+    """
+    generation = await current_generation(db)
+    rows = (await db.execute(select(Wallet, WalletEvidence).outerjoin(
+        WalletEvidence, WalletEvidence.wallet_address == Wallet.address))).all()
+    counts = {"active_eligible": 0, "standby": 0, "needs_data": 0, "excluded": 0, "stale": 0}
+    for wallet, evidence in rows:
+        if not _fresh_current(evidence, generation):
+            counts["stale"] += 1
+            continue
+        classification = (evidence.payload or {}).get("classification")
+        if classification == "research_candidate" and not wallet.is_hft:
+            counts["active_eligible"] += 1
+        elif classification == "watchlist" and not wallet.is_hft:
+            counts["standby"] += 1
+        elif classification == "needs_data":
+            counts["needs_data"] += 1
+        else:
+            counts["excluded"] += 1
+    return {"generation": generation, **counts}

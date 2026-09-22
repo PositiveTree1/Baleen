@@ -287,6 +287,8 @@ export interface PaperCopyState {
     created_at: string }>;
   discovery?: { status?: string; progress_pct?: number; step_description?: string;
     wallets_scanned?: number; error_message?: string | null };
+  roster_status?: { active_eligible: number; standby: number; needs_data: number;
+    excluded: number; stale: number; generation: string };
   runs: Array<{ id: string; wallet: string; name?: string; revision: number;
     policy: { ratio: string }; report: {
       valuation: { equity?: string | null; economic_pnl?: string | null; reason?: string };

@@ -39,6 +39,9 @@ export function PaperCopyPanel({ onConfigure }: { onConfigure: () => void }) {
       <p className="text-xs text-slate-500 mt-1">{data.discovery.error_message || data.discovery.step_description || 'Waiting to evaluate the retained wallet registry.'}</p>
       {typeof data.discovery.wallets_scanned === 'number' && <p className="text-xs text-slate-500">{data.discovery.wallets_scanned} wallets scanned in this pass.</p>}
     </div>}
+    {data?.roster_status && <p className="text-xs text-slate-500" aria-label="Automatic roster evidence counts">
+      Eligibility: <strong>{data.roster_status.active_eligible}</strong> active candidates · <strong>{data.roster_status.standby}</strong> standby snipers · <strong>{data.roster_status.needs_data}</strong> awaiting coverage · <strong>{data.roster_status.excluded}</strong> excluded · <strong>{data.roster_status.stale}</strong> awaiting refresh
+    </p>}
     <p className="text-xs text-slate-500">New source fills only. Fixed allocation ratios. The active roster is selected from fresh eligible research candidates; standby snipers remain monitored without an idle sleeve. Paper fills estimate available order-book depth after receipt confirmation; they are not exchange executions.</p>
     {runs.map(r => <div key={r.id} className="border-t border-slate-300/20 pt-3 space-y-2">
       <div className="flex flex-wrap justify-between gap-2"><strong>{r.name || r.wallet}</strong>

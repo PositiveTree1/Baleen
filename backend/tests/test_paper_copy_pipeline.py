@@ -153,6 +153,8 @@ async def test_automatic_roster_funds_ranked_active_wallets_and_exposes_standby_
         assert state['selection_mode'] == 'automatic'
         assert [run['wallet'] for run in state['runs']] == [ADDRESS_2, ADDRESS]
         assert [sniper['address'] for sniper in state['standby_snipers']] == [SNIPER]
+        assert state['roster_status']['active_eligible'] == 2
+        assert state['roster_status']['standby'] == 1
         watched = await watched_wallets(db, True)
         assert {ADDRESS, ADDRESS_2, SNIPER}.issubset(set(watched))
 
