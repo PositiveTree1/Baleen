@@ -9,7 +9,7 @@ from typing import List, Dict, Optional, Tuple, Any, Set
 from collections import defaultdict
 from datetime import datetime, timezone, timedelta
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, delete, text, func
+from sqlalchemy import select, delete, text, func, update
 from app.discovery.polymarket_client import PolymarketClient
 from app.models import Wallet, WalletSnapshot, ExecutionLog, KeyValue
 from app.scoring.engine import score_wallet
@@ -59,6 +59,12 @@ discovery_state = {
     "completed_at": None,
     "error_message": None
 }
+
+# Discovery finds a broad public tape, but evidence collection must make
+# bounded, observable progress.  Deep qualification handles retained wallets
+# separately; this cap only limits *new* addresses admitted per pass.
+MAX_NEW_CANDIDATES_PER_PASS = 120
+PROFILE_BATCH_SIZE = 12
 
 _KV_DISCOVERY_STATE_KEY = "discovery_state"
 
@@ -1351,33 +1357,53 @@ async def scan_for_wallets(db: AsyncSession, full_refresh: bool = False):
             discovery_state["status"] = "completed"
             return 0
 
-        # STAGE 1: Verify lifetime P&L before storing new candidates.
+        # STAGE 1: Verify a bounded, priority-ordered intake before storing
+        # new candidates.  The old sequential sweep could take days for a
+        # public tape of thousands of addresses, leaving the scan frozen at
+        # 15% and preventing every later stage from running.
         saved_count = 0
-        for idx, (addr, meta) in enumerate(candidates.items(), 1):
-            discovery_state["progress_pct"] = min(50, 15 + int((idx / max(1, total_candidates)) * 35))
-            
-            stmt = select(Wallet).where(Wallet.address == addr)
-            wallet = (await db.execute(stmt)).scalar_one_or_none()
-            if not wallet:
-                try:
-                    verified_pnl = await client.fetch_wallet_profile_pnl(addr)
-                except Exception:
-                    # Unknown evidence retries on a later discovery pass. Do
-                    # not persist an address-level rejection or deep-fetch it.
-                    continue
+        retained_set = set(retained)
+        if full_refresh and retained_set:
+            await db.execute(update(Wallet).where(Wallet.address.in_(retained_set)).values(status="pending"))
+
+        def priority(item):
+            _address, meta = item
+            source = meta.get("source", "")
+            source_rank = {"curated_seed": 0, "leaderboard_all": 1, "leaderboard_month": 2,
+                           "leaderboard_week": 3, "large_trade": 4, "live_stream_trade": 5,
+                           "market_scan": 6}.get(source, 7)
+            reported = meta.get("profit", meta.get("trade_cash", 0))
+            try: value = float(reported)
+            except (ValueError, TypeError): value = 0.0
+            return (source_rank, -value, _address)
+
+        intake = sorted(((addr, meta) for addr, meta in candidates.items() if addr not in retained_set), key=priority)
+        intake = intake[:MAX_NEW_CANDIDATES_PER_PASS]
+        discovery_state["total_candidates"] = total_candidates
+
+        async def verify(address):
+            try:
+                return address, await asyncio.wait_for(client.fetch_wallet_profile_pnl(address), timeout=20)
+            except Exception:
+                # Unknown evidence retries on a later discovery pass. Do not
+                # persist an address-level rejection or deep-fetch it.
+                return address, None
+
+        for start in range(0, len(intake), PROFILE_BATCH_SIZE):
+            batch = intake[start:start + PROFILE_BATCH_SIZE]
+            discovery_state["progress_pct"] = min(50, 15 + int(((start + len(batch)) / max(1, len(intake))) * 35))
+            discovery_state["step_description"] = (
+                f"Stage 1: Verifying lifetime P&L ({start + 1}-{start + len(batch)} of {len(intake)} new candidates)..."
+            )
+            verified = await asyncio.gather(*(verify(addr) for addr, _meta in batch))
+            for addr, verified_pnl in verified:
                 if verified_pnl is None or not (50000.0 <= verified_pnl < float("inf")):
                     continue
-                wallet = Wallet(
-                    address=addr,
-                    status="pending",
-                    all_time_pnl_usd=verified_pnl,
-                    first_seen_at=datetime.utcnow()
-                )
-                db.add(wallet)
+                db.add(Wallet(address=addr, status="pending", all_time_pnl_usd=verified_pnl,
+                              first_seen_at=datetime.utcnow()))
                 saved_count += 1
-            else:
-                if full_refresh:
-                    wallet.status = "pending"
+            await db.commit()
+            await _persist_discovery_state(db)
 
         await db.commit()
         discovery_state["step_description"] = f"Stage 1 Complete. Ingested {saved_count} whale candidates."

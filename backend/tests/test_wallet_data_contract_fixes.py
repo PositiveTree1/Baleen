@@ -154,3 +154,39 @@ async def test_discovery_pnl_gate_precedes_storage_and_deep_evaluation(monkeypat
             client.fetch_wallet_trades.assert_not_called()
     finally:
         await engine.dispose()
+
+
+@pytest.mark.asyncio
+async def test_discovery_bounds_new_profile_intake_and_reaches_evidence_stage(monkeypatch):
+    from sqlalchemy import select
+    from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+    from app.database import Base
+    from app.models import Wallet
+    from app.discovery import scanner
+
+    engine = create_async_engine('sqlite+aiosqlite:///:memory:')
+    sessions = async_sessionmaker(engine, expire_on_commit=False)
+    addresses = ['0x' + format(i, '040x') for i in range(1, scanner.MAX_NEW_CANDIDATES_PER_PASS + 25)]
+    client = AsyncMock()
+    client.discover_candidates.return_value = {address: {'source': 'leaderboard_all', 'profit': 100000} for address in addresses}
+    client.fetch_wallet_profile_pnl.return_value = 100000.0
+    monkeypatch.setattr(scanner, 'PolymarketClient', lambda: client)
+    monkeypatch.setattr('app.discovery.curated_whales.CURATED_WHALE_ADDRESSES', [])
+    monkeypatch.setattr(scanner, '_persist_discovery_state', AsyncMock())
+    observed = []
+
+    async def evaluate(db):
+        observed.extend((await db.execute(select(Wallet.address))).scalars().all())
+        return len(observed)
+
+    monkeypatch.setattr(scanner, 'refresh_wallet_evidence', evaluate)
+    try:
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+        async with sessions() as db:
+            await scanner.scan_for_wallets(db)
+        assert len(observed) == scanner.MAX_NEW_CANDIDATES_PER_PASS
+        assert client.fetch_wallet_profile_pnl.await_count == scanner.MAX_NEW_CANDIDATES_PER_PASS
+        assert scanner.discovery_state['status'] == 'completed'
+    finally:
+        await engine.dispose()
