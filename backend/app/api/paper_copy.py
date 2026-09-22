@@ -57,10 +57,18 @@ class StartAutomaticPaperCopy(BaseModel):
 @router.get('')
 async def get_paper_copy(user: User = Depends(get_current_user), db=Depends(get_db)):
     snipers = await standby_snipers(db)
+    from app.discovery.scanner import discovery_state
+    discovery = {
+        'status': discovery_state.get('status'),
+        'progress_pct': discovery_state.get('progress_pct'),
+        'step_description': discovery_state.get('step_description'),
+        'wallets_scanned': discovery_state.get('wallets_scanned'),
+        'error_message': discovery_state.get('error_message'),
+    }
     account = await db.get(PaperCopyAccount, user.id)
     if account is None:
         return {'status': 'NOT_CONFIGURED', 'runs': [], 'standby_snipers': snipers,
-                'execution_approved': False, 'mode': 'paper_only'}
+                'discovery': discovery, 'execution_approved': False, 'mode': 'paper_only'}
     rows = (await db.execute(select(PaperCopyResearchRun).where(
         PaperCopyResearchRun.id.in_(account.run_ids), PaperCopyResearchRun.user_id == user.id))).scalars().all()
     order = {run_id: index for index, run_id in enumerate(account.run_ids)}
@@ -101,6 +109,7 @@ async def get_paper_copy(user: User = Depends(get_current_user), db=Depends(get_
                                           PaperCopyRosterRotation.created_at.desc()).limit(10))).scalars().all()],
             'updated_at': account.updated_at, 'listener': listener_data['status'],
             'listener_progress': listener_data,
+            'discovery': discovery,
             'execution_approved': False, 'mode': 'paper_only'}
 
 
@@ -170,6 +179,11 @@ async def start_automatic_paper_copy(req: StartAutomaticPaperCopy, user: User = 
         raise HTTPException(503, 'Paper-copy worker is disabled on this deployment')
     roster = await automatic_active_roster(db, req.starting_cash)
     if not roster:
-        raise HTTPException(503, 'No fresh eligible active wallets yet; discovery is still evaluating the registry')
+        # Starting paper copying must never fall back to unverified historical
+        # scores.  It should, however, begin the required re-evaluation now
+        # instead of making the user wait for the next scheduled scan.
+        from app.workers.discovery_worker import run_discovery
+        asyncio.create_task(run_discovery())
+        raise HTTPException(503, 'Automatic roster is not ready yet. A fresh discovery scan has been started; this page will show its progress.')
     return await _start_paper_copy([row['address'] for row in roster], req.starting_cash, user, db,
                                    selection_mode='automatic')

@@ -1,5 +1,6 @@
 import uuid
 import time
+import asyncio
 from datetime import datetime, timedelta
 from decimal import Decimal
 from unittest.mock import AsyncMock
@@ -154,6 +155,27 @@ async def test_automatic_roster_funds_ranked_active_wallets_and_exposes_standby_
         assert [sniper['address'] for sniper in state['standby_snipers']] == [SNIPER]
         watched = await watched_wallets(db, True)
         assert {ADDRESS, ADDRESS_2, SNIPER}.issubset(set(watched))
+
+
+@pytest.mark.asyncio
+async def test_empty_automatic_roster_starts_discovery_without_archiving_current_run(pipeline, monkeypatch):
+    sessions, uid = pipeline
+    scheduled = False
+
+    async def fake_discovery():
+        nonlocal scheduled
+        scheduled = True
+
+    monkeypatch.setattr('app.workers.discovery_worker.run_discovery', fake_discovery)
+    async with sessions() as db:
+        user = await db.get(User, uid)
+        with pytest.raises(HTTPException, match='fresh discovery scan has been started'):
+            await start_automatic_paper_copy(StartAutomaticPaperCopy(starting_cash=100), user, db)
+        await asyncio.sleep(0)
+        state = await get_paper_copy(user, db)
+        assert state['status'] == 'NOT_CONFIGURED'
+        assert state['discovery']['status'] is not None
+    assert scheduled
 
 
 @pytest.mark.asyncio

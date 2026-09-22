@@ -285,6 +285,8 @@ export interface PaperCopyState {
   roster_rotations?: Array<{ promoted: Array<{ wallet: string; cash?: string; replaced_wallet?: string }>;
     retired: Array<{ wallet: string; cash_transferred?: string }>; skipped: Array<{ wallet: string; reason: string }>;
     created_at: string }>;
+  discovery?: { status?: string; progress_pct?: number; step_description?: string;
+    wallets_scanned?: number; error_message?: string | null };
   runs: Array<{ id: string; wallet: string; name?: string; revision: number;
     policy: { ratio: string }; report: {
       valuation: { equity?: string | null; economic_pnl?: string | null; reason?: string };

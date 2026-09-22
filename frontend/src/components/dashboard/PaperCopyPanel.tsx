@@ -34,6 +34,11 @@ export function PaperCopyPanel({ onConfigure }: { onConfigure: () => void }) {
     {(error || data?.last_error) && <p role="alert" className="text-amber-600">{error || data?.last_error}</p>}
     <div className="flex flex-wrap gap-8"><div>Equity <strong>{money(equity)}</strong></div><div>Net P&amp;L <strong>{money(pnl)}</strong></div>
       <div>Listener <strong>{data?.listener ?? 'Unconfirmed'}</strong></div></div>
+    {data?.status !== 'ACTIVE' && data?.discovery && <div className="rounded-xl border border-slate-300/20 p-3 text-sm" aria-label="Automatic roster discovery progress">
+      <strong>Discovery {data.discovery.status || 'idle'}</strong>{typeof data.discovery.progress_pct === 'number' && <span> · {data.discovery.progress_pct}%</span>}
+      <p className="text-xs text-slate-500 mt-1">{data.discovery.error_message || data.discovery.step_description || 'Waiting to evaluate the retained wallet registry.'}</p>
+      {typeof data.discovery.wallets_scanned === 'number' && <p className="text-xs text-slate-500">{data.discovery.wallets_scanned} wallets scanned in this pass.</p>}
+    </div>}
     <p className="text-xs text-slate-500">New source fills only. Fixed allocation ratios. The active roster is selected from fresh eligible research candidates; standby snipers remain monitored without an idle sleeve. Paper fills estimate available order-book depth after receipt confirmation; they are not exchange executions.</p>
     {runs.map(r => <div key={r.id} className="border-t border-slate-300/20 pt-3 space-y-2">
       <div className="flex flex-wrap justify-between gap-2"><strong>{r.name || r.wallet}</strong>
