@@ -35,6 +35,47 @@ async def test_never_calls_partial_history_complete(failure):
     assert not result["complete"]
 
 
+@pytest.mark.asyncio
+async def test_busy_window_is_partitioned_before_being_marked_incomplete():
+    """The local page budget must not turn a measurable low-rate wallet into needs_data."""
+    class Client:
+        data_api_url = ""
+
+        def __init__(self):
+            self.calls = []
+
+        async def _fetch_with_retry(self, _url, query):
+            self.calls.append(dict(query))
+            if query["start"] == 0 and query["end"] == 2 * DAY - 1:
+                return {"data": [{"proxy_wallet": ADDRESS, "timestamp": 1}],
+                        "pagination": {"has_more": True, "next_cursor": "more"}}
+            return {"data": [{"proxy_wallet": ADDRESS, "timestamp": query["start"]}],
+                    "pagination": {"has_more": False, "next_cursor": None}}
+
+    client = Client()
+    result = await cursor_history(client, "/v2/trades", ADDRESS, {"start": 0, "end": 2 * DAY - 1},
+                                  max_pages=1, max_total_pages=4, min_window_seconds=DAY)
+    assert result["complete"]
+    assert result["reason"] == "time_partitioned"
+    assert len(result["rows"]) == 2
+    assert [(call["start"], call["end"]) for call in client.calls] == [
+        (0, 2 * DAY - 1), (0, DAY - 1), (DAY, 2 * DAY - 1)]
+
+
+@pytest.mark.asyncio
+async def test_partitioning_stays_incomplete_when_total_request_budget_is_exhausted():
+    page = {"data": [{"proxy_wallet": ADDRESS, "timestamp": 1}],
+            "pagination": {"has_more": True, "next_cursor": "more"}}
+    complete = {"data": [{"proxy_wallet": ADDRESS, "timestamp": 1}],
+                "pagination": {"has_more": False, "next_cursor": None}}
+    client = type("Client", (), {"data_api_url": "", "_fetch_with_retry": AsyncMock(side_effect=[page, complete])})()
+    result = await cursor_history(client, "/v2/trades", ADDRESS, {"start": 0, "end": 2 * DAY - 1},
+                                  max_pages=1, max_total_pages=2, min_window_seconds=DAY)
+    assert not result["complete"]
+    assert result["reason"] == "incomplete_time_partition"
+    assert client._fetch_with_retry.await_count == 2
+
+
 def fixture_parts():
     root = Path(__file__).resolve().parents[2] / "docs/research/wallet_audit_2026-09-16"
     data = json.loads((root / "0xeee1b757ce93e076fdb4c1f4ff183dc302c53e28.json").read_text())

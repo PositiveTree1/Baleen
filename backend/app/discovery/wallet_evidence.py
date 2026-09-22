@@ -17,40 +17,80 @@ def finite(value):
         return None
 
 
-async def cursor_history(client, path, address, params, max_pages=20):
-    """Preserve identical fills: diagnostic keys are not unique execution IDs."""
-    rows, cursors = [], set()
-    query = {**params, "user": address, "limit": 1000}
-    reason = "page_budget_exhausted"
-    pages = 0
-    for _ in range(max_pages):
-        result = await client._fetch_with_retry(f"{client.data_api_url}{path}", query.copy())
-        pages += 1
-        if not isinstance(result, dict) or not isinstance(result.get("data"), list):
-            reason = "unavailable_or_invalid_response"
-            break
-        batch, pagination = result["data"], result.get("pagination")
-        if not isinstance(pagination, dict) or type(pagination.get("has_more")) is not bool:
-            reason = "invalid_pagination"
-            break
-        if any(not isinstance(r, dict) or str(r.get("proxy_wallet", "")).lower() != address for r in batch):
-            reason = "wallet_identity_mismatch"
-            break
-        if path in ("/v2/trades", "/v2/activity") and any(
-            finite(r.get("timestamp")) is None or not params["start"] <= float(r["timestamp"]) <= params["end"] for r in batch
-        ):
-            reason = "outside_requested_window"
-            break
-        rows.extend(batch)
-        if pagination["has_more"] is False:
-            return {"rows": rows, "complete": True, "pages": pages, "reason": "cursor_exhausted", "scope": params}
-        cursor = pagination.get("next_cursor")
-        if not isinstance(cursor, str) or not cursor or cursor in cursors or not batch:
-            reason = "invalid_or_repeated_cursor"
-            break
-        cursors.add(cursor)
-        query["cursor"] = cursor
-    return {"rows": rows, "complete": False, "pages": pages, "reason": reason, "scope": params}
+async def cursor_history(client, path, address, params, max_pages=20, max_total_pages=None,
+                         min_window_seconds=DAY):
+    """Read a complete bounded history window without mistaking a page cap for a result cap.
+
+    A single busy 30-day query may consume the per-window page budget.  In that
+    case trades and activity are retried over non-overlapping time slices.  This
+    makes the activity screen measure the wallet's actual recent rate instead
+    of silently treating a local 20,000-row safety budget as a provider limit.
+    The total request budget remains bounded; an unresolved window is still
+    explicitly incomplete and therefore cannot be promoted.
+    """
+    max_total_pages = max_total_pages if max_total_pages is not None else max_pages * 4
+    budget = {"remaining": max_total_pages}
+
+    async def walk_window(scope):
+        rows, cursors = [], set()
+        query = {**scope, "user": address, "limit": 1000}
+        reason = "page_budget_exhausted"
+        pages = 0
+        for _ in range(max_pages):
+            if budget["remaining"] <= 0:
+                reason = "total_page_budget_exhausted"
+                break
+            result = await client._fetch_with_retry(f"{client.data_api_url}{path}", query.copy())
+            budget["remaining"] -= 1
+            pages += 1
+            if not isinstance(result, dict) or not isinstance(result.get("data"), list):
+                reason = "unavailable_or_invalid_response"
+                break
+            batch, pagination = result["data"], result.get("pagination")
+            if not isinstance(pagination, dict) or type(pagination.get("has_more")) is not bool:
+                reason = "invalid_pagination"
+                break
+            if any(not isinstance(r, dict) or str(r.get("proxy_wallet", "")).lower() != address for r in batch):
+                reason = "wallet_identity_mismatch"
+                break
+            if path in ("/v2/trades", "/v2/activity") and any(
+                finite(r.get("timestamp")) is None or not scope["start"] <= float(r["timestamp"]) <= scope["end"] for r in batch
+            ):
+                reason = "outside_requested_window"
+                break
+            rows.extend(batch)
+            if pagination["has_more"] is False:
+                return {"rows": rows, "complete": True, "pages": pages, "reason": "cursor_exhausted", "scope": scope}
+            cursor = pagination.get("next_cursor")
+            if not isinstance(cursor, str) or not cursor or cursor in cursors or not batch:
+                reason = "invalid_or_repeated_cursor"
+                break
+            cursors.add(cursor)
+            query["cursor"] = cursor
+        return {"rows": rows, "complete": False, "pages": pages, "reason": reason, "scope": scope}
+
+    can_split = path in ("/v2/trades", "/v2/activity") and "start" in params and "end" in params
+
+    async def collect(scope):
+        result = await walk_window(scope)
+        width = int(scope["end"]) - int(scope["start"]) + 1 if can_split else 0
+        if (result["reason"] != "page_budget_exhausted" or not can_split or
+                width <= min_window_seconds or budget["remaining"] <= 0):
+            return result
+        midpoint = int(scope["start"]) + (width // 2) - 1
+        left_scope = {**scope, "end": midpoint}
+        right_scope = {**scope, "start": midpoint + 1}
+        left = await collect(left_scope)
+        right = await collect(right_scope)
+        return {
+            "rows": left["rows"] + right["rows"],
+            "complete": left["complete"] and right["complete"],
+            "pages": result["pages"] + left["pages"] + right["pages"],
+            "reason": "time_partitioned" if left["complete"] and right["complete"] else "incomplete_time_partition",
+            "scope": {"requested": params, "windows": [left["scope"], right["scope"]]},
+        }
+
+    return await collect(dict(params))
 
 
 async def pnl_series(client, address):
