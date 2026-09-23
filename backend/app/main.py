@@ -163,6 +163,12 @@ async def startup_event():
     scheduler.add_job(run_live_copy, 'interval', seconds=3, id='live_copy_job', max_instances=1)
     scheduler.start()
     logger.info("Scheduler started with 5-minute keep-alive ping cadence.")
+
+    # Apply a policy revision to an existing automatic account immediately at
+    # deployment.  Waiting for the 20-minute interval would leave an old
+    # roster eligible to receive new source entries after its evidence has
+    # already been superseded.
+    asyncio.create_task(run_automatic_roster_rotation())
     
     # Fire initial ping in background
     asyncio.create_task(keep_alive_job())
