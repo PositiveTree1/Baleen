@@ -83,12 +83,13 @@ def fixture_parts():
     return c["trades_30d"], c["curve_all"]["data"], c["stats"]["data"]
 
 
-def test_recorded_dreamlawn_stays_watchlist_not_approved():
+def test_recorded_dreamlawn_without_quality_curve_stays_unapproved():
     trades, series, profile = fixture_parts()
     end = max(p["timestamp"] for p in series["points"]) // DAY * DAY
     history = {"rows": trades["rows"], "complete": True}
     result = assess(history, series, profile, end)
-    assert result["classification"] == "watchlist"
+    assert result["classification"] == "excluded"
+    assert result["reasons"] == ["INCONSISTENT_30D_PNL_CURVE"]
     assert result["metrics"]["distinct_markets_lifetime"] == 45
     assert not result["execution_approved"]
 
@@ -114,3 +115,47 @@ def test_missing_data_never_becomes_zero_profit_or_approved():
     result = assess({"rows": [], "complete": False}, None, None, 100*DAY)
     assert result["classification"] == "needs_data"
     assert result["metrics"]["economic_pnl"] is None
+
+
+def test_active_candidate_requires_consistent_curve_and_realized_position_sample():
+    end = 100 * DAY
+    history = {"rows": [{"timestamp": end - 30 * DAY + day * DAY + 1} for day in range(30) for _ in range(2)], "complete": True}
+    series = {"points": [{"timestamp": (69 + day) * DAY, "economic_pnl": 100000 + day * 100,
+                            "trade_pnl": 100000 + day * 100} for day in range(32)]}
+    closed = {"rows": [{"realized_pnl": 100}] * 10, "complete": True}
+    result = assess(history, series, {}, end, closed)
+    assert result["classification"] == "research_candidate"
+    assert result["metrics"]["closed_position_win_rate_pct"] == 100
+    assert result["metrics"]["positive_pnl_day_rate_30d"] == 1
+
+
+def test_low_realized_win_rate_excludes_wallet_even_when_recent_pnl_is_positive():
+    end = 100 * DAY
+    history = {"rows": [{"timestamp": end - 30 * DAY + day * DAY + 1} for day in range(30) for _ in range(2)], "complete": True}
+    series = {"points": [{"timestamp": (69 + day) * DAY, "economic_pnl": 100000 + day * 100,
+                            "trade_pnl": 100000 + day * 100} for day in range(32)]}
+    closed = {"rows": [{"realized_pnl": 100}] * 5 + [{"realized_pnl": -100}] * 5, "complete": True}
+    result = assess(history, series, {}, end, closed)
+    assert result["classification"] == "excluded"
+    assert result["reasons"] == ["LOW_REALIZED_WIN_RATE_OR_PROFIT_FACTOR"]
+
+
+def test_low_activity_wallet_needs_quality_evidence_before_becoming_standby():
+    end = 100 * DAY
+    history = {"rows": [{"timestamp": end - 2 * DAY + 1}], "complete": True}
+    series = {"points": [{"timestamp": (69 + day) * DAY, "economic_pnl": 100000 + day * 100,
+                            "trade_pnl": 100000 + day * 100} for day in range(32)]}
+    result = assess(history, series, {}, end, {"rows": [], "complete": True})
+    assert result["classification"] == "needs_data"
+    assert result["reasons"] == ["INSUFFICIENT_REALIZED_POSITION_SAMPLE"]
+
+
+def test_low_activity_wallet_that_passes_quality_screen_becomes_standby():
+    end = 100 * DAY
+    history = {"rows": [{"timestamp": end - 2 * DAY + 1}], "complete": True}
+    series = {"points": [{"timestamp": (69 + day) * DAY, "economic_pnl": 100000 + day * 100,
+                            "trade_pnl": 100000 + day * 100} for day in range(32)]}
+    closed = {"rows": [{"realized_pnl": 100}] * 10, "complete": True}
+    result = assess(history, series, {}, end, closed)
+    assert result["classification"] == "watchlist"
+    assert result["reasons"] == ["LOW_OR_INTERMITTENT_ACTIVITY", "QUALITY_SCREEN_PASSED"]

@@ -76,7 +76,6 @@ export default function DashboardPage() {
 
   // View Mode: 'sandbox' | 'live'
   const [viewMode, setViewMode] = useState<'sandbox' | 'live'>('sandbox');
-  const [legacyOpen, setLegacyOpen] = useState(false);
   const [liveDashboard, setLiveDashboard] = useState<LiveTradingDashboard | null>(null);
 
   // 4 Action Modals
@@ -124,10 +123,10 @@ export default function DashboardPage() {
       try {
         const [userData, portfolioData, logsData, liveData, walletsData] = await Promise.all([
           canFetchPrivate ? fetchUserSettings(targetUserId!) : null,
-          canFetchPrivate && legacyOpen ? fetchPortfolioSummary(targetUserId!) : null,
-          canFetchPrivate && legacyOpen ? fetchExecutionLogs(targetUserId!, { limit: '500' }) : [],
+          canFetchPrivate ? fetchPortfolioSummary(targetUserId!) : null,
+          canFetchPrivate ? fetchExecutionLogs(targetUserId!, { limit: '500' }) : [],
           canFetchPrivate && viewMode === 'live' ? fetchLiveDashboard(targetUserId!) : null,
-          legacyOpen ? fetchWallets() : []
+          fetchWallets()
         ]);
         if (!isMounted) return;
         if (userData) setUser(userData);
@@ -155,7 +154,7 @@ export default function DashboardPage() {
       isMounted = false;
       clearInterval(interval);
     };
-  }, [accessToken, effectiveUserId, refreshTrigger, legacyOpen, viewMode]);
+  }, [accessToken, effectiveUserId, refreshTrigger, viewMode]);
 
   const toggleSound = () => {
     const next = soundFx.toggleSound();
@@ -476,9 +475,6 @@ export default function DashboardPage() {
         {/* VIEW 1: SANDBOX (PAPER TRADING) */}
         {viewMode === 'sandbox' && (
           <>
-            <PaperCopyPanel onConfigure={() => setIsMirrorOpen(true)} />
-            <details open={legacyOpen} onToggle={e => setLegacyOpen(e.currentTarget.open)}><summary className="cursor-pointer text-sm text-slate-500">Earlier simulator panels (separate results)</summary>
-            {legacyOpen && <>
             {/* Hero Section: Balance & 4-Action Row */}
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-5 sm:gap-6 pt-1 sm:pt-2">
               <BalanceCounter
@@ -537,8 +533,7 @@ export default function DashboardPage() {
               totalFillsCount={portfolio?.filledTradesCount}
               onSelectTrade={setSelectedTrade}
             />
-            </>}
-            </details>
+            <PaperCopyPanel onConfigure={() => setIsMirrorOpen(true)} />
           </>
         )}
 

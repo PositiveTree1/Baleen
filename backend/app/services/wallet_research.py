@@ -2,10 +2,10 @@
 import logging
 import asyncio
 from datetime import datetime, timedelta
-from sqlalchemy import select, or_
+from sqlalchemy import and_, select, or_
 from app.models import Wallet, WalletEvidence, WalletEvidenceObservation
 from app.discovery.polymarket_client import PolymarketClient
-from app.discovery.wallet_evidence import collect_evidence
+from app.discovery.wallet_evidence import collect_evidence, POLICY_VERSION
 from app.services.wallet_reset import current_generation, research_lock
 
 logger = logging.getLogger(__name__)
@@ -14,7 +14,13 @@ logger = logging.getLogger(__name__)
 async def refresh_wallet_evidence(db, *, limit=25, client=None):
     cutoff = datetime.utcnow() - timedelta(hours=24)
     wallets = (await db.execute(select(Wallet).outerjoin(WalletEvidence, Wallet.address == WalletEvidence.wallet_address)
-        .where(or_(WalletEvidence.observed_at.is_(None), WalletEvidence.observed_at < cutoff))
+        # A retained legacy address is not current research merely because it
+        # has no evidence.  Only addresses admitted through the $50k profile
+        # gate (pending) enter their first evidence pass; observed wallets are
+        # then re-evaluated on the normal freshness cadence.
+        .where(or_(and_(WalletEvidence.observed_at.is_(None), Wallet.status == "pending"),
+                   WalletEvidence.observed_at < cutoff,
+                   WalletEvidence.payload["policy_version"].as_string() != POLICY_VERSION))
         .order_by(WalletEvidence.observed_at.asc().nullsfirst(), Wallet.first_seen_at.asc(), Wallet.address.asc())
         .limit(limit))).scalars().all()
     owned = client is None
@@ -61,7 +67,8 @@ async def refresh_wallet_evidence(db, *, limit=25, client=None):
                 wallet.median_inter_trade_gap_hours = None
                 wallet.ai_summary = "Research status: " + payload["classification"].replace("_", " ") + ". Copy performance has not been validated."
                 wallet.ai_style_tag = payload["classification"].replace("_", " ")
-                wallet.is_hft = "FILL_RATE_ABOVE_30_OR_DAILY_BURST" in payload["reasons"]
+                wallet.is_hft = any(reason in {"FILL_RATE_ABOVE_40_OR_DAILY_BURST", "FILL_RATE_OUTSIDE_ACTIVE_RANGE"}
+                                    for reason in payload["reasons"])
                 wallet.last_scored_at = evidence.observed_at
                 await db.commit()
                 count += 1

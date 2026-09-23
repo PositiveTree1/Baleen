@@ -13,7 +13,7 @@ from app.services.paper_runs import archive_and_start
 from app.discovery.accounting_snapshot import accounting_snapshot
 from app.discovery.polymarket_client import PolymarketClient
 from app.sizing.proportional import decimal
-from app.services.automatic_roster import automatic_active_roster, standby_snipers, roster_evidence_status, roster_evidence_registry
+from app.services.automatic_roster import automatic_active_roster, active_candidates, standby_snipers, roster_evidence_status, roster_evidence_registry
 
 router = APIRouter(prefix='/api/paper-copy', tags=['paper-copy'])
 
@@ -57,6 +57,7 @@ class StartAutomaticPaperCopy(BaseModel):
 @router.get('')
 async def get_paper_copy(user: User = Depends(get_current_user), db=Depends(get_db)):
     snipers = await standby_snipers(db)
+    candidates = await active_candidates(db)
     roster_status = await roster_evidence_status(db)
     from app.discovery.scanner import discovery_state
     discovery = {
@@ -68,7 +69,7 @@ async def get_paper_copy(user: User = Depends(get_current_user), db=Depends(get_
     }
     account = await db.get(PaperCopyAccount, user.id)
     if account is None:
-        return {'status': 'NOT_CONFIGURED', 'runs': [], 'standby_snipers': snipers,
+        return {'status': 'NOT_CONFIGURED', 'runs': [], 'active_candidates': candidates, 'standby_snipers': snipers,
                 'discovery': discovery, 'roster_status': roster_status,
                 'execution_approved': False, 'mode': 'paper_only'}
     rows = (await db.execute(select(PaperCopyResearchRun).where(
@@ -99,7 +100,7 @@ async def get_paper_copy(user: User = Depends(get_current_user), db=Depends(get_
     selection_mode = runs[0]['policy'].get('selection_mode', 'manual') if runs else 'automatic'
     allocations = (await db.execute(select(PaperCopySniperAllocation).where(
         PaperCopySniperAllocation.user_id == user.id).order_by(PaperCopySniperAllocation.created_at.desc()).limit(20))).scalars().all()
-    return {'status': account.status, 'runs': runs, 'standby_snipers': snipers,
+    return {'status': account.status, 'runs': runs, 'active_candidates': candidates, 'standby_snipers': snipers,
             'selection_mode': selection_mode, 'last_error': account.last_error,
             'sniper_allocations': [{'source_event_id': row.source_event_id, 'source_wallet': row.source_wallet,
                                     'donor_run_id': row.donor_run_id, 'sniper_run_id': row.sniper_run_id,

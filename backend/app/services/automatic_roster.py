@@ -42,10 +42,17 @@ def _summary(wallet, evidence):
         'reasons': payload.get('reasons', []),
         'observed_at': evidence.observed_at.isoformat(),
         'all_time_pnl_usd': str(_number(metrics.get('economic_pnl', wallet.all_time_pnl_usd))),
+        'realized_pnl_usd': str(_number(metrics.get('realized_pnl'))),
         'recent_pnl_7d': str(_number(metrics.get('trade_pnl_7d'))),
         'recent_pnl_30d': str(_number(metrics.get('trade_pnl_30d'))),
         'fills_per_day_30d': str(_number(metrics.get('fills_per_day_30d'))),
         'active_days_7d': metrics.get('active_days_7d'),
+        'closed_position_win_rate_pct': metrics.get('closed_position_win_rate_pct'),
+        'closed_position_profit_factor': str(_number(metrics.get('closed_position_profit_factor')))
+            if metrics.get('closed_position_profit_factor') is not None else None,
+        'positive_pnl_day_rate_30d': metrics.get('positive_pnl_day_rate_30d'),
+        'max_curve_drawdown_30d': str(_number(metrics.get('max_curve_drawdown_30d')))
+            if metrics.get('max_curve_drawdown_30d') is not None else None,
     }
 
 
@@ -78,6 +85,26 @@ async def automatic_active_roster(db, capital):
     return [_summary(wallet, evidence) for wallet, evidence, _ in candidates[:target]]
 
 
+async def active_candidates(db, limit=25):
+    """Visible current candidates, independent of the user's capital tier."""
+    generation = await current_generation(db)
+    rows = (await db.execute(select(Wallet, WalletEvidence).outerjoin(
+        WalletEvidence, WalletEvidence.wallet_address == Wallet.address))).all()
+    candidates = []
+    for wallet, evidence in rows:
+        if wallet.is_hft or not _fresh_current(evidence, generation):
+            continue
+        if (evidence.payload or {}).get("classification") != "research_candidate":
+            continue
+        metrics = evidence.payload.get("metrics") or {}
+        candidates.append((wallet, evidence, (
+            _number(metrics.get("trade_pnl_30d")), _number(metrics.get("trade_pnl_7d")),
+            _number(metrics.get("economic_pnl", wallet.all_time_pnl_usd)), wallet.address,
+        )))
+    candidates.sort(key=lambda item: item[2], reverse=True)
+    return [_summary(wallet, evidence) for wallet, evidence, _ in candidates[:limit]]
+
+
 async def standby_snipers(db):
     """Return visible, fresh intermittent candidates that remain monitored."""
     generation = await current_generation(db)
@@ -102,8 +129,11 @@ async def roster_evidence_status(db):
     generation = await current_generation(db)
     rows = (await db.execute(select(Wallet, WalletEvidence).outerjoin(
         WalletEvidence, WalletEvidence.wallet_address == Wallet.address))).all()
-    counts = {"active_eligible": 0, "standby": 0, "needs_data": 0, "excluded": 0, "stale": 0}
+    counts = {"active_eligible": 0, "standby": 0, "needs_data": 0, "excluded": 0, "stale": 0, "legacy_retained": 0}
     for wallet, evidence in rows:
+        if evidence is None and wallet.status != "pending":
+            counts["legacy_retained"] += 1
+            continue
         if not _fresh_current(evidence, generation):
             counts["stale"] += 1
             continue
@@ -124,8 +154,11 @@ async def roster_evidence_registry(db, limit=250):
     generation = await current_generation(db)
     rows = (await db.execute(select(Wallet, WalletEvidence).outerjoin(
         WalletEvidence, WalletEvidence.wallet_address == Wallet.address))).all()
-    entries = []
+    entries, legacy_retained = [], 0
     for wallet, evidence in rows:
+        if evidence is None and wallet.status != "pending":
+            legacy_retained += 1
+            continue
         payload = (evidence.payload if evidence else None) or {}
         metrics = payload.get("metrics") or {}
         fresh = _fresh_current(evidence, generation)
@@ -141,6 +174,7 @@ async def roster_evidence_registry(db, limit=250):
             "reasons": payload.get("reasons") or (["EVIDENCE_NOT_YET_COLLECTED"] if not evidence else ["STALE_EVIDENCE"]),
             "observed_at": evidence.observed_at.isoformat() if evidence and evidence.observed_at else None,
             "all_time_pnl_usd": str(_number(metrics.get("economic_pnl", wallet.all_time_pnl_usd))),
+            "realized_pnl_usd": str(_number(metrics.get("realized_pnl"))),
             "recent_pnl_7d": str(_number(metrics.get("trade_pnl_7d"))),
             "recent_pnl_30d": str(_number(metrics.get("trade_pnl_30d"))),
             "fills_per_day_7d": str(_number(metrics.get("fills_per_day_7d"))),
@@ -151,4 +185,5 @@ async def roster_evidence_registry(db, limit=250):
         })
     order = {"research_candidate": 0, "watchlist": 1, "needs_data": 2, "stale": 3, "excluded": 4}
     entries.sort(key=lambda row: (order.get(row["classification"], 5), -Decimal(row["recent_pnl_30d"]), row["address"]))
-    return {"generation": generation, "total": len(entries), "displayed": min(limit, len(entries)), "wallets": entries[:limit]}
+    return {"generation": generation, "total": len(entries), "displayed": min(limit, len(entries)),
+            "legacy_retained": legacy_retained, "wallets": entries[:limit]}

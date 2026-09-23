@@ -42,9 +42,17 @@ export function PaperCopyPanel({ onConfigure }: { onConfigure: () => void }) {
       {typeof data.discovery.wallets_scanned === 'number' && <p className="text-xs text-slate-500">{data.discovery.wallets_scanned} wallets scanned in this pass.</p>}
     </div>}
     {data?.roster_status && <p className="text-xs text-slate-500" aria-label="Automatic roster evidence counts">
-      Eligibility: <strong>{data.roster_status.active_eligible}</strong> active candidates · <strong>{data.roster_status.standby}</strong> standby snipers · <strong>{data.roster_status.needs_data}</strong> awaiting coverage · <strong>{data.roster_status.excluded}</strong> excluded · <strong>{data.roster_status.stale}</strong> awaiting refresh
+      Eligibility: <strong>{data.roster_status.active_eligible}</strong> active candidates · <strong>{data.roster_status.standby}</strong> standby snipers · <strong>{data.roster_status.needs_data}</strong> awaiting coverage · <strong>{data.roster_status.excluded}</strong> excluded · <strong>{data.roster_status.stale}</strong> awaiting refresh{data.roster_status.legacy_retained > 0 ? ` · ${data.roster_status.legacy_retained.toLocaleString()} preserved legacy identities (not queued)` : ''}
     </p>}
     {runs.length === 0 && <p className="text-xs text-slate-500">Net P&amp;L becomes available after an active paper sleeve receives a confirmed source fill and a current order-book valuation.</p>}
+    <div className="border-t border-slate-300/20 pt-4 space-y-2" aria-label="Active candidate wallets">
+      <div><h3 className="font-bold">Active candidate wallets</h3><p className="text-xs text-slate-500">Fresh non-HFT wallets eligible for an active sleeve. The automatic roster selects the number supported by your paper balance.</p></div>
+      {(data?.active_candidates ?? []).length === 0 ? <p className="text-sm text-slate-500">No active candidates have passed the current evidence screen yet.</p> :
+        data!.active_candidates!.map(s => <div key={s.address} className="text-xs flex flex-wrap justify-between gap-2 rounded-lg border border-slate-300/20 p-2">
+          <span><strong>{s.name || s.pseudonym || s.address}</strong><span className="block text-slate-500">{s.address}</span></span>
+          <span className="text-right">{Number(s.fills_per_day_30d).toFixed(1)} fills/day · ${Number(s.all_time_pnl_usd).toLocaleString()} economic P&amp;L<span className="block text-slate-500">${Number(s.realized_pnl_usd).toLocaleString()} realized · 30d ${Number(s.recent_pnl_30d).toLocaleString()}</span><span className="block text-slate-500">{s.closed_position_win_rate_pct == null ? 'Closed win rate pending' : `${s.closed_position_win_rate_pct.toFixed(1)}% closed win rate`} · {s.positive_pnl_day_rate_30d == null ? 'Curve pending' : `${(s.positive_pnl_day_rate_30d * 100).toFixed(0)}% positive curve days`} · {s.reasons.join(', ')}</span></span>
+        </div>)}
+    </div>
     <p className="text-xs text-slate-500">New source fills only. Fixed allocation ratios. The active roster is selected from fresh eligible research candidates; standby snipers remain monitored without an idle sleeve. Paper fills estimate available order-book depth after receipt confirmation; they are not exchange executions.</p>
     {runs.map(r => <div key={r.id} className="border-t border-slate-300/20 pt-3 space-y-2">
       <div className="flex flex-wrap justify-between gap-2"><strong>{r.name || r.wallet}</strong>
@@ -61,7 +69,7 @@ export function PaperCopyPanel({ onConfigure }: { onConfigure: () => void }) {
       {(data?.standby_snipers ?? []).length === 0 ? <p className="text-sm text-slate-500">No fresh standby candidates yet.</p> :
         data!.standby_snipers!.map(s => <div key={s.address} className="text-xs flex flex-wrap justify-between gap-2 rounded-lg border border-slate-300/20 p-2">
           <span><strong>{s.name || s.pseudonym || s.address}</strong><span className="block text-slate-500">{s.address}</span></span>
-          <span className="text-right">{Number(s.fills_per_day_30d).toFixed(1)} fills/day · ${Number(s.all_time_pnl_usd).toLocaleString()} P&amp;L<span className="block text-slate-500">{s.reasons.join(', ')}</span></span>
+          <span className="text-right">{Number(s.fills_per_day_30d).toFixed(1)} fills/day · ${Number(s.all_time_pnl_usd).toLocaleString()} economic P&amp;L<span className="block text-slate-500">${Number(s.realized_pnl_usd).toLocaleString()} realized · {s.closed_position_win_rate_pct == null ? 'Closed win rate pending' : `${s.closed_position_win_rate_pct.toFixed(1)}% closed win rate`} · {s.reasons.join(', ')}</span></span>
         </div>)}
     </div>
     <div className="border-t border-slate-300/20 pt-4 space-y-2" aria-label="Standby sniper allocation decisions">
@@ -83,12 +91,12 @@ export function PaperCopyPanel({ onConfigure }: { onConfigure: () => void }) {
     </div>
     <details className="border-t border-slate-300/20 pt-4" aria-label="Wallet research registry">
       <summary className="cursor-pointer font-bold">Wallet research registry {research ? `(${research.registry.displayed} of ${research.registry.total})` : ''}</summary>
-      <p className="mt-2 text-xs text-slate-500">Every retained wallet is shown with the latest automatic decision. This is read-only research; active sleeves are still selected only from fresh eligible candidates.</p>
+      <p className="mt-2 text-xs text-slate-500">Every currently admitted or evaluated wallet is shown with the latest automatic decision. {research && research.registry.legacy_retained > 0 ? `${research.registry.legacy_retained.toLocaleString()} legacy identities are preserved outside the active research queue until independently re-admitted through the current $50k gate.` : ''} This is read-only research; active sleeves are still selected only from fresh eligible candidates.</p>
       <div className="mt-3 space-y-2">
         {(research?.registry.wallets ?? []).map(w => <div key={w.address} className="rounded-lg border border-slate-300/20 p-3 text-xs">
           <div className="flex flex-wrap justify-between gap-2"><strong>{w.name || w.pseudonym || w.address}</strong><span>{w.classification.replace('_', ' ')}{w.is_hft ? ' · HFT excluded' : ''}</span></div>
           <span className="block text-slate-500 break-all">{w.address}</span>
-          <div className="mt-1 grid grid-cols-2 gap-x-3 gap-y-1 sm:grid-cols-4"><span>All-time {moneyText(w.all_time_pnl_usd)}</span><span>30d {moneyText(w.recent_pnl_30d)}</span><span>7d {moneyText(w.recent_pnl_7d)}</span><span>{Number(w.fills_per_day_30d).toFixed(1)} fills/day</span></div>
+          <div className="mt-1 grid grid-cols-2 gap-x-3 gap-y-1 sm:grid-cols-4"><span>Economic {moneyText(w.all_time_pnl_usd)}</span><span>Realized {moneyText(w.realized_pnl_usd)}</span><span>30d {moneyText(w.recent_pnl_30d)}</span><span>{Number(w.fills_per_day_30d).toFixed(1)} fills/day</span></div>
           <p className="mt-1 text-slate-500">{w.reasons.join(', ')} · Coverage: {w.trade_coverage_complete ? 'complete' : (w.trade_coverage_reason || 'awaiting')} · {w.observed_at ? new Date(w.observed_at).toLocaleString() : 'not yet observed'}</p>
         </div>)}
         {research && research.registry.wallets.length === 0 && <p className="text-sm text-slate-500">No wallet evidence has been collected yet.</p>}

@@ -278,7 +278,16 @@ export interface PaperCopyState {
   status: string; listener?: string; last_error?: string | null; selection_mode?: 'automatic' | 'manual';
   standby_snipers?: Array<{ address: string; name?: string | null; pseudonym?: string | null;
     classification: string; reasons: string[]; all_time_pnl_usd: string; recent_pnl_30d: string;
-    fills_per_day_30d: string; observed_at: string }>;
+    realized_pnl_usd: string;
+    fills_per_day_30d: string; observed_at: string; closed_position_win_rate_pct?: number | null;
+    closed_position_profit_factor?: string | null; positive_pnl_day_rate_30d?: number | null;
+    max_curve_drawdown_30d?: string | null }>;
+  active_candidates?: Array<{ address: string; name?: string | null; pseudonym?: string | null;
+    classification: string; reasons: string[]; all_time_pnl_usd: string; recent_pnl_30d: string;
+    realized_pnl_usd: string;
+    fills_per_day_30d: string; observed_at: string; closed_position_win_rate_pct?: number | null;
+    closed_position_profit_factor?: string | null; positive_pnl_day_rate_30d?: number | null;
+    max_curve_drawdown_30d?: string | null }>;
   sniper_allocations?: Array<{ source_event_id: string; source_wallet: string; donor_run_id?: string | null;
     sniper_run_id?: string | null; allocated_cash_usd?: string | null; status: string; reason?: string | null;
     created_at: string }>;
@@ -288,7 +297,7 @@ export interface PaperCopyState {
   discovery?: { status?: string; progress_pct?: number; step_description?: string;
     wallets_scanned?: number; error_message?: string | null };
   roster_status?: { active_eligible: number; standby: number; needs_data: number;
-    excluded: number; stale: number; generation: string };
+    excluded: number; stale: number; legacy_retained: number; generation: string };
   runs: Array<{ id: string; wallet: string; name?: string; revision: number;
     policy: { ratio: string }; report: {
       valuation: { equity?: string | null; economic_pnl?: string | null; reason?: string };
@@ -312,11 +321,12 @@ export async function fetchPaperCopy(): Promise<PaperCopyState> {
 export interface PaperResearchWallet {
   address: string; name?: string | null; pseudonym?: string | null; classification: string; fresh: boolean;
   is_hft: boolean; reasons: string[]; observed_at?: string | null; all_time_pnl_usd: string;
+  realized_pnl_usd: string;
   recent_pnl_7d: string; recent_pnl_30d: string; fills_per_day_7d: string; fills_per_day_30d: string;
   active_days_7d?: number | null; trade_coverage_complete?: boolean | null; trade_coverage_reason?: string | null;
 }
 export interface PaperResearchState {
-  registry: { generation: string; total: number; displayed: number; wallets: PaperResearchWallet[] };
+  registry: { generation: string; total: number; displayed: number; legacy_retained: number; wallets: PaperResearchWallet[] };
   discovery: PaperCopyState['discovery'];
 }
 export async function fetchPaperCopyResearch(): Promise<PaperResearchState> {

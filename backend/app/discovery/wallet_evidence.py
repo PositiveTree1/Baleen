@@ -5,7 +5,10 @@ from collections import Counter
 from app.discovery.accounting_snapshot import accounting_snapshot
 from datetime import datetime, timezone
 
-POLICY_VERSION = "wallet-evidence-2026-09-17"
+# Changing this version deliberately requests a re-evaluation of evidence
+# collected under an older screen.  Eligibility must never silently retain a
+# decision made before curve and realized-position checks existed.
+POLICY_VERSION = "wallet-evidence-2026-09-23"
 DAY = 86400
 
 
@@ -127,7 +130,7 @@ def chart_history(series):
     return history
 
 
-def assess(history, series, profile, end):
+def assess(history, series, profile, end, closed=None):
     reasons = []
     counts = [0] * 30
     for row in history["rows"]:
@@ -145,6 +148,7 @@ def assess(history, series, profile, end):
     pnl = finite(latest.get("economic_pnl"))
     metrics["economic_pnl"] = pnl
     metrics["trade_pnl"] = finite(latest.get("trade_pnl"))
+    metrics["realized_pnl"] = finite(latest.get("realized_pnl"))
     metrics["wallet_income"] = finite(latest.get("wallet_income"))
     for days in (7, 30):
         target = end - days * DAY
@@ -152,6 +156,51 @@ def assess(history, series, profile, end):
         # Do not use a baseline from an arbitrary distant date.
         start_value = finite(baseline.get("trade_pnl")) if baseline and target - baseline["timestamp"] <= 2*DAY else None
         metrics[f"trade_pnl_{days}d"] = metrics["trade_pnl"] - start_value if start_value is not None and metrics["trade_pnl"] is not None else None
+    # Daily provider curve changes are not individual trade outcomes.  They
+    # are still useful evidence of consistency and drawdown, and are kept
+    # explicitly separate from realized closed-position win/loss statistics.
+    curve_points = [p for p in points if p["timestamp"] >= end - 30 * DAY]
+    prior = next((p for p in reversed(points) if p["timestamp"] < end - 30 * DAY), None)
+    previous_value = finite(prior.get("trade_pnl")) if prior else None
+    daily_changes = []
+    for point in curve_points:
+        value = finite(point.get("trade_pnl"))
+        if value is not None and previous_value is not None:
+            daily_changes.append(value - previous_value)
+        if value is not None:
+            previous_value = value
+    positive_days = [change for change in daily_changes if change > 0]
+    negative_days = [change for change in daily_changes if change < 0]
+    metrics.update({
+        "pnl_days_30d": len(daily_changes),
+        "positive_pnl_days_30d": len(positive_days),
+        "negative_pnl_days_30d": len(negative_days),
+        "positive_pnl_day_rate_30d": len(positive_days) / len(daily_changes) if daily_changes else None,
+        "daily_pnl_profit_factor_30d": sum(positive_days) / abs(sum(negative_days)) if negative_days else None,
+        "no_negative_pnl_days_30d": bool(positive_days and not negative_days),
+        "worst_daily_pnl_30d": min(daily_changes) if daily_changes else None,
+    })
+    curve_values = [finite(p.get("trade_pnl")) for p in ([prior] if prior else []) + curve_points]
+    curve_values = [value for value in curve_values if value is not None]
+    peak, max_drawdown = None, 0.0
+    for value in curve_values:
+        peak = value if peak is None else max(peak, value)
+        max_drawdown = min(max_drawdown, value - peak)
+    metrics["max_curve_drawdown_30d"] = max_drawdown if curve_values else None
+    if closed and closed.get("complete"):
+        realized = [finite(row.get("realized_pnl")) for row in closed["rows"]]
+        realized = [value for value in realized if value is not None and value != 0]
+        wins = [value for value in realized if value > 0]
+        losses = [value for value in realized if value < 0]
+        metrics.update({
+            "closed_positions_sample": len(realized),
+            "closed_position_wins": len(wins),
+            "closed_position_losses": len(losses),
+            "closed_position_win_rate_pct": (100 * len(wins) / len(realized)) if realized else None,
+            "closed_position_profit_factor": sum(wins) / abs(sum(losses)) if losses else None,
+            "no_realized_losses": bool(wins and not losses),
+            "worst_closed_position_pnl": min(realized) if realized else None,
+        })
     if not history["complete"]:
         reasons.append("INCOMPLETE_TRADE_WINDOW")
     if pnl is None or not points or end - latest["timestamp"] > 2*DAY or latest["timestamp"] > end + DAY:
@@ -160,14 +209,30 @@ def assess(history, series, profile, end):
         classification = "needs_data"
     elif pnl < 50000:
         classification, reasons = "excluded", ["PNL_BELOW_50K"]
+    elif max(week, month) > 40 or max(counts) > 40:
+        classification, reasons = "excluded", ["FILL_RATE_ABOVE_40_OR_DAILY_BURST"]
     elif max(week, month) > 30 or max(counts) > 30:
-        classification, reasons = "excluded", ["FILL_RATE_ABOVE_30_OR_DAILY_BURST"]
-    elif min(week, month) < 2 or metrics["active_days_7d"] < 5:
-        classification, reasons = "watchlist", ["LOW_OR_INTERMITTENT_ACTIVITY"]
+        # Thirty fills/day is the upper bound for the active-copy roster.  A
+        # wallet just above it is not necessarily abusive, but it is not the
+        # low-turnover strategy the paper copier is intended to mirror.
+        classification, reasons = "excluded", ["FILL_RATE_OUTSIDE_ACTIVE_RANGE"]
     elif any(metrics[f"trade_pnl_{d}d"] is None for d in (7, 30)):
         classification, reasons = "needs_data", ["MISSING_RECENT_TRADE_PNL"]
     elif any(metrics[f"trade_pnl_{d}d"] <= 0 for d in (7, 30)):
         classification, reasons = "excluded", ["NON_POSITIVE_RECENT_TRADE_PNL"]
+    elif metrics["pnl_days_30d"] < 14 or metrics["positive_pnl_day_rate_30d"] is None:
+        classification, reasons = "needs_data", ["INSUFFICIENT_30D_PNL_CURVE"]
+    elif metrics["positive_pnl_day_rate_30d"] < 0.55 or (metrics["daily_pnl_profit_factor_30d"] is not None and metrics["daily_pnl_profit_factor_30d"] < 1.25):
+        classification, reasons = "excluded", ["INCONSISTENT_30D_PNL_CURVE"]
+    elif metrics.get("closed_positions_sample") is None or metrics["closed_positions_sample"] < 10:
+        classification, reasons = "needs_data", ["INSUFFICIENT_REALIZED_POSITION_SAMPLE"]
+    elif metrics["closed_position_win_rate_pct"] < 60 or (metrics["closed_position_profit_factor"] is not None and metrics["closed_position_profit_factor"] < 1.25):
+        classification, reasons = "excluded", ["LOW_REALIZED_WIN_RATE_OR_PROFIT_FACTOR"]
+    elif min(week, month) < 2 or metrics["active_days_7d"] < 5:
+        # A quiet wallet earns standby monitoring only after passing the same
+        # curve and realized-position checks as an active candidate.  This
+        # prevents a large historic P&L number alone from creating a sniper.
+        classification, reasons = "watchlist", ["LOW_OR_INTERMITTENT_ACTIVITY", "QUALITY_SCREEN_PASSED"]
     else:
         classification, reasons = "research_candidate", ["ACCOUNT_REPLAY_AND_FORWARD_VALIDATION_REQUIRED"]
     return {"policy_version": POLICY_VERSION, "classification": classification, "reasons": reasons,
@@ -193,7 +258,7 @@ async def collect_evidence(client, address, now=None):
         cursor_history(client, "/v2/positions", address, {"status": "CLOSED", "filter_amount": 0}),
         accounting_snapshot(client, address),
     )
-    report = assess(trades, series, profile, end)
+    report = assess(trades, series, profile, end, closed)
     report["accounting_snapshot"] = snapshot
     report["additional_coverage"] = {name: {k: v for k, v in result.items() if k != "rows"}
                                      for name, result in (("activity", activity), ("open_positions", positions), ("closed_positions", closed))}
