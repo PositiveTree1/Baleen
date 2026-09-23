@@ -88,7 +88,7 @@ async def get_paper_copy(user: User = Depends(get_current_user), db=Depends(get_
             report = {**report, 'valuation': {'economic_pnl': None,
                 'reason': report.get('worker_error') or 'Current marks unavailable'}}
         runs.append({'id': r.id, 'wallet': r.source_wallet, 'name': (wallet.name or wallet.pseudonym) if wallet else None,
-                     'policy': r.policy, 'report': report, 'revision': r.revision})
+                     'policy': r.policy, 'role': r.policy.get('role', 'active'), 'report': report, 'revision': r.revision})
     from app.services.listener_health import listener_health
     listener_data = await listener_health(db)
     # Old reports are retained for audit, but never displayed as current equity.

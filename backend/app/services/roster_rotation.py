@@ -96,7 +96,15 @@ async def rotate_automatic_roster(sessions, user_id, client):
             promoted.append({'wallet': candidate['address'], 'run_id': new_run.id, 'cash': str(cash),
                              'replaced_wallet': donor_wallet, 'replaced_pnl': str(donor_pnl)})
             retired.append({'wallet': donor_wallet, 'run_id': donor_id, 'cash_transferred': str(cash)})
-        if promoted or skipped:
+        # A policy change can leave no approved replacement yet.  Retire every
+        # source absent from the desired roster immediately: its existing
+        # inventory still receives SELL/REDEEM monitoring, but it has no right
+        # to open a new paper position while evidence is stale or rejected.
+        for donor in donors:
+            donor.policy = {**donor.policy, 'role': 'retired', 'retired_at': datetime.utcnow().isoformat(),
+                             'retirement_reason': 'No longer eligible under current automatic roster evidence'}
+            retired.append({'wallet': donor.source_wallet, 'run_id': donor.id, 'cash_transferred': '0'})
+        if promoted or retired or skipped:
             db.add(PaperCopyRosterRotation(user_id=user_id, promoted=promoted, retired=retired, skipped=skipped))
             account.updated_at, account.last_error = datetime.utcnow(), None
             await db.commit()

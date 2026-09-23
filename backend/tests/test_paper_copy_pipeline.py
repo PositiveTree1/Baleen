@@ -181,6 +181,31 @@ async def test_empty_automatic_roster_starts_discovery_without_archiving_current
 
 
 @pytest.mark.asyncio
+async def test_automatic_rotation_retires_old_roster_when_policy_reaudit_has_no_replacement(pipeline, monkeypatch):
+    """Old automatic sleeves must not keep buying after their policy expires."""
+    sessions, uid = pipeline
+    from app.discovery.wallet_evidence import POLICY_VERSION
+    payload = {'policy_version': POLICY_VERSION, 'generation': 'legacy', 'classification': 'research_candidate',
+               'reasons': ['ACCOUNT_REPLAY_AND_FORWARD_VALIDATION_REQUIRED'],
+               'metrics': {'economic_pnl': '75000', 'trade_pnl_30d': '100', 'trade_pnl_7d': '40',
+                           'fills_per_day_30d': '5', 'active_days_7d': 6}}
+    async with sessions() as db, db.begin():
+        db.add(WalletEvidence(wallet_address=ADDRESS, observed_at=datetime.utcnow(), payload=payload))
+    async with sessions() as db:
+        user = await db.get(User, uid)
+        state = await start_automatic_paper_copy(StartAutomaticPaperCopy(starting_cash=100), user, db)
+        run_id = state['runs'][0]['id']
+        evidence = await db.get(WalletEvidence, ADDRESS)
+        evidence.payload = {**payload, 'policy_version': 'superseded-policy'}
+        await db.commit()
+    result = await rotate_automatic_roster(sessions, uid, AsyncMock())
+    assert result['promoted'] == []
+    assert [row['wallet'] for row in result['retired']] == [ADDRESS]
+    async with sessions() as db:
+        assert (await db.get(PaperCopyResearchRun, run_id)).policy['role'] == 'retired'
+
+
+@pytest.mark.asyncio
 async def test_verified_standby_sniper_uses_only_free_cash_from_weakest_active_sleeve(pipeline, monkeypatch):
     sessions, uid = pipeline
     from app.discovery.wallet_evidence import POLICY_VERSION

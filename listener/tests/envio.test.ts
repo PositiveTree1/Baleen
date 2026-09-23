@@ -1,4 +1,4 @@
-import { createHyperSyncClient, buildQuery } from '../src/hypersync';
+import { createHyperSyncClient, buildQuery, canAdvanceCursor } from '../src/hypersync';
 import { getResumeBlock, saveCheckpoint } from '../src/checkpoint';
 import fs from 'fs';
 import path from 'path';
@@ -36,5 +36,11 @@ describe('HyperSync and Checkpoint Tests', () => {
   it('should create client', () => {
     const client = createHyperSyncClient();
     expect(client).toBeDefined();
+  });
+
+  it('accepts HyperSync’s first-unread cursor after an inclusive query', () => {
+    expect(canAdvanceCursor(501, 400, 500)).toBe(true);
+    expect(canAdvanceCursor(502, 400, 500)).toBe(false);
+    expect(canAdvanceCursor(400, 400, 500)).toBe(false);
   });
 });

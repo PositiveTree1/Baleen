@@ -298,7 +298,7 @@ export interface PaperCopyState {
     wallets_scanned?: number; error_message?: string | null };
   roster_status?: { active_eligible: number; standby: number; needs_data: number;
     excluded: number; stale: number; legacy_retained: number; generation: string };
-  runs: Array<{ id: string; wallet: string; name?: string; revision: number;
+  runs: Array<{ id: string; wallet: string; name?: string; role?: 'active' | 'retired'; revision: number;
     policy: { ratio: string }; report: {
       valuation: { equity?: string | null; economic_pnl?: string | null; reason?: string };
       events: Array<{ source_id: string; status: string; quantity: string; reason?: string; fee_usd?: string }>;

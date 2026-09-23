@@ -22,15 +22,17 @@ export function PaperCopyPanel({ onConfigure }: { onConfigure: () => void }) {
     return () => { active = false; clearInterval(timer); window.removeEventListener('paper-copy-updated', fetchLatest); };
   }, []);
   const runs = data?.runs ?? [];
-  const known = !error && data?.status === 'ACTIVE' && runs.length > 0 && runs.every(r => r.report.valuation.equity != null);
-  const equity = known ? runs.reduce((sum, r) => sum + Number(r.report.valuation.equity), 0) : null;
-  const pnl = known ? runs.reduce((sum, r) => sum + Number(r.report.valuation.economic_pnl), 0) : null;
+  const activeRuns = runs.filter(r => (r.role ?? 'active') === 'active');
+  const retiredRuns = runs.filter(r => (r.role ?? 'active') === 'retired');
+  const known = !error && data?.status === 'ACTIVE' && activeRuns.length > 0 && activeRuns.every(r => r.report.valuation.equity != null);
+  const equity = known ? activeRuns.reduce((sum, r) => sum + Number(r.report.valuation.equity), 0) : null;
+  const pnl = known ? activeRuns.reduce((sum, r) => sum + Number(r.report.valuation.economic_pnl), 0) : null;
   const money = (n: number | null) => n == null ? 'Unavailable' : n.toLocaleString(undefined, { style: 'currency', currency: 'USD' });
   const moneyText = (n: string) => Number(n).toLocaleString(undefined, { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
   return <section className="glass-card rounded-3xl p-6 space-y-4" aria-label="Server-saved paper copying">
     <div className="flex flex-wrap items-center justify-between gap-3">
       <div><h2 className="text-xl font-bold">Paper copying</h2>
-        <p className="text-sm text-slate-500">{data?.status === 'ACTIVE' ? `${runs.length} ${runs.length === 1 ? 'wallet' : 'wallets'} in the ${data.selection_mode === 'automatic' ? 'automatic' : 'saved'} roster` : 'Automatic roster not started'}</p></div>
+        <p className="text-sm text-slate-500">{data?.status === 'ACTIVE' ? `${activeRuns.length} ${activeRuns.length === 1 ? 'wallet' : 'wallets'} in the ${data.selection_mode === 'automatic' ? 'automatic' : 'saved'} roster${retiredRuns.length ? ` · ${retiredRuns.length} retired source${retiredRuns.length === 1 ? '' : 's'} exit-monitoring only` : ''}` : 'Automatic roster not started'}</p></div>
       <button className="glass-button rounded-xl px-4 py-2" onClick={onConfigure}>Start fresh</button>
     </div>
     {(error || data?.last_error) && <p role="alert" className="text-amber-600">{error || data?.last_error}</p>}
@@ -54,7 +56,7 @@ export function PaperCopyPanel({ onConfigure }: { onConfigure: () => void }) {
         </div>)}
     </div>
     <p className="text-xs text-slate-500">New source fills only. Fixed allocation ratios. The active roster is selected from fresh eligible research candidates; standby snipers remain monitored without an idle sleeve. Paper fills estimate available order-book depth after receipt confirmation; they are not exchange executions.</p>
-    {runs.map(r => <div key={r.id} className="border-t border-slate-300/20 pt-3 space-y-2">
+    {activeRuns.map(r => <div key={r.id} className="border-t border-slate-300/20 pt-3 space-y-2">
       <div className="flex flex-wrap justify-between gap-2"><strong>{r.name || r.wallet}</strong>
         <span className="text-xs">Ratio {Number(r.policy.ratio).toPrecision(4)} · {r.revision} detected decisions</span></div>
       {r.report.valuation.reason && <p className="text-xs text-amber-600">{r.report.valuation.reason}</p>}
@@ -64,6 +66,10 @@ export function PaperCopyPanel({ onConfigure }: { onConfigure: () => void }) {
         <span>{e.status === 'filled' ? 'Paper copied' : e.status === 'settled' ? 'Paper settled' : 'Not copied'} · {e.quantity} shares</span><span>{e.reason || `Fee $${e.fee_usd}`}</span>
       </div>)}
     </div>)}
+    {retiredRuns.length > 0 && <div className="border-t border-slate-300/20 pt-4 space-y-2" aria-label="Retired paper-copy sources">
+      <div><h3 className="font-bold">Retired sources</h3><p className="text-xs text-slate-500">These wallets are no longer followed for new entries. They remain only to process exits for an already-copied position.</p></div>
+      {retiredRuns.map(r => <p key={r.id} className="text-xs rounded-lg border border-slate-300/20 p-2"><strong>{r.name || r.wallet}</strong> · {r.revision} recorded decisions · {r.report.events.length ? 'exit monitoring retained' : 'no copied inventory'}</p>)}
+    </div>}
     <div className="border-t border-slate-300/20 pt-4 space-y-2" aria-label="Standby sniper wallets">
       <div><h3 className="font-bold">Standby sniper wallets</h3><p className="text-xs text-slate-500">Intermittent, non-HFT candidates monitored by the listener. They have no idle paper sleeve.</p></div>
       {(data?.standby_snipers ?? []).length === 0 ? <p className="text-sm text-slate-500">No fresh standby candidates yet.</p> :

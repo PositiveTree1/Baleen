@@ -160,6 +160,10 @@ export function buildQuery(fromBlock: number) {
   };
 }
 
+export function canAdvanceCursor(nextBlock: number | undefined, currentBlock: number, confirmedEnd: number): nextBlock is number {
+  return nextBlock !== undefined && nextBlock > currentBlock && nextBlock <= confirmedEnd + 1;
+}
+
 export async function streamEvents(
   client: IHyperSyncClient,
   fromBlock: number,
@@ -200,7 +204,13 @@ export async function streamEvents(
       }
 
       const nextBlock = res.nextBlock;
-      if (nextBlock && nextBlock > currentBlock && nextBlock <= confirmedEnd) {
+      // HyperSync returns the first *unread* block after an inclusive query,
+      // so a fully consumed [fromBlock, confirmedEnd] range legitimately
+      // yields confirmedEnd + 1.  Rejecting that value made the listener poll
+      // the same completed range forever: heartbeats arrived, but their
+      // delivered cursor never advanced and the backend correctly showed
+      // STALLED.
+      if (canAdvanceCursor(nextBlock, currentBlock, confirmedEnd)) {
         currentBlock = nextBlock;
         saveCheckpoint(currentBlock);
         // Safe rate-limiting pause between catch-up queries to strictly stay well under 30 req/5s free limit

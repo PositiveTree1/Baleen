@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.analysis.ai_summary import generate_summary
 from app.database import get_db
 from app.auth import get_current_user_optional
-from app.models import ExecutionLog, Wallet, WalletSnapshot, User
+from app.models import ExecutionLog, Wallet, WalletSnapshot, User, WalletEvidence
 from app.services.mark_to_market import _last_known_pnl, get_live_price
 from app.services.polymarket_fees import calculate_polymarket_fee
 
@@ -71,10 +71,16 @@ async def list_wallets(
     elif tier:
         stmt = stmt.where(Wallet.status == "active", Wallet.tier == tier, Wallet.dormant == False)
     else:
-        # Default roster: show active and tracked wallets that have been scored and have authentic PnL
-        stmt = stmt.where(
-            Wallet.status.in_(["active", "tracked"]),
-            Wallet.all_time_pnl_usd.is_not(None)
+        # The dashboard's default leaderboard is the current automatic
+        # research roster, never the retained legacy list.  A legacy wallet
+        # with an old $8k P&L or stale heuristics therefore cannot appear as a
+        # "tracked" leader or be mistaken for an eligible copy source.
+        from app.discovery.wallet_evidence import POLICY_VERSION
+        stmt = stmt.join(WalletEvidence, WalletEvidence.wallet_address == Wallet.address).where(
+            WalletEvidence.observed_at >= datetime.utcnow() - timedelta(hours=24),
+            WalletEvidence.payload['generation'].as_string() == await current_generation(db),
+            WalletEvidence.payload['policy_version'].as_string() == POLICY_VERSION,
+            WalletEvidence.payload['classification'].as_string() == 'research_candidate',
         )
         
     stmt = stmt.order_by(Wallet.baleen_score.desc().nullslast(), Wallet.all_time_pnl_usd.desc().nullslast()).limit(limit).offset(offset)

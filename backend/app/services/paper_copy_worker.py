@@ -74,11 +74,20 @@ async def process_run(sessions, run_id, client, receipts):
             existing = await db.get(PaperCopyResearchEvent, (run_id, str(source.id)))
             if existing: continue  # Another replica already stored its original observation.
             evidence = await db.get(WalletEvidence, address)
-            if (source.side == 'BUY' and evidence and evidence.payload.get('policy_version') == POLICY_VERSION
-                    and evidence.payload.get('generation') == await current_generation(db)
-                    and (datetime.utcnow()-evidence.observed_at).total_seconds() < 86400
-                    and evidence.payload.get('classification') == 'excluded'):
-                event['observation_error'] = 'Wallet re-evaluation excluded new entries: '+', '.join(evidence.payload.get('reasons', []))
+            # A roster may outlive a policy revision.  Preserve its SELL and
+            # REDEEM monitoring for already-copied inventory, but never let a
+            # stale, HFT, needs-data, or excluded source create another BUY.
+            current_candidate = bool(
+                evidence and evidence.payload.get('policy_version') == POLICY_VERSION
+                and evidence.payload.get('generation') == await current_generation(db)
+                and (datetime.utcnow() - evidence.observed_at).total_seconds() < 86400
+                and evidence.payload.get('classification') == 'research_candidate'
+            )
+            if source.side == 'BUY' and policy.get('role', 'active') != 'active':
+                event['observation_error'] = 'Wallet retired from active roster; new entries are disabled while exits remain monitored'
+            elif (source.side == 'BUY' and policy.get('selection_mode') == 'automatic'
+                  and not current_candidate):
+                event['observation_error'] = 'Wallet is not a current eligible research candidate; new entries are disabled pending re-evaluation'
             latest = await db.get(PaperCopyResearchRun, run_id)
             marks = await collect_marks(client, set(latest.report.get('positions', {})) | {source.token_id})
             report = await append_observation(db, user_id=uid, run_id=run_id, source_wallet=address, event=event, marks=marks)
