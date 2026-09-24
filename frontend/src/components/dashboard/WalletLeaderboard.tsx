@@ -1,11 +1,14 @@
 'use client';
 import { useEffect, useState, useMemo } from 'react';
-import { fetchWallets, getCachedWallets, reEvaluateWallets, fetchDiscoveryProgress, fetchExecutionLogs, fetchCopiedWhalesStats, CopiedWhaleStat, DiscoveryProgress } from '@/lib/api-client';
+import { reEvaluateWallets, fetchDiscoveryProgress, fetchCopiedWhalesStats, CopiedWhaleStat, DiscoveryProgress } from '@/lib/api-client';
 import { Wallet, ExecutionLog } from '@/types';
 import { RotateCw, Search, ChevronRight } from 'lucide-react';
 
 interface WalletLeaderboardProps {
   userId?: string;
+  wallets: Wallet[];
+  logs: ExecutionLog[];
+  onRefresh?: () => void;
   onSelectWallet: (address: string) => void;
   targetSleeveCount?: number;
 }
@@ -37,11 +40,9 @@ interface LeaderboardDisplayItem {
   knownPnlUsd?: number | null;
 }
 
-export function WalletLeaderboard({ userId, onSelectWallet, targetSleeveCount = 5 }: WalletLeaderboardProps) {
-  const [wallets, setWallets] = useState<Wallet[]>(() => getCachedWallets() || []);
-  const [logs, setLogs] = useState<ExecutionLog[]>([]);
+export function WalletLeaderboard({ userId, wallets, logs, onRefresh, onSelectWallet, targetSleeveCount = 5 }: WalletLeaderboardProps) {
   const [copiedStats, setCopiedStats] = useState<CopiedWhaleStat[]>([]);
-  const [loading, setLoading] = useState(() => (getCachedWallets()?.length || 0) === 0);
+  const [loading, setLoading] = useState(wallets.length === 0);
   const [evaluating, setEvaluating] = useState(false);
   const [, setProgress] = useState<DiscoveryProgress | null>(null);
   const [search, setSearch] = useState('');
@@ -56,40 +57,33 @@ export function WalletLeaderboard({ userId, onSelectWallet, targetSleeveCount = 
 
   const load = async () => {
     if (typeof document !== 'undefined' && document.hidden) return;
-    const [walletsData, logsData, copiedData] = await Promise.all([
-      fetchWallets({ limit: '150' }),
-      fetchExecutionLogs(userId, { limit: '1000' }),
-      fetchCopiedWhalesStats(userId)
-    ]);
-    if (walletsData && walletsData.length > 0) setWallets(walletsData);
-    if (Array.isArray(logsData)) setLogs(logsData);
+    const copiedData = await fetchCopiedWhalesStats(userId);
     if (Array.isArray(copiedData) && copiedData.length > 0) setCopiedStats(copiedData);
     setLoading(false);
+    onRefresh?.();
   };
 
   useEffect(() => {
     let isMounted = true;
     const fetchData = async () => {
       if (typeof document !== 'undefined' && document.hidden) return;
-      const [walletsData, logsData, copiedData] = await Promise.all([
-        fetchWallets({ limit: '150' }),
-        fetchExecutionLogs(userId, { limit: '1000' }),
-        fetchCopiedWhalesStats(userId)
-      ]);
+      const copiedData = await fetchCopiedWhalesStats(userId);
       if (!isMounted) return;
-      if (walletsData && walletsData.length > 0) setWallets(walletsData);
-      if (Array.isArray(logsData)) setLogs(logsData);
       if (Array.isArray(copiedData) && copiedData.length > 0) setCopiedStats(copiedData);
       setLoading(false);
     };
 
     void fetchData();
-    const interval = setInterval(fetchData, 8000);
+    const interval = setInterval(fetchData, 15000);
     return () => {
       isMounted = false;
       clearInterval(interval);
     };
   }, [userId]);
+
+  useEffect(() => {
+    if (wallets.length > 0) setLoading(false);
+  }, [wallets.length]);
 
   const handleReevaluate = async () => {
     setEvaluating(true);
@@ -196,8 +190,8 @@ export function WalletLeaderboard({ userId, onSelectWallet, targetSleeveCount = 
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h3 className="text-base font-bold text-slate-950 dark:text-white tracking-tight">Active Index Whales</h3>
-          <p className="text-xs text-slate-500 dark:text-[#8E8F99]">Candidate paper sleeve roster (Polymarket public wallets)</p>
+          <h3 className="text-base font-bold text-slate-950 dark:text-white tracking-tight">Verified Wallets</h3>
+          <p className="text-xs text-slate-500 dark:text-[#8E8F99]">The same evidence-qualified candidates used by automatic paper copying</p>
         </div>
         <button
           onClick={handleReevaluate}
@@ -234,13 +228,13 @@ export function WalletLeaderboard({ userId, onSelectWallet, targetSleeveCount = 
             onClick={() => setTab('topActive')}
             className={`flex-1 sm:flex-initial px-3 py-1.5 rounded-full transition-all text-center ${tab === 'topActive' ? 'bg-white text-slate-900 shadow-xs border border-sky-100 font-bold' : 'text-slate-500 hover:text-slate-800'}`}
           >
-            Top {targetSleeveCount} Active
+            Top {Math.min(targetSleeveCount, wallets.length)} Active
           </button>
           <button
             onClick={() => setTab('all')}
             className={`flex-1 sm:flex-initial px-3 py-1.5 rounded-full transition-all text-center ${tab === 'all' ? 'bg-white text-slate-900 shadow-xs border border-sky-100 font-bold' : 'text-slate-500 hover:text-slate-800'}`}
           >
-            All Tracked
+            All Qualified
           </button>
         </div>
       </div>

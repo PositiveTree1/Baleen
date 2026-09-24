@@ -158,4 +158,47 @@ def test_low_activity_wallet_that_passes_quality_screen_becomes_standby():
     closed = {"rows": [{"realized_pnl": 100}] * 10, "complete": True}
     result = assess(history, series, {}, end, closed)
     assert result["classification"] == "watchlist"
-    assert result["reasons"] == ["LOW_OR_INTERMITTENT_ACTIVITY", "QUALITY_SCREEN_PASSED"]
+    assert result["reasons"] == ["LOW_OR_INTERMITTENT_ACTIVITY", "SNIPER_QUALITY_SCREEN_PASSED"]
+
+
+def test_quiet_wallet_below_98_percent_is_not_promoted_as_sniper():
+    end = 100 * DAY
+    history = {"rows": [{"timestamp": end - 2 * DAY + 1}], "complete": True}
+    series = {"points": [{"timestamp": (69 + day) * DAY, "economic_pnl": 100000 + day * 100,
+                            "trade_pnl": 100000 + day * 100} for day in range(32)]}
+    closed = {"rows": [{"realized_pnl": 100}] * 19 + [{"realized_pnl": -10}], "complete": True}
+    result = assess(history, series, {}, end, closed)
+    assert result["classification"] == "excluded"
+    assert result["reasons"] == ["SNIPER_WIN_RATE_BELOW_98"]
+
+
+def test_opposing_side_arbitrage_pattern_is_excluded():
+    end = 100 * DAY
+    rows = []
+    for day in range(30):
+        condition = f"market-{day}"
+        rows.extend([
+            {"timestamp": end - 30 * DAY + day * DAY + 1, "side": "BUY", "condition_id": condition,
+             "token_id": f"{condition}-yes", "price": .45},
+            {"timestamp": end - 30 * DAY + day * DAY + 2, "side": "BUY", "condition_id": condition,
+             "token_id": f"{condition}-no" if day < 6 else f"{condition}-yes", "price": .55},
+        ])
+    series = {"points": [{"timestamp": (69 + day) * DAY, "economic_pnl": 100000 + day * 100,
+                            "trade_pnl": 100000 + day * 100} for day in range(32)]}
+    result = assess({"rows": rows, "complete": True}, series, {}, end,
+                    {"rows": [{"realized_pnl": 100}] * 10, "complete": True})
+    assert result["classification"] == "excluded"
+    assert result["reasons"] == ["OPPOSING_SIDE_ARBITRAGE_PATTERN"]
+
+
+def test_near_resolution_boundary_buyer_is_excluded():
+    end = 100 * DAY
+    rows = [{"timestamp": end - 30 * DAY + day * DAY + offset + 1, "side": "BUY",
+             "condition_id": f"market-{day}", "token_id": f"token-{day}", "price": .99}
+            for day in range(30) for offset in range(2)]
+    series = {"points": [{"timestamp": (69 + day) * DAY, "economic_pnl": 100000 + day * 100,
+                            "trade_pnl": 100000 + day * 100} for day in range(32)]}
+    result = assess({"rows": rows, "complete": True}, series, {}, end,
+                    {"rows": [{"realized_pnl": 100}] * 10, "complete": True})
+    assert result["classification"] == "excluded"
+    assert result["reasons"] == ["NEAR_RESOLUTION_BOUNDARY_PATTERN"]

@@ -1,6 +1,7 @@
 """Provider evidence, separate from legacy heuristic scores and execution approval."""
 import asyncio
 import math
+import statistics
 from collections import Counter
 from app.discovery.accounting_snapshot import accounting_snapshot
 from datetime import datetime, timezone
@@ -8,7 +9,7 @@ from datetime import datetime, timezone
 # Changing this version deliberately requests a re-evaluation of evidence
 # collected under an older screen.  Eligibility must never silently retain a
 # decision made before curve and realized-position checks existed.
-POLICY_VERSION = "wallet-evidence-2026-09-23"
+POLICY_VERSION = "wallet-evidence-2026-09-24"
 DAY = 86400
 
 
@@ -138,11 +139,32 @@ def assess(history, series, profile, end, closed=None):
         if 0 <= index < 30:
             counts[index] += 1
     week, month = sum(counts[-7:]) / 7, sum(counts) / 30
+    ordered_timestamps = sorted({float(row["timestamp"]) for row in history["rows"]})
+    gaps = [(right - left) / 3600 for left, right in zip(ordered_timestamps, ordered_timestamps[1:]) if right > left]
+    buy_markets = {}
+    priced_buys = []
+    for row in history["rows"]:
+        if str(row.get("side", "")).upper() != "BUY":
+            continue
+        condition = str(row.get("condition_id") or "").lower()
+        token = str(row.get("token_id") or row.get("outcome") or "")
+        if condition and token:
+            buy_markets.setdefault(condition, set()).add(token)
+        price = finite(row.get("price"))
+        if price is not None:
+            priced_buys.append(price)
+    opposing_markets = sum(len(tokens) > 1 for tokens in buy_markets.values())
+    boundary_buys = sum(price <= 0.03 or price >= 0.97 for price in priced_buys)
     metrics = {"fills_7d": sum(counts[-7:]), "fills_30d": sum(counts), "fills_per_day_7d": week,
                "fills_per_day_30d": month, "max_daily_fills": max(counts), "active_days_7d": sum(c > 0 for c in counts[-7:]),
                "daily_activity": [{"date": datetime.fromtimestamp(end - (30-i)*DAY, timezone.utc).strftime("%Y-%m-%d"), "fills": c} for i, c in enumerate(counts)],
                "distinct_markets_lifetime": profile.get("trades") if profile else None,
-               "views": profile.get("views") if profile else None}
+               "views": profile.get("views") if profile else None,
+               "median_inter_fill_gap_hours": statistics.median(gaps) if gaps else None,
+               "markets_bought_30d": len(buy_markets),
+               "opposing_side_markets_30d": opposing_markets,
+               "opposing_side_market_ratio_30d": opposing_markets / len(buy_markets) if buy_markets else 0,
+               "boundary_buy_ratio_30d": boundary_buys / len(priced_buys) if priced_buys else 0}
     points = [p for p in series["points"] if p["timestamp"] <= end] if series else []
     latest = points[-1] if points else {}
     pnl = finite(latest.get("economic_pnl"))
@@ -179,6 +201,9 @@ def assess(history, series, profile, end, closed=None):
         "daily_pnl_profit_factor_30d": sum(positive_days) / abs(sum(negative_days)) if negative_days else None,
         "no_negative_pnl_days_30d": bool(positive_days and not negative_days),
         "worst_daily_pnl_30d": min(daily_changes) if daily_changes else None,
+        "largest_daily_loss_to_gross_gains_30d": (
+            abs(min(negative_days)) / sum(positive_days) if positive_days and negative_days else 0
+        ),
     })
     curve_values = [finite(p.get("trade_pnl")) for p in ([prior] if prior else []) + curve_points]
     curve_values = [value for value in curve_values if value is not None]
@@ -201,6 +226,18 @@ def assess(history, series, profile, end, closed=None):
             "no_realized_losses": bool(wins and not losses),
             "worst_closed_position_pnl": min(realized) if realized else None,
         })
+    win_rate = metrics.get("closed_position_win_rate_pct")
+    profit_factor = metrics.get("closed_position_profit_factor")
+    positive_day_rate = metrics.get("positive_pnl_day_rate_30d")
+    quality_score = None
+    if win_rate is not None and positive_day_rate is not None:
+        quality_score = round(
+            min(35, 35 * win_rate / 100)
+            + min(25, 25 * positive_day_rate)
+            + (20 if metrics.get("no_realized_losses") else min(20, 20 * (profit_factor or 0) / 3))
+            + (10 if metrics.get("trade_pnl_7d") is not None and metrics["trade_pnl_7d"] > 0 else 0)
+            + (10 if metrics.get("trade_pnl_30d") is not None and metrics["trade_pnl_30d"] > 0 else 0), 1)
+    metrics["evidence_quality_score"] = quality_score
     if not history["complete"]:
         reasons.append("INCOMPLETE_TRADE_WINDOW")
     if pnl is None or not points or end - latest["timestamp"] > 2*DAY or latest["timestamp"] > end + DAY:
@@ -224,15 +261,24 @@ def assess(history, series, profile, end, closed=None):
         classification, reasons = "needs_data", ["INSUFFICIENT_30D_PNL_CURVE"]
     elif metrics["positive_pnl_day_rate_30d"] < 0.55 or (metrics["daily_pnl_profit_factor_30d"] is not None and metrics["daily_pnl_profit_factor_30d"] < 1.25):
         classification, reasons = "excluded", ["INCONSISTENT_30D_PNL_CURVE"]
+    elif metrics["largest_daily_loss_to_gross_gains_30d"] > 0.35:
+        classification, reasons = "excluded", ["OUTSIZED_DAILY_LOSS"]
     elif metrics.get("closed_positions_sample") is None or metrics["closed_positions_sample"] < 10:
         classification, reasons = "needs_data", ["INSUFFICIENT_REALIZED_POSITION_SAMPLE"]
-    elif metrics["closed_position_win_rate_pct"] < 60 or (metrics["closed_position_profit_factor"] is not None and metrics["closed_position_profit_factor"] < 1.25):
+    elif metrics["closed_position_win_rate_pct"] < 65 or (metrics["closed_position_profit_factor"] is not None and metrics["closed_position_profit_factor"] < 1.25):
         classification, reasons = "excluded", ["LOW_REALIZED_WIN_RATE_OR_PROFIT_FACTOR"]
+    elif metrics["opposing_side_markets_30d"] >= 3 and metrics["opposing_side_market_ratio_30d"] >= 0.20:
+        classification, reasons = "excluded", ["OPPOSING_SIDE_ARBITRAGE_PATTERN"]
+    elif len(priced_buys) >= 10 and metrics["boundary_buy_ratio_30d"] >= 0.50:
+        classification, reasons = "excluded", ["NEAR_RESOLUTION_BOUNDARY_PATTERN"]
     elif min(week, month) < 2 or metrics["active_days_7d"] < 5:
         # A quiet wallet earns standby monitoring only after passing the same
         # curve and realized-position checks as an active candidate.  This
         # prevents a large historic P&L number alone from creating a sniper.
-        classification, reasons = "watchlist", ["LOW_OR_INTERMITTENT_ACTIVITY", "QUALITY_SCREEN_PASSED"]
+        if metrics["closed_position_win_rate_pct"] < 98:
+            classification, reasons = "excluded", ["SNIPER_WIN_RATE_BELOW_98"]
+        else:
+            classification, reasons = "watchlist", ["LOW_OR_INTERMITTENT_ACTIVITY", "SNIPER_QUALITY_SCREEN_PASSED"]
     else:
         classification, reasons = "research_candidate", ["ACCOUNT_REPLAY_AND_FORWARD_VALIDATION_REQUIRED"]
     return {"policy_version": POLICY_VERSION, "classification": classification, "reasons": reasons,

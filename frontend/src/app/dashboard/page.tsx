@@ -121,26 +121,22 @@ export default function DashboardPage() {
       const targetUserId = effectiveUserId;
       const canFetchPrivate = Boolean(targetUserId && token);
       try {
-        const [userData, portfolioData, logsData, liveData, walletsData] = await Promise.all([
-          canFetchPrivate ? fetchUserSettings(targetUserId!) : null,
-          canFetchPrivate ? fetchPortfolioSummary(targetUserId!) : null,
-          canFetchPrivate ? fetchExecutionLogs(targetUserId!, { limit: '500' }) : [],
-          canFetchPrivate && viewMode === 'live' ? fetchLiveDashboard(targetUserId!) : null,
-          fetchWallets()
-        ]);
-        if (!isMounted) return;
-        if (userData) setUser(userData);
-        if (portfolioData) setPortfolio(portfolioData);
-        if (canFetchPrivate && Array.isArray(logsData)) {
-          setLogs((prev) => (logsData.length === 0 && prev.length > 0 ? prev : logsData));
+        const tasks: Promise<void>[] = [];
+        if (canFetchPrivate) {
+          tasks.push(fetchUserSettings(targetUserId!).then(data => { if (isMounted && data) setUser(data); }));
+          tasks.push(fetchPortfolioSummary(targetUserId!).then(data => { if (isMounted && data) setPortfolio(data); }));
+          tasks.push(fetchExecutionLogs(targetUserId!, { limit: '500' }).then(data => {
+            if (isMounted && Array.isArray(data)) setLogs(prev => data.length === 0 && prev.length > 0 ? prev : data);
+          }));
+          if (viewMode === 'live') tasks.push(fetchLiveDashboard(targetUserId!).then(data => { if (isMounted && data) setLiveDashboard(data); }));
         }
-        if (liveData) setLiveDashboard(liveData);
-        if (Array.isArray(walletsData) && walletsData.length > 0) setWallets(walletsData);
-        setLoadError(null);
-        setLastUpdated(new Date());
-      } catch (err) {
-        console.debug("Dashboard polling note:", err);
-        if (isMounted) {
+        tasks.push(fetchWallets().then(data => { if (isMounted && data.length > 0) setWallets(data); }));
+        const results = await Promise.allSettled(tasks);
+        if (!isMounted) return;
+        if (results.some(result => result.status === 'fulfilled')) {
+          setLoadError(null);
+          setLastUpdated(new Date());
+        } else {
           setLoadError("Unable to reach backend control plane. Retrying automatically...");
         }
       } finally {
@@ -149,7 +145,7 @@ export default function DashboardPage() {
     };
 
     void loadData();
-    const interval = setInterval(loadData, 6000);
+    const interval = setInterval(loadData, 15000);
     return () => {
       isMounted = false;
       clearInterval(interval);
@@ -497,6 +493,8 @@ export default function DashboardPage() {
               </div>
             </div>
 
+            <PaperCopyPanel onConfigure={() => setIsMirrorOpen(true)} />
+
             {/* Section 1: Line Chart & Analytics Cards */}
             <PortfolioAnalytics
               logs={logs}
@@ -520,7 +518,7 @@ export default function DashboardPage() {
                 <LiveTape userId={effectiveUserId} onSelectTrade={setSelectedTrade} />
               </div>
               <div className="lg:col-span-1">
-                <WalletLeaderboard userId={effectiveUserId} onSelectWallet={setSelectedWallet} targetSleeveCount={targetSleeveCount} />
+                <WalletLeaderboard userId={effectiveUserId} wallets={wallets} logs={logs} onRefresh={handleDataRefresh} onSelectWallet={setSelectedWallet} targetSleeveCount={targetSleeveCount} />
               </div>
             </div>
 
@@ -533,7 +531,6 @@ export default function DashboardPage() {
               totalFillsCount={portfolio?.filledTradesCount}
               onSelectTrade={setSelectedTrade}
             />
-            <PaperCopyPanel onConfigure={() => setIsMirrorOpen(true)} />
           </>
         )}
 

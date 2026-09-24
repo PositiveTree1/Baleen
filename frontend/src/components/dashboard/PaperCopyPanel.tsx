@@ -29,9 +29,9 @@ export function PaperCopyPanel({ onConfigure }: { onConfigure: () => void }) {
   const pnl = known ? activeRuns.reduce((sum, r) => sum + Number(r.report.valuation.economic_pnl), 0) : null;
   const money = (n: number | null) => n == null ? 'Unavailable' : n.toLocaleString(undefined, { style: 'currency', currency: 'USD' });
   const moneyText = (n: string) => Number(n).toLocaleString(undefined, { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
-  return <section className="glass-card rounded-3xl p-6 space-y-4" aria-label="Server-saved paper copying">
+  return <section className="glass-card rounded-[28px] p-5 sm:p-6 space-y-4 border border-sky-100/80" aria-label="Automatic paper strategy">
     <div className="flex flex-wrap items-center justify-between gap-3">
-      <div><h2 className="text-xl font-bold">Paper copying</h2>
+      <div><h2 className="text-xl font-bold">Automatic paper strategy</h2>
         <p className="text-sm text-slate-500">{data?.status === 'ACTIVE' ? `${activeRuns.length} ${activeRuns.length === 1 ? 'wallet' : 'wallets'} in the ${data.selection_mode === 'automatic' ? 'automatic' : 'saved'} roster${retiredRuns.length ? ` · ${retiredRuns.length} retired source${retiredRuns.length === 1 ? '' : 's'} exit-monitoring only` : ''}` : 'Automatic roster not started'}</p></div>
       <button className="glass-button rounded-xl px-4 py-2" onClick={onConfigure}>Start fresh</button>
     </div>
@@ -47,15 +47,7 @@ export function PaperCopyPanel({ onConfigure }: { onConfigure: () => void }) {
       Eligibility: <strong>{data.roster_status.active_eligible}</strong> active candidates · <strong>{data.roster_status.standby}</strong> standby snipers · <strong>{data.roster_status.needs_data}</strong> awaiting coverage · <strong>{data.roster_status.excluded}</strong> excluded · <strong>{data.roster_status.stale}</strong> awaiting refresh{data.roster_status.legacy_retained > 0 ? ` · ${data.roster_status.legacy_retained.toLocaleString()} preserved legacy identities (not queued)` : ''}
     </p>}
     {runs.length === 0 && <p className="text-xs text-slate-500">Net P&amp;L becomes available after an active paper sleeve receives a confirmed source fill and a current order-book valuation.</p>}
-    <div className="border-t border-slate-300/20 pt-4 space-y-2" aria-label="Active candidate wallets">
-      <div><h3 className="font-bold">Active candidate wallets</h3><p className="text-xs text-slate-500">Fresh non-HFT wallets eligible for an active sleeve. The automatic roster selects the number supported by your paper balance.</p></div>
-      {(data?.active_candidates ?? []).length === 0 ? <p className="text-sm text-slate-500">No active candidates have passed the current evidence screen yet.</p> :
-        data!.active_candidates!.map(s => <div key={s.address} className="text-xs flex flex-wrap justify-between gap-2 rounded-lg border border-slate-300/20 p-2">
-          <span><strong>{s.name || s.pseudonym || s.address}</strong><span className="block text-slate-500">{s.address}</span></span>
-          <span className="text-right">{Number(s.fills_per_day_30d).toFixed(1)} fills/day · ${Number(s.all_time_pnl_usd).toLocaleString()} economic P&amp;L<span className="block text-slate-500">${Number(s.realized_pnl_usd).toLocaleString()} realized · 30d ${Number(s.recent_pnl_30d).toLocaleString()}</span><span className="block text-slate-500">{s.closed_position_win_rate_pct == null ? 'Closed win rate pending' : `${s.closed_position_win_rate_pct.toFixed(1)}% closed win rate`} · {s.positive_pnl_day_rate_30d == null ? 'Curve pending' : `${(s.positive_pnl_day_rate_30d * 100).toFixed(0)}% positive curve days`} · {s.reasons.join(', ')}</span></span>
-        </div>)}
-    </div>
-    <p className="text-xs text-slate-500">New source fills only. Fixed allocation ratios. The active roster is selected from fresh eligible research candidates; standby snipers remain monitored without an idle sleeve. Paper fills estimate available order-book depth after receipt confirmation; they are not exchange executions.</p>
+    <p className="text-xs text-slate-500">New source fills only. Available paper capital is divided equally across however many wallets actually qualify; unused target slots do not reserve cash. Standby snipers remain monitored without an idle sleeve.</p>
     {activeRuns.map(r => <div key={r.id} className="border-t border-slate-300/20 pt-3 space-y-2">
       <div className="flex flex-wrap justify-between gap-2"><strong>{r.name || r.wallet}</strong>
         <span className="text-xs">Ratio {Number(r.policy.ratio).toPrecision(4)} · {r.revision} detected decisions</span></div>
@@ -108,5 +100,14 @@ export function PaperCopyPanel({ onConfigure }: { onConfigure: () => void }) {
         {research && research.registry.wallets.length === 0 && <p className="text-sm text-slate-500">No wallet evidence has been collected yet.</p>}
       </div>
     </details>
+    <div className="border-t border-slate-300/20 pt-4 space-y-3" aria-label="Discovery funnel statistics">
+      <div><h3 className="font-bold">Discovery funnel</h3><p className="text-xs text-slate-500">Addresses are discovered first, checked against the $50,000 P&amp;L gate, then deeply audited. Rejected low-P&amp;L addresses are never promoted into the research roster.</p></div>
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+        <div className="rounded-xl bg-slate-50 border border-slate-200 p-3"><span className="block text-slate-500">Found this scan</span><strong>{data?.discovery?.addresses_found ?? 0}</strong></div>
+        <div className="rounded-xl bg-slate-50 border border-slate-200 p-3"><span className="block text-slate-500">P&amp;L checked</span><strong>{data?.discovery?.pnl_checked ?? 0}</strong> / {data?.discovery?.pnl_queue_total ?? 0}</div>
+        <div className="rounded-xl bg-slate-50 border border-slate-200 p-3"><span className="block text-slate-500">Below $50k</span><strong>{data?.discovery?.pnl_rejected_below_50k ?? 0}</strong></div>
+        <div className="rounded-xl bg-slate-50 border border-slate-200 p-3"><span className="block text-slate-500">Admitted / audited</span><strong>{data?.discovery?.pnl_admitted ?? 0}</strong> / {data?.discovery?.evidence_audited ?? 0}</div>
+      </div>
+    </div>
   </section>;
 }

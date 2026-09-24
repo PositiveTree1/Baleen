@@ -281,13 +281,15 @@ export interface PaperCopyState {
     realized_pnl_usd: string;
     fills_per_day_30d: string; observed_at: string; closed_position_win_rate_pct?: number | null;
     closed_position_profit_factor?: string | null; positive_pnl_day_rate_30d?: number | null;
-    max_curve_drawdown_30d?: string | null }>;
+    max_curve_drawdown_30d?: string | null; median_inter_fill_gap_hours?: number | null;
+    evidence_quality_score?: number | null }>;
   active_candidates?: Array<{ address: string; name?: string | null; pseudonym?: string | null;
     classification: string; reasons: string[]; all_time_pnl_usd: string; recent_pnl_30d: string;
     realized_pnl_usd: string;
     fills_per_day_30d: string; observed_at: string; closed_position_win_rate_pct?: number | null;
     closed_position_profit_factor?: string | null; positive_pnl_day_rate_30d?: number | null;
-    max_curve_drawdown_30d?: string | null }>;
+    max_curve_drawdown_30d?: string | null; median_inter_fill_gap_hours?: number | null;
+    evidence_quality_score?: number | null }>;
   sniper_allocations?: Array<{ source_event_id: string; source_wallet: string; donor_run_id?: string | null;
     sniper_run_id?: string | null; allocated_cash_usd?: string | null; status: string; reason?: string | null;
     created_at: string }>;
@@ -295,7 +297,9 @@ export interface PaperCopyState {
     retired: Array<{ wallet: string; cash_transferred?: string }>; skipped: Array<{ wallet: string; reason: string }>;
     created_at: string }>;
   discovery?: { status?: string; progress_pct?: number; step_description?: string;
-    wallets_scanned?: number; error_message?: string | null };
+    wallets_scanned?: number; error_message?: string | null; addresses_found?: number;
+    pnl_queue_total?: number; pnl_checked?: number; pnl_rejected_below_50k?: number;
+    pnl_unavailable?: number; pnl_admitted?: number; evidence_audited?: number };
   roster_status?: { active_eligible: number; standby: number; needs_data: number;
     excluded: number; stale: number; legacy_retained: number; generation: string };
   runs: Array<{ id: string; wallet: string; name?: string; role?: 'active' | 'retired'; revision: number;
@@ -324,6 +328,9 @@ export interface PaperResearchWallet {
   realized_pnl_usd: string;
   recent_pnl_7d: string; recent_pnl_30d: string; fills_per_day_7d: string; fills_per_day_30d: string;
   active_days_7d?: number | null; trade_coverage_complete?: boolean | null; trade_coverage_reason?: string | null;
+  closed_position_win_rate_pct?: number | null; closed_position_profit_factor?: number | null;
+  positive_pnl_day_rate_30d?: number | null; median_inter_fill_gap_hours?: number | null;
+  evidence_quality_score?: number | null;
 }
 export interface PaperResearchState {
   registry: { generation: string; total: number; displayed: number; legacy_retained: number; wallets: PaperResearchWallet[] };

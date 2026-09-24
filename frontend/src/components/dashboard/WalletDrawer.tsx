@@ -380,13 +380,13 @@ export function WalletDrawer({ address, onClose }: WalletDrawerProps) {
                     {chartSummary && (
                       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs font-mono">
                         <div className="p-2.5 rounded-2xl bg-slate-50 border border-slate-200">
-                          <div className="text-[10px] text-slate-500 uppercase font-sans font-semibold">Realized Won</div>
+                          <div className="text-[10px] text-slate-500 uppercase font-sans font-semibold">Positive P&amp;L Changes</div>
                           <div className="text-emerald-600 font-bold mt-0.5">
                             +${chartSummary.grossWon.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                           </div>
                         </div>
                         <div className="p-2.5 rounded-2xl bg-slate-50 border border-slate-200">
-                          <div className="text-[10px] text-slate-500 uppercase font-sans font-semibold">Realized Lost</div>
+                          <div className="text-[10px] text-slate-500 uppercase font-sans font-semibold">Negative P&amp;L Changes</div>
                           <div className="text-rose-600 font-bold mt-0.5">
                             -${chartSummary.grossLost.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                           </div>

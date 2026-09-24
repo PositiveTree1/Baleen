@@ -144,14 +144,18 @@ async def test_automatic_roster_funds_ranked_active_wallets_and_exposes_standby_
                     WalletEvidence(wallet_address=ADDRESS_2, observed_at=datetime.utcnow(), payload=evidence('research_candidate', 200, 10)),
                     WalletEvidence(wallet_address=SNIPER, observed_at=datetime.utcnow(), payload=evidence('watchlist', 50, 20))])
     async def snapshot(_, address):
-        return {'status': 'observed', 'requested_wallet': address, 'equity_usd': '1000',
+        return {'status': 'observed', 'requested_wallet': address, 'equity_usd': '10000',
                 'valuation_time': datetime.utcnow().isoformat()+'Z'}
     monkeypatch.setattr('app.api.paper_copy.accounting_snapshot', snapshot)
     async with sessions() as db:
         user = await db.get(User, uid)
-        state = await start_automatic_paper_copy(StartAutomaticPaperCopy(starting_cash=300), user, db)
+        # $10k normally targets five sleeves. With only two qualified wallets,
+        # all capital is split across those two ($5k each); three empty sleeves
+        # do not reserve idle cash.
+        state = await start_automatic_paper_copy(StartAutomaticPaperCopy(starting_cash=10000), user, db)
         assert state['selection_mode'] == 'automatic'
         assert [run['wallet'] for run in state['runs']] == [ADDRESS_2, ADDRESS]
+        assert [run['policy']['ratio'] for run in state['runs']] == ['0.5', '0.5']
         assert [sniper['address'] for sniper in state['standby_snipers']] == [SNIPER]
         assert state['roster_status']['active_eligible'] == 2
         assert state['roster_status']['standby'] == 1

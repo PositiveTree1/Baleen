@@ -6,7 +6,7 @@ being given an idle sleeve. It does not submit orders or grant live approval.
 """
 from datetime import datetime, timedelta
 from decimal import Decimal, InvalidOperation
-from sqlalchemy import select
+from sqlalchemy import func, select
 from app.models import Wallet, WalletEvidence
 from app.sizing.capital_tier import get_target_wallet_count
 from app.services.wallet_reset import current_generation
@@ -53,6 +53,10 @@ def _summary(wallet, evidence):
         'positive_pnl_day_rate_30d': metrics.get('positive_pnl_day_rate_30d'),
         'max_curve_drawdown_30d': str(_number(metrics.get('max_curve_drawdown_30d')))
             if metrics.get('max_curve_drawdown_30d') is not None else None,
+        'median_inter_fill_gap_hours': metrics.get('median_inter_fill_gap_hours'),
+        'evidence_quality_score': metrics.get('evidence_quality_score'),
+        'opposing_side_market_ratio_30d': metrics.get('opposing_side_market_ratio_30d'),
+        'boundary_buy_ratio_30d': metrics.get('boundary_buy_ratio_30d'),
     }
 
 
@@ -64,7 +68,7 @@ async def automatic_active_roster(db, capital):
     It never promotes an intermittent watchlist wallet into an idle sleeve.
     """
     generation = await current_generation(db)
-    rows = (await db.execute(select(Wallet, WalletEvidence).outerjoin(
+    rows = (await db.execute(select(Wallet, WalletEvidence).join(
         WalletEvidence, WalletEvidence.wallet_address == Wallet.address))).all()
     candidates = []
     for wallet, evidence in rows:
@@ -75,6 +79,7 @@ async def automatic_active_roster(db, capital):
             continue
         metrics = payload.get('metrics') or {}
         candidates.append((wallet, evidence, (
+            _number(metrics.get('evidence_quality_score')),
             _number(metrics.get('trade_pnl_30d')),
             _number(metrics.get('trade_pnl_7d')),
             _number(metrics.get('economic_pnl', wallet.all_time_pnl_usd)),
@@ -88,7 +93,7 @@ async def automatic_active_roster(db, capital):
 async def active_candidates(db, limit=25):
     """Visible current candidates, independent of the user's capital tier."""
     generation = await current_generation(db)
-    rows = (await db.execute(select(Wallet, WalletEvidence).outerjoin(
+    rows = (await db.execute(select(Wallet, WalletEvidence).join(
         WalletEvidence, WalletEvidence.wallet_address == Wallet.address))).all()
     candidates = []
     for wallet, evidence in rows:
@@ -98,6 +103,7 @@ async def active_candidates(db, limit=25):
             continue
         metrics = evidence.payload.get("metrics") or {}
         candidates.append((wallet, evidence, (
+            _number(metrics.get("evidence_quality_score")),
             _number(metrics.get("trade_pnl_30d")), _number(metrics.get("trade_pnl_7d")),
             _number(metrics.get("economic_pnl", wallet.all_time_pnl_usd)), wallet.address,
         )))
@@ -108,7 +114,7 @@ async def active_candidates(db, limit=25):
 async def standby_snipers(db):
     """Return visible, fresh intermittent candidates that remain monitored."""
     generation = await current_generation(db)
-    rows = (await db.execute(select(Wallet, WalletEvidence).outerjoin(
+    rows = (await db.execute(select(Wallet, WalletEvidence).join(
         WalletEvidence, WalletEvidence.wallet_address == Wallet.address))).all()
     result = []
     for wallet, evidence in rows:
@@ -127,13 +133,17 @@ async def roster_evidence_status(db):
     status, which does not decide automatic paper roster eligibility.
     """
     generation = await current_generation(db)
-    rows = (await db.execute(select(Wallet, WalletEvidence).outerjoin(
+    rows = (await db.execute(select(Wallet, WalletEvidence).join(
         WalletEvidence, WalletEvidence.wallet_address == Wallet.address))).all()
-    counts = {"active_eligible": 0, "standby": 0, "needs_data": 0, "excluded": 0, "stale": 0, "legacy_retained": 0}
+    pending_missing = (await db.execute(select(func.count()).select_from(Wallet).outerjoin(
+        WalletEvidence, WalletEvidence.wallet_address == Wallet.address).where(
+            WalletEvidence.wallet_address.is_(None), Wallet.status == "pending"))).scalar() or 0
+    legacy_retained = (await db.execute(select(func.count()).select_from(Wallet).outerjoin(
+        WalletEvidence, WalletEvidence.wallet_address == Wallet.address).where(
+            WalletEvidence.wallet_address.is_(None), Wallet.status != "pending"))).scalar() or 0
+    counts = {"active_eligible": 0, "standby": 0, "needs_data": pending_missing,
+              "excluded": 0, "stale": 0, "legacy_retained": legacy_retained}
     for wallet, evidence in rows:
-        if evidence is None and wallet.status != "pending":
-            counts["legacy_retained"] += 1
-            continue
         if not _fresh_current(evidence, generation):
             counts["stale"] += 1
             continue
@@ -152,13 +162,17 @@ async def roster_evidence_status(db):
 async def roster_evidence_registry(db, limit=250):
     """Return inspectable current and stale research decisions for the UI."""
     generation = await current_generation(db)
-    rows = (await db.execute(select(Wallet, WalletEvidence).outerjoin(
+    rows = (await db.execute(select(Wallet, WalletEvidence).join(
         WalletEvidence, WalletEvidence.wallet_address == Wallet.address))).all()
-    entries, legacy_retained = [], 0
+    pending = (await db.execute(select(Wallet).outerjoin(
+        WalletEvidence, WalletEvidence.wallet_address == Wallet.address).where(
+            WalletEvidence.wallet_address.is_(None), Wallet.status == "pending"))).scalars().all()
+    rows.extend((wallet, None) for wallet in pending)
+    legacy_retained = (await db.execute(select(func.count()).select_from(Wallet).outerjoin(
+        WalletEvidence, WalletEvidence.wallet_address == Wallet.address).where(
+            WalletEvidence.wallet_address.is_(None), Wallet.status != "pending"))).scalar() or 0
+    entries = []
     for wallet, evidence in rows:
-        if evidence is None and wallet.status != "pending":
-            legacy_retained += 1
-            continue
         payload = (evidence.payload if evidence else None) or {}
         metrics = payload.get("metrics") or {}
         fresh = _fresh_current(evidence, generation)
@@ -182,6 +196,11 @@ async def roster_evidence_registry(db, limit=250):
             "active_days_7d": metrics.get("active_days_7d"),
             "trade_coverage_complete": coverage.get("complete"),
             "trade_coverage_reason": coverage.get("reason"),
+            "closed_position_win_rate_pct": metrics.get("closed_position_win_rate_pct"),
+            "closed_position_profit_factor": metrics.get("closed_position_profit_factor"),
+            "positive_pnl_day_rate_30d": metrics.get("positive_pnl_day_rate_30d"),
+            "median_inter_fill_gap_hours": metrics.get("median_inter_fill_gap_hours"),
+            "evidence_quality_score": metrics.get("evidence_quality_score"),
         })
     order = {"research_candidate": 0, "watchlist": 1, "needs_data": 2, "stale": 3, "excluded": 4}
     entries.sort(key=lambda row: (order.get(row["classification"], 5), -Decimal(row["recent_pnl_30d"]), row["address"]))

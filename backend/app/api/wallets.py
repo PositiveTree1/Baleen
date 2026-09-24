@@ -17,37 +17,42 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/wallets", tags=["wallets"])
 
-def wallet_to_response(w: Wallet) -> dict:
-    return {
+def wallet_to_response(w: Wallet, evidence: WalletEvidence | None = None) -> dict:
+    payload = (evidence.payload if evidence else None) or {}
+    metrics = payload.get("metrics") or {}
+    verified = bool(evidence and payload.get("classification") in {"research_candidate", "watchlist", "needs_data", "excluded"})
+    classification = payload.get("classification")
+    response = {
         "address": w.address,
         "name": w.name,
         "pseudonym": w.pseudonym,
         "profileImage": w.profile_image,
-        "tier": w.tier or "standard",
-        "win_rate_pct": w.win_rate_pct,
+        "tier": "gold_sniper" if classification == "watchlist" else (w.tier or "standard"),
+        "win_rate_pct": metrics.get("closed_position_win_rate_pct") if verified else w.win_rate_pct,
         "wilson_lb": getattr(w, "wilson_lb", None),
-        "all_time_pnl_usd": w.all_time_pnl_usd,
-        "avg_trades_per_day": w.avg_trades_per_day,
+        "all_time_pnl_usd": metrics.get("economic_pnl", w.all_time_pnl_usd) if verified else w.all_time_pnl_usd,
+        "avg_trades_per_day": metrics.get("fills_per_day_30d") if verified else w.avg_trades_per_day,
         "trades_per_hour": getattr(w, "trades_per_hour", None),
-        "baleen_score": w.baleen_score,
+        "baleen_score": metrics.get("evidence_quality_score") if verified else w.baleen_score,
         "ai_style_tag": w.ai_style_tag,
         "ai_summary": w.ai_summary,
         "max_drawdown_pct": w.max_drawdown_pct,
         "outlier_concentration_pct": w.outlier_concentration_pct,
         "alpha_per_trade": getattr(w, "alpha_per_trade", None),
-        "profit_factor": getattr(w, "profit_factor", None),
-        "status": w.status or "active",
+        "profit_factor": metrics.get("closed_position_profit_factor") if verified else getattr(w, "profit_factor", None),
+        "status": classification or w.status or "active",
         "dormant": bool(w.dormant),
         "is_hft": bool(getattr(w, "is_hft", False)),
         "first_trade_at": w.first_trade_at.isoformat() if getattr(w, "first_trade_at", None) else None,
         "last_trade_at": w.last_trade_at.isoformat() if getattr(w, "last_trade_at", None) else None,
         "total_trades_analyzed": w.total_trades_analyzed,
         "avg_hold_hours": None,  # Trade spacing is not position holding duration.
-        "median_inter_trade_gap_hours": getattr(w, "median_inter_trade_gap_hours", None),
-        "rejection_reason": w.rejection_reason,
+        "median_inter_trade_gap_hours": metrics.get("median_inter_fill_gap_hours") if verified else getattr(w, "median_inter_trade_gap_hours", None),
+        "rejection_reason": "; ".join(payload.get("reasons", [])) if verified else w.rejection_reason,
         "first_seen_at": w.first_seen_at.isoformat() if w.first_seen_at else None,
         "last_scored_at": w.last_scored_at.isoformat() if w.last_scored_at else None,
     }
+    return response
 
 @router.get("")
 async def list_wallets(
@@ -60,9 +65,13 @@ async def list_wallets(
     db: AsyncSession = Depends(get_db)
 ):
     from app.services.wallet_reset import current_generation
-    response.headers["X-Wallet-Generation"] = await current_generation(db)
+    generation = await current_generation(db)
+    response.headers["X-Wallet-Generation"] = generation
     response.headers["Cache-Control"] = "no-store"
-    stmt = select(Wallet).where(Wallet.is_hft == False)
+    current_only = not status and dormant is None and not tier
+    stmt = select(Wallet, WalletEvidence).join(
+        WalletEvidence, WalletEvidence.wallet_address == Wallet.address
+    ).where(Wallet.is_hft == False) if current_only else select(Wallet).where(Wallet.is_hft == False)
     
     if status:
         stmt = stmt.where(Wallet.status == status)
@@ -70,21 +79,23 @@ async def list_wallets(
         stmt = stmt.where(Wallet.status == "active", Wallet.dormant == dormant)
     elif tier:
         stmt = stmt.where(Wallet.status == "active", Wallet.tier == tier, Wallet.dormant == False)
-    else:
+    elif current_only:
         # The dashboard's default leaderboard is the current automatic
         # research roster, never the retained legacy list.  A legacy wallet
         # with an old $8k P&L or stale heuristics therefore cannot appear as a
         # "tracked" leader or be mistaken for an eligible copy source.
         from app.discovery.wallet_evidence import POLICY_VERSION
-        stmt = stmt.join(WalletEvidence, WalletEvidence.wallet_address == Wallet.address).where(
+        stmt = stmt.where(
             WalletEvidence.observed_at >= datetime.utcnow() - timedelta(hours=24),
-            WalletEvidence.payload['generation'].as_string() == await current_generation(db),
+            WalletEvidence.payload['generation'].as_string() == generation,
             WalletEvidence.payload['policy_version'].as_string() == POLICY_VERSION,
             WalletEvidence.payload['classification'].as_string() == 'research_candidate',
         )
         
     stmt = stmt.order_by(Wallet.baleen_score.desc().nullslast(), Wallet.all_time_pnl_usd.desc().nullslast()).limit(limit).offset(offset)
     result = await db.execute(stmt)
+    if current_only:
+        return [wallet_to_response(wallet, evidence) for wallet, evidence in result.all()]
     return [wallet_to_response(w) for w in result.scalars().all()]
 
 @router.get("/copied-stats")
@@ -366,6 +377,8 @@ async def get_wallet(address: str, response: Response, db: AsyncSession = Depend
             wallet.ai_summary = None
             wallet.ai_style_tag = None
 
+    evidence = await db.get(WalletEvidence, clean_addr)
+
     # Score Snapshots
     snap_stmt = select(WalletSnapshot).where(
         func.lower(WalletSnapshot.wallet_address) == clean_addr
@@ -383,6 +396,15 @@ async def get_wallet(address: str, response: Response, db: AsyncSession = Depend
             }
             for s in snapshots
         ]
+    evidence_score = ((evidence.payload.get("metrics") or {}).get("evidence_quality_score")
+                      if evidence else None)
+    if evidence_score is not None:
+        score_history.append({
+            "date": evidence.observed_at.strftime("%Y-%m-%d %H:%M"),
+            "score": round(float(evidence_score), 1),
+            "win_rate": (evidence.payload.get("metrics") or {}).get("closed_position_win_rate_pct"),
+            "pnl": (evidence.payload.get("metrics") or {}).get("economic_pnl"),
+        })
     
     # Fetch recent execution logs for this specific whale
     stmt_trades = select(ExecutionLog).where(
@@ -414,22 +436,22 @@ async def get_wallet(address: str, response: Response, db: AsyncSession = Depend
     # Provider economic P&L is a marked account series, not a sequence of
     # realized wins/losses. Never substitute partial closed-position history.
     from app.discovery.wallet_evidence import pnl_series, chart_history
-    from app.models import WalletEvidence
-    evidence = await db.get(WalletEvidence, clean_addr)
-    client = PolymarketClient()
+    daily_pnl_history = evidence.payload.get("daily_pnl_history", []) if evidence else []
     series = None
-    try:
-        series = await asyncio.wait_for(pnl_series(client, clean_addr), timeout=8.0)
-    except Exception as exc:
-        logger.debug("Wallet series unavailable: %s", exc)
-    finally:
-        await client.close()
-    daily_pnl_history = chart_history(series)
-    curve_status = "observed" if daily_pnl_history else "unavailable"
-    if not daily_pnl_history and evidence:
-        daily_pnl_history = evidence.payload.get("daily_pnl_history", [])
-        curve_status = "cached" if daily_pnl_history else "unavailable"
-    response_wallet = wallet_to_response(wallet)
+    curve_status = "cached" if daily_pnl_history else "unavailable"
+    # A selected wallet already has a verified provider curve in its evidence
+    # record.  Do not make the drawer wait on another external API request.
+    if not daily_pnl_history:
+        client = PolymarketClient()
+        try:
+            series = await asyncio.wait_for(pnl_series(client, clean_addr), timeout=8.0)
+        except Exception as exc:
+            logger.debug("Wallet series unavailable: %s", exc)
+        finally:
+            await client.close()
+        daily_pnl_history = chart_history(series)
+        curve_status = "observed" if daily_pnl_history else "unavailable"
+    response_wallet = wallet_to_response(wallet, evidence)
     if daily_pnl_history:
         response_wallet["all_time_pnl_usd"] = daily_pnl_history[-1]["cumulative_pnl"]
     # Legacy drawdown was calculated on cumulative profits, not equity.

@@ -57,7 +57,14 @@ discovery_state = {
     "gold_snipers": 0,
     "started_at": None,
     "completed_at": None,
-    "error_message": None
+    "error_message": None,
+    "addresses_found": 0,
+    "pnl_queue_total": 0,
+    "pnl_checked": 0,
+    "pnl_rejected_below_50k": 0,
+    "pnl_unavailable": 0,
+    "pnl_admitted": 0,
+    "evidence_audited": 0,
 }
 
 # Discovery finds a broad public tape, but evidence collection must make
@@ -1316,6 +1323,9 @@ async def scan_for_wallets(db: AsyncSession, full_refresh: bool = False):
     discovery_state["gold_snipers"] = gold_cnt
     discovery_state["started_at"] = time.time()
     discovery_state["error_message"] = None
+    for key in ("addresses_found", "pnl_queue_total", "pnl_checked", "pnl_rejected_below_50k",
+                "pnl_unavailable", "pnl_admitted", "evidence_audited"):
+        discovery_state[key] = 0
     
     client = PolymarketClient()
     processed_count = 0
@@ -1332,6 +1342,7 @@ async def scan_for_wallets(db: AsyncSession, full_refresh: bool = False):
         discovery_state["step_description"] = "Stage 1: Multi-Period Leaderboard & Trade Scraping..."
         
         candidates = await client.discover_candidates()
+        discovery_state["addresses_found"] = len(candidates)
         
         # Merge curated verified whale addresses from previous run as high-priority seeds
         from app.discovery.curated_whales import CURATED_WHALE_ADDRESSES
@@ -1380,6 +1391,7 @@ async def scan_for_wallets(db: AsyncSession, full_refresh: bool = False):
         intake = sorted(((addr, meta) for addr, meta in candidates.items() if addr not in retained_set), key=priority)
         intake = intake[:MAX_NEW_CANDIDATES_PER_PASS]
         discovery_state["total_candidates"] = total_candidates
+        discovery_state["pnl_queue_total"] = len(intake)
 
         async def verify(address):
             try:
@@ -1397,11 +1409,17 @@ async def scan_for_wallets(db: AsyncSession, full_refresh: bool = False):
             )
             verified = await asyncio.gather(*(verify(addr) for addr, _meta in batch))
             for addr, verified_pnl in verified:
-                if verified_pnl is None or not (50000.0 <= verified_pnl < float("inf")):
+                discovery_state["pnl_checked"] += 1
+                if verified_pnl is None:
+                    discovery_state["pnl_unavailable"] += 1
+                    continue
+                if not (50000.0 <= verified_pnl < float("inf")):
+                    discovery_state["pnl_rejected_below_50k"] += 1
                     continue
                 db.add(Wallet(address=addr, status="pending", all_time_pnl_usd=verified_pnl,
                               first_seen_at=datetime.utcnow()))
                 saved_count += 1
+                discovery_state["pnl_admitted"] += 1
             await db.commit()
             await _persist_discovery_state(db)
 
@@ -1422,6 +1440,7 @@ async def scan_for_wallets(db: AsyncSession, full_refresh: bool = False):
             discovery_state["step_description"] = "Stage 2: Deep multi-page trade audit..."
             processed_count = await refresh_wallet_evidence(db)
             discovery_state["wallets_scanned"] = processed_count
+            discovery_state["evidence_audited"] = processed_count
             
             # Post-Evaluation: Deduplicated Live Tape Sync
             stmt = select(Wallet).where(Wallet.status == 'active').order_by(Wallet.last_scored_at.desc()).limit(10)

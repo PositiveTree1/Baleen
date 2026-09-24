@@ -38,7 +38,7 @@ export interface DailyPnLPoint {
 
 export interface WalletDetail extends Wallet {
   pnlMetadata?: { metric: string; status: string; source_fidelity: string | null };
-  research?: { classification: string; reasons: string[]; observed_at: number; metrics: { fills_per_day_7d: number; fills_per_day_30d: number; max_daily_fills: number; distinct_markets_lifetime: number | null } } | null;
+  research?: { classification: string; reasons: string[]; observed_at: number; metrics: { fills_per_day_7d: number; fills_per_day_30d: number; max_daily_fills: number; distinct_markets_lifetime: number | null; closed_position_win_rate_pct?: number | null; evidence_quality_score?: number | null; median_inter_fill_gap_hours?: number | null } } | null;
   aiSummary: string | null;
   maxDrawdown: number | null;
   scoreHistory: { date: string; score: number }[];

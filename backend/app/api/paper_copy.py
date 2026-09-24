@@ -66,6 +66,9 @@ async def get_paper_copy(user: User = Depends(get_current_user), db=Depends(get_
         'step_description': discovery_state.get('step_description'),
         'wallets_scanned': discovery_state.get('wallets_scanned'),
         'error_message': discovery_state.get('error_message'),
+        **{key: discovery_state.get(key, 0) for key in (
+            'addresses_found', 'pnl_queue_total', 'pnl_checked', 'pnl_rejected_below_50k',
+            'pnl_unavailable', 'pnl_admitted', 'evidence_audited')},
     }
     account = await db.get(PaperCopyAccount, user.id)
     if account is None:
@@ -128,6 +131,9 @@ async def get_paper_copy_research(user: User = Depends(get_current_user), db=Dep
             'step_description': discovery_state.get('step_description'),
             'wallets_scanned': discovery_state.get('wallets_scanned'),
             'error_message': discovery_state.get('error_message'),
+            **{key: discovery_state.get(key, 0) for key in (
+                'addresses_found', 'pnl_queue_total', 'pnl_checked', 'pnl_rejected_below_50k',
+                'pnl_unavailable', 'pnl_admitted', 'evidence_audited')},
         },
     }
 
