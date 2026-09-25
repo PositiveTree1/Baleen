@@ -72,6 +72,10 @@ async def capture_research_batch(db, *, client=None, now=None, limit=5):
         last_attempt = (await db.execute(select(KeyValue.updated_at).where(KeyValue.key == attempt_key))).scalar_one_or_none()
         work.append((last_attempt or datetime.min, checkpoint, evidence.wallet_address, key,
                      int(evidence.observed_at.replace(tzinfo=timezone.utc).timestamp()), attempt_key))
+    # All database values required for the remote observation are now plain
+    # Python values. Return the pooled connection before up to 30 seconds of
+    # provider and order-book requests.
+    await db.commit()
     owned = client is None
     client = client or PolymarketClient()
     count = 0

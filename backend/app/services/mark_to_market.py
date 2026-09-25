@@ -128,6 +128,10 @@ class MarkToMarketService:
 
                 # 4. Batch fetch live prices across open markets from Gamma API
                 all_cids = list({str(l.market_condition_id).strip() for l in open_logs if l.market_condition_id and len(str(l.market_condition_id).strip()) > 5})
+                # The read set is complete and the session uses
+                # expire_on_commit=False. Do not pin a database connection
+                # while Gamma responds; this loop runs every five seconds.
+                await db.commit()
                 if all_cids:
                     try:
                         batch_prices = await client.fetch_batch_live_prices(all_cids[:150])
@@ -156,6 +160,10 @@ class MarkToMarketService:
 
                 # 6. Authoritative sandbox balance & snapshot synchronization
                 from app.models import PortfolioSnapshot
+                if db.bind.dialect.name == 'postgresql':
+                    # Serialize the write phase only. The prior read lock was
+                    # deliberately released before the external price fetch.
+                    await db.execute(text('SELECT pg_advisory_xact_lock(20260909, 1)'))
                 now_dt = datetime.utcnow()
                 platform_open = [l for l in open_logs if l.user_id is None]
 
