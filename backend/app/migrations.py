@@ -329,6 +329,15 @@ MIGRATIONS.append((26, 'paper_copy_roster_rotations', [
     "CREATE TABLE IF NOT EXISTS paper_copy_roster_rotations (id UUID PRIMARY KEY, user_id UUID NOT NULL REFERENCES users(id), promoted JSON NOT NULL, retired JSON NOT NULL, skipped JSON NOT NULL, created_at TIMESTAMP NOT NULL)"
 ]))
 
+# The dashboard and automatic roster read only the most recent evidence
+# window. Without this index PostgreSQL must scan the retained evidence
+# history on every first-page load.
+MIGRATIONS.append((27, 'wallet_evidence_observed_at_index', [
+    "CREATE INDEX IF NOT EXISTS ix_wallet_evidence_observed_at ON wallet_evidence(observed_at)"
+], [
+    "CREATE INDEX IF NOT EXISTS ix_wallet_evidence_observed_at ON wallet_evidence(observed_at)"
+]))
+
 LATEST_SCHEMA_VERSION = max(v for v, _, _, _ in MIGRATIONS) if MIGRATIONS else 0
 
 
