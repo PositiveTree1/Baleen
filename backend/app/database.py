@@ -22,11 +22,13 @@ if "sqlite" in db_url:
         db_url = "sqlite+aiosqlite:////data/baleen.db"
     engine_kwargs["connect_args"] = {"check_same_thread": False}
 else:
-    # PostgreSQL settings: pre-ping catches stale Supabase pooler connections
-    # while keeping the application's own pool within the provider budget.
+    # PostgreSQL settings: the app has several independent background workers
+    # plus concurrent first-page queries. Keep the pool bounded, but leave
+    # enough headroom that an interactive request does not wait behind every
+    # worker during startup.
     engine_kwargs["pool_pre_ping"] = True
-    engine_kwargs["pool_size"] = 2
-    engine_kwargs["max_overflow"] = 3
+    engine_kwargs["pool_size"] = 5
+    engine_kwargs["max_overflow"] = 5
     engine_kwargs["pool_recycle"] = 60
     engine_kwargs["pool_timeout"] = 15
     if not _using_sqlite_fallback:
