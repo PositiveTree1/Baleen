@@ -22,16 +22,13 @@ if "sqlite" in db_url:
         db_url = "sqlite+aiosqlite:////data/baleen.db"
     engine_kwargs["connect_args"] = {"check_same_thread": False}
 else:
-    # PostgreSQL settings: background discovery, valuation and listener jobs
-    # share this pool with interactive dashboard requests. Five connections was
-    # not enough under a fresh discovery pass and made first-page loads wait
-    # for the pool timeout. These values remain bounded and can be lowered by
-    # the deployment environment when using a smaller provider plan.
+    # PostgreSQL settings: pre-ping catches stale Supabase pooler connections
+    # while keeping the application's own pool within the provider budget.
     engine_kwargs["pool_pre_ping"] = True
-    engine_kwargs["pool_size"] = int(os.environ.get("DATABASE_POOL_SIZE", "6"))
-    engine_kwargs["max_overflow"] = int(os.environ.get("DATABASE_MAX_OVERFLOW", "8"))
+    engine_kwargs["pool_size"] = 2
+    engine_kwargs["max_overflow"] = 3
     engine_kwargs["pool_recycle"] = 60
-    engine_kwargs["pool_timeout"] = 10
+    engine_kwargs["pool_timeout"] = 15
     if not _using_sqlite_fallback:
         engine_kwargs["connect_args"] = {
             "statement_cache_size": 0,
