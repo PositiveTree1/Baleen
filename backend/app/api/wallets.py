@@ -69,9 +69,20 @@ async def list_wallets(
     response.headers["X-Wallet-Generation"] = generation
     response.headers["Cache-Control"] = "no-store"
     current_only = not status and dormant is None and not tier
-    stmt = select(Wallet, WalletEvidence).join(
-        WalletEvidence, WalletEvidence.wallet_address == Wallet.address
-    ).where(Wallet.is_hft == False) if current_only else select(Wallet).where(Wallet.is_hft == False)
+    freshness_cutoff = datetime.utcnow() - timedelta(hours=24)
+    if current_only:
+        # Apply the cheap freshness constraint in SQL before materializing
+        # evidence. The historic registry can contain tens of thousands of
+        # observations; loading all of it made a first dashboard visit stall.
+        evidence_window = max(500, min(2000, (offset + limit) * 20))
+        stmt = (select(Wallet, WalletEvidence).join(
+            WalletEvidence, WalletEvidence.wallet_address == Wallet.address
+        ).where(
+            Wallet.is_hft == False,
+            WalletEvidence.observed_at >= freshness_cutoff,
+        ).order_by(WalletEvidence.observed_at.desc()).limit(evidence_window))
+    else:
+        stmt = select(Wallet).where(Wallet.is_hft == False)
     
     if status:
         stmt = stmt.where(Wallet.status == status)
@@ -85,7 +96,6 @@ async def list_wallets(
         # Python also prevents a malformed legacy JSON payload from turning
         # the whole wallet list into an HTTP 500.
         from app.discovery.wallet_evidence import POLICY_VERSION
-        freshness_cutoff = datetime.utcnow() - timedelta(hours=24)
         rows = []
         for wallet, evidence in (await db.execute(stmt)).all():
             payload = evidence.payload if isinstance(evidence.payload, dict) else {}
