@@ -129,3 +129,40 @@ async def test_verified_evidence_immediately_populates_wallet_stats_and_curve(mo
             await db.execute(delete(WalletEvidence).where(WalletEvidence.wallet_address == address))
             await db.execute(delete(Wallet).where(Wallet.address == address))
             await db.commit()
+
+
+@pytest.mark.asyncio
+async def test_default_wallet_list_returns_fresh_verified_candidates():
+    """The dashboard list must not depend on database-specific JSON SQL."""
+    import uuid
+    from datetime import datetime
+    from sqlalchemy import delete
+    from app.discovery.wallet_evidence import POLICY_VERSION
+    from app.services.wallet_reset import current_generation
+
+    await init_db()
+    address = '0x' + uuid.uuid4().hex + '0' * 8
+    async with SessionLocal() as db:
+        generation = await current_generation(db)
+        db.add(Wallet(address=address, status='tracked', all_time_pnl_usd=100000))
+        db.add(WalletEvidence(wallet_address=address, observed_at=datetime.utcnow(), payload={
+            'policy_version': POLICY_VERSION,
+            'generation': generation,
+            'classification': 'research_candidate',
+            'reasons': ['ACCOUNT_REPLAY_AND_FORWARD_VALIDATION_REQUIRED'],
+            'metrics': {'economic_pnl': 100000, 'fills_per_day_30d': 5,
+                        'closed_position_win_rate_pct': 80, 'evidence_quality_score': 85},
+        }))
+        await db.commit()
+    try:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url='http://test') as client:
+            response = await client.get('/api/wallets?limit=10')
+        assert response.status_code == 200
+        row = next(wallet for wallet in response.json() if wallet['address'] == address)
+        assert row['baleen_score'] == 85
+        assert row['win_rate_pct'] == 80
+    finally:
+        async with SessionLocal() as db:
+            await db.execute(delete(WalletEvidence).where(WalletEvidence.wallet_address == address))
+            await db.execute(delete(Wallet).where(Wallet.address == address))
+            await db.commit()

@@ -24,14 +24,19 @@ async def refresh_wallet_evidence(db, *, limit=25, client=None):
                    WalletEvidence.payload["policy_version"].as_string() != POLICY_VERSION))
         .order_by(WalletEvidence.observed_at.asc().nullsfirst(), Wallet.first_seen_at.asc(), Wallet.address.asc())
         .limit(limit))).scalars().all()
+    addresses = [w.address for w in wallets]
+    # The addresses are materialized above. Release the database connection
+    # before the provider calls below, which can take tens of seconds per
+    # batch. Holding it would starve API requests on the small production pool.
+    await db.commit()
     owned = client is None
     client = client or PolymarketClient()
     count = 0
     try:
-        addresses = [w.address for w in wallets]
         for start in range(0, len(addresses), EVIDENCE_BATCH_SIZE):
             batch = addresses[start:start + EVIDENCE_BATCH_SIZE]
             generation = await current_generation(db)
+            await db.commit()
 
             async def collect(address):
                 try:

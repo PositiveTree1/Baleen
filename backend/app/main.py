@@ -104,17 +104,16 @@ async def _auto_discovery_if_empty():
             active_count = (await db.execute(
                 select(func.count()).select_from(Wallet).where(Wallet.status == "active")
             )).scalar() or 0
-            
-            if active_count < 30:
-                logger.info(
-                    f"🔍 Active basket has {active_count}/30 required whales (Top 10 + 20 bench). "
-                    "Auto-triggering discovery scan with curated priority seeds..."
-                )
-                await asyncio.sleep(4)
-                await run_discovery()
-                logger.info("✅ Auto-discovery completed.")
-            else:
-                logger.info(f"Database has {active_count} active qualified wallets. Skipping auto-discovery.")
+        if active_count < 30:
+            logger.info(
+                f"🔍 Active basket has {active_count}/30 required whales (Top 10 + 20 bench). "
+                "Auto-triggering discovery scan with curated priority seeds..."
+            )
+            await asyncio.sleep(4)
+            await run_discovery()
+            logger.info("✅ Auto-discovery completed.")
+        else:
+            logger.info(f"Database has {active_count} active qualified wallets. Skipping auto-discovery.")
     except Exception as e:
         logger.error(f"Auto-discovery check failed: {e}")
 

@@ -17,10 +17,12 @@ async def run_discovery():
         try:
             async with SessionLocal() as db:
                 new_count = await scan_for_wallets(db)
-                logger.info(f"Discovered {new_count} new wallets.")
-
-                # Score pending wallets
+            # scan_for_wallets owns the long-running discovery work. Do not
+            # retain its database session while the independent basket refresh
+            # runs, otherwise the small production pool is needlessly pinned.
+            async with SessionLocal() as db:
                 await refresh_basket(db)
+            logger.info(f"Discovered {new_count} new wallets.")
 
             logger.info("Discovery worker finished.")
             return new_count

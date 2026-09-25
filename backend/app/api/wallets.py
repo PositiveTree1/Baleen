@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/wallets", tags=["wallets"])
 
 def wallet_to_response(w: Wallet, evidence: WalletEvidence | None = None) -> dict:
-    payload = (evidence.payload if evidence else None) or {}
+    payload = evidence.payload if evidence and isinstance(evidence.payload, dict) else {}
     metrics = payload.get("metrics") or {}
     verified = bool(evidence and payload.get("classification") in {"research_candidate", "watchlist", "needs_data", "excluded"})
     classification = payload.get("classification")
@@ -79,23 +79,33 @@ async def list_wallets(
         stmt = stmt.where(Wallet.status == "active", Wallet.dormant == dormant)
     elif tier:
         stmt = stmt.where(Wallet.status == "active", Wallet.tier == tier, Wallet.dormant == False)
-    elif current_only:
-        # The dashboard's default leaderboard is the current automatic
-        # research roster, never the retained legacy list.  A legacy wallet
-        # with an old $8k P&L or stale heuristics therefore cannot appear as a
-        # "tracked" leader or be mistaken for an eligible copy source.
+    if current_only:
+        # Keep the public dashboard list portable across PostgreSQL/Supabase
+        # JSON implementations. Filtering this small, evidence-only set in
+        # Python also prevents a malformed legacy JSON payload from turning
+        # the whole wallet list into an HTTP 500.
         from app.discovery.wallet_evidence import POLICY_VERSION
-        stmt = stmt.where(
-            WalletEvidence.observed_at >= datetime.utcnow() - timedelta(hours=24),
-            WalletEvidence.payload['generation'].as_string() == generation,
-            WalletEvidence.payload['policy_version'].as_string() == POLICY_VERSION,
-            WalletEvidence.payload['classification'].as_string() == 'research_candidate',
-        )
-        
+        freshness_cutoff = datetime.utcnow() - timedelta(hours=24)
+        rows = []
+        for wallet, evidence in (await db.execute(stmt)).all():
+            payload = evidence.payload if isinstance(evidence.payload, dict) else {}
+            if (evidence.observed_at < freshness_cutoff
+                    or payload.get('generation') != generation
+                    or payload.get('policy_version') != POLICY_VERSION
+                    or payload.get('classification') != 'research_candidate'):
+                continue
+            metrics = payload.get('metrics') if isinstance(payload.get('metrics'), dict) else {}
+            rows.append((wallet, evidence, metrics))
+        rows.sort(key=lambda row: (
+            row[2].get('evidence_quality_score') is not None,
+            row[2].get('evidence_quality_score') or float('-inf'),
+            row[2].get('economic_pnl') or row[0].all_time_pnl_usd or float('-inf'),
+            row[0].address,
+        ), reverse=True)
+        return [wallet_to_response(wallet, evidence) for wallet, evidence, _ in rows[offset:offset + limit]]
+
     stmt = stmt.order_by(Wallet.baleen_score.desc().nullslast(), Wallet.all_time_pnl_usd.desc().nullslast()).limit(limit).offset(offset)
     result = await db.execute(stmt)
-    if current_only:
-        return [wallet_to_response(wallet, evidence) for wallet, evidence in result.all()]
     return [wallet_to_response(w) for w in result.scalars().all()]
 
 @router.get("/copied-stats")

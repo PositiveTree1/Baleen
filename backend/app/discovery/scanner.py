@@ -1331,6 +1331,9 @@ async def scan_for_wallets(db: AsyncSession, full_refresh: bool = False):
     processed_count = 0
     
     try:
+        # The initial counts are already materialized. Release their read
+        # transaction before scraping remote leaderboards.
+        await db.commit()
         if full_refresh:
             # A refresh is a rescore pass. Preserve wallet identities, score
             # history, and any positions keyed to those identities while new
@@ -1361,6 +1364,9 @@ async def scan_for_wallets(db: AsyncSession, full_refresh: bool = False):
             candidates.setdefault(retained_address, {"address": retained_address, "source": "retained_registry"})
 
         total_candidates = len(candidates)
+        # Retained addresses are now plain Python values. Provider calls must
+        # not monopolize a pooled PostgreSQL connection.
+        await db.commit()
         logger.info(f"Discovered {total_candidates} candidate addresses (including {len(CURATED_WHALE_ADDRESSES)} curated seeds).")
         
         if not candidates:
@@ -1376,6 +1382,7 @@ async def scan_for_wallets(db: AsyncSession, full_refresh: bool = False):
         retained_set = set(retained)
         if full_refresh and retained_set:
             await db.execute(update(Wallet).where(Wallet.address.in_(retained_set)).values(status="pending"))
+            await db.commit()
 
         def priority(item):
             _address, meta = item
