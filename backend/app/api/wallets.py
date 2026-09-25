@@ -71,16 +71,23 @@ async def list_wallets(
     current_only = not status and dormant is None and not tier
     freshness_cutoff = datetime.utcnow() - timedelta(hours=24)
     if current_only:
-        # Apply the cheap freshness constraint in SQL before materializing
-        # evidence. The historic registry can contain tens of thousands of
-        # observations; loading all of it made a first dashboard visit stall.
-        evidence_window = max(500, min(2000, (offset + limit) * 20))
+        # The observed-at index narrows the historic table to fresh evidence
+        # before PostgreSQL evaluates the JSON policy fields. This avoids both
+        # a full historical scan and loading hundreds of full P&L curves just
+        # to render a small leaderboard page.
+        from app.discovery.wallet_evidence import POLICY_VERSION
         stmt = (select(Wallet, WalletEvidence).join(
             WalletEvidence, WalletEvidence.wallet_address == Wallet.address
         ).where(
             Wallet.is_hft == False,
             WalletEvidence.observed_at >= freshness_cutoff,
-        ).order_by(WalletEvidence.observed_at.desc()).limit(evidence_window))
+            WalletEvidence.payload['generation'].as_string() == generation,
+            WalletEvidence.payload['policy_version'].as_string() == POLICY_VERSION,
+            WalletEvidence.payload['classification'].as_string() == 'research_candidate',
+        ).order_by(
+            Wallet.baleen_score.desc().nullslast(),
+            Wallet.all_time_pnl_usd.desc().nullslast(),
+        ).limit(limit).offset(offset))
     else:
         stmt = select(Wallet).where(Wallet.is_hft == False)
     
@@ -91,28 +98,7 @@ async def list_wallets(
     elif tier:
         stmt = stmt.where(Wallet.status == "active", Wallet.tier == tier, Wallet.dormant == False)
     if current_only:
-        # Keep the public dashboard list portable across PostgreSQL/Supabase
-        # JSON implementations. Filtering this small, evidence-only set in
-        # Python also prevents a malformed legacy JSON payload from turning
-        # the whole wallet list into an HTTP 500.
-        from app.discovery.wallet_evidence import POLICY_VERSION
-        rows = []
-        for wallet, evidence in (await db.execute(stmt)).all():
-            payload = evidence.payload if isinstance(evidence.payload, dict) else {}
-            if (evidence.observed_at < freshness_cutoff
-                    or payload.get('generation') != generation
-                    or payload.get('policy_version') != POLICY_VERSION
-                    or payload.get('classification') != 'research_candidate'):
-                continue
-            metrics = payload.get('metrics') if isinstance(payload.get('metrics'), dict) else {}
-            rows.append((wallet, evidence, metrics))
-        rows.sort(key=lambda row: (
-            row[2].get('evidence_quality_score') is not None,
-            row[2].get('evidence_quality_score') or float('-inf'),
-            row[2].get('economic_pnl') or row[0].all_time_pnl_usd or float('-inf'),
-            row[0].address,
-        ), reverse=True)
-        return [wallet_to_response(wallet, evidence) for wallet, evidence, _ in rows[offset:offset + limit]]
+        return [wallet_to_response(wallet, evidence) for wallet, evidence in (await db.execute(stmt)).all()]
 
     stmt = stmt.order_by(Wallet.baleen_score.desc().nullslast(), Wallet.all_time_pnl_usd.desc().nullslast()).limit(limit).offset(offset)
     result = await db.execute(stmt)
