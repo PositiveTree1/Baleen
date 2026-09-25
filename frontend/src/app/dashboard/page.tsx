@@ -125,7 +125,7 @@ export default function DashboardPage() {
         if (canFetchPrivate) {
           tasks.push(fetchUserSettings(targetUserId!).then(data => { if (isMounted && data) setUser(data); }));
           tasks.push(fetchPortfolioSummary(targetUserId!).then(data => { if (isMounted && data) setPortfolio(data); }));
-          tasks.push(fetchExecutionLogs(targetUserId!, { limit: '500' }).then(data => {
+          tasks.push(fetchExecutionLogs(targetUserId!, { limit: '100' }).then(data => {
             if (isMounted && Array.isArray(data)) setLogs(prev => data.length === 0 && prev.length > 0 ? prev : data);
           }));
           if (viewMode === 'live') tasks.push(fetchLiveDashboard(targetUserId!).then(data => { if (isMounted && data) setLiveDashboard(data); }));

@@ -1,23 +1,41 @@
 'use client';
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { fetchPaperCopy, fetchPaperCopyResearch, PaperCopyState, PaperResearchState } from '@/lib/api-client';
 
 export function PaperCopyPanel({ onConfigure }: { onConfigure: () => void }) {
   const [data, setData] = useState<PaperCopyState | null>(null);
   const [research, setResearch] = useState<PaperResearchState | null>(null);
   const [error, setError] = useState('');
+  const [connecting, setConnecting] = useState(true);
+  const hasLoadedPaperState = useRef(false);
   useEffect(() => {
     let active = true;
     const fetchLatest = async () => {
+      // The paper account is the only state needed to make this panel useful.
+      // Load the larger research registry after it so a slow registry query
+      // cannot turn a healthy paper account into an apparent fetch failure.
       try {
-        const [res, registry] = await Promise.all([fetchPaperCopy(), fetchPaperCopyResearch()]);
-        if (active) { setData(res); setResearch(registry); setError(''); }
+        const res = await fetchPaperCopy();
+        if (!active) return;
+        setData(res);
+        setError('');
+        setConnecting(false);
+        hasLoadedPaperState.current = true;
       } catch (e) {
-        if (active) setError(e instanceof Error ? e.message : 'Paper account unavailable');
+        // On a first visit, the backend may still be restoring its worker
+        // state. Keep retrying without presenting that short startup window
+        // as an account failure.
+        if (active && hasLoadedPaperState.current) setError(e instanceof Error ? e.message : 'Paper account unavailable');
+      }
+      try {
+        const registry = await fetchPaperCopyResearch();
+        if (active) setResearch(registry);
+      } catch {
+        // Registry data is supplementary and retries with the next refresh.
       }
     };
     void fetchLatest();
-    const timer = setInterval(fetchLatest, 10000);
+    const timer = setInterval(fetchLatest, 5000);
     window.addEventListener('paper-copy-updated', fetchLatest);
     return () => { active = false; clearInterval(timer); window.removeEventListener('paper-copy-updated', fetchLatest); };
   }, []);
@@ -35,6 +53,7 @@ export function PaperCopyPanel({ onConfigure }: { onConfigure: () => void }) {
         <p className="text-sm text-slate-500">{data?.status === 'ACTIVE' ? `${activeRuns.length} ${activeRuns.length === 1 ? 'wallet' : 'wallets'} in the ${data.selection_mode === 'automatic' ? 'automatic' : 'saved'} roster${retiredRuns.length ? ` · ${retiredRuns.length} retired source${retiredRuns.length === 1 ? '' : 's'} exit-monitoring only` : ''}` : 'Automatic roster not started'}</p></div>
       <button className="glass-button rounded-xl px-4 py-2" onClick={onConfigure}>Start fresh</button>
     </div>
+    {connecting && !data && <p className="text-sm text-slate-500">Connecting to paper strategy…</p>}
     {(error || data?.last_error) && <p role="alert" className="text-amber-600">{error || data?.last_error}</p>}
     <div className="flex flex-wrap gap-8"><div>Equity <strong>{money(equity)}</strong></div><div>Net P&amp;L <strong>{money(pnl)}</strong></div>
       <div>Listener <strong>{data?.listener ?? 'Unconfirmed'}</strong></div></div>
